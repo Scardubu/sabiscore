@@ -87,47 +87,47 @@ export class MemStorage implements IStorage {
 
     leagueData.forEach(league => this.leagues.set(league.id, league));
 
-    // Initialize teams with proper logos and extended roster
+    // Initialize teams with distinctive logos representing club identity
     const teamData = [
       // Premier League
-      { id: "1", name: "Manchester City", leagueId: "1", logo: "🏃‍♂️" },
-      { id: "2", name: "Arsenal", leagueId: "1", logo: "🔴" },
-      { id: "3", name: "Chelsea", leagueId: "1", logo: "🔵" },
-      { id: "4", name: "Liverpool", leagueId: "1", logo: "🔴" },
-      { id: "5", name: "Manchester United", leagueId: "1", logo: "👹" },
-      { id: "6", name: "Tottenham", leagueId: "1", logo: "⚪" },
+      { id: "1", name: "Manchester City", leagueId: "1", logo: "💙" }, // Sky blue
+      { id: "2", name: "Arsenal", leagueId: "1", logo: "🔴" }, // Red cannon
+      { id: "3", name: "Chelsea", leagueId: "1", logo: "🦁" }, // Blue lion
+      { id: "4", name: "Liverpool", leagueId: "1", logo: "🔥" }, // Red fire (Reds)
+      { id: "5", name: "Manchester United", leagueId: "1", logo: "👹" }, // Red devils
+      { id: "6", name: "Tottenham", leagueId: "1", logo: "🐓" }, // Spurs (cockerel)
       
       // La Liga
-      { id: "7", name: "Real Madrid", leagueId: "2", logo: "👑" },
-      { id: "8", name: "Barcelona", leagueId: "2", logo: "🔴🔵" },
-      { id: "9", name: "Atletico Madrid", leagueId: "2", logo: "⚪🔴" },
-      { id: "10", name: "Sevilla", leagueId: "2", logo: "⚪🔴" },
+      { id: "7", name: "Real Madrid", leagueId: "2", logo: "👑" }, // Royal crown
+      { id: "8", name: "Barcelona", leagueId: "2", logo: "🔵🔴" }, // Blaugrana colors
+      { id: "9", name: "Atletico Madrid", leagueId: "2", logo: "🔴⚪" }, // Red and white stripes
+      { id: "10", name: "Sevilla", leagueId: "2", logo: "⚪🔴" }, // White and red
       
       // Bundesliga
-      { id: "11", name: "Bayern Munich", leagueId: "3", logo: "🔴⚪" },
-      { id: "12", name: "Borussia Dortmund", leagueId: "3", logo: "🟡⚫" },
-      { id: "13", name: "RB Leipzig", leagueId: "3", logo: "🔴⚪" },
-      { id: "14", name: "Bayer Leverkusen", leagueId: "3", logo: "⚫🔴" },
+      { id: "11", name: "Bayern Munich", leagueId: "3", logo: "🏔️" }, // Bavarian Alps/Red
+      { id: "12", name: "Borussia Dortmund", leagueId: "3", logo: "🟡⚫" }, // Yellow and black
+      { id: "13", name: "RB Leipzig", leagueId: "3", logo: "🐂" }, // Red Bull
+      { id: "14", name: "Bayer Leverkusen", leagueId: "3", logo: "⚫🔴" }, // Black and red
       
       // Serie A
-      { id: "15", name: "Juventus", leagueId: "4", logo: "⚫⚪" },
-      { id: "16", name: "Inter Milan", leagueId: "4", logo: "🔵⚫" },
-      { id: "17", name: "AC Milan", leagueId: "4", logo: "🔴⚫" },
-      { id: "18", name: "Napoli", leagueId: "4", logo: "🔵" },
+      { id: "15", name: "Juventus", leagueId: "4", logo: "⚫⚪" }, // Old Lady stripes
+      { id: "16", name: "Inter Milan", leagueId: "4", logo: "🖤💙" }, // Nerazzurri
+      { id: "17", name: "AC Milan", leagueId: "4", logo: "🔴⚫" }, // Rossoneri
+      { id: "18", name: "Napoli", leagueId: "4", logo: "💙" }, // Naples blue
       
       // Ligue 1
-      { id: "19", name: "Paris Saint-Germain", leagueId: "5", logo: "🔵🔴" },
-      { id: "20", name: "Marseille", leagueId: "5", logo: "⚪🔵" },
-      { id: "21", name: "Lyon", leagueId: "5", logo: "🔵⚪" },
-      { id: "22", name: "Monaco", leagueId: "5", logo: "🔴⚪" },
+      { id: "19", name: "Paris Saint-Germain", leagueId: "5", logo: "🗼" }, // Eiffel Tower
+      { id: "20", name: "Marseille", leagueId: "5", logo: "⚪💙" }, // White and blue
+      { id: "21", name: "Lyon", leagueId: "5", logo: "🦁" }, // Lion
+      { id: "22", name: "Monaco", leagueId: "5", logo: "🏰" }, // Principality castle
       
-      // Champions League (top teams)
-      { id: "23", name: "Real Madrid", leagueId: "6", logo: "👑" },
-      { id: "24", name: "Manchester City", leagueId: "6", logo: "🏃‍♂️" },
-      { id: "25", name: "Bayern Munich", leagueId: "6", logo: "🔴⚪" },
-      { id: "26", name: "Barcelona", leagueId: "6", logo: "🔴🔵" },
-      { id: "27", name: "Liverpool", leagueId: "6", logo: "🔴" },
-      { id: "28", name: "Inter Milan", leagueId: "6", logo: "🔵⚫" },
+      // Champions League (top teams with enhanced visibility)
+      { id: "23", name: "Real Madrid", leagueId: "6", logo: "👑" }, // Royal crown
+      { id: "24", name: "Manchester City", leagueId: "6", logo: "💙" }, // Sky blue
+      { id: "25", name: "Bayern Munich", leagueId: "6", logo: "🏔️" }, // Bavarian Alps
+      { id: "26", name: "Barcelona", leagueId: "6", logo: "🔵🔴" }, // Blaugrana
+      { id: "27", name: "Liverpool", leagueId: "6", logo: "🔥" }, // Red fire
+      { id: "28", name: "Inter Milan", leagueId: "6", logo: "🖤💙" }, // Nerazzurri
     ];
 
     teamData.forEach(team => this.teams.set(team.id, team));
