@@ -1,52 +1,51 @@
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TrendingUp, TrendingDown, InfoIcon } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export default function AnalyticsDashboard() {
-  const valueBets = [
-    {
-      bet: "Man City Win vs Real Madrid",
-      expected: 1.85,
-      market: 2.20,
-      value: 18.9,
-      confidence: 78,
-      type: "high"
-    },
-    {
-      bet: "Over 2.5 Goals - Bayern vs Liverpool", 
-      expected: 1.75,
-      market: 1.95,
-      value: 11.4,
-      confidence: 65,
-      type: "medium"
-    },
-    {
-      bet: "BTTS Yes - Arsenal vs Chelsea",
-      expected: 1.90,
-      market: 2.00,
-      value: 5.3,
-      confidence: 58,
-      type: "low"
-    }
-  ];
+  const { data: analyticsData, isLoading } = useQuery<any>({
+    queryKey: ["/api/analytics"],
+  });
 
-  const marketMovements = [
-    { bet: "Man City Win", change: 0.15, from: 2.05, to: 2.20, direction: "up" },
-    { bet: "Draw", change: -0.10, from: 3.40, to: 3.30, direction: "down" }
-  ];
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+        <div className="lg:col-span-2">
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-32" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-64" />
+            </CardContent>
+          </Card>
+        </div>
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-24" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-32" />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-24" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-32" />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
-  const todayStats = [
-    { label: "Predictions Made", value: "24", testId: "stat-predictions" },
-    { label: "Success Rate", value: "73%", testId: "stat-success-rate", color: "text-success" },
-    { label: "Value Bets", value: "8", testId: "stat-value-bets", color: "text-secondary" },
-    { label: "Avg Confidence", value: "68%", testId: "stat-avg-confidence" }
-  ];
-
-  const performance = [
-    { period: "This Week", value: "+12.3%", progress: 75 },
-    { period: "This Month", value: "+8.7%", progress: 60 },
-    { period: "All Time", value: "+15.2%", progress: 85 }
-  ];
+  const { valueBets = [], marketMovements = [], todayStats = [], performance = [] } = analyticsData || {};
 
   const getValueBetVariant = (type: string) => {
     switch (type) {
@@ -70,7 +69,18 @@ export default function AnalyticsDashboard() {
       <div className="lg:col-span-2">
         <Card>
           <CardHeader>
-            <CardTitle>Betting Insights</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Betting Insights</CardTitle>
+              <Tooltip>
+                <TooltipTrigger>
+                  <InfoIcon className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Value bets are calculated based on our prediction model vs market odds.</p>
+                  <p>Higher confidence predictions offer better value opportunities.</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Value Bets */}
@@ -146,7 +156,18 @@ export default function AnalyticsDashboard() {
       <div className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Today's Stats</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Today's Stats</CardTitle>
+              <Tooltip>
+                <TooltipTrigger>
+                  <InfoIcon className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Real-time statistics updated every 15 minutes.</p>
+                  <p>Success rate based on completed matches from our predictions.</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {todayStats.map((stat, index) => (
@@ -165,7 +186,18 @@ export default function AnalyticsDashboard() {
         
         <Card>
           <CardHeader>
-            <CardTitle>Performance</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Performance</CardTitle>
+              <Tooltip>
+                <TooltipTrigger>
+                  <InfoIcon className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Performance tracking based on value bet returns.</p>
+                  <p>Calculated using Kelly Criterion for optimal bet sizing.</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
           </CardHeader>
           <CardContent className="space-y-3">
             {performance.map((perf, index) => (

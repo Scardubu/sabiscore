@@ -78,6 +78,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get analytics dashboard data
+  app.get("/api/analytics", async (req, res) => {
+    try {
+      const analyticsData = await storage.getAnalyticsData();
+      res.json(analyticsData);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch analytics data" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
