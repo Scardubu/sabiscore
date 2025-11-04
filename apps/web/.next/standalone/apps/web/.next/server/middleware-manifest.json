@@ -1,0 +1,41 @@
+{
+  "version": 3,
+  "middleware": {},
+  "functions": {
+    "/match/[id]/page": {
+      "files": [
+        "server/server-reference-manifest.js",
+        "server/app/match/[id]/page_client-reference-manifest.js",
+        "server/middleware-build-manifest.js",
+        "server/middleware-react-loadable-manifest.js",
+        "server/next-font-manifest.js",
+        "server/interception-route-rewrite-manifest.js",
+        "server/edge-runtime-webpack.js",
+        "server/app/match/[id]/page.js"
+      ],
+      "name": "app/match/[id]/page",
+      "page": "/match/[id]/page",
+      "matchers": [
+        {
+          "regexp": "^/match/(?<id>[^/]+?)$",
+          "originalSource": "/match/[id]"
+        }
+      ],
+      "wasm": [],
+      "assets": [],
+      "env": {
+        "__NEXT_BUILD_ID": "oahF-mJGQlUFKuaMNbdEL",
+        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "GnWmni9jYhVP68jK5FihtFqPihIQHNAkEwthXICn+as=",
+        "__NEXT_PREVIEW_MODE_ID": "1fee16072a864c7c95867092c3b9b77b",
+        "__NEXT_PREVIEW_MODE_SIGNING_KEY": "4ca4eb2b75fcc77001ac10553d2df4703ce53b792013c665f7eda4b4106a32bc",
+        "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY": "4b0111341483c8bb4db6c487ab5a1818ef36d951666b16d3f4a2bd98581f70b6"
+      },
+      "regions": [
+        "iad1",
+        "lhr1",
+        "fra1"
+      ]
+    }
+  },
+  "sortedMiddleware": []
+}

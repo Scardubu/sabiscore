@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "functions": {
+    "/match/[id]": {
+      "regions": [
+        "iad1",
+        "lhr1",
+        "fra1"
+      ]
+    }
+  }
+}

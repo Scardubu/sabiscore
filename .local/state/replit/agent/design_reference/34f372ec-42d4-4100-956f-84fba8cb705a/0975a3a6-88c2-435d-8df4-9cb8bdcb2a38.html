@@ -1,0 +1,657 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sabiscore - Football Analytics Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                borderRadius: {
+                    lg: "var(--radius)",
+                    md: "calc(var(--radius) - 2px)",
+                    sm: "calc(var(--radius) - 4px)",
+                },
+                colors: {
+                    background: "var(--background)",
+                    foreground: "var(--foreground)",
+                    card: {
+                        DEFAULT: "var(--card)",
+                        foreground: "var(--card-foreground)",
+                    },
+                    primary: {
+                        DEFAULT: "var(--primary)",
+                        foreground: "var(--primary-foreground)",
+                    },
+                    secondary: {
+                        DEFAULT: "var(--secondary)",
+                        foreground: "var(--secondary-foreground)",
+                    },
+                    muted: {
+                        DEFAULT: "var(--muted)",
+                        foreground: "var(--muted-foreground)",
+                    },
+                    accent: {
+                        DEFAULT: "var(--accent)",
+                        foreground: "var(--accent-foreground)",
+                    },
+                    success: "var(--success)",
+                    border: "var(--border)",
+                    input: "var(--input)",
+                    ring: "var(--ring)",
+                },
+                fontFamily: {
+                    sans: ["var(--font-sans)"],
+                }
+            },
+        }
+    };
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --background: hsl(210 40% 96%);
+            --foreground: hsl(210 11% 13%);
+            --card: hsl(0 0% 100%);
+            --card-foreground: hsl(210 11% 13%);
+            --primary: hsl(210 60% 22%);
+            --primary-foreground: hsl(0 0% 100%);
+            --secondary: hsl(16 100% 60%);
+            --secondary-foreground: hsl(0 0% 100%);
+            --muted: hsl(210 6% 46%);
+            --muted-foreground: hsl(210 6% 46%);
+            --accent: hsl(210 6% 46%);
+            --accent-foreground: hsl(0 0% 100%);
+            --success: hsl(142 71% 45%);
+            --border: hsl(214 32% 91%);
+            --input: hsl(214 32% 91%);
+            --ring: hsl(210 60% 22%);
+            --radius: 0.5rem;
+            --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        
+        .dark {
+            --background: hsl(210 60% 8%);
+            --foreground: hsl(210 40% 98%);
+            --card: hsl(210 60% 12%);
+            --card-foreground: hsl(210 40% 98%);
+            --primary: hsl(210 60% 22%);
+            --primary-foreground: hsl(0 0% 100%);
+            --secondary: hsl(16 100% 60%);
+            --secondary-foreground: hsl(0 0% 100%);
+            --muted: hsl(210 6% 46%);
+            --muted-foreground: hsl(210 6% 63%);
+            --accent: hsl(210 6% 46%);
+            --accent-foreground: hsl(0 0% 100%);
+            --success: hsl(142 71% 45%);
+            --border: hsl(210 40% 20%);
+            --input: hsl(210 40% 20%);
+            --ring: hsl(210 60% 22%);
+        }
+
+        .chart-container {
+            position: relative;
+            height: 200px;
+            width: 100%;
+        }
+        
+        .confidence-bar {
+            transition: width 0.8s ease-in-out;
+        }
+        
+        .prediction-card {
+            transition: all 0.3s ease;
+        }
+        
+        .prediction-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        
+        .league-selector button {
+            transition: all 0.2s ease;
+        }
+        
+        .league-selector button:hover {
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body class="font-sans bg-background text-foreground antialiased">
+    <!-- @COMPONENT: Header -->
+    <header class="bg-card border-b border-border shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-8">
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-futbol text-secondary text-2xl"></i>
+                        <h1 class="text-2xl font-bold text-primary">Sabiscore</h1>
+                    </div>
+                    <nav class="hidden md:flex space-x-6">
+                        <a href="#" class="text-foreground hover:text-primary transition-colors font-medium">Dashboard</a>
+                        <a href="#" class="text-muted-foreground hover:text-primary transition-colors">Predictions</a>
+                        <a href="#" class="text-muted-foreground hover:text-primary transition-colors">Analytics</a>
+                        <a href="#" class="text-muted-foreground hover:text-primary transition-colors">Leagues</a>
+                    </nav>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button class="bg-secondary text-secondary-foreground px-4 py-2 rounded-md hover:bg-secondary/90 transition-colors font-medium">
+                        <i class="fas fa-plus mr-2"></i>New Prediction
+                    </button>
+                    <button class="p-2 text-muted-foreground hover:text-foreground transition-colors">
+                        <i class="fas fa-user-circle text-xl"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+    <!-- @END_COMPONENT: Header -->
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- @COMPONENT: LeagueSelector -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-bold text-foreground mb-6">Select League</h2>
+            <div class="league-selector grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <button class="bg-card border border-border p-4 rounded-lg text-center hover:border-primary hover:bg-primary/5 transition-all group">
+                    <div class="text-2xl mb-2 group-hover:text-primary transition-colors">🏴󠁧󠁢󠁥󠁮󠁧󠁿</div>
+                    <div class="font-semibold text-sm">Premier League</div>
+                </button>
+                <button class="bg-card border border-border p-4 rounded-lg text-center hover:border-primary hover:bg-primary/5 transition-all group">
+                    <div class="text-2xl mb-2 group-hover:text-primary transition-colors">🇪🇸</div>
+                    <div class="font-semibold text-sm">La Liga</div>
+                </button>
+                <button class="bg-card border border-border p-4 rounded-lg text-center hover:border-primary hover:bg-primary/5 transition-all group">
+                    <div class="text-2xl mb-2 group-hover:text-primary transition-colors">🇩🇪</div>
+                    <div class="font-semibold text-sm">Bundesliga</div>
+                </button>
+                <button class="bg-card border border-border p-4 rounded-lg text-center hover:border-primary hover:bg-primary/5 transition-all group">
+                    <div class="text-2xl mb-2 group-hover:text-primary transition-colors">🇮🇹</div>
+                    <div class="font-semibold text-sm">Serie A</div>
+                </button>
+                <button class="bg-card border border-border p-4 rounded-lg text-center hover:border-primary hover:bg-primary/5 transition-all group">
+                    <div class="text-2xl mb-2 group-hover:text-primary transition-colors">🇫🇷</div>
+                    <div class="font-semibold text-sm">Ligue 1</div>
+                </button>
+                <button class="bg-card border border-border p-4 rounded-lg text-center hover:border-primary hover:bg-primary/5 transition-all group bg-primary/5 border-primary">
+                    <div class="text-2xl mb-2 text-primary">🏆</div>
+                    <div class="font-semibold text-sm text-primary">Champions League</div>
+                </button>
+            </div>
+        </div>
+        <!-- @END_COMPONENT: LeagueSelector -->
+
+        <!-- @COMPONENT: UpcomingMatches -->
+        <div class="mb-8">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-foreground">Upcoming Matches</h2>
+                <div class="flex items-center space-x-4">
+                    <div class="relative">
+                        <input type="text" placeholder="Search teams..." class="pl-10 pr-4 py-2 border border-border rounded-lg bg-card text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring">
+                        <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground"></i>
+                    </div>
+                    <select class="px-4 py-2 border border-border rounded-lg bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
+                        <option>Today</option>
+                        <option>Tomorrow</option>
+                        <option>This Week</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- @MAP: matches.map(match => ( -->
+                <div class="prediction-card bg-card border border-border rounded-lg p-6 hover:shadow-lg transition-all cursor-pointer" data-mock="true">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="text-sm text-muted-foreground">Champions League • Today 20:00</div>
+                        <span class="bg-success/10 text-success px-2 py-1 rounded-full text-xs font-medium">High Confidence</span>
+                    </div>
+                    
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center space-x-3">
+                            <!-- Team logo placeholder using Font Awesome icons -->
+                            <div class="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                                <i class="fas fa-shield-alt text-primary text-xl"></i>
+                            </div>
+                            <div>
+                                <div class="font-semibold" data-bind="match.homeTeam">Manchester City</div>
+                                <div class="text-sm text-muted-foreground">Home</div>
+                            </div>
+                        </div>
+                        
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-foreground">VS</div>
+                        </div>
+                        
+                        <div class="flex items-center space-x-3">
+                            <div class="text-right">
+                                <div class="font-semibold" data-bind="match.awayTeam">Real Madrid</div>
+                                <div class="text-sm text-muted-foreground">Away</div>
+                            </div>
+                            <div class="w-12 h-12 bg-secondary/10 rounded-full flex items-center justify-center">
+                                <i class="fas fa-crown text-secondary text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-medium">Prediction:</span>
+                            <span class="font-semibold text-primary">Manchester City Win</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-medium">Confidence:</span>
+                            <div class="flex items-center space-x-2">
+                                <div class="w-20 h-2 bg-muted rounded-full overflow-hidden">
+                                    <div class="confidence-bar h-full bg-success rounded-full" style="width: 78%"></div>
+                                </div>
+                                <span class="text-sm font-medium">78%</span>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-medium">Expected Goals:</span>
+                            <span class="text-sm">2.1 - 1.3</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="prediction-card bg-card border border-border rounded-lg p-6 hover:shadow-lg transition-all cursor-pointer" data-mock="true">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="text-sm text-muted-foreground">Champions League • Tomorrow 20:00</div>
+                        <span class="bg-secondary/10 text-secondary px-2 py-1 rounded-full text-xs font-medium">Medium Confidence</span>
+                    </div>
+                    
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                                <i class="fas fa-star text-primary text-xl"></i>
+                            </div>
+                            <div>
+                                <div class="font-semibold" data-bind="match.homeTeam">Bayern Munich</div>
+                                <div class="text-sm text-muted-foreground">Home</div>
+                            </div>
+                        </div>
+                        
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-foreground">VS</div>
+                        </div>
+                        
+                        <div class="flex items-center space-x-3">
+                            <div class="text-right">
+                                <div class="font-semibold" data-bind="match.awayTeam">Liverpool</div>
+                                <div class="text-sm text-muted-foreground">Away</div>
+                            </div>
+                            <div class="w-12 h-12 bg-secondary/10 rounded-full flex items-center justify-center">
+                                <i class="fas fa-fire text-secondary text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-medium">Prediction:</span>
+                            <span class="font-semibold text-primary">Draw</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-medium">Confidence:</span>
+                            <div class="flex items-center space-x-2">
+                                <div class="w-20 h-2 bg-muted rounded-full overflow-hidden">
+                                    <div class="confidence-bar h-full bg-secondary rounded-full" style="width: 62%"></div>
+                                </div>
+                                <span class="text-sm font-medium">62%</span>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-medium">Expected Goals:</span>
+                            <span class="text-sm">1.8 - 1.9</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- @END_MAP )) -->
+            </div>
+        </div>
+        <!-- @END_COMPONENT: UpcomingMatches -->
+
+        <!-- @COMPONENT: AnalyticsDashboard -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+            <!-- Betting Insights Panel -->
+            <div class="lg:col-span-2">
+                <div class="bg-card border border-border rounded-lg p-6">
+                    <h3 class="text-xl font-bold mb-6">Betting Insights</h3>
+                    
+                    <div class="space-y-6">
+                        <!-- Value Bets -->
+                        <div>
+                            <h4 class="font-semibold mb-3 text-foreground">Top Value Bets</h4>
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between p-3 bg-success/5 border border-success/20 rounded-lg" data-mock="true">
+                                    <div>
+                                        <div class="font-medium">Man City Win vs Real Madrid</div>
+                                        <div class="text-sm text-muted-foreground">Expected: 1.85 • Market: 2.20</div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="font-bold text-success">+18.9% Value</div>
+                                        <div class="text-sm text-muted-foreground">78% Confidence</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex items-center justify-between p-3 bg-secondary/5 border border-secondary/20 rounded-lg" data-mock="true">
+                                    <div>
+                                        <div class="font-medium">Over 2.5 Goals - Bayern vs Liverpool</div>
+                                        <div class="text-sm text-muted-foreground">Expected: 1.75 • Market: 1.95</div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="font-bold text-secondary">+11.4% Value</div>
+                                        <div class="text-sm text-muted-foreground">65% Confidence</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex items-center justify-between p-3 bg-muted/5 border border-border rounded-lg" data-mock="true">
+                                    <div>
+                                        <div class="font-medium">BTTS Yes - Arsenal vs Chelsea</div>
+                                        <div class="text-sm text-muted-foreground">Expected: 1.90 • Market: 2.00</div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="font-bold text-muted-foreground">+5.3% Value</div>
+                                        <div class="text-sm text-muted-foreground">58% Confidence</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Market Movements -->
+                        <div>
+                            <h4 class="font-semibold mb-3 text-foreground">Market Movements</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="p-3 bg-card border border-border rounded-lg" data-mock="true">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="font-medium">Man City Win</span>
+                                        <span class="text-success text-sm">↗ +0.15</span>
+                                    </div>
+                                    <div class="text-sm text-muted-foreground">2.05 → 2.20</div>
+                                </div>
+                                
+                                <div class="p-3 bg-card border border-border rounded-lg" data-mock="true">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="font-medium">Draw</span>
+                                        <span class="text-red-500 text-sm">↘ -0.10</span>
+                                    </div>
+                                    <div class="text-sm text-muted-foreground">3.40 → 3.30</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Quick Stats -->
+            <div class="space-y-6">
+                <div class="bg-card border border-border rounded-lg p-6">
+                    <h3 class="text-lg font-bold mb-4">Today's Stats</h3>
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <span class="text-muted-foreground">Predictions Made</span>
+                            <span class="font-bold text-xl" data-mock="true">24</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-muted-foreground">Success Rate</span>
+                            <span class="font-bold text-xl text-success" data-mock="true">73%</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-muted-foreground">Value Bets</span>
+                            <span class="font-bold text-xl text-secondary" data-mock="true">8</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-muted-foreground">Avg Confidence</span>
+                            <span class="font-bold text-xl" data-mock="true">68%</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-card border border-border rounded-lg p-6">
+                    <h3 class="text-lg font-bold mb-4">Performance</h3>
+                    <div class="space-y-3">
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span>This Week</span>
+                                <span class="text-success">+12.3%</span>
+                            </div>
+                            <div class="w-full h-2 bg-muted rounded-full overflow-hidden">
+                                <div class="h-full bg-success rounded-full" style="width: 75%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span>This Month</span>
+                                <span class="text-success">+8.7%</span>
+                            </div>
+                            <div class="w-full h-2 bg-muted rounded-full overflow-hidden">
+                                <div class="h-full bg-success rounded-full" style="width: 60%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span>All Time</span>
+                                <span class="text-success">+15.2%</span>
+                            </div>
+                            <div class="w-full h-2 bg-muted rounded-full overflow-hidden">
+                                <div class="h-full bg-success rounded-full" style="width: 85%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- @END_COMPONENT: AnalyticsDashboard -->
+
+        <!-- @COMPONENT: DetailedAnalysis -->
+        <div class="bg-card border border-border rounded-lg p-6">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-bold">Team Analysis: Manchester City vs Real Madrid</h3>
+                <button class="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors">
+                    <i class="fas fa-chart-line mr-2"></i>View Full Report
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Team Comparison -->
+                <div>
+                    <h4 class="font-semibold mb-4">Key Metrics Comparison</h4>
+                    <div class="space-y-4">
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span>Goals Per Game</span>
+                                <span>2.3 vs 2.1</span>
+                            </div>
+                            <div class="flex space-x-1">
+                                <div class="flex-1 h-2 bg-primary rounded-full" style="width: 55%"></div>
+                                <div class="flex-1 h-2 bg-secondary rounded-full" style="width: 45%"></div>
+                            </div>
+                            <div class="flex justify-between text-xs text-muted-foreground mt-1">
+                                <span>Man City</span>
+                                <span>Real Madrid</span>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span>Expected Goals (xG)</span>
+                                <span>2.1 vs 1.8</span>
+                            </div>
+                            <div class="flex space-x-1">
+                                <div class="flex-1 h-2 bg-primary rounded-full" style="width: 58%"></div>
+                                <div class="flex-1 h-2 bg-secondary rounded-full" style="width: 42%"></div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span>Possession %</span>
+                                <span>63% vs 58%</span>
+                            </div>
+                            <div class="flex space-x-1">
+                                <div class="flex-1 h-2 bg-primary rounded-full" style="width: 52%"></div>
+                                <div class="flex-1 h-2 bg-secondary rounded-full" style="width: 48%"></div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span>Shots on Target</span>
+                                <span>5.2 vs 4.8</span>
+                            </div>
+                            <div class="flex space-x-1">
+                                <div class="flex-1 h-2 bg-primary rounded-full" style="width: 52%"></div>
+                                <div class="flex-1 h-2 bg-secondary rounded-full" style="width: 48%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Recent Form -->
+                <div>
+                    <h4 class="font-semibold mb-4">Recent Form (Last 5 Games)</h4>
+                    <div class="space-y-4">
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="font-medium">Manchester City</span>
+                                <div class="flex space-x-1">
+                                    <span class="w-6 h-6 bg-success rounded-full flex items-center justify-center text-white text-xs font-bold">W</span>
+                                    <span class="w-6 h-6 bg-success rounded-full flex items-center justify-center text-white text-xs font-bold">W</span>
+                                    <span class="w-6 h-6 bg-muted rounded-full flex items-center justify-center text-white text-xs font-bold">D</span>
+                                    <span class="w-6 h-6 bg-success rounded-full flex items-center justify-center text-white text-xs font-bold">W</span>
+                                    <span class="w-6 h-6 bg-success rounded-full flex items-center justify-center text-white text-xs font-bold">W</span>
+                                </div>
+                            </div>
+                            <div class="text-sm text-muted-foreground">4W-1D-0L • 13 points</div>
+                        </div>
+                        
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="font-medium">Real Madrid</span>
+                                <div class="flex space-x-1">
+                                    <span class="w-6 h-6 bg-success rounded-full flex items-center justify-center text-white text-xs font-bold">W</span>
+                                    <span class="w-6 h-6 bg-success rounded-full flex items-center justify-center text-white text-xs font-bold">W</span>
+                                    <span class="w-6 h-6 bg-success rounded-full flex items-center justify-center text-white text-xs font-bold">W</span>
+                                    <span class="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">L</span>
+                                    <span class="w-6 h-6 bg-success rounded-full flex items-center justify-center text-white text-xs font-bold">W</span>
+                                </div>
+                            </div>
+                            <div class="text-sm text-muted-foreground">4W-0D-1L • 12 points</div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 p-4 bg-primary/5 border border-primary/20 rounded-lg">
+                        <h5 class="font-semibold text-primary mb-2">Key Insights</h5>
+                        <ul class="text-sm text-muted-foreground space-y-1" data-mock="true">
+                            <li>• Man City unbeaten in last 8 home games</li>
+                            <li>• Real Madrid scored in 15 consecutive matches</li>
+                            <li>• Head-to-head: 3 wins each in last 6 meetings</li>
+                            <li>• Both teams average 2+ goals per game</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- @END_COMPONENT: DetailedAnalysis -->
+    </main>
+
+    <!-- @COMPONENT: Footer -->
+    <footer class="bg-card border-t border-border mt-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div>
+                    <div class="flex items-center space-x-2 mb-4">
+                        <i class="fas fa-futbol text-secondary text-xl"></i>
+                        <h3 class="text-lg font-bold text-primary">Sabiscore</h3>
+                    </div>
+                    <p class="text-muted-foreground text-sm">Advanced football analytics and betting insights powered by real-time data.</p>
+                </div>
+                <div>
+                    <h4 class="font-semibold mb-3">Platform</h4>
+                    <ul class="space-y-2 text-sm text-muted-foreground">
+                        <li><a href="#" class="hover:text-primary transition-colors">Dashboard</a></li>
+                        <li><a href="#" class="hover:text-primary transition-colors">Predictions</a></li>
+                        <li><a href="#" class="hover:text-primary transition-colors">Analytics</a></li>
+                        <li><a href="#" class="hover:text-primary transition-colors">API</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-semibold mb-3">Support</h4>
+                    <ul class="space-y-2 text-sm text-muted-foreground">
+                        <li><a href="#" class="hover:text-primary transition-colors">Help Center</a></li>
+                        <li><a href="#" class="hover:text-primary transition-colors">Contact</a></li>
+                        <li><a href="#" class="hover:text-primary transition-colors">Privacy</a></li>
+                        <li><a href="#" class="hover:text-primary transition-colors">Terms</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-semibold mb-3">Connect</h4>
+                    <div class="flex space-x-4">
+                        <a href="#" class="text-muted-foreground hover:text-primary transition-colors">
+                            <i class="fab fa-twitter text-xl"></i>
+                        </a>
+                        <a href="#" class="text-muted-foreground hover:text-primary transition-colors">
+                            <i class="fab fa-linkedin text-xl"></i>
+                        </a>
+                        <a href="#" class="text-muted-foreground hover:text-primary transition-colors">
+                            <i class="fab fa-github text-xl"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="border-t border-border mt-8 pt-8 text-center text-sm text-muted-foreground">
+                <p>&copy; 2024 Sabiscore. All rights reserved. • Data updated every 15 minutes</p>
+            </div>
+        </div>
+    </footer>
+    <!-- @END_COMPONENT: Footer -->
+
+    <script>
+        // TODO: Implement real data fetching, state management, and interactive functionality
+        (function() {
+            // Mock animation for confidence bars on load
+            setTimeout(() => {
+                const bars = document.querySelectorAll('.confidence-bar');
+                bars.forEach(bar => {
+                    const width = bar.style.width;
+                    bar.style.width = '0%';
+                    setTimeout(() => {
+                        bar.style.width = width;
+                    }, 100);
+                });
+            }, 500);
+
+            // Mock league selection functionality
+            const leagueButtons = document.querySelectorAll('.league-selector button');
+            leagueButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    leagueButtons.forEach(btn => {
+                        btn.classList.remove('bg-primary/5', 'border-primary');
+                        btn.querySelector('div:first-child').classList.remove('text-primary');
+                        btn.querySelector('div:last-child').classList.remove('text-primary');
+                    });
+                    
+                    this.classList.add('bg-primary/5', 'border-primary');
+                    this.querySelector('div:first-child').classList.add('text-primary');
+                    this.querySelector('div:last-child').classList.add('text-primary');
+                    
+                    // TODO: Fetch matches for selected league
+                    console.log('Selected league:', this.querySelector('div:last-child').textContent);
+                });
+            });
+
+            // Mock prediction card interactions
+            const predictionCards = document.querySelectorAll('.prediction-card');
+            predictionCards.forEach(card => {
+                card.addEventListener('click', function() {
+                    // TODO: Navigate to detailed match analysis
+                    console.log('Show detailed analysis for match');
+                });
+            });
+        })();
+    </script>
+</body>
+</html>

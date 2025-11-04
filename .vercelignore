@@ -1,0 +1,54 @@
+# Backend (deployed separately)
+backend/
+**/backend/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+venv/
+.env
+
+# Data directories
+data/
+models/
+monitoring/
+dags/
+
+# Logs
+*.log
+logs/
+
+# Tests
+test-results/
+tests/
+**/__tests__/
+
+# Documentation (not needed in production)
+*.md
+!README.md
+
+# Scripts
+scripts/
+*.sh
+*.bat
+*.ps1
+
+# Docker
+docker-compose*.yml
+Dockerfile
+.dockerignore
+
+# IDE
+.vscode/
+.idea/
+
+# Misc
+dump.rdb
+*.txt
+!requirements.txt

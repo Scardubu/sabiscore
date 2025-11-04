@@ -1,0 +1,330 @@
+"""
+Live Platt Calibration Loop
+Real-time probability calibration using Platt scaling with 180-second updates
+
+This module provides continuous model calibration based on recent match outcomes
+to adjust predicted probabilities in real-time.
+"""
+
+import asyncio
+import logging
+import numpy as np
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Tuple
+from sklearn.linear_model import LogisticRegression
+from sklearn.isotonic import IsotonicRegression
+import redis.asyncio as redis
+
+logger = logging.getLogger(__name__)
+
+
+class PlattCalibrator:
+    """Real-time Platt scaling calibration for probability adjustment"""
+
+    def __init__(
+        self,
+        redis_client: Optional[redis.Redis] = None,
+        calibration_window_hours: int = 24,
+        min_samples: int = 30,
+    ):
+        """Initialize Platt calibrator
+        
+        Args:
+            redis_client: Redis client for storing live predictions/outcomes
+            calibration_window_hours: Time window for calibration data (default 24h)
+            min_samples: Minimum samples required for calibration (default 30)
+        """
+        self.redis_client = redis_client
+        self.calibration_window = timedelta(hours=calibration_window_hours)
+        self.min_samples = min_samples
+        
+        # Platt scaling parameters (a, b in sigmoid: 1 / (1 + exp(a*x + b)))
+        self.platt_a = 1.0
+        self.platt_b = 0.0
+        
+        # Isotonic calibrator as alternative
+        self.isotonic = None
+        
+        self.last_calibration = None
+        self.calibration_metrics = {}
+
+    async def calibrate_loop(self, interval_seconds: int = 180):
+        """Run continuous calibration loop
+        
+        Args:
+            interval_seconds: Calibration interval in seconds (default 180s)
+        """
+        logger.info(f"Starting Platt calibration loop (interval: {interval_seconds}s)")
+        
+        while True:
+            try:
+                await self.perform_calibration()
+                await asyncio.sleep(interval_seconds)
+            except asyncio.CancelledError:
+                logger.info("Calibration loop cancelled")
+                break
+            except Exception as e:
+                logger.error(f"Calibration loop error: {e}", exc_info=True)
+                await asyncio.sleep(interval_seconds)
+
+    async def perform_calibration(self) -> bool:
+        """Perform single calibration update
+        
+        Returns:
+            True if calibration successful, False otherwise
+        """
+        try:
+            # Fetch recent predictions and outcomes from Redis
+            predictions, outcomes = await self._fetch_recent_data()
+            
+            if len(predictions) < self.min_samples:
+                logger.warning(
+                    f"Insufficient samples for calibration: {len(predictions)} < {self.min_samples}"
+                )
+                return False
+            
+            # Fit Platt scaling
+            self._fit_platt_scaling(predictions, outcomes)
+            
+            # Optionally fit isotonic regression
+            if len(predictions) >= 50:
+                self._fit_isotonic_regression(predictions, outcomes)
+            
+            # Store calibration parameters in Redis
+            await self._store_calibration_params()
+            
+            # Calculate calibration metrics
+            self._calculate_calibration_metrics(predictions, outcomes)
+            
+            self.last_calibration = datetime.utcnow()
+            logger.info(f"Calibration complete: a={self.platt_a:.4f}, b={self.platt_b:.4f}")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Calibration failed: {e}", exc_info=True)
+            return False
+
+    def _fit_platt_scaling(self, predictions: np.ndarray, outcomes: np.ndarray):
+        """Fit Platt scaling parameters using logistic regression
+        
+        Platt scaling: calibrated_prob = 1 / (1 + exp(a * raw_prob + b))
+        """
+        try:
+            # Convert probabilities to log-odds
+            epsilon = 1e-10
+            predictions = np.clip(predictions, epsilon, 1 - epsilon)
+            log_odds = np.log(predictions / (1 - predictions))
+            
+            # Fit logistic regression
+            lr = LogisticRegression(C=1e10, solver='lbfgs')
+            lr.fit(log_odds.reshape(-1, 1), outcomes)
+            
+            # Extract Platt parameters
+            self.platt_a = float(lr.coef_[0][0])
+            self.platt_b = float(lr.intercept_[0])
+            
+        except Exception as e:
+            logger.error(f"Platt scaling fit failed: {e}")
+            # Keep previous parameters
+            pass
+
+    def _fit_isotonic_regression(self, predictions: np.ndarray, outcomes: np.ndarray):
+        """Fit isotonic regression as alternative calibrator"""
+        try:
+            iso = IsotonicRegression(out_of_bounds='clip')
+            iso.fit(predictions, outcomes)
+            self.isotonic = iso
+            logger.info("Isotonic regression calibration fitted")
+        except Exception as e:
+            logger.error(f"Isotonic regression fit failed: {e}")
+
+    def calibrate_probability(
+        self,
+        raw_probability: float,
+        method: str = "platt"
+    ) -> float:
+        """Apply calibration to raw model probability
+        
+        Args:
+            raw_probability: Uncalibrated probability from model
+            method: Calibration method ("platt" or "isotonic")
+            
+        Returns:
+            Calibrated probability
+        """
+        try:
+            if method == "isotonic" and self.isotonic is not None:
+                return float(self.isotonic.predict([raw_probability])[0])
+            
+            # Platt scaling (default)
+            epsilon = 1e-10
+            raw_probability = np.clip(raw_probability, epsilon, 1 - epsilon)
+            log_odds = np.log(raw_probability / (1 - raw_probability))
+            
+            calibrated_log_odds = self.platt_a * log_odds + self.platt_b
+            calibrated_prob = 1.0 / (1.0 + np.exp(-calibrated_log_odds))
+            
+            return float(np.clip(calibrated_prob, 0.01, 0.99))
+            
+        except Exception as e:
+            logger.error(f"Calibration application failed: {e}")
+            return raw_probability
+
+    async def _fetch_recent_data(self) -> Tuple[np.ndarray, np.ndarray]:
+        """Fetch recent predictions and outcomes from Redis
+        
+        Returns:
+            Tuple of (predictions, outcomes) as numpy arrays
+        """
+        if not self.redis_client:
+            # Return mock data for testing
+            return self._generate_mock_data()
+        
+        try:
+            # Fetch live prediction keys from last N hours
+            cutoff_time = datetime.utcnow() - self.calibration_window
+            cutoff_timestamp = cutoff_time.timestamp()
+            
+            # Get all prediction keys
+            keys = await self.redis_client.keys("live:prediction:*")
+            
+            predictions = []
+            outcomes = []
+            
+            for key in keys:
+                data = await self.redis_client.hgetall(key)
+                
+                if not data:
+                    continue
+                
+                # Parse timestamp
+                timestamp = float(data.get(b'timestamp', 0))
+                if timestamp < cutoff_timestamp:
+                    continue
+                
+                # Check if outcome is available
+                outcome = data.get(b'outcome')
+                if outcome is None:
+                    continue
+                
+                # Extract prediction and outcome
+                pred_prob = float(data.get(b'probability', 0))
+                outcome_val = int(outcome)
+                
+                predictions.append(pred_prob)
+                outcomes.append(outcome_val)
+            
+            return np.array(predictions), np.array(outcomes)
+            
+        except Exception as e:
+            logger.error(f"Error fetching calibration data from Redis: {e}")
+            return np.array([]), np.array([])
+
+    def _generate_mock_data(self) -> Tuple[np.ndarray, np.ndarray]:
+        """Generate mock calibration data for testing"""
+        np.random.seed(42)
+        n_samples = 100
+        
+        # Generate predictions with some miscalibration
+        predictions = np.random.beta(2, 2, n_samples)
+        
+        # Generate outcomes (biased to test calibration)
+        outcomes = (predictions + np.random.normal(0, 0.2, n_samples)) > 0.5
+        outcomes = outcomes.astype(int)
+        
+        return predictions, outcomes
+
+    async def _store_calibration_params(self):
+        """Store calibration parameters in Redis"""
+        if not self.redis_client:
+            return
+        
+        try:
+            await self.redis_client.hset(
+                "calibration:params",
+                mapping={
+                    "platt_a": str(self.platt_a),
+                    "platt_b": str(self.platt_b),
+                    "last_update": datetime.utcnow().isoformat(),
+                }
+            )
+            
+            # Set 1-hour expiry
+            await self.redis_client.expire("calibration:params", 3600)
+            
+        except Exception as e:
+            logger.error(f"Error storing calibration params: {e}")
+
+    def _calculate_calibration_metrics(
+        self,
+        predictions: np.ndarray,
+        outcomes: np.ndarray
+    ):
+        """Calculate calibration quality metrics"""
+        try:
+            # Calibrate predictions
+            calibrated = np.array([
+                self.calibrate_probability(p) for p in predictions
+            ])
+            
+            # Brier score (lower is better)
+            brier_raw = np.mean((predictions - outcomes) ** 2)
+            brier_calibrated = np.mean((calibrated - outcomes) ** 2)
+            
+            # Log loss (lower is better)
+            epsilon = 1e-10
+            log_loss_raw = -np.mean(
+                outcomes * np.log(predictions + epsilon) +
+                (1 - outcomes) * np.log(1 - predictions + epsilon)
+            )
+            log_loss_calibrated = -np.mean(
+                outcomes * np.log(calibrated + epsilon) +
+                (1 - outcomes) * np.log(1 - calibrated + epsilon)
+            )
+            
+            self.calibration_metrics = {
+                "n_samples": len(predictions),
+                "brier_raw": float(brier_raw),
+                "brier_calibrated": float(brier_calibrated),
+                "brier_improvement": float(brier_raw - brier_calibrated),
+                "log_loss_raw": float(log_loss_raw),
+                "log_loss_calibrated": float(log_loss_calibrated),
+                "log_loss_improvement": float(log_loss_raw - log_loss_calibrated),
+            }
+            
+            logger.info(
+                f"Calibration metrics: Brier {brier_calibrated:.4f} "
+                f"(improvement: {self.calibration_metrics['brier_improvement']:+.4f})"
+            )
+            
+        except Exception as e:
+            logger.error(f"Error calculating calibration metrics: {e}")
+
+    def get_metrics(self) -> Dict:
+        """Get current calibration metrics"""
+        return {
+            "platt_a": self.platt_a,
+            "platt_b": self.platt_b,
+            "last_calibration": self.last_calibration.isoformat() if self.last_calibration else None,
+            "metrics": self.calibration_metrics,
+        }
+
+
+async def main():
+    """Test calibration loop"""
+    calibrator = PlattCalibrator()
+    
+    # Perform single calibration
+    success = await calibrator.perform_calibration()
+    print(f"Calibration success: {success}")
+    print(f"Metrics: {calibrator.get_metrics()}")
+    
+    # Test probability calibration
+    raw_prob = 0.65
+    calibrated_prob = calibrator.calibrate_probability(raw_prob)
+    print(f"Raw: {raw_prob:.3f} → Calibrated: {calibrated_prob:.3f}")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

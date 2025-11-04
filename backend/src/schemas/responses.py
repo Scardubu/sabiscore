@@ -1,0 +1,117 @@
+from pydantic import BaseModel, Field, ConfigDict
+from typing import List, Dict, Any, Optional
+from datetime import datetime
+
+
+class CacheMetricsResponse(BaseModel):
+    hits: int = Field(..., ge=0)
+    misses: int = Field(..., ge=0)
+    errors: int = Field(..., ge=0)
+    circuit_open: bool = Field(...)
+    memory_entries: int = Field(..., ge=0)
+
+
+class HealthResponse(BaseModel):
+    model_config = ConfigDict(json_encoders={datetime: lambda v: v.isoformat()})
+
+    status: str = Field(..., json_schema_extra={"example": "healthy"})
+    database: bool = Field(..., json_schema_extra={"example": True})
+    models: bool = Field(..., json_schema_extra={"example": True})
+    cache: bool = Field(..., json_schema_extra={"example": True})
+    cache_metrics: Optional[CacheMetricsResponse] = None
+    latency_ms: float = Field(..., ge=0, json_schema_extra={"example": 12.5})
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+class MatchSearchResponse(BaseModel):
+    id: str = Field(..., json_schema_extra={"example": "1"})
+    home_team: str = Field(..., json_schema_extra={"example": "Manchester City"})
+    away_team: str = Field(..., json_schema_extra={"example": "Liverpool"})
+    league: str = Field(..., json_schema_extra={"example": "EPL"})
+    match_date: str = Field(..., json_schema_extra={"example": "2024-10-26T15:00:00Z"})
+    venue: str = Field(..., json_schema_extra={"example": "Etihad Stadium"})
+
+class PredictionData(BaseModel):
+    home_win_prob: float = Field(..., ge=0, le=1, json_schema_extra={"example": 0.65})
+    draw_prob: float = Field(..., ge=0, le=1, json_schema_extra={"example": 0.20})
+    away_win_prob: float = Field(..., ge=0, le=1, json_schema_extra={"example": 0.15})
+    prediction: str = Field(..., json_schema_extra={"example": "home_win"})
+    confidence: float = Field(..., ge=0, le=1, json_schema_extra={"example": 0.78})
+
+class XGData(BaseModel):
+    home_xg: float = Field(..., ge=0, json_schema_extra={"example": 2.1})
+    away_xg: float = Field(..., ge=0, json_schema_extra={"example": 1.3})
+    total_xg: float = Field(..., ge=0, json_schema_extra={"example": 3.4})
+    xg_difference: float = Field(..., json_schema_extra={"example": 0.8})
+
+class ValueBetQuality(BaseModel):
+    quality_score: float = Field(..., ge=0, le=100, json_schema_extra={"example": 75.5})
+    tier: str = Field(..., json_schema_extra={"example": "Good"})
+    recommendation: str = Field(..., json_schema_extra={"example": "Consider betting"})
+    ev_contribution: float = Field(..., json_schema_extra={"example": 15.2})
+    confidence_contribution: float = Field(..., json_schema_extra={"example": 39.0})
+    liquidity_contribution: float = Field(..., json_schema_extra={"example": 18.75})
+
+class ValueBet(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
+    bet_type: str = Field(..., json_schema_extra={"example": "home_win"})
+    market_odds: float = Field(..., gt=0, json_schema_extra={"example": 2.10})
+    model_prob: float = Field(..., ge=0, le=1, json_schema_extra={"example": 0.65})
+    market_prob: float = Field(..., ge=0, le=1, json_schema_extra={"example": 0.476})
+    expected_value: float = Field(..., json_schema_extra={"example": 0.152})
+    value_pct: float = Field(..., json_schema_extra={"example": 36.6})
+    kelly_stake: float = Field(..., ge=0, json_schema_extra={"example": 0.05})
+    confidence_interval: List[float] = Field(..., json_schema_extra={"example": [0.58, 0.72]})
+    edge: float = Field(..., json_schema_extra={"example": 0.174})
+    recommendation: str = Field(..., json_schema_extra={"example": "Strong bet"})
+    quality: ValueBetQuality
+
+class MonteCarloData(BaseModel):
+    simulations: int = Field(..., json_schema_extra={"example": 10000})
+    distribution: Dict[str, float] = Field(..., json_schema_extra={"example": {"home_win": 0.65, "draw": 0.20, "away_win": 0.15}})
+    confidence_intervals: Dict[str, List[float]] = Field(..., json_schema_extra={"example": {"home_win": [0.63, 0.67]}})
+
+class Scenario(BaseModel):
+    name: str = Field(..., json_schema_extra={"example": "Most Likely"})
+    probability: float = Field(..., ge=0, le=1, json_schema_extra={"example": 0.65})
+    home_score: int = Field(..., ge=0, json_schema_extra={"example": 2})
+    away_score: int = Field(..., ge=0, json_schema_extra={"example": 1})
+    result: str = Field(..., json_schema_extra={"example": "home_win"})
+
+class RiskAssessment(BaseModel):
+    risk_level: str = Field(..., json_schema_extra={"example": "low"})
+    confidence_score: float = Field(..., ge=0, le=1, json_schema_extra={"example": 0.78})
+    value_available: bool = Field(..., json_schema_extra={"example": True})
+    best_bet: Optional[ValueBet] = None
+    distribution: Dict[str, float] = Field(default_factory=dict)
+    recommendation: str = Field(..., json_schema_extra={"example": "Proceed"})
+
+class Metadata(BaseModel):
+    matchup: str = Field(..., json_schema_extra={"example": "Manchester City vs Liverpool"})
+    league: str = Field(..., json_schema_extra={"example": "EPL"})
+    home_team: str = Field(..., json_schema_extra={"example": "Manchester City"})
+    away_team: str = Field(..., json_schema_extra={"example": "Liverpool"})
+
+class InsightsResponse(BaseModel):
+    model_config = ConfigDict(json_encoders={datetime: lambda v: v.isoformat()})
+
+    matchup: str = Field(..., json_schema_extra={"example": "Manchester City vs Liverpool"})
+    league: str = Field(..., json_schema_extra={"example": "EPL"})
+    metadata: Metadata
+    predictions: PredictionData
+    xg_analysis: XGData
+    value_analysis: Dict[str, Any] = Field(..., description="Enhanced value betting analysis")
+    monte_carlo: MonteCarloData
+    scenarios: List[Scenario] = Field(default_factory=list)
+    explanation: Dict[str, Any] = Field(default_factory=dict)
+    risk_assessment: RiskAssessment
+    narrative: str = Field(..., description="Human-readable analysis summary")
+    generated_at: datetime = Field(default_factory=datetime.utcnow)
+    confidence_level: float = Field(..., ge=0, le=1, json_schema_extra={"example": 0.78})
+
+class ErrorResponse(BaseModel):
+    model_config = ConfigDict(json_encoders={datetime: lambda v: v.isoformat()})
+
+    detail: str = Field(..., json_schema_extra={"example": "An error occurred"})
+    error_code: Optional[str] = Field(None, json_schema_extra={"example": "VALIDATION_ERROR"})
+    timestamp: datetime = Field(default_factory=datetime.utcnow)

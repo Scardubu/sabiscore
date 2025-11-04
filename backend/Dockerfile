@@ -1,0 +1,60 @@
+# Development stage
+FROM python:3.11-slim as development
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy source code
+COPY src/ ./src/
+
+# Expose port
+EXPOSE 8000
+
+# Run the application with auto-reload
+CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+# Production stage - updated with libgomp
+FROM python:3.11-slim as production
+
+ENV PYTHONUNBUFFERED=1 \
+    PORT=8000 \
+    GUNICORN_WORKERS=4 \
+    GUNICORN_TIMEOUT=120
+
+WORKDIR /app
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    postgresql-client \
+    redis-tools \
+    curl \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy from development stage
+COPY --from=development /app /app
+
+# Install Python dependencies in production
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Create directories for volume mounts
+RUN mkdir -p /app/models /app/data
+
+# Create non-root user
+# RUN useradd -m appuser && chown -R appuser:appuser /app
+# USER appuser
+
+HEALTHCHECK --interval=30s --timeout=3s \
+  CMD curl -f http://localhost:$PORT/health || exit 1
+
+CMD ["sh", "-c", "echo 'Starting SabiScore backend at $(date)...' && uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --log-level info"]

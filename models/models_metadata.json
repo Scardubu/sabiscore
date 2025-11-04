@@ -1,0 +1,197 @@
+{
+  "last_updated": "2025-10-30T16:51:31.446731",
+  "models": {
+    "Bundesliga": {
+      "accuracy": 0.0,
+      "brier_score": 0.25180342562312347,
+      "log_loss": 1.5906946940859934,
+      "trained_at": "2025-10-30T16:51:08.693810",
+      "feature_count": 51,
+      "league": "Bundesliga",
+      "dataset_signature": {
+        "checksum": "0507ec2f1db7d35babd29e993131733d9588c78bba054a288dd2ace9470e656f",
+        "rows": 1000,
+        "generated_at": "2025-10-30T16:51:08.854975"
+      },
+      "training_samples": 1000
+    },
+    "Epl": {
+      "accuracy": 0.0,
+      "brier_score": 0.2518034256231235,
+      "log_loss": 1.5906946940859934,
+      "trained_at": "2025-10-30T16:50:44.041453",
+      "feature_count": 51,
+      "league": "EPL",
+      "dataset_signature": {
+        "checksum": "0507ec2f1db7d35babd29e993131733d9588c78bba054a288dd2ace9470e656f",
+        "rows": 1000,
+        "generated_at": "2025-10-30T16:50:44.180536"
+      },
+      "training_samples": 1000
+    },
+    "La_Liga": {
+      "accuracy": 0.0,
+      "brier_score": 0.25180342562312347,
+      "log_loss": 1.5906946940859934,
+      "trained_at": "2025-10-30T16:50:56.441152",
+      "feature_count": 51,
+      "league": "La Liga",
+      "dataset_signature": {
+        "checksum": "0507ec2f1db7d35babd29e993131733d9588c78bba054a288dd2ace9470e656f",
+        "rows": 1000,
+        "generated_at": "2025-10-30T16:50:56.594194"
+      },
+      "training_samples": 1000
+    },
+    "Ligue_1": {
+      "accuracy": 0.0,
+      "brier_score": 0.25180342562312347,
+      "log_loss": 1.5906946940859934,
+      "trained_at": "2025-10-30T16:51:30.861044",
+      "feature_count": 51,
+      "league": "Ligue 1",
+      "dataset_signature": {
+        "checksum": "0507ec2f1db7d35babd29e993131733d9588c78bba054a288dd2ace9470e656f",
+        "rows": 1000,
+        "generated_at": "2025-10-30T16:51:30.999549"
+      },
+      "training_samples": 1000
+    },
+    "Models": {
+      "last_updated": "2025-10-30T16:51:31.429779",
+      "models": {
+        "Epl": {
+          "accuracy": 0.0,
+          "brier_score": 0.27007103826786566,
+          "log_loss": 1.5882595060432163,
+          "trained_at": "2025-10-27T20:39:35.787502",
+          "feature_count": 49,
+          "league": "EPL",
+          "dataset_signature": {
+            "checksum": "593f1fe9a373c7da985be248b3b051ed7c67f8563d63deaf187ad5b5fea73ff5",
+            "rows": 1000,
+            "generated_at": "2025-10-27T20:39:35.951978"
+          },
+          "training_samples": 1000
+        },
+        "Models": {
+          "last_updated": "2025-10-27T20:39:36.685200",
+          "models": {
+            "Models": {
+              "last_updated": "2025-10-27T20:12:24.347699",
+              "models": {
+                "Models": {
+                  "last_updated": "2025-10-27T19:56:40.914775",
+                  "models": {
+                    "Models": {
+                      "last_updated": "2025-10-27T19:47:41.811966",
+                      "models": {}
+                    }
+                  }
+                }
+              }
+            },
+            "EPL": {
+              "accuracy": 0.0,
+              "brier_score": 0.27007103826786566,
+              "log_loss": 1.5882595060432163,
+              "trained_at": "2025-10-27T20:39:35.787502",
+              "feature_count": 49,
+              "league": "EPL",
+              "dataset_signature": {
+                "checksum": "593f1fe9a373c7da985be248b3b051ed7c67f8563d63deaf187ad5b5fea73ff5",
+                "rows": 1000,
+                "generated_at": "2025-10-27T20:39:35.951978"
+              },
+              "training_samples": 1000
+            }
+          }
+        },
+        "EPL": {
+          "accuracy": 0.0,
+          "brier_score": 0.2518034256231235,
+          "log_loss": 1.5906946940859934,
+          "trained_at": "2025-10-30T16:50:44.041453",
+          "feature_count": 51,
+          "league": "EPL",
+          "dataset_signature": {
+            "checksum": "0507ec2f1db7d35babd29e993131733d9588c78bba054a288dd2ace9470e656f",
+            "rows": 1000,
+            "generated_at": "2025-10-30T16:50:44.180536"
+          },
+          "training_samples": 1000
+        },
+        "LA LIGA": {
+          "accuracy": 0.0,
+          "brier_score": 0.25180342562312347,
+          "log_loss": 1.5906946940859934,
+          "trained_at": "2025-10-30T16:50:56.441152",
+          "feature_count": 51,
+          "league": "La Liga",
+          "dataset_signature": {
+            "checksum": "0507ec2f1db7d35babd29e993131733d9588c78bba054a288dd2ace9470e656f",
+            "rows": 1000,
+            "generated_at": "2025-10-30T16:50:56.594194"
+          },
+          "training_samples": 1000
+        },
+        "BUNDESLIGA": {
+          "accuracy": 0.0,
+          "brier_score": 0.25180342562312347,
+          "log_loss": 1.5906946940859934,
+          "trained_at": "2025-10-30T16:51:08.693810",
+          "feature_count": 51,
+          "league": "Bundesliga",
+          "dataset_signature": {
+            "checksum": "0507ec2f1db7d35babd29e993131733d9588c78bba054a288dd2ace9470e656f",
+            "rows": 1000,
+            "generated_at": "2025-10-30T16:51:08.854975"
+          },
+          "training_samples": 1000
+        },
+        "SERIE A": {
+          "accuracy": 0.0,
+          "brier_score": 0.2518034256231143,
+          "log_loss": 1.590694694085839,
+          "trained_at": "2025-10-30T16:51:19.455376",
+          "feature_count": 51,
+          "league": "Serie A",
+          "dataset_signature": {
+            "checksum": "0507ec2f1db7d35babd29e993131733d9588c78bba054a288dd2ace9470e656f",
+            "rows": 1000,
+            "generated_at": "2025-10-30T16:51:19.587432"
+          },
+          "training_samples": 1000
+        },
+        "LIGUE 1": {
+          "accuracy": 0.0,
+          "brier_score": 0.25180342562312347,
+          "log_loss": 1.5906946940859934,
+          "trained_at": "2025-10-30T16:51:30.861044",
+          "feature_count": 51,
+          "league": "Ligue 1",
+          "dataset_signature": {
+            "checksum": "0507ec2f1db7d35babd29e993131733d9588c78bba054a288dd2ace9470e656f",
+            "rows": 1000,
+            "generated_at": "2025-10-30T16:51:30.999549"
+          },
+          "training_samples": 1000
+        }
+      }
+    },
+    "Serie_A": {
+      "accuracy": 0.0,
+      "brier_score": 0.2518034256231143,
+      "log_loss": 1.590694694085839,
+      "trained_at": "2025-10-30T16:51:19.455376",
+      "feature_count": 51,
+      "league": "Serie A",
+      "dataset_signature": {
+        "checksum": "0507ec2f1db7d35babd29e993131733d9588c78bba054a288dd2ace9470e656f",
+        "rows": 1000,
+        "generated_at": "2025-10-30T16:51:19.587432"
+      },
+      "training_samples": 1000
+    }
+  }
+}
