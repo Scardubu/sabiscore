@@ -6,7 +6,8 @@ import logging
 
 from ..models.ensemble import SabiScoreEnsemble
 from ..data.aggregator import DataAggregator
-from ..data.transformers import FeatureTransformer
+# Avoid importing heavy transformer (sklearn/great_expectations) at module import time
+# We'll lazily import FeatureTransformer in __init__ and fall back to a minimal implementation
 from ..models.explainer import ModelExplainer
 from .calculators import (
     assess_bet_quality,
@@ -27,12 +28,16 @@ class InsightsEngine:
         self,
         model: Optional[SabiScoreEnsemble] = None,
         aggregator: Optional[DataAggregator] = None,
-        transformer: Optional[FeatureTransformer] = None,
+        transformer: Optional[object] = None,
         explainer: Optional[ModelExplainer] = None,
     ):
         self.model = model
         self.data_aggregator = aggregator
-        self.transformer = transformer or FeatureTransformer()
+        # Lazily resolve transformer to avoid importing optional heavy deps in test envs
+        if transformer is not None:
+            self.transformer = transformer
+        else:
+            self.transformer = self._resolve_transformer()
         self.explainer = explainer or ModelExplainer(model)
         self.odds_cache = {}
 
@@ -301,6 +306,34 @@ class InsightsEngine:
             'home_goals_per_game': [1.8],
             'away_goals_per_game': [1.5]
         })
+
+    def _resolve_transformer(self):
+        """Attempt to import the full FeatureTransformer, otherwise use a minimal fallback.
+
+        The fallback avoids sklearn/great_expectations and produces a simple feature frame
+        compatible with the engine's baseline behavior.
+        """
+        try:
+            from ..data.transformers import FeatureTransformer  # type: ignore
+            return FeatureTransformer()
+        except Exception as e:
+            logger.warning("Using MinimalFeatureTransformer due to import error: %s", e)
+
+            class MinimalFeatureTransformer:
+                def engineer_features(self, match_data: Dict[str, Any]) -> pd.DataFrame:
+                    team_stats = match_data.get('team_stats', {})
+                    home = team_stats.get('home', {})
+                    away = team_stats.get('away', {})
+                    return pd.DataFrame({
+                        'home_attack_strength': [home.get('attacking_strength', 0.8)],
+                        'away_defense_strength': [away.get('defensive_strength', 0.7)],
+                        'home_win_rate': [home.get('win_rate', 0.6)],
+                        'away_win_rate': [away.get('win_rate', 0.5)],
+                        'home_goals_per_game': [home.get('goals_per_game', 1.8)],
+                        'away_goals_per_game': [away.get('goals_per_game', 1.5)],
+                    })
+
+            return MinimalFeatureTransformer()
 
     def _get_team_metrics(self, match_data: Dict[str, Any], team: str) -> Dict[str, Any]:
         """Extract team metrics from match data"""

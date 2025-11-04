@@ -87,16 +87,24 @@ def calculate_sharpe_ratio(returns: List[float], risk_free_rate: float = 0.02) -
 
     if not returns:
         return 0.0
-    import numpy as np
+    # Use pure-Python math to avoid hard dependency on numpy in test environments
+    n = len(returns)
+    if n <= 1:
+        return 0.0
 
-    returns_array = np.array(returns)
-    if returns_array.size <= 1 or np.std(returns_array, ddof=1) == 0:
+    # Mean of returns
+    mean_ret = sum(returns) / n
+    # Sample standard deviation (ddof=1)
+    variance = sum((r - mean_ret) ** 2 for r in returns) / (n - 1)
+    std_dev = math.sqrt(max(variance, 0.0))
+    if std_dev == 0:
         return 0.0
 
     daily_rf = risk_free_rate / 252
-    excess_returns = returns_array - daily_rf
-    sharpe = np.mean(excess_returns) / np.std(excess_returns, ddof=1)
-    return float(sharpe * np.sqrt(252))
+    excess_mean = mean_ret - daily_rf
+    sharpe = excess_mean / std_dev
+    # Annualise using sqrt(252) trading days
+    return float(sharpe * math.sqrt(252))
 
 
 def calculate_betting_edge(model_probs: Dict[str, float], market_odds: Dict[str, float]) -> Dict[str, float]:

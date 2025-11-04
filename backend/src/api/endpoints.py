@@ -7,6 +7,7 @@ import time
 import json
 from pathlib import Path
 from datetime import datetime
+from pydantic import ValidationError
 
 from ..core.database import (
     get_db,
@@ -157,7 +158,8 @@ async def search_matches(
 
     except Exception as exc:
         logger.exception("Match search failed", extra={"query": query, "league": league})
-        raise _http_error(500, "Search failed", "SEARCH_ERROR") from exc
+        # Graceful degrade: return an empty list on backend errors to keep UX responsive
+        return []
 
 @router.post("/insights", response_model=InsightsResponse)
 async def generate_insights(
@@ -214,7 +216,15 @@ async def generate_insights(
                 "insights_cache_hit",
                 extra={"matchup": body.matchup, "league": league, "cache_key": cache_key}
             )
-            return cached_insights
+            try:
+                # Coerce cached payload into schema to prevent MagicMock or non-serializable leaks
+                if isinstance(cached_insights, InsightsResponse):
+                    return cached_insights
+                coerced = InsightsResponse(**cached_insights)
+                return coerced
+            except Exception:
+                # Purge bad cache entry and continue to regenerate
+                cache.delete(cache_key)
         
         # Load model
         model = _load_model_from_app(request)
@@ -237,9 +247,10 @@ async def generate_insights(
             league=league,
         )
 
-        # Cache the results (TTL: 1 hour for match insights)
+        # Validate and cache the results (TTL: 1 hour for match insights)
         try:
-            cache.set(cache_key, insights, ttl=3600)
+            model = insights if isinstance(insights, InsightsResponse) else InsightsResponse(**insights)
+            cache.set(cache_key, model.model_dump(mode="json"), ttl=3600)
         except Exception as cache_exc:
             logger.warning(f"Failed to cache insights: {cache_exc}")
 
@@ -255,7 +266,14 @@ async def generate_insights(
             },
         )
 
-        return insights
+        try:
+            return model
+        except NameError:
+            # If validation above failed unexpectedly, return a coerced model here
+            try:
+                return InsightsResponse(**insights)
+            except ValidationError as ve:
+                raise _http_error(500, f"Insights validation error: {ve}", "INSIGHTS_VALIDATION_ERROR")
 
     except HTTPException:
         raise

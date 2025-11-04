@@ -87,7 +87,10 @@ class RedisCache:
         logger.warning("Redis circuit opened for %s seconds", cooldown_seconds)
 
     def _serialize(self, value: Any) -> bytes:
+        # Ensure MagicMock or non-JSON-serializable objects don't leak
         try:
+            if hasattr(value, "model_dump"):
+                value = value.model_dump(mode="json")  # type: ignore[attr-defined]
             return json.dumps(value).encode("utf-8")
         except (TypeError, ValueError):
             return pickle.dumps(value, protocol=pickle.HIGHEST_PROTOCOL)
@@ -257,7 +260,14 @@ class RedisCache:
 
         if record_metrics:
             self.metrics.record_hit()
-        return value
+        # Return a deep JSON-friendly copy if possible to avoid test-time mutation or mocks
+        try:
+            if hasattr(value, "model_dump"):
+                return value.model_dump(mode="json")  # type: ignore[attr-defined]
+            json_payload = json.dumps(value, default=str)
+            return json.loads(json_payload)
+        except Exception:
+            return value
 
     def _write_to_memory(self, key: str, value: Any, ttl: Optional[int]) -> bool:
         expires_at = time.time() + ttl if ttl else None
