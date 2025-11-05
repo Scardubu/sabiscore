@@ -5,6 +5,8 @@
 - ✅ Backend code ready
 - ✅ Dependencies fixed (pydantic 2.9.2, ruamel.yaml 0.18.6)
 
+> Note: This repo now includes `backend/runtime.txt` pinned to Python 3.11.13 to ensure prebuilt wheels (e.g., pandas) are used during builds. On Render, either ensure the service runtime is set to Python 3.11 or allow Render to read `runtime.txt` from the `backend` root.
+
 ---
 
 ## 📋 Render Dashboard Deployment (10 minutes)
