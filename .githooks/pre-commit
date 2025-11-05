@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Simple pre-commit hook to prevent committing build caches (e.g. .next)
+# To enable locally: git config core.hooksPath .githooks
+
+STAGED=$(git diff --cached --name-only)
+echo "Checking staged files for forbidden patterns..."
+for f in $STAGED; do
+  case "$f" in
+    *.next/*|apps/web/.next/*)
+      echo "Error: Attempting to commit build artifact: $f"
+      echo "Please remove .next files from the commit. Run: git rm --cached -r apps/web/.next && git commit --amend"
+      exit 1
+      ;;
+  esac
+done
+
+echo "No forbidden build artifacts staged."
+exit 0
