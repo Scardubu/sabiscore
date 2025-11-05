@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { TrendingUp, AlertCircle, Copy, Check, ExternalLink } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { formatCurrency } from '../lib/format';
 
 interface ValueBet {
   match_id: string;
@@ -63,19 +64,22 @@ export function ValueBetCard({ bet, bankroll = 1000 }: ValueBetCardProps) {
     }
   };
 
-  const stakeAmount = (bet.recommended_stake * bankroll).toFixed(2);
-  const potentialReturn = (parseFloat(stakeAmount) * bet.bookmaker_odds).toFixed(2);
-  const potentialProfit = (parseFloat(potentialReturn) - parseFloat(stakeAmount)).toFixed(2);
+  const stakeValue = bet.recommended_stake * bankroll;
+  const potentialReturnValue = stakeValue * bet.bookmaker_odds;
+  const potentialProfitValue = potentialReturnValue - stakeValue;
+  const stakeAmount = stakeValue.toFixed(2);
+  const potentialReturn = potentialReturnValue.toFixed(2);
+  const potentialProfit = potentialProfitValue.toFixed(2);
 
   const copyBetDetails = async () => {
-    const betDetails = `
+  const betDetails = `
 🎯 VALUE BET ALERT
 ${bet.home_team} vs ${bet.away_team}
 Market: ${getMarketLabel(bet.market)}
 Odds: ${bet.bookmaker_odds.toFixed(2)} @ ${bet.bookmaker}
 Edge: ${bet.edge_percentage.toFixed(1)}%
-Recommended Stake: $${stakeAmount} (${(bet.kelly_stake_percentage * 100).toFixed(1)}% of bankroll)
-Potential Return: $${potentialReturn}
+Recommended Stake: ${formatCurrency(stakeValue)} (${(bet.kelly_stake_percentage * 100).toFixed(1)}% of bankroll)
+Potential Return: ${formatCurrency(potentialReturnValue)}
 Quality: ${bet.quality}
 ${bet.clv_expected ? `Expected CLV: ${bet.clv_expected.toFixed(1)}¢` : ''}
     `.trim();
@@ -144,13 +148,13 @@ ${bet.clv_expected ? `Expected CLV: ${bet.clv_expected.toFixed(1)}¢` : ''}
           </span>
         </div>
         <div className="flex items-baseline gap-2">
-          <span className="text-3xl font-bold text-white">${stakeAmount}</span>
+          <span className="text-3xl font-bold text-white">{formatCurrency(stakeValue)}</span>
           <span className="text-sm text-slate-400">
-            → ${potentialReturn} return
+            → {formatCurrency(potentialReturnValue)} return
           </span>
         </div>
         <div className="mt-2 text-xs text-green-400">
-          Potential profit: ${potentialProfit}
+          Potential profit: {formatCurrency(potentialProfitValue)}
         </div>
       </div>
 
