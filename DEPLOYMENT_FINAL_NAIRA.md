@@ -500,6 +500,36 @@ SQLALCHEMY_POOL_TIMEOUT=30
 
 ## 🚀 **One-Command Deploy**
 
+## Integration changes & next steps (Nov 05, 2025)
+
+- Backend runtime pinned: `backend/runtime.txt` -> `python-3.11.13`. This ensures Render and similar hosts install prebuilt wheels (pandas/numpy) instead of compiling C extensions (avoids the Python 3.13 build errors).
+- Removed `apps/web/.next` from the git index to avoid committing large Next caches; a developer git hook was added at `.githooks/pre-commit` to prevent accidental commits of build artifacts. Enable locally with:
+
+```powershell
+git config core.hooksPath .githooks
+```
+
+- Frontend: added NGN currency formatter at `apps/web/src/lib/format.ts` and updated `ValueBetCard` to display Naira amounts using Intl.NumberFormat (locale `en-NG`, currency `NGN`).
+
+Recommended local steps before redeploying:
+
+1. Frontend build & QA
+
+```powershell
+cd apps/web
+npm ci
+npm run build
+```
+
+2. Redeploy backend (Render)
+
+- Ensure Render service runtime is set to Python 3.11 (or allow it to read `backend/runtime.txt`). Trigger a redeploy and confirm in logs that `pandas` installs from a wheel (no C build messages).
+
+3. Optional: repository history cleanup
+
+- If you want to permanently remove the large `.next` pack from history, I can prepare a safe `git filter-repo` plan (requires coordinated force-push). Ask and I'll prepare the commands and rollback notes.
+
+
 ```powershell
 # From project root
 cd C:\Users\USR\Documents\SabiScore
