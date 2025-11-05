@@ -1,2 +1,2 @@
 [lfs]
-    url = "ssh://git@github.com/Scardubu/sabiscore.git/info/lfs"
+    url = "https://github.com/Scardubu/sabiscore.git/info/lfs"
