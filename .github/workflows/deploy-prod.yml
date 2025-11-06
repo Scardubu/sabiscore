@@ -1,0 +1,107 @@
+name: Deploy to Render & Vercel (production)
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      web-built: ${{ steps.build-web.outcome }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install web dependencies
+        run: |
+          cd apps/web
+          npm ci
+
+      - name: Build web
+        id: build-web
+        run: |
+          cd apps/web
+          npm run build
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install backend deps
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+  deploy-render:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Trigger Render deploy
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+        run: |
+          echo "Triggering Render deploy for service $RENDER_SERVICE_ID"
+          RESPONSE=$(curl -s -X POST \
+            -H "Accept: application/json" \
+            -H "Authorization: Bearer $RENDER_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"clearCache":false}' \
+            "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys")
+          echo "$RESPONSE"
+          if echo "$RESPONSE" | grep -q 'error'; then
+            echo "Render deploy failed:" >&2
+            echo "$RESPONSE" >&2
+            exit 1
+          fi
+
+      - name: Wait for Render build (poll)
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+        run: |
+          DEPLOY_ID=$(curl -s -H "Authorization: Bearer $RENDER_API_KEY" "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys" | jq -r '.[0].id')
+          echo "Waiting for deploy $DEPLOY_ID"
+          for i in {1..60}; do
+            STATUS=$(curl -s -H "Authorization: Bearer $RENDER_API_KEY" "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys/$DEPLOY_ID" | jq -r '.status')
+            echo "Status: $STATUS"
+            if [ "$STATUS" = "success" ]; then
+              echo "Render deploy succeeded"
+              exit 0
+            fi
+            if [ "$STATUS" = "failed" ]; then
+              echo "Render deploy failed" >&2
+              curl -s -H "Authorization: Bearer $RENDER_API_KEY" "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys/$DEPLOY_ID" | jq
+              exit 1
+            fi
+            sleep 10
+          done
+          echo "Render deploy polling timed out" >&2
+          exit 1
+
+  deploy-vercel:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      - name: Deploy to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          cd apps/web
+          vercel --prod --token $VERCEL_TOKEN --confirm
