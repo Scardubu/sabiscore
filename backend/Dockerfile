@@ -10,8 +10,12 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Prefer a minimal requirements file for faster builds in CI/deploy. You can override by
+# providing a different filename via build ARG (e.g. --build-arg REQUIREMENTS=requirements.txt)
+ARG REQUIREMENTS=requirements.min.txt
+COPY ${REQUIREMENTS} ./
+COPY requirements.txt ./requirements.txt
+RUN if [ -f "${REQUIREMENTS}" ]; then pip install --no-cache-dir -r ${REQUIREMENTS}; else pip install --no-cache-dir -r requirements.txt; fi
 
 # Copy source code
 COPY src/ ./src/

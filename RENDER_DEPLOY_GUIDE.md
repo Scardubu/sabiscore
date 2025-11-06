@@ -20,18 +20,30 @@
    - Authorize Render
    - Select your sabiscore repository
 
-### Step 2: Configure Service
+### Step 3: Configure Service
+
+By default the project includes a `requirements.min.txt` with minimal runtime dependencies to speed CI/builds and avoid heavy optional/test packages during initial deployment. Use the minimal file for quick deploys and the full `requirements.txt` for production ML workloads.
+
+Example Render config:
 
 ```yaml
 Name: sabiscore-api
 Region: Oregon (US West)
 Branch: main
 Root Directory: backend
-Runtime: Python 3
-Build Command: pip install --upgrade pip && pip install -r requirements.txt
+Runtime: Python 3.11
+Build Command: pip install --upgrade pip && pip install -r requirements.min.txt
 Start Command: uvicorn src.api.main:app --host 0.0.0.0 --port $PORT --workers 4
 Instance Type: Free (or Starter $7/month for better performance)
 ```
+
+If you need full ML dependencies (pandas, xgboost, lightgbm, shap, mlflow), change the build command to:
+
+```powershell
+pip install --upgrade pip && pip install -r requirements.txt
+```
+
+Note: We pin `runtime.txt` to Python 3.11.13 to ensure prebuilt wheels for heavy packages like `pandas` and `xgboost` are available during build. If you use the minimal requirements in CI, builds are faster and avoid conflicts (e.g. `great-expectations` / `ruamel.yaml`).
 
 ### Step 3: Environment Variables
 
