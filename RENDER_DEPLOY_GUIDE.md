@@ -1,7 +1,7 @@
 # 🚀 Render Deployment Guide
 
-## ✅ Prerequisites
-- ✅ Render API Key: `rnd_ug52LYDsSEsMIOQz3gOoOuJBW0B1`
+- ## ✅ Prerequisites
+- ✅ Render API Key: (store securely in Render dashboard / GitHub secrets; do NOT hard-code in docs)
 - ✅ Backend code ready
 - ✅ Dependencies fixed (pydantic 2.9.2, ruamel.yaml 0.18.6)
 
@@ -24,6 +24,11 @@
 
 By default the project includes a `requirements.min.txt` with minimal runtime dependencies to speed CI/builds and avoid heavy optional/test packages during initial deployment. Use the minimal file for quick deploys and the full `requirements.txt` for production ML workloads.
 
+Note: Large models and processed datasets were removed from the repository to avoid storing large binaries in Git history and requiring Git LFS during remote clones. In production you must configure external storage for model artifacts and set the `MODEL_BASE_URL` repository/service secret so builds can fetch models during deployment. The repo includes `scripts/verify-models.sh` and `scripts/fetch-models.sh`:
+
+- `scripts/verify-models.sh` — run in CI to verify `MODEL_BASE_URL` and an example artifact are reachable (fails fast when missing).
+- `scripts/fetch-models.sh` — downloads the required artifacts into `backend/models` and `backend/data/processed` during build.
+
 Example Render config:
 
 ```yaml
@@ -45,16 +50,39 @@ pip install --upgrade pip && pip install -r requirements.txt
 
 Note: We pin `runtime.txt` to Python 3.11.13 to ensure prebuilt wheels for heavy packages like `pandas` and `xgboost` are available during build. If you use the minimal requirements in CI, builds are faster and avoid conflicts (e.g. `great-expectations` / `ruamel.yaml`).
 
+Example: download models during build (Render build command)
+
+```powershell
+# The build must run the verifier and fetcher. MODEL_BASE_URL and optional MODEL_FETCH_TOKEN
+# should be set as secrets in the Render service or in GitHub Actions repository secrets.
+pip install --upgrade pip && pip install -r requirements.min.txt && \
+   bash -lc "./scripts/verify-models.sh && ./scripts/fetch-models.sh backend"
+```
+
 ### Step 3: Environment Variables
 
-Add these in the Render dashboard:
+Add these in the Render dashboard (or GitHub Actions repository secrets for CI):
 
 ```yaml
 PYTHON_VERSION: 3.11
 ENVIRONMENT: production
 DATABASE_URL: (leave empty for now, uses SQLite)
 REDIS_URL: (leave empty for now, uses dict cache)
+MODEL_BASE_URL: https://storage.example.com/sabiscore  # REQUIRED for production - base URL where artifacts live
+MODEL_FETCH_TOKEN: (optional) eyJhbGciOi...            # optional bearer token if storage is private
 ```
+
+How to set secrets via the GitHub CLI (`gh`) from the repo root (PowerShell):
+
+```powershell
+# Set the model storage base URL
+gh secret set MODEL_BASE_URL --body "https://storage.example.com/sabiscore"
+
+# Optionally set a fetch token if your storage requires a bearer token
+gh secret set MODEL_FETCH_TOKEN --body "<your-model-fetch-token>"
+```
+
+Note: The deploy workflow on `main` will fail early if `MODEL_BASE_URL` is not configured or artifacts are unreachable.
 
 ### Step 4: Deploy
 
@@ -98,8 +126,8 @@ start https://sabiscore-70xn1bfov-oversabis-projects.vercel.app
 # Install Render CLI
 pip install render-cli
 
-# Login with API key
-render login --api-key rnd_ug52LYDsSEsMIOQz3gOoOuJBW0B1
+# Login with API key (store the API key securely, don't hard-code it in docs)
+render login --api-key $RENDER_API_KEY
 
 # Deploy from backend directory
 cd backend
