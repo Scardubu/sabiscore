@@ -1,7 +1,0 @@
-{
-  "accuracy": 0.33,
-  "brier_score": 0.25,
-  "log_loss": 1.2,
-  "trained_at": "2025-11-08T01:02:47.402433",
-  "feature_count": 10
-}

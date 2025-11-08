@@ -16,6 +16,7 @@ joblib==1.3.2
 shap==0.44.1
 mlflow==2.8.1  # Model versioning and experiment tracking
 requests==2.31.0
+boto3==1.28.57
 beautifulsoup4==4.12.2
 lxml==4.9.3
 pytest==7.4.3

@@ -24,6 +24,8 @@ jobs:
           pip install -r backend/requirements.txt
           pip install -r backend/requirements-dev.txt || true
           pip install joblib scikit-learn
+          # boto3 needed if MODEL_BASE_URL uses s3:// in CI
+          pip install boto3 || true
 
       - name: Generate dummy models if missing
         run: |
@@ -33,6 +35,7 @@ jobs:
 
       - name: Validate model artifacts
         run: |
+          # Fail CI if dummy models detected unless explicitly allowed
           python scripts/validate_models.py --models-dir ./models --timeout 20
 
       - name: List models directory

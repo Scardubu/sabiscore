@@ -1,56 +1,47 @@
-#!/usr/bin/env python3
 """
-Train machine learning models for all leagues
+Model Training Script
+Run: python -m src.scripts.train_models
+Expected runtime: 60-90 minutes for all 6 leagues
 """
+
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from src.models.training import train_league_models
-import logging
-import argparse
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from src.core.database import SessionLocal
+from src.models.orchestrator import orchestrator
+from datetime import datetime
 
 def main():
-    """Main training function"""
-    parser = argparse.ArgumentParser(description='Train ML models for football leagues')
-    parser.add_argument('--leagues', nargs='*', help='Specific leagues to train (default: all)')
-    parser.add_argument('--force', action='store_true', help='Force retrain existing models')
-
-    args = parser.parse_args()
-
+    print("=" * 80)
+    print("SABISCORE MODEL TRAINING PIPELINE v3.0")
+    print("=" * 80)
+    print(f"Started: {datetime.utcnow().isoformat()}")
+    print()
+    
+    db = SessionLocal()
+    
     try:
-        logger.info("Starting model training...")
-
-        # Train models
-        results = train_league_models(args.leagues)
-
-        # Report results
-        successful = 0
-        failed = 0
-
-        for league, result in results.items():
-            if 'error' in result:
-                logger.error(f"Failed to train {league}: {result['error']}")
-                failed += 1
-            else:
-                logger.info(f"Successfully trained {league}:")
-                logger.info(f"  Accuracy: {result.get('accuracy', 0):.4f}")
-                logger.info(f"  Brier Score: {result.get('brier_score', 0):.4f}")
-                logger.info(f"  Features: {result.get('feature_count', 0)}")
-                logger.info(f"  Samples: {result.get('training_samples', 0)}")
-                successful += 1
-
-        logger.info(f"Training completed: {successful} successful, {failed} failed")
-
-        if failed > 0:
-            sys.exit(1)
-
+        # Train all league models
+        orchestrator.train_all_models(db)
+        
+        print("\n" + "=" * 80)
+        print("✅ TRAINING COMPLETE")
+        print("=" * 80)
+        print(f"Finished: {datetime.utcnow().isoformat()}")
+        print()
+        print("Next steps:")
+        print("1. Start the API: uvicorn src.api.main:app --reload")
+        print("2. Test predictions: curl -X POST http://localhost:8000/api/v1/predictions/predict")
+        print("3. Monitor Brier scores in Redis: redis-cli GET model:epl:metadata")
+        
     except Exception as e:
-        logger.error(f"Training failed: {e}")
-        sys.exit(1)
+        print(f"\n❌ Training failed: {e}")
+        import traceback
+        traceback.print_exc()
+        
+    finally:
+        db.close()
 
 if __name__ == "__main__":
     main()

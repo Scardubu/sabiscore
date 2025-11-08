@@ -12,6 +12,12 @@ except Exception:
     import urllib.request as _urllib
     _HAS_REQUESTS = False
 
+try:
+    import boto3
+    _HAS_BOTO3 = True
+except Exception:
+    _HAS_BOTO3 = False
+
 logger = logging.getLogger(__name__)
 
 # Keep in sync with scripts/fetch-models.sh
@@ -83,8 +89,9 @@ def fetch_models_if_needed(model_base_url: Optional[str], dest_root: str, fetch_
         logger.warning("No MODEL_BASE_URL set and no valid models present")
         return False
 
-    if not model_base_url.startswith('https://'):
-        logger.error("MODEL_BASE_URL must use https://")
+    # Support s3:// URIs or https:// endpoints
+    if not (model_base_url.startswith('https://') or model_base_url.startswith('s3://')):
+        logger.error("MODEL_BASE_URL must use https:// or s3://")
         return False
 
     headers = {}
@@ -94,18 +101,45 @@ def fetch_models_if_needed(model_base_url: Optional[str], dest_root: str, fetch_
     logger.info(f"Fetching model artifacts from {model_base_url} into {dest_root}")
 
     for rel in ARTIFACTS:
-        url = urljoin(model_base_url.rstrip('/') + '/', rel)
         dest = os.path.join(dest_root, rel)
         os.makedirs(os.path.dirname(dest), exist_ok=True)
-        logger.info(f"Downloading {url} -> {dest}")
-        try:
-            if _HAS_REQUESTS:
-                _download_with_requests(url, dest, headers)
-            else:
-                _download_with_urllib(url, dest, headers)
-        except Exception as e:
-            logger.error(f"Failed to download artifact {url}: {e}")
-            return False
+
+        # If model_base_url is an S3 URI, prefer using boto3
+        if model_base_url.startswith('s3://'):
+            if not _HAS_BOTO3:
+                logger.error("MODEL_BASE_URL is s3:// but boto3 is not installed")
+                return False
+
+            # parse s3://bucket/path_prefix
+            _, _, bucket_and_prefix = model_base_url.partition('s3://')
+            bucket_and_prefix = bucket_and_prefix.rstrip('/')
+            # bucket_and_prefix may be bucket or bucket/prefix
+            parts = bucket_and_prefix.split('/', 1)
+            bucket = parts[0]
+            prefix = parts[1] if len(parts) > 1 else ''
+            key = f"{prefix}/{rel}" if prefix else rel
+            key = key.lstrip('/')
+            logger.info(f"Downloading s3://{bucket}/{key} -> {dest}")
+            try:
+                s3 = boto3.client('s3')
+                # use streaming download
+                with open(dest, 'wb') as fh:
+                    s3.download_fileobj(bucket, key, fh)
+            except Exception as e:
+                logger.error(f"Failed to download S3 artifact s3://{bucket}/{key}: {e}")
+                return False
+
+        else:
+            url = urljoin(model_base_url.rstrip('/') + '/', rel)
+            logger.info(f"Downloading {url} -> {dest}")
+            try:
+                if _HAS_REQUESTS:
+                    _download_with_requests(url, dest, headers)
+                else:
+                    _download_with_urllib(url, dest, headers)
+            except Exception as e:
+                logger.error(f"Failed to download artifact {url}: {e}")
+                return False
 
     logger.info("All artifacts downloaded (subject to validation).")
     return True
