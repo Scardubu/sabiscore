@@ -5,10 +5,13 @@
 *.svg filter=lfs diff=lfs merge=lfs -text
 *.mp4 filter=lfs diff=lfs merge=lfs -text
 *.zip filter=lfs diff=lfs merge=lfs -text
-*.pkl filter=lfs diff=lfs merge=lfs -text
-*.onnx filter=lfs diff=lfs merge=lfs -text
-*.bin filter=lfs diff=lfs merge=lfs -text
-*.pt filter=lfs diff=lfs merge=lfs -text
-*.csv filter=lfs diff=lfs merge=lfs -text
-*.parquet filter=lfs diff=lfs merge=lfs -text
+# Keep large artifacts out of normal clones for CI (we'll fetch them explicitly when needed)
+# If you use Git LFS in your environment, re-enable these lines. For CI and Render, we prefer
+# to fetch models/datasets from external storage during build.
+#*.pkl filter=lfs diff=lfs merge=lfs -text
+#*.onnx filter=lfs diff=lfs merge=lfs -text
+#*.bin filter=lfs diff=lfs merge=lfs -text
+#*.pt filter=lfs diff=lfs merge=lfs -text
+#*.csv filter=lfs diff=lfs merge=lfs -text
+#*.parquet filter=lfs diff=lfs merge=lfs -text
 *.map filter=lfs diff=lfs merge=lfs -text

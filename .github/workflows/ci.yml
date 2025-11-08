@@ -38,11 +38,23 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install backend dependencies
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements*.txt') }}
+
+      - name: Install backend dependencies (use minimal requirements when available)
         run: |
           cd backend
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          if [ -f requirements.min.txt ]; then
+            echo "Found requirements.min.txt — installing minimal runtime deps"
+            pip install -r requirements.min.txt
+          else
+            echo "Installing full requirements.txt"
+            pip install -r requirements.txt
+          fi
 
       - name: Run backend tests
         run: |

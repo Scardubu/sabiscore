@@ -135,6 +135,27 @@ start https://sabiscore.vercel.app
 
 ---
 
+
+## 🧩 Model Artifacts & Validation
+
+### Model Validation Workflow
+
+- All backend predictions require valid model artifacts in `backend/models`.
+- On every push/PR, CI runs `.github/workflows/validate-models.yml` to:
+  - Generate dummy models (if missing) using `scripts/generate_dummy_models.py` (for local/CI/dev only)
+  - Validate all artifacts with `scripts/validate_models.py` (checks structure, size, and loadability)
+- In production, set `MODEL_BASE_URL` to fetch real model artifacts. If not set, backend will not start unless valid models are present.
+
+### Local/CI Development
+
+- If you do not have production models, run:
+  ```bash
+  python scripts/generate_dummy_models.py --outdir ./models
+  python scripts/validate_models.py --models-dir ./models --timeout 20
+  ```
+- This ensures the backend can start and pass health checks for local development and CI.
+
+---
 ## 🛠️ Local Development
 
 ### Prerequisites

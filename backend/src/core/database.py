@@ -51,6 +51,28 @@ else:
         pool_pre_ping=True,
     )
 
+# Quick connection test and safe fallback for local development
+try:
+    # Try a lightweight connection to validate DB reachability
+    with engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
+except Exception as exc:
+    logger.warning("Initial DB connection test failed: %s", exc)
+    # Only auto-fallback in non-production environments
+    if settings.app_env != "production" and not settings.database_url.startswith("sqlite"):
+        fallback_url = "sqlite:///./sabiscore_fallback.db"
+        logger.warning("Falling back to local SQLite database for development: %s", fallback_url)
+        engine = create_engine(
+            fallback_url,
+            echo=settings.debug,
+            poolclass=None,
+            connect_args={"check_same_thread": False},
+        )
+    else:
+        # Re-raise for production so deployments fail loudly
+        logger.exception("Database unreachable and cannot auto-fallback in production")
+        raise
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Database models

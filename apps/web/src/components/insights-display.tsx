@@ -58,13 +58,14 @@ export function InsightsDisplay({ insights }: InsightsDisplayProps) {
         },
       },
       tooltip: {
-        callbacks: {
-          label: (context: any) => {
-            const label = context.label || "";
-            const value = ((context.parsed || 0) * 100).toFixed(1);
-            return `${label}: ${value}%`;
-          },
+      callbacks: {
+        label: (context: { label?: string; parsed?: number | number[] }) => {
+          const label = context.label || "";
+          const parsed = context.parsed ?? 0;
+          const value = (Array.isArray(parsed) ? parsed[0] : parsed) as number;
+          return `${label}: ${(value * 100).toFixed(1)}%`;
         },
+      },
       },
     },
   };

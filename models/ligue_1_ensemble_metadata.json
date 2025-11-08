@@ -1,14 +1,7 @@
 {
-  "accuracy": 0.0,
-  "brier_score": 0.25180342562312347,
-  "log_loss": 1.5906946940859934,
-  "trained_at": "2025-10-30T16:51:30.861044",
-  "feature_count": 51,
-  "league": "Ligue 1",
-  "dataset_signature": {
-    "checksum": "0507ec2f1db7d35babd29e993131733d9588c78bba054a288dd2ace9470e656f",
-    "rows": 1000,
-    "generated_at": "2025-10-30T16:51:30.999549"
-  },
-  "training_samples": 1000
+  "accuracy": 0.33,
+  "brier_score": 0.25,
+  "log_loss": 1.2,
+  "trained_at": "2025-11-08T01:02:48.052280",
+  "feature_count": 10
 }

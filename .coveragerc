@@ -1,14 +1,14 @@
 [run]
 branch = True
 source = 
-    backend/src
+    src
 omit = 
-    backend/src/api/websocket.py
-    backend/src/cli/*
-    backend/src/connectors/*
-    backend/src/models/*
-    backend/src/data/scrapers.py
-    backend/src/core/redis.py
+    src/api/websocket.py
+    src/cli/*
+    src/connectors/*
+    src/models/*
+    src/data/scrapers.py
+    src/core/redis.py
 
 [report]
 show_missing = True

@@ -24,6 +24,15 @@
 
 By default the project includes a `requirements.min.txt` with minimal runtime dependencies to speed CI/builds and avoid heavy optional/test packages during initial deployment. Use the minimal file for quick deploys and the full `requirements.txt` for production ML workloads.
 
+
+## 🧩 Model Artifact Validation & Fallback
+
+- All backend deployments require valid model artifacts in `backend/models`.
+- In CI and local/dev, dummy models are generated automatically if missing using `scripts/generate_dummy_models.py`.
+- The CI workflow `.github/workflows/validate-models.yml` ensures all artifacts are present and valid before deploy/build/test.
+- In production, set `MODEL_BASE_URL` to fetch real model artifacts. If not set, backend will not start unless valid models are present.
+
+---
 Note: Large models and processed datasets were removed from the repository to avoid storing large binaries in Git history and requiring Git LFS during remote clones. In production you must configure external storage for model artifacts and set the `MODEL_BASE_URL` repository/service secret so builds can fetch models during deployment. The repo includes `scripts/verify-models.sh` and `scripts/fetch-models.sh`:
 
 - `scripts/verify-models.sh` — run in CI to verify `MODEL_BASE_URL` and an example artifact are reachable (fails fast when missing).
@@ -56,7 +65,25 @@ Example: download models during build (Render build command)
 # The build must run the verifier and fetcher. MODEL_BASE_URL and optional MODEL_FETCH_TOKEN
 # should be set as secrets in the Render service or in GitHub Actions repository secrets.
 pip install --upgrade pip && pip install -r requirements.min.txt && \
-   bash -lc "./scripts/verify-models.sh && ./scripts/fetch-models.sh backend"
+   bash -lc "./scripts/verify-models.sh && ./scripts/fetch-models.sh backend && python3 scripts/validate_models.py --models-dir backend/models --timeout 15"
+
+### Model artifacts: fetch, validate and fail-fast (recommended)
+
+Before the application process starts, ensure model artifacts are present and valid. Add this mini-check to your Render build/deploy step (or CI) so deployments fail early instead of starting a service with corrupt/incomplete models.
+
+1. Verify base URL is reachable (fast fail):
+
+   ./scripts/verify-models.sh
+
+2. Fetch artifacts to `backend/models` (example fetcher included in repo):
+
+   ./scripts/fetch-models.sh backend
+
+3. Validate each artifact using the validator script (this runs joblib.load in a subprocess with a timeout):
+
+   python3 scripts/validate_models.py --models-dir backend/models --timeout 15
+
+If validation fails, the build should stop and the deploy should not proceed. This prevents hours of troubleshooting caused by truncated uploads or missing artifacts.
 ```
 
 ### Step 3: Environment Variables

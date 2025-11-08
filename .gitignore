@@ -58,3 +58,10 @@ coverage/
 *.bak
 *.tmp
 .cache/
+# Local editor / CI state
+.local/
+
+# Large artifacts moved out of repo (models / processed data)
+models/
+data/processed/
+backend/data/processed/

@@ -1,3 +1,3 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:51d91eb380b74c9947aff31c6eabc2ef7a534a6d0eaf06c584c2f8af8ba3ebb2
-size 815262
+REMOVED: The training data CSV was removed from the repository to avoid large binary checkouts during CI/deploy.
+
+Please download training and processed datasets from external storage when needed. See `scripts/fetch-models.sh` for an example approach and `GIT_HISTORY_CLEANUP_PLAN.md` for the migration plan.

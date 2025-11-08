@@ -25,8 +25,12 @@ from ..schemas.responses import (
     HealthResponse,
     CacheMetricsResponse,
 )
-from ..insights.engine import InsightsEngine
-from ..models.ensemble import SabiScoreEnsemble
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    # avoid importing heavy ML dependencies at import time during tests
+    from ..insights.engine import InsightsEngine  # pragma: no cover - only for type checking
+    from ..models.ensemble import SabiScoreEnsemble  # pragma: no cover - only for type checking
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +43,7 @@ def _http_error(status_code: int, detail: str, error_code: str) -> HTTPException
     )
 
 
-def _load_model_from_app(request: Request) -> Optional[SabiScoreEnsemble]:
+def _load_model_from_app(request: Request) -> Optional["SabiScoreEnsemble"]:
     model = getattr(request.app.state, "model_instance", None)
     if model is not None and getattr(model, "is_trained", False):
         return model
@@ -72,6 +76,9 @@ async def health_check(request: Request, db: Session = Depends(get_db)):
         # Test model availability using in-memory instance
         model_instance = getattr(request.app.state, "model_instance", None)
         models_healthy = bool(model_instance and getattr(model_instance, "is_trained", False))
+        # indicate if a background model load is in progress
+        model_loading = bool(getattr(request.app.state, "model_load_in_progress", False))
+        model_error = getattr(request.app.state, "model_load_error_message", None)
 
         metrics_snapshot = cache.metrics_snapshot()
         latency_ms = (time.time() - start_time) * 1000
@@ -82,6 +89,8 @@ async def health_check(request: Request, db: Session = Depends(get_db)):
             status=status,
             database=db_healthy,
             models=models_healthy,
+            model_loading=model_loading,
+            model_error=model_error,
             cache=cache_healthy,
             cache_metrics=CacheMetricsResponse(**metrics_snapshot),
             latency_ms=latency_ms,
@@ -94,6 +103,8 @@ async def health_check(request: Request, db: Session = Depends(get_db)):
             status="unhealthy",
             database=False,
             models=False,
+            model_loading=False,
+            model_error=None,
             cache=False,
             cache_metrics=None,
             latency_ms=latency_ms,
@@ -232,12 +243,15 @@ async def generate_insights(
             logger.error("Prediction model unavailable", extra={"matchup": body.matchup, "league": league})
             raise _http_error(503, "Prediction model unavailable - please try again later", "MODEL_UNAVAILABLE")
 
-        # Reuse explicitly assigned insights engine (tests may provide mocked engine)
+    # Reuse explicitly assigned insights engine (tests may provide mocked engine)
         engine = None
         if hasattr(model, "__dict__"):
             engine = model.__dict__.get("engine")
 
         if not engine or not hasattr(engine, "generate_match_insights"):
+            # Lazy import to avoid heavy ML imports during test collection
+            from ..insights.engine import InsightsEngine  # local import
+
             engine = InsightsEngine(model=model)
             setattr(model, "engine", engine)
         

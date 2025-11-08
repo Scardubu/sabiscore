@@ -8,7 +8,7 @@ export interface HealthResponse {
   database: boolean;
   models: boolean;
   cache: boolean;
-  cache_metrics: any;
+  cache_metrics: Record<string, unknown>;
   latency_ms: number;
 }
 
@@ -94,7 +94,7 @@ export interface InsightsResponse {
   };
   monte_carlo: MonteCarloData;
   scenarios: Scenario[];
-  explanation: Record<string, any>;
+  explanation: Record<string, unknown>;
   risk_assessment: RiskAssessment;
   narrative: string;
   generated_at: string;
@@ -188,8 +188,8 @@ export async function getMatchInsights(
       throw new APIError(errorMessage, response.status, "INSIGHTS_ERROR");
     }
 
-    const data = await response.json();
-    return data;
+  const data = (await response.json()) as InsightsResponse;
+  return data;
   } catch (error) {
     console.error("Insights fetch error:", error);
     throw error;
@@ -220,7 +220,7 @@ export const apiClient = {
       throw new APIError(errorMessage, response.status, "INSIGHTS_ERROR");
     }
 
-    return await response.json();
+    return (await response.json()) as InsightsResponse;
   },
 };
 

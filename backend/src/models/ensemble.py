@@ -3,6 +3,7 @@ import numpy as np
 import joblib
 import os
 import json
+import pickle
 from typing import Dict, List, Any, Optional, Tuple
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
@@ -14,6 +15,11 @@ from datetime import datetime
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+class ModelLoadError(Exception):
+    """Raised when a model file cannot be loaded or is invalid."""
+
 
 class SabiScoreEnsemble:
     """Ensemble model for football match predictions"""
@@ -272,42 +278,86 @@ class SabiScoreEnsemble:
     @classmethod
     def load_model(cls, model_path: str) -> 'SabiScoreEnsemble':
         """Load model from disk"""
-        try:
-            if not os.path.exists(model_path):
-                raise FileNotFoundError(f"Model file not found: {model_path}")
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"Model file not found: {model_path}")
 
+        try:
+            # Quick sanity checks before attempting to unpickle
+            size = os.path.getsize(model_path)
+            if size == 0:
+                raise ModelLoadError(f"Model file appears empty: {model_path}")
+
+            # Try to read a few bytes to detect obvious truncation
+            with open(model_path, 'rb') as fh:
+                head = fh.read(8)
+                if len(head) < 4:
+                    raise ModelLoadError(f"Model file too small/corrupt: {model_path}")
+
+            # Use joblib to load; catch pickle/unpickle related errors explicitly
             model_data = joblib.load(model_path)
 
             instance = cls()
             instance.models = model_data['models']
             instance.meta_model = model_data['meta_model']
-            instance.feature_columns = model_data['feature_columns']
-            instance.model_metadata = model_data['model_metadata']
-            instance.is_trained = model_data['is_trained']
+            instance.feature_columns = model_data.get('feature_columns', [])
+            instance.model_metadata = model_data.get('model_metadata', {})
+            instance.is_trained = model_data.get('is_trained', False)
 
             logger.info(f"Model loaded from {model_path}")
             return instance
 
+        except (EOFError, pickle.UnpicklingError, IndexError, TypeError) as e:
+            # These are commonly raised when the file is truncated or corrupt
+            logger.exception(f"Failed to unpickle model file {model_path}: {e}")
+            raise ModelLoadError(f"Failed to unpickle model file {model_path}: {e}") from e
         except Exception as e:
-            logger.error(f"Failed to load model: {e}")
-            raise
+            # Convert to a more specific exception so callers can handle
+            logger.exception(f"Failed to load model file {model_path}: {e}")
+            raise ModelLoadError(f"Failed to load model file {model_path}: {e}") from e
 
     @classmethod
     def load_latest_model(cls, models_path: str) -> 'SabiScoreEnsemble':
         """Load the latest trained model"""
-        try:
-            # Find latest model file
-            model_files = [f for f in os.listdir(models_path) if f.endswith('.pkl')]
-            if not model_files:
-                raise FileNotFoundError("No model files found")
+        # Validate path
+        if not os.path.exists(models_path) or not os.path.isdir(models_path):
+            raise FileNotFoundError(f"Models path not found or is not a directory: {models_path}")
 
-            # Sort by modification time
-            model_files.sort(key=lambda x: os.path.getmtime(os.path.join(models_path, x)), reverse=True)
-            latest_model = model_files[0]
+        # Find candidate model files (newest first)
+        model_files = [f for f in os.listdir(models_path) if f.endswith('.pkl')]
+        if not model_files:
+            raise FileNotFoundError(f"No model files found in {models_path}")
 
-            model_path = os.path.join(models_path, latest_model)
-            return cls.load_model(model_path)
+        model_files.sort(key=lambda x: os.path.getmtime(os.path.join(models_path, x)), reverse=True)
 
-        except Exception as e:
-            logger.error(f"Failed to load latest model: {e}")
-            raise
+        last_exc: Optional[Exception] = None
+
+        for candidate in model_files:
+            model_path = os.path.join(models_path, candidate)
+            try:
+                size = os.path.getsize(model_path)
+            except OSError:
+                logger.warning(f"Could not stat model file {model_path}, skipping")
+                continue
+
+            # Skip obviously tiny files (likely incomplete uploads)
+            if size < 10_240:  # 10KB
+                logger.warning(f"Skipping candidate {candidate} (size={size} bytes) - too small to be a valid model")
+                continue
+
+            try:
+                logger.info(f"Attempting to load model candidate: {model_path}")
+                return cls.load_model(model_path)
+            except ModelLoadError as mle:
+                # Log and try next candidate
+                logger.warning(f"Model candidate {candidate} is invalid: {mle}")
+                last_exc = mle
+            except Exception as e:
+                logger.exception(f"Unexpected error loading model candidate {candidate}: {e}")
+                last_exc = e
+
+        # If we get here, no candidates succeeded
+        msg = f"No valid model files found in {models_path}. Tried: {model_files}"
+        logger.error(msg)
+        if last_exc:
+            raise RuntimeError(msg) from last_exc
+        raise RuntimeError(msg)
