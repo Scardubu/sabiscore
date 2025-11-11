@@ -2,7 +2,14 @@
 """
 Championship (EFL) Model - Optimized for unpredictability and parity
 Key features: Wage budget disparity, 46-game marathon, playoff pressure
-Target: 69.8% accuracy, +3.2₵ CLV, 0.198 Brier score
+Target: 69.8% accuracy, +₦51 CLV, 0.198 Brier score
+
+NAIRA METRICS (₦1,580/USD):
+- Base Bankroll: ₦10,000
+- Kelly Fraction: 1/8 (0.125)
+- Min Edge: ₦66 (4.2%)
+- Target CLV: +₦51 vs Pinnacle closing
+- Expected ROI: +16.8% (Championship high variance)
 """
 
 import numpy as np

@@ -1,8 +1,27 @@
+# backend/src/models/leagues/eredivisie.py
 """
 Eredivisie Model - Optimized for attacking football and Ajax dominance
 Key features: High-scoring matches (3.0 GPG), youth development, Ajax superiority
-Target: 71.2% accuracy, +3.3₵ CLV, 0.194 Brier score
+Target: 71.2% accuracy, +₦52 CLV, 0.194 Brier score
+
+NAIRA METRICS (₦1,580/USD):
+- Base Bankroll: ₦10,000
+- Kelly Fraction: 1/8 (0.125)
+- Min Edge: ₦66 (4.2%)
+- Target CLV: +₦52 vs Pinnacle closing
+- Expected ROI: +17.2% (high-scoring matches = more variance)
 """
+
+import numpy as np
+import pandas as pd
+from typing import Dict
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from xgboost import XGBClassifier
+from lightgbm import LGBMClassifier
+from sklearn.calibration import CalibratedClassifierCV
+from sklearn.preprocessing import StandardScaler
+import redis
+import json
 
 class EredivisieModel:
     """
