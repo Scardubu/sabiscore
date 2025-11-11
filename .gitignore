@@ -62,15 +62,32 @@ coverage/
 .local/
 
 # Large artifacts moved out of repo (models / processed data)
+# ML Models (store in S3/GCS - too large for git)
 models/*.pkl
 models/*.h5
 models/*.joblib
 models/*.bin
+models/*.onnx
+models/*.pt
+models/*.pth
+backend/models/*.pkl
+backend/models/*.h5
+backend/models/*.joblib
+backend/models/*.bin
+backend/models/*.onnx
+backend/models/*.pt
+backend/models/*.pth
+
+# Processed data and training artifacts
 data/processed/
 backend/data/processed/
 backend/mlruns/
-backend/models/*.pkl
-backend/models/*.h5
+backend/artifacts/
+
+# Model checkpoints and temporary training files
+checkpoints/
+*.ckpt
+*.checkpoint
 
 # Python cache and compiled files
 *.py[cod]
@@ -136,6 +153,15 @@ redis-data/
 *.key
 *.cert
 .secrets/
+*.secret
+.env.production.local
+.env.development.local
+
+# API keys and sensitive config
+*api_key*
+*secret_key*
+credentials.json
+service-account*.json
 
 # Monitoring
 monitoring/data/

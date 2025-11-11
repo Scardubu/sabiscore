@@ -1,23 +1,38 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 
+import { TeamAutocomplete } from "./team-autocomplete";
+import { getTeamsForLeague, LeagueId } from "../lib/team-data";
+
 const LEAGUES = [
-  { id: "EPL", name: "Premier League", flag: "🏴󐁧󐁢󐁥󐁮󐁧󐁿" },
+  { id: "EPL", name: "Premier League", flag: "�🇧" },
   { id: "La Liga", name: "La Liga", flag: "🇪🇸" },
   { id: "Serie A", name: "Serie A", flag: "🇮🇹" },
   { id: "Bundesliga", name: "Bundesliga", flag: "🇩🇪" },
-  { id: "Ligue 1", name: "Ligue 1", flag: "🇫🇷" },
-];
+  { id: "Ligue 1", name: "Ligue 1", flag: "🇫🇷" }
+] as const satisfies ReadonlyArray<{ id: LeagueId; name: string; flag: string }>;
 
 export function MatchSelector() {
   const [homeTeam, setHomeTeam] = useState("");
   const [awayTeam, setAwayTeam] = useState("");
-  const [league, setLeague] = useState("EPL");
+  const [league, setLeague] = useState<LeagueId>("EPL");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+
+  const leagueTeams = useMemo(() => getTeamsForLeague(league), [league]);
+
+  const handleLeagueSelect = (nextLeague: LeagueId) => {
+    if (nextLeague === league) {
+      return;
+    }
+
+    setLeague(nextLeague);
+    setHomeTeam("");
+    setAwayTeam("");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,7 +75,7 @@ export function MatchSelector() {
               <button
                 key={l.id}
                 type="button"
-                onClick={() => setLeague(l.id)}
+                onClick={() => handleLeagueSelect(l.id)}
                 className={`p-3 rounded-lg border-2 transition-all ${
                   league === l.id
                     ? "border-indigo-500 bg-indigo-500/10 text-slate-100"
@@ -76,33 +91,23 @@ export function MatchSelector() {
 
         {/* Team Inputs */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-300">
-              Home Team
-            </label>
-            <input
-              type="text"
-              value={homeTeam}
-              onChange={(e) => setHomeTeam(e.target.value)}
-              placeholder="e.g., Arsenal"
-              className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-              disabled={loading}
-            />
-          </div>
+          <TeamAutocomplete
+            label="Home Team"
+            value={homeTeam}
+            onChange={setHomeTeam}
+            options={leagueTeams}
+            placeholder="Search or type a team"
+            disabled={loading}
+          />
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-300">
-              Away Team
-            </label>
-            <input
-              type="text"
-              value={awayTeam}
-              onChange={(e) => setAwayTeam(e.target.value)}
-              placeholder="e.g., Liverpool"
-              className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-              disabled={loading}
-            />
-          </div>
+          <TeamAutocomplete
+            label="Away Team"
+            value={awayTeam}
+            onChange={setAwayTeam}
+            options={leagueTeams}
+            placeholder="Search or type a team"
+            disabled={loading}
+          />
         </div>
 
         {/* Submit Button */}
