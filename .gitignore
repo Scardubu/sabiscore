@@ -62,6 +62,98 @@ coverage/
 .local/
 
 # Large artifacts moved out of repo (models / processed data)
-models/
+models/*.pkl
+models/*.h5
+models/*.joblib
+models/*.bin
 data/processed/
 backend/data/processed/
+backend/mlruns/
+backend/models/*.pkl
+backend/models/*.h5
+
+# Python cache and compiled files
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+test-results/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Redis
+*.rdb
+
+# Docker volumes
+postgres-data/
+redis-data/
+
+# Secrets and keys
+*.pem
+*.key
+*.cert
+.secrets/
+
+# Monitoring
+monitoring/data/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+backend/logs/
+apps/api/logs/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~

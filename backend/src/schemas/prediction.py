@@ -1,0 +1,298 @@
+"""
+Prediction Schemas - Production-ready Pydantic models
+Naira-based currency, comprehensive value bet information
+"""
+
+from datetime import datetime
+from typing import Dict, List, Optional, Any, Tuple
+from pydantic import BaseModel, Field, validator
+from enum import Enum
+
+
+class PredictionOutcome(str, Enum):
+    """Match outcome types"""
+    HOME_WIN = "home_win"
+    DRAW = "draw"
+    AWAY_WIN = "away_win"
+
+
+class LeagueCode(str, Enum):
+    """Supported leagues"""
+    EPL = "epl"
+    BUNDESLIGA = "bundesliga"
+    LA_LIGA = "la_liga"
+    SERIE_A = "serie_a"
+    LIGUE_1 = "ligue_1"
+
+
+class MatchPredictionRequest(BaseModel):
+    """Request model for match prediction"""
+    match_id: Optional[str] = None
+    home_team: str = Field(..., min_length=2, max_length=100)
+    away_team: str = Field(..., min_length=2, max_length=100)
+    league: LeagueCode = Field(..., description="League identifier")
+    kickoff_time: Optional[datetime] = None
+    odds: Dict[str, float] = Field(
+        default_factory=dict,
+        description="Market odds (home_win, draw, away_win)"
+    )
+    bankroll: Optional[float] = Field(
+        default=10_000,
+        description="Bankroll in Naira (₦) for Kelly calculation",
+        ge=1000,
+        le=100_000_000
+    )
+    
+    @validator('odds')
+    def validate_odds(cls, v):
+        """Ensure odds are valid decimal odds"""
+        for market, odd in v.items():
+            if odd < 1.01 or odd > 1000:
+                raise ValueError(f"Invalid odd for {market}: {odd}")
+        return v
+
+
+class ValueBetResponse(BaseModel):
+    """Value bet with Smart Kelly stake calculation"""
+    match_id: str
+    market: str = Field(..., description="e.g., 'home_win', 'over_2.5'")
+    odds: float = Field(..., description="Decimal odds", ge=1.01)
+    fair_probability: float = Field(..., ge=0, le=1)
+    implied_probability: float = Field(..., ge=0, le=1)
+    edge_percent: float = Field(..., description="Edge as percentage (e.g., 9.3)")
+    edge_ngn: float = Field(..., description="Edge in Naira per ₦10k stake")
+    kelly_stake_ngn: float = Field(..., description="Recommended stake in Naira (⅛ Kelly)")
+    kelly_fraction: float = Field(default=0.125, description="Kelly fraction used")
+    clv_ngn: float = Field(..., description="Closing Line Value in Naira")
+    confidence: float = Field(..., ge=0, le=1, description="Model confidence")
+    expected_roi: float = Field(..., description="Expected ROI on this bet")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    pinnacle_close: Optional[float] = Field(None, description="Pinnacle closing odds")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "match_id": "epl_2025_234",
+                "market": "home_win",
+                "odds": 1.96,
+                "fair_probability": 0.563,
+                "implied_probability": 0.510,
+                "edge_percent": 9.3,
+                "edge_ngn": 186,
+                "kelly_stake_ngn": 53720,
+                "kelly_fraction": 0.125,
+                "clv_ngn": 81,
+                "confidence": 0.847,
+                "expected_roi": 0.089,
+                "created_at": "2025-11-11T14:32:00Z",
+                "pinnacle_close": 1.91
+            }
+        }
+
+
+class PredictionResponse(BaseModel):
+    """Comprehensive match prediction response"""
+    match_id: str
+    home_team: str
+    away_team: str
+    league: LeagueCode
+    predictions: Dict[str, float] = Field(
+        ...,
+        description="Probabilities for home_win, draw, away_win"
+    )
+    confidence: float = Field(..., ge=0, le=1, description="Highest probability")
+    brier_score: float = Field(..., ge=0, le=2, description="Expected Brier score")
+    value_bets: List[ValueBetResponse] = Field(
+        default_factory=list,
+        description="Identified value betting opportunities"
+    )
+    confidence_intervals: Dict[str, Tuple[float, float]] = Field(
+        default_factory=dict,
+        description="95% confidence intervals for each outcome"
+    )
+    explanations: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="SHAP feature importance and explanations"
+    )
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Model metadata and performance metrics"
+    )
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    @validator('predictions')
+    def validate_probabilities_sum(cls, v):
+        """Ensure probabilities sum to 1.0 (within tolerance)"""
+        total = sum(v.values())
+        if not 0.98 <= total <= 1.02:
+            raise ValueError(f"Probabilities must sum to ~1.0, got {total}")
+        return v
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "match_id": "epl_2025_234",
+                "home_team": "Arsenal",
+                "away_team": "Liverpool",
+                "league": "epl",
+                "predictions": {
+                    "home_win": 0.421,
+                    "draw": 0.286,
+                    "away_win": 0.293
+                },
+                "confidence": 0.421,
+                "brier_score": 0.178,
+                "value_bets": [
+                    {
+                        "match_id": "epl_2025_234",
+                        "market": "home_win",
+                        "odds": 1.96,
+                        "edge_ngn": 186,
+                        "kelly_stake_ngn": 53720
+                    }
+                ],
+                "metadata": {
+                    "model_version": "3.0",
+                    "processing_time_ms": 142,
+                    "league_model": "epl"
+                },
+                "created_at": "2025-11-11T14:32:00Z"
+            }
+        }
+
+
+class PredictionCreate(BaseModel):
+    """Schema for storing predictions in database"""
+    match_id: str
+    home_win_prob: float = Field(..., ge=0, le=1)
+    draw_prob: float = Field(..., ge=0, le=1)
+    away_win_prob: float = Field(..., ge=0, le=1)
+    confidence: float = Field(..., ge=0, le=1)
+    brier_score: Optional[float] = None
+    model_version: str = "3.0"
+    is_calibrated: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class CalibrationMetrics(BaseModel):
+    """Live calibration status and metrics"""
+    platt_a: float = Field(..., description="Platt scaling parameter A")
+    platt_b: float = Field(..., description="Platt scaling parameter B")
+    last_calibration: Optional[datetime] = None
+    samples_used: int = Field(..., ge=0, description="Samples in calibration window")
+    calibration_window_hours: int = 24
+    mean_squared_error: Optional[float] = None
+    log_loss: Optional[float] = None
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "platt_a": 1.042,
+                "platt_b": -0.018,
+                "last_calibration": "2025-11-11T14:30:00Z",
+                "samples_used": 127,
+                "mean_squared_error": 0.0184
+            }
+        }
+
+
+class EdgeDetectionRequest(BaseModel):
+    """Request for edge detection on specific markets"""
+    match_id: str
+    fair_probabilities: Dict[str, float]
+    market_odds: Dict[str, float]
+    bankroll_ngn: float = Field(default=10_000, ge=1000)
+    min_edge_threshold: float = Field(default=0.042, ge=0, le=1)
+    kelly_fraction: float = Field(default=0.125, ge=0.01, le=1.0)
+
+
+class EdgeDetectionResponse(BaseModel):
+    """Response with detected edges and stake recommendations"""
+    match_id: str
+    edges_found: int
+    value_bets: List[ValueBetResponse]
+    total_potential_edge_ngn: float
+    recommended_total_stake_ngn: float
+    expected_roi_percent: float
+    risk_assessment: str = Field(
+        ...,
+        description="LOW, MEDIUM, HIGH based on variance"
+    )
+    
+    @validator('risk_assessment')
+    def validate_risk(cls, v):
+        if v not in ['LOW', 'MEDIUM', 'HIGH']:
+            raise ValueError("Risk must be LOW, MEDIUM, or HIGH")
+        return v
+
+
+class LivePredictionUpdate(BaseModel):
+    """WebSocket update for live predictions"""
+    match_id: str
+    event_type: str = Field(..., description="goal, card, substitution, etc.")
+    updated_probabilities: Dict[str, float]
+    minute: int = Field(..., ge=0, le=120)
+    confidence: float
+    new_value_bets: List[ValueBetResponse] = Field(default_factory=list)
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
+class PredictionHistoryResponse(BaseModel):
+    """Historical prediction performance"""
+    total_predictions: int
+    accuracy: float = Field(..., ge=0, le=1)
+    high_confidence_accuracy: float = Field(..., ge=0, le=1)
+    avg_brier_score: float
+    avg_clv_ngn: float
+    roi_percent: float
+    value_bets_count: int
+    profitable_bets: int
+    league_breakdown: Dict[str, Dict[str, float]]
+    date_range: Dict[str, datetime]
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "total_predictions": 42000,
+                "accuracy": 0.737,
+                "high_confidence_accuracy": 0.849,
+                "avg_brier_score": 0.184,
+                "avg_clv_ngn": 60,
+                "roi_percent": 18.4,
+                "value_bets_count": 8472,
+                "profitable_bets": 6219,
+                "league_breakdown": {
+                    "epl": {"accuracy": 0.762, "roi": 19.2},
+                    "bundesliga": {"accuracy": 0.718, "roi": 17.1}
+                },
+                "date_range": {
+                    "start": "2024-08-01T00:00:00Z",
+                    "end": "2025-11-11T00:00:00Z"
+                }
+            }
+        }
+
+
+class ModelPerformanceMetrics(BaseModel):
+    """Real-time model performance metrics"""
+    predictions_today: int
+    avg_processing_time_ms: float = Field(..., description="Target: <150ms")
+    cache_hit_rate: float = Field(..., ge=0, le=1)
+    calibration_status: CalibrationMetrics
+    value_bets_identified: int
+    avg_edge_ngn: float
+    uptime_percent: float = Field(..., ge=0, le=100)
+    errors_last_hour: int
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "predictions_today": 347,
+                "avg_processing_time_ms": 142,
+                "cache_hit_rate": 0.87,
+                "value_bets_identified": 73,
+                "avg_edge_ngn": 172,
+                "uptime_percent": 99.94,
+                "errors_last_hour": 0
+            }
+        }

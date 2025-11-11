@@ -6,7 +6,34 @@
   "outputDirectory": "apps/web/.next",
   "build": {
     "env": {
-      "NEXT_TELEMETRY_DISABLED": "1"
+      "NEXT_TELEMETRY_DISABLED": "1",
+      "NEXT_PUBLIC_API_URL": "@api_url",
+      "NEXT_PUBLIC_WS_URL": "@ws_url",
+      "NEXT_PUBLIC_CURRENCY": "NGN",
+      "NEXT_PUBLIC_CURRENCY_SYMBOL": "₦",
+      "NEXT_PUBLIC_BASE_BANKROLL": "10000",
+      "NEXT_PUBLIC_KELLY_FRACTION": "0.125",
+      "NEXT_PUBLIC_MIN_EDGE_NGN": "66"
+    }
+  },
+  "env": {
+    "NEXT_PUBLIC_API_URL": {
+      "production": "https://api.sabiscore.io",
+      "preview": "https://api-preview.sabiscore.io",
+      "development": "http://localhost:8000"
+    },
+    "NEXT_PUBLIC_WS_URL": {
+      "production": "wss://ws.sabiscore.io",
+      "preview": "wss://ws-preview.sabiscore.io",
+      "development": "ws://localhost:8000"
+    }
+  },
+  "regions": ["iad1", "lhr1", "fra1"],
+  "functions": {
+    "apps/web/app/**/*.tsx": {
+      "runtime": "edge",
+      "memory": 512,
+      "maxDuration": 10
     }
   },
   "headers": [
@@ -34,8 +61,12 @@
           "value": "strict-origin-when-cross-origin"
         },
         {
-          "key": "Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
+          "key": "Permissions-Policy",
+          "value": "geolocation=(), microphone=(), camera=()"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
         }
       ]
     },
@@ -47,12 +78,55 @@
           "value": "public, max-age=31536000, immutable"
         }
       ]
+    },
+    {
+      "source": "/api/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=15, stale-while-revalidate=30"
+        }
+      ]
+    },
+    {
+      "source": "/match/:id",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=15, stale-while-revalidate=60, must-revalidate"
+        },
+        {
+          "key": "X-Edge-Cache",
+          "value": "HIT"
+        }
+      ]
     }
   ],
   "rewrites": [
     {
       "source": "/api/v1/:path*",
       "destination": "https://api.sabiscore.io/api/v1/:path*"
+    },
+    {
+      "source": "/ws/:path*",
+      "destination": "wss://ws.sabiscore.io/ws/:path*"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/health",
+      "destination": "/api/health",
+      "permanent": false
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/calibrate",
+      "schedule": "*/3 * * * *"
+    },
+    {
+      "path": "/api/cron/fetch-odds",
+      "schedule": "*/5 * * * *"
     }
   ]
 }
