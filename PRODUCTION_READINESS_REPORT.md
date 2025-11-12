@@ -677,7 +677,7 @@ SECRET_KEY=<32+ character random string>
 DATABASE_URL=sqlite:///./sabiscore.db  # or PostgreSQL URL
 
 # Redis (optional but recommended)
-REDIS_URL=redis://localhost:6379/0
+REDIS_URL=redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379
 REDIS_CACHE_TTL=3600
 
 # API Configuration

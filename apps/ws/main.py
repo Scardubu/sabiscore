@@ -11,7 +11,7 @@ import redis
 
 
 # Redis connection (stub for pub/sub integration)
-REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/1")
+REDIS_URL = os.environ.get("REDIS_URL", "redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379")
 redis_client = redis.Redis.from_url(REDIS_URL, decode_responses=True)
 
 app = FastAPI()

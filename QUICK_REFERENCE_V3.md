@@ -180,7 +180,7 @@ NEXT_PUBLIC_WS_URL=ws://localhost:8001
 
 ```env
 DATABASE_URL=postgresql://user:pass@host:5432/sabiscore
-REDIS_URL=redis://host:6379/0
+REDIS_URL=redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379
 SECRET_KEY=your-32-char-secret-minimum
 APP_ENV=production
 DEBUG=False

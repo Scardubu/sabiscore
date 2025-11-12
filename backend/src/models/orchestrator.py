@@ -37,19 +37,27 @@ class ModelOrchestrator:
         'serie_a': 'seriea',
         'seriea': 'seriea',
         'ligue_1': 'ligue1',
-        'ligue1': 'ligue1'
+        'ligue1': 'ligue1',
+        'championship': 'championship',
+        'eredivisie': 'eredivisie'
     }
     
-    def __init__(self, redis_url: str = "redis://localhost:6379/0"):
+    def __init__(self, redis_url: str = "redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379"):
         self.redis = redis.from_url(redis_url, decode_responses=True)
         
-        # Initialize all league models
+        # Import additional league models
+        from .leagues.championship import ChampionshipModel
+        from .leagues.eredivisie import EredivisieModel
+        
+        # Initialize all league models (7 total)
         self.models = {
             'epl': PremierLeagueModel(self.redis),
             'laliga': LaLigaModel(self.redis),
             'bundesliga': BundesligaModel(self.redis),
             'seriea': SerieAModel(self.redis),
-            'ligue1': Ligue1Model(self.redis)
+            'ligue1': Ligue1Model(self.redis),
+            'championship': ChampionshipModel(self.redis),
+            'eredivisie': EredivisieModel(self.redis)
         }
         
         self.live_calibration_cache = {}

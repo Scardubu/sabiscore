@@ -94,7 +94,7 @@ Add these in the Render dashboard (or GitHub Actions repository secrets for CI):
 PYTHON_VERSION: 3.11
 ENVIRONMENT: production
 DATABASE_URL: (leave empty for now, uses SQLite)
-REDIS_URL: (leave empty for now, uses dict cache)
+REDIS_URL: redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379
 MODEL_BASE_URL: https://storage.example.com/sabiscore  # REQUIRED for production - base URL where artifacts live
 MODEL_FETCH_TOKEN: (optional) eyJhbGciOi...            # optional bearer token if storage is private
 ```

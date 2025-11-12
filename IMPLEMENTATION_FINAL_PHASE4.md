@@ -310,7 +310,7 @@ aiohttp==3.9.1  # Async HTTP for ISR revalidation
 DATABASE_URL=postgresql://user:pass@localhost:5432/sabiscore
 
 # Redis
-REDIS_URL=redis://localhost:6379/0
+REDIS_URL=redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379
 
 # Next.js Integration
 NEXT_URL=http://localhost:3000

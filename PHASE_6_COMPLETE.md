@@ -90,8 +90,8 @@ async _get_market_odds(home_id, away_id) -> Dict[7 odds]
 
 **Celery Configuration:**
 ```python
-broker: redis://localhost:6379/0
-backend: redis://localhost:6379/1
+broker: redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379
+backend: redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379
 task_time_limit: 3600s (1 hour max)
 task_soft_time_limit: 3000s (50 min warning)
 worker_max_tasks_per_child: 50 (memory leak prevention)

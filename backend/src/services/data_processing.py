@@ -29,7 +29,7 @@ class DataProcessingService:
     - L3: External APIs (2-5s, cached for 5min)
     """
     
-    def __init__(self, db: Session, redis_url: str = "redis://localhost:6379/0"):
+    def __init__(self, db: Session, redis_url: str = "redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379"):
         self.db = db
         self.redis = redis.from_url(redis_url, decode_responses=True)
         self.executor = ThreadPoolExecutor(max_workers=4)

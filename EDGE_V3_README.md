@@ -523,7 +523,7 @@ services:
       retries: 5
     environment:
       - DATABASE_URL=postgresql://user:pass@postgres:5432/sabiscore
-      - REDIS_URL=redis://redis:6379/0
+      - REDIS_URL=redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379
       - MODEL_BASE_URL=https://storage.sabiscore.com/models
 
   redis:
@@ -541,7 +541,7 @@ services:
       resources:
         limits: { cpus: '1', memory: 512M }
     environment:
-      - REDIS_URL=redis://redis:6379/1
+      - REDIS_URL=redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379
 
   postgres:
     image: postgres:16-alpine
@@ -652,7 +652,7 @@ cp .env.example .env.local
 # Set required vars
 NEXT_PUBLIC_API_URL=http://localhost:8000
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/sabiscore
-REDIS_URL=redis://localhost:6379/0
+REDIS_URL=redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379
 ```
 
 ### 3. Start Development

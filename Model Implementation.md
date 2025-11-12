@@ -663,7 +663,7 @@ class ModelOrchestrator:
         'eredivisie': 'eredivisie'
     }
     
-    def __init__(self, redis_url: str = "redis://localhost:6379/0"):
+    def __init__(self, redis_url: str = "redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379"):
         self.redis = redis.from_url(redis_url, decode_responses=True)
         
         # Import additional league models
@@ -1776,7 +1776,7 @@ Add to `.env`:
 
 ```bash
 # Redis
-REDIS_URL=redis://localhost:6379/0
+REDIS_URL=redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379
 
 # Model config
 MODEL_CACHE_TTL=300  # 5 minutes
@@ -1835,7 +1835,7 @@ redis-cli ping
 # Check connection in Python
 python -c "
 import redis
-r = redis.from_url('redis://localhost:6379/0')
+r = redis.from_url('redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379')
 print(r.ping())
 "
 
@@ -2682,7 +2682,7 @@ echo ""
 echo "🔌 Testing Redis connection..."
 python -c "
 import redis
-r = redis.from_url('redis://localhost:6379/0')
+r = redis.from_url('redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379')
 r.set('test', 'success')
 assert r.get('test').decode() == 'success'
 print('Redis connection successful')
@@ -2861,7 +2861,7 @@ async def enrich_recent_matches(days: int = 30):
     print(f"🔍 Enriching matches from last {days} days...")
     
     db = SessionLocal()
-    redis_client = redis.from_url('redis://localhost:6379/0', decode_responses=True)
+    redis_client = redis.from_url('redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379', decode_responses=True)
     
     # Query recent matches
     cutoff_date = datetime.utcnow() - timedelta(days=days)
@@ -3203,7 +3203,7 @@ nano .env
 
 ```bash
 DATABASE_URL=postgresql://postgres:password@localhost:5432/sabiscore
-REDIS_URL=redis://localhost:6379/0
+REDIS_URL=redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379
 ENVIRONMENT=development
 DEBUG=true
 
@@ -3648,7 +3648,7 @@ git push origin main
     - Environment Variables:
         
         ```
-        DATABASE_URL=[paste PostgreSQL connection string]REDIS_URL=[paste Redis connection string]ENVIRONMENT=productionDEBUG=false
+        DATABASE_URL=[paste PostgreSQL connection string]REDIS_URL=redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379ENVIRONMENT=productionDEBUG=false
         
         ```
         
@@ -3718,7 +3718,7 @@ railway up
 
 # Add environment variables
 railway variables set DATABASE_URL=...
-railway variables set REDIS_URL=...
+railway variables set REDIS_URL=redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379
 
 ```
 
@@ -3900,7 +3900,7 @@ python scripts/load_historical_data.py
     # Test connection
     python -c "
     import redis
-    r = redis.from_url('redis://localhost:6379/0')
+    r = redis.from_url('redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379')
     print(r.ping())
     "
     
@@ -4190,7 +4190,7 @@ curl http://localhost:8000/api/v1/predictions/health
 DATABASE_URL=postgresql://postgres:password@localhost:5432/sabiscore
 
 # Redis
-REDIS_URL=redis://localhost:6379/0
+REDIS_URL=redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379
 
 # Model Settings
 MODEL_CACHE_TTL=300          # 5 minutes
@@ -4453,7 +4453,7 @@ import redis
 import pandas as pd
 
 db = SessionLocal()
-r = redis.from_url('redis://localhost:6379/0', decode_responses=True)
+r = redis.from_url('redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379', decode_responses=True)
 model = PremierLeagueModel(r)
 
 # Load your training data

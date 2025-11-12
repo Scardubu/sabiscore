@@ -32,7 +32,7 @@ class Settings(BaseSettings):
 
     # Redis Cache
     redis_url: str = Field(
-        default="redis://localhost:6379/0",
+        default="redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379",
         alias="REDIS_URL",
         description="Redis connection URL.",
     )

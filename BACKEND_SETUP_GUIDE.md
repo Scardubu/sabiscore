@@ -208,7 +208,7 @@ npm run preview
 **Environment Variables (.env):**
 ```env
 DATABASE_URL=sqlite:///./sabiscore.db
-REDIS_URL=redis://localhost:6379/0
+REDIS_URL=redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379
 REDIS_ENABLED=true
 APP_ENV=development
 DEBUG=true

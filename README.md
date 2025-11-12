@@ -242,7 +242,7 @@ Create `.env` files in the backend directory:
 DATABASE_URL=postgresql://sabiscore:sabiscore_password@localhost:5432/sabiscore
 
 # Redis Cache
-REDIS_URL=redis://localhost:6379/0
+REDIS_URL=redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379
 
 # External APIs (Optional)
 ESPN_API_KEY=your_espn_api_key
@@ -370,7 +370,7 @@ docker-compose -f docker-compose.prod.yml up -d
 ```env
 NODE_ENV=production
 DATABASE_URL=your_production_db_url
-REDIS_URL=your_production_redis_url
+REDIS_URL=redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379
 SECRET_KEY=your_production_secret_key
 ```
 

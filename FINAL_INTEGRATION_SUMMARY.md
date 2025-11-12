@@ -519,7 +519,7 @@ print(f"Weights: {result['weights']}")
 ```python
 # Live Platt parameters (updated every 3 minutes)
 import redis
-r = redis.from_url("redis://localhost:6379/0", decode_responses=True)
+r = redis.from_url("redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379", decode_responses=True)
 
 calibration = json.loads(r.get("calibration:epl"))
 print(f"Platt A: {calibration['platt_a']:.3f}")

@@ -182,7 +182,7 @@ python scripts/seed_data.py  # Optional: seed initial data
 2. Choose **Frankfurt** region (match Render)
 3. Copy connection string:
    ```
-   redis://default:PASSWORD@eu2-magnetic-rabbit-12345.upstash.io:6379
+   redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379
    ```
 4. Set `REDIS_URL` in Render dashboard
 
