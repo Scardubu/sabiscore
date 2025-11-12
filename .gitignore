@@ -48,6 +48,8 @@ Thumbs.db
 *.db
 *.db-journal
 dump.rdb
+backend/sabiscore.db
+apps/web/sabiscore.db
 
 # Testing
 coverage/
