@@ -52,9 +52,9 @@
       - key: FEATURES_COUNT
         value: 220
       - key: USE_MOCK_DATA
-        value: "true"
+        value: "false"
       - key: USE_MOCK_PREDICTIONS
-        value: "true"
+        value: "false"
       - key: ENABLE_RATE_LIMITING
         value: "false"
       - key: CORS_ORIGINS

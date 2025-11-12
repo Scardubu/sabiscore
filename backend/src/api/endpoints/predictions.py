@@ -23,8 +23,8 @@ from ...utils.mock_data import mock_generator
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/predictions", tags=["predictions"])
 
-# Feature flag for mock predictions (disable when real models are trained)
-USE_MOCK_PREDICTIONS = True
+# Feature flag for mock predictions (set to False for production with trained models)
+USE_MOCK_PREDICTIONS = False
 
 
 @router.post("/", response_model=PredictionResponse)

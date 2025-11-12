@@ -23,8 +23,8 @@ from ...utils.mock_data import mock_generator
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/matches", tags=["matches"])
 
-# Feature flag for mock data (disable when real DB is ready)
-USE_MOCK_DATA = True
+# Feature flag for mock data (set to False for production with real DB)
+USE_MOCK_DATA = False
 
 
 @router.get("/upcoming", response_model=MatchListResponse)
