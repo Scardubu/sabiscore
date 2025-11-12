@@ -2,7 +2,7 @@ import json
 from fastapi import FastAPI
 import logging
 from .middleware import setup_middleware
-from .endpoints import router
+from . import api_router
 from .websocket import router as ws_router
 from ..core.config import settings
 from ..core.database import engine, Base
@@ -352,7 +352,7 @@ def get_loaded_model(default=None):
     return default
 
 # Include routers
-app.include_router(router, prefix="/api/v1", tags=["API"])
+app.include_router(api_router, prefix=getattr(settings, 'API_V1_STR', '/api/v1'), tags=["API"])
 app.include_router(ws_router, tags=["WebSocket"])
 
 
