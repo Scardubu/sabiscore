@@ -18,7 +18,8 @@ $backendSuccess = $false
 $frontendSuccess = $false
 $attempt = 0
 
-Write-Host "`nChecking every $IntervalSeconds seconds (up to $MaxAttempts attempts)...`n" -ForegroundColor Yellow
+$message = "`nChecking every {0} seconds - up to {1} attempts...`n" -f $IntervalSeconds, $MaxAttempts
+Write-Host $message -ForegroundColor Yellow
 
 while ($attempt -lt $MaxAttempts -and (-not $backendSuccess -or -not $frontendSuccess)) {
     $attempt++
