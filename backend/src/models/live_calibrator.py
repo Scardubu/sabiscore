@@ -303,42 +303,6 @@ class PlattCalibrator:
     async def _fetch_recent_data(self) -> Tuple[np.ndarray, np.ndarray]:
         """Legacy method - redirects to async version"""
         return await self._fetch_recent_data_async()
-            cutoff_timestamp = cutoff_time.timestamp()
-            
-            # Get all prediction keys
-            keys = await self.redis_client.keys("live:prediction:*")
-            
-            predictions = []
-            outcomes = []
-            
-            for key in keys:
-                data = await self.redis_client.hgetall(key)
-                
-                if not data:
-                    continue
-                
-                # Parse timestamp
-                timestamp = float(data.get(b'timestamp', 0))
-                if timestamp < cutoff_timestamp:
-                    continue
-                
-                # Check if outcome is available
-                outcome = data.get(b'outcome')
-                if outcome is None:
-                    continue
-                
-                # Extract prediction and outcome
-                pred_prob = float(data.get(b'probability', 0))
-                outcome_val = int(outcome)
-                
-                predictions.append(pred_prob)
-                outcomes.append(outcome_val)
-            
-            return np.array(predictions), np.array(outcomes)
-            
-        except Exception as e:
-            logger.error(f"Error fetching calibration data from Redis: {e}")
-            return np.array([]), np.array([])
 
     def _generate_mock_data(self) -> Tuple[np.ndarray, np.ndarray]:
         """Generate mock calibration data for testing"""
