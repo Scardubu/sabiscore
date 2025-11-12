@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import List, Optional
+import json
 
 from pydantic import Field, ValidationError, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -53,6 +54,11 @@ class Settings(BaseSettings):
     pinnacle_api_key: Optional[str] = None
     fivethirtyeight_api_key: Optional[str] = None
     
+    # App metadata (backwards-compat with legacy settings access in main.py)
+    project_name: str = Field(default="SabiScore API", alias="APP_NAME")
+    version: str = Field(default="1.0.0", alias="VERSION")
+    api_v1_str: str = Field(default="/api/v1", alias="API_V1_STR")
+    
     # Next.js Integration
     next_url: str = Field(
         default="http://localhost:3000",
@@ -93,7 +99,13 @@ class Settings(BaseSettings):
     request_timeout: int = Field(default=10, ge=1)
 
     # CORS
-    cors_origins: List[str] = Field(
+    # Accept env CORS_ORIGINS as a simple CSV or JSON string without requiring JSON decoding at env source
+    cors_origins_raw: Optional[str] = Field(
+        default=None,
+        alias="CORS_ORIGINS",
+        description="Comma-separated or JSON list string of allowed CORS origins"
+    )
+    cors_allowed_origins: List[str] = Field(
         default_factory=lambda: [
             "http://localhost:3000",
             "http://localhost:3001",
@@ -106,15 +118,25 @@ class Settings(BaseSettings):
     models_path: Path = Field(default_factory=lambda: _PROJECT_ROOT / "models")
     data_path: Path = Field(default_factory=lambda: (_PROJECT_ROOT / "data" / "processed"))
 
-    @field_validator("cors_origins", mode="before")
-    @classmethod
-    def _split_cors_origins(cls, value):
-        if isinstance(value, str):
-            # Handle empty string case (don't try to parse as JSON)
-            if not value or value.strip() == "":
-                return []
-            return [origin.strip() for origin in value.split(",") if origin.strip()]
-        return value
+    def _parse_cors_raw(self) -> List[str]:
+        """Parse CORS_ORIGINS from raw env value (CSV or JSON string)."""
+        value = self.cors_origins_raw
+        if value is None:
+            return self.cors_allowed_origins
+        s = value.strip()
+        if s == "":
+            return []
+        # Try JSON first if it looks like a JSON array
+        if s.startswith("[") and s.endswith("]"):
+            try:
+                parsed = json.loads(s)
+                if isinstance(parsed, list):
+                    return [str(o).strip() for o in parsed if str(o).strip()]
+            except Exception:
+                # Fall back to CSV parsing
+                pass
+        # CSV fallback
+        return [origin.strip() for origin in s.split(",") if origin.strip()]
 
     @field_validator("allowed_hosts", mode="before")
     @classmethod
@@ -187,6 +209,32 @@ class Settings(BaseSettings):
         """Ensure important directories exist after settings load."""
         self.models_path.mkdir(parents=True, exist_ok=True)
         self.data_path.mkdir(parents=True, exist_ok=True)
+        # Normalize CORS origins from raw env once model is initialized
+        self.cors_allowed_origins = [
+            str(o).rstrip("/") for o in self._parse_cors_raw()
+        ]
+
+    # Backwards-compat properties expected by legacy code paths
+    @property
+    def PROJECT_NAME(self) -> str:
+        return self.project_name
+
+    @property
+    def VERSION(self) -> str:
+        return self.version
+
+    @property
+    def API_V1_STR(self) -> str:
+        return self.api_v1_str
+
+    @property
+    def ENV(self) -> str:
+        return self.app_env
+
+    @property
+    def cors_origins(self) -> List[str]:
+        """Expose unified accessor used across the app."""
+        return self.cors_allowed_origins
 
 
 # Global settings instance
