@@ -587,7 +587,7 @@ npm run preview    ✅ Server running at http://localhost:4173
 # Production .env
 VITE_API_BASE_URL=https://api.sabiscore.com
 VITE_ENABLE_ANALYTICS=true
-VITE_SENTRY_DSN=https://...
+VITE_SENTRY_DSN=https://c6916240a502e784eda3f658973e7506@o4510211912761344.ingest.de.sentry.io/4510350290124880
 ```
 
 ### Build Command

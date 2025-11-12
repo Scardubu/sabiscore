@@ -323,7 +323,7 @@ BETFAIR_SESSION_TOKEN=your-betfair-session-token
 PINNACLE_API_KEY=your-pinnacle-api-key
 
 # Monitoring
-SENTRY_DSN=https://your-sentry-dsn@sentry.io/project-id
+SENTRY_DSN=https://c6916240a502e784eda3f658973e7506@o4510211912761344.ingest.de.sentry.io/4510350290124880
 APP_ENV=development
 APP_VERSION=1.0.0
 
@@ -335,7 +335,7 @@ MLFLOW_TRACKING_URI=http://localhost:5000
 ```bash
 NEXT_PUBLIC_API_URL=http://localhost:8000
 REVALIDATE_SECRET=your-32-char-secret-token-here
-NEXT_PUBLIC_SENTRY_DSN=https://your-sentry-dsn@sentry.io/project-id
+NEXT_PUBLIC_SENTRY_DSN=https://c6916240a502e784eda3f658973e7506@o4510211912761344.ingest.de.sentry.io/4510350290124880
 NEXT_PUBLIC_ENV=development
 ```
 
