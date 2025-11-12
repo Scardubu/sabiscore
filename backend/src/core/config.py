@@ -110,6 +110,9 @@ class Settings(BaseSettings):
     @classmethod
     def _split_cors_origins(cls, value):
         if isinstance(value, str):
+            # Handle empty string case (don't try to parse as JSON)
+            if not value or value.strip() == "":
+                return []
             return [origin.strip() for origin in value.split(",") if origin.strip()]
         return value
 
