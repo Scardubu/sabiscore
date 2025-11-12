@@ -1,7 +1,7 @@
 export const runtime = 'edge';
-export const preferredRegion = 'iad1,lhr1,fra1';
-export const revalidate = 15;
-export const fetchCache = 'force-no-store';
+export const preferredRegion = ['iad1', 'lhr1', 'fra1'];
+export const revalidate = 60;
+export const dynamic = 'force-static';
 
 export default function Home() {
   return (

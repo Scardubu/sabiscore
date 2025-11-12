@@ -22,6 +22,11 @@
   "functions": {
     "apps/web/app/**/*.tsx": {
       "runtime": "edge",
+      "memory": 1024,
+      "maxDuration": 25
+    },
+    "apps/web/app/api/**/*.ts": {
+      "runtime": "edge",
       "memory": 512,
       "maxDuration": 10
     }
