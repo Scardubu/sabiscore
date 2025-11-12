@@ -49,33 +49,77 @@ class PlattCalibrator:
         self.calibration_metrics = {}
 
     async def calibrate_loop(self, interval_seconds: int = 180):
-        """Run continuous calibration loop
+        """Run continuous calibration loop with circuit breaker and async optimization
         
         Args:
             interval_seconds: Calibration interval in seconds (default 180s)
         """
         logger.info(f"Starting Platt calibration loop (interval: {interval_seconds}s)")
         
+        # Circuit breaker state
+        failure_count = 0
+        circuit_open = False
+        circuit_reset_time = 300  # 5 minutes
+        last_failure_time = None
+        
         while True:
             try:
-                await self.perform_calibration()
+                # Check circuit breaker
+                if circuit_open:
+                    elapsed = (datetime.utcnow() - last_failure_time).total_seconds()
+                    if elapsed >= circuit_reset_time:
+                        circuit_open = False
+                        failure_count = 0
+                        logger.info("Circuit breaker CLOSED - resuming calibration")
+                    else:
+                        await asyncio.sleep(interval_seconds)
+                        continue
+                
+                # Perform calibration with timeout
+                await asyncio.wait_for(
+                    self.perform_calibration(),
+                    timeout=30.0  # 30 second timeout
+                )
+                
+                # Reset failure count on success
+                failure_count = max(0, failure_count - 1)
+                
                 await asyncio.sleep(interval_seconds)
+                
+            except asyncio.TimeoutError:
+                logger.error("Calibration timeout - circuit breaker triggered")
+                failure_count += 1
+                
+                if failure_count >= 3:
+                    circuit_open = True
+                    last_failure_time = datetime.utcnow()
+                    logger.warning("Circuit breaker OPENED due to repeated failures")
+                
+                await asyncio.sleep(interval_seconds)
+                
             except asyncio.CancelledError:
                 logger.info("Calibration loop cancelled")
                 break
+                
             except Exception as e:
                 logger.error(f"Calibration loop error: {e}", exc_info=True)
+                failure_count += 1
+                
+                if failure_count >= 3:
+                    circuit_open = True
+                    last_failure_time = datetime.utcnow()
+                
                 await asyncio.sleep(interval_seconds)
 
     async def perform_calibration(self) -> bool:
-        """Perform single calibration update
+        """Perform single calibration update with async optimization
         
         Returns:
             True if calibration successful, False otherwise
         """
         try:
-            # Fetch recent predictions and outcomes from Redis
-            predictions, outcomes = await self._fetch_recent_data()
+            # Fetch recent predictions and outcomes from Redis (async + parallel)
+            predictions, outcomes = await self._fetch_recent_data_async()
             
             if len(predictions) < self.min_samples:
                 logger.warning(
@@ -83,21 +127,41 @@ class PlattCalibrator:
                 )
                 return False
             
-            # Fit Platt scaling
-            self._fit_platt_scaling(predictions, outcomes)
+            # Run CPU-intensive calibration in thread pool (non-blocking)
+            loop = asyncio.get_event_loop()
             
-            # Optionally fit isotonic regression
+            # Fit Platt scaling (async)
+            await loop.run_in_executor(
+                None, 
+                self._fit_platt_scaling, 
+                predictions, 
+                outcomes
+            )
+            
+            # Optionally fit isotonic regression (async, parallel)
             if len(predictions) >= 50:
-                self._fit_isotonic_regression(predictions, outcomes)
+                await loop.run_in_executor(
+                    None,
+                    self._fit_isotonic_regression,
+                    predictions,
+                    outcomes
+                )
             
-            # Store calibration parameters in Redis
+            # Store calibration parameters in Redis (async)
             await self._store_calibration_params()
             
-            # Calculate calibration metrics
-            self._calculate_calibration_metrics(predictions, outcomes)
+            # Calculate calibration metrics (async)
+            await loop.run_in_executor(
+                None,
+                self._calculate_calibration_metrics,
+                predictions,
+                outcomes
+            )
             
             self.last_calibration = datetime.utcnow()
             logger.info(f"Calibration complete: a={self.platt_a:.4f}, b={self.platt_b:.4f}")
+            
+            return True
             
             return True
             
@@ -171,8 +235,8 @@ class PlattCalibrator:
             logger.error(f"Calibration application failed: {e}")
             return raw_probability
 
-    async def _fetch_recent_data(self) -> Tuple[np.ndarray, np.ndarray]:
-        """Fetch recent predictions and outcomes from Redis
+    async def _fetch_recent_data_async(self) -> Tuple[np.ndarray, np.ndarray]:
+        """Fetch recent predictions and outcomes from Redis with async optimization
         
         Returns:
             Tuple of (predictions, outcomes) as numpy arrays
@@ -182,8 +246,63 @@ class PlattCalibrator:
             return self._generate_mock_data()
         
         try:
-            # Fetch live prediction keys from last N hours
+            # Fetch live prediction keys from last N hours (async)
             cutoff_time = datetime.utcnow() - self.calibration_window
+            cutoff_timestamp = cutoff_time.timestamp()
+            
+            # Use Redis SCAN for efficient key iteration (non-blocking)
+            predictions = []
+            outcomes = []
+            
+            # Scan for prediction keys in batches
+            cursor = 0
+            batch_size = 100
+            
+            while True:
+                cursor, keys = await self.redis_client.scan(
+                    cursor=cursor,
+                    match="live_prediction:*",
+                    count=batch_size
+                )
+                
+                if keys:
+                    # Fetch values in parallel using pipeline
+                    pipe = self.redis_client.pipeline()
+                    for key in keys:
+                        pipe.hgetall(key)
+                    
+                    results = await pipe.execute()
+                    
+                    # Process results
+                    for result in results:
+                        if result:
+                            timestamp = float(result.get(b'timestamp', 0))
+                            
+                            if timestamp >= cutoff_timestamp:
+                                pred = float(result.get(b'prediction', 0))
+                                outcome = float(result.get(b'outcome', -1))
+                                
+                                # Only include matches with known outcomes
+                                if outcome >= 0:
+                                    predictions.append(pred)
+                                    outcomes.append(outcome)
+                
+                if cursor == 0:
+                    break
+            
+            if not predictions:
+                logger.warning("No recent prediction data found")
+                return np.array([]), np.array([])
+            
+            return np.array(predictions), np.array(outcomes)
+            
+        except Exception as e:
+            logger.error(f"Failed to fetch recent data: {e}")
+            return np.array([]), np.array([])
+
+    async def _fetch_recent_data(self) -> Tuple[np.ndarray, np.ndarray]:
+        """Legacy method - redirects to async version"""
+        return await self._fetch_recent_data_async()
             cutoff_timestamp = cutoff_time.timestamp()
             
             # Get all prediction keys

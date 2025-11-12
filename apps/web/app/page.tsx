@@ -1,7 +1,8 @@
 export const runtime = 'edge';
 export const preferredRegion = ['iad1', 'lhr1', 'fra1'];
-export const revalidate = 60;
-export const dynamic = 'force-static';
+export const revalidate = 15; // ISR: Revalidate every 15s for real-time data
+export const dynamic = 'force-dynamic'; // Enable PPR with streaming
+export const fetchCache = 'force-no-store'; // Always fresh
 
 export default function Home() {
   return (
@@ -57,7 +58,7 @@ export default function Home() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             <LeagueCard 
               name="Premier League" 
-              flag="🏴������" 
+              flag="🏴󠁧󠁢󠁥󠁮󠁧󠁿" 
               accuracy="76.2%" 
               clv="+₦64"
             />
