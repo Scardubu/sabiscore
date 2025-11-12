@@ -402,3 +402,11 @@ async def system_metrics(request: Request):
             "error": "Metrics unavailable",
             "timestamp": datetime.utcnow().isoformat()
         }
+
+
+# Include sub-routers
+from .matches import router as matches_router
+from .predictions import router as predictions_router
+
+router.include_router(matches_router)
+router.include_router(predictions_router)

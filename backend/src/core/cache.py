@@ -292,6 +292,9 @@ class RedisCache:
 # Global cache instance
 cache = RedisCache()
 
+# Alias for backwards compatibility
+cache_manager = cache
+
 
 def cache_decorator(ttl: Optional[int] = None):
     """Decorator to cache function results."""

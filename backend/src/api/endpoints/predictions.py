@@ -16,7 +16,7 @@ from ...schemas.prediction import (
     PredictionCreate
 )
 from ...schemas.value_bet import ValueBetResponse
-from ...models.prediction import Prediction as PredictionModel
+from ...core.database import Prediction as PredictionModel
 from ...core.cache import cache_manager
 from ...utils.mock_data import mock_generator
 

@@ -10,8 +10,7 @@ from datetime import datetime, timedelta
 import logging
 
 from ...db.session import get_async_session
-from ...models.match import Match
-from ...models.team import Team
+from ...core.database import Match, Team
 from ...schemas.match import (
     MatchResponse,
     MatchListResponse,
