@@ -1,7 +1,10 @@
 {
   "version": 2,
-  "buildCommand": "cd apps/web && npm install && npm run build",
-  "outputDirectory": "apps/web/.next",
+  "installCommand": "cd apps/web && npm ci",
+  "buildCommand": "cd apps/web && npm run build",
+  "builds": [
+    { "src": "apps/web/package.json", "use": "@vercel/next" }
+  ],
   "build": {
     "env": {
       "NEXT_TELEMETRY_DISABLED": "1"
@@ -17,18 +20,7 @@
     "NEXT_PUBLIC_MIN_EDGE_NGN": "66"
   },
   "regions": ["iad1", "lhr1", "fra1"],
-  "functions": {
-    "apps/web/app/**/*.tsx": {
-      "runtime": "edge",
-      "memory": 1024,
-      "maxDuration": 25
-    },
-    "apps/web/app/api/**/*.ts": {
-      "runtime": "edge",
-      "memory": 512,
-      "maxDuration": 10
-    }
-  },
+  
   "headers": [
     {
       "source": "/(.*)",
