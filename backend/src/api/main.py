@@ -361,5 +361,16 @@ async def root():
     return {
         "message": "Welcome to SabiScore API",
         "docs": "/docs",
-        "health": "/api/v1/health"
+        "health": "/health"
+    }
+
+
+@app.get("/health")
+async def health_check():
+    """Root-level health check for Render monitoring"""
+    return {
+        "status": "healthy",
+        "service": "sabiscore-api",
+        "version": os.getenv("APP_VERSION", "1.0.0"),
+        "environment": settings.app_env
     }

@@ -1,3 +1,0 @@
-REMOVED: Replit agent main state removed from repository HEAD to avoid LFS smudge failures during remote clones.
-
-Keep runtime state outside of git and store it in external storage if needed.

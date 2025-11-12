@@ -1,3 +1,0 @@
-REMOVED: Replit repl_state file removed from repository HEAD to avoid large LFS checkouts during remote clones and builds.
-
-If you need to restore any Replit repl state, keep it in external storage and do not commit it to the repo.
