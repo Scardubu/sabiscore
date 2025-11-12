@@ -12,7 +12,7 @@ import logging
 from ...db.session import get_async_session
 from ...core.database import Match, Team
 from ...schemas.match import (
-    MatchResponse,
+    MatchSummary,
     MatchListResponse,
     MatchDetailResponse
 )
@@ -58,7 +58,7 @@ async def get_upcoming_matches(
             
             # Transform to response format
             match_responses = [
-                MatchResponse(
+                MatchSummary(
                     id=m['id'],
                     home_team=m['home_team'],
                     away_team=m['away_team'],
@@ -110,7 +110,7 @@ async def get_upcoming_matches(
         
         # Transform to response format
         match_responses = [
-            MatchResponse(
+            MatchSummary(
                 id=str(match.id),
                 home_team=match.home_team_name,
                 away_team=match.away_team_name,
@@ -224,7 +224,7 @@ async def get_matches_by_league(
         
         # Transform
         match_responses = [
-            MatchResponse(
+            MatchSummary(
                 id=str(match.id),
                 home_team=match.home_team_name,
                 away_team=match.away_team_name,

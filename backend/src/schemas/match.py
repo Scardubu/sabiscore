@@ -91,3 +91,29 @@ class MatchDetail(MatchResponse):
 
 
 MatchInDB = MatchInDBBase
+
+# Lightweight API response models used by list/detail endpoints
+
+class MatchListResponse(BaseModel):
+    """Container for a list of matches with simple summary items."""
+
+    matches: List[MatchSummary]
+    total: int
+    league_filter: Optional[str] = None
+    date_range_days: Optional[int] = None
+
+
+class MatchDetailResponse(BaseModel):
+    """Lightweight match detail payload used by public endpoints."""
+
+    id: str
+    home_team: str
+    away_team: str
+    league: str
+    match_date: datetime
+    venue: Optional[str] = None
+    status: str = Field(default="scheduled")
+    odds: Optional[Dict[str, Optional[float]]] = None
+    referee: Optional[str] = None
+    season: Optional[str] = None
+    round_number: Optional[int] = None
