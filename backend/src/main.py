@@ -188,6 +188,7 @@ logger.info(f"API routes registered with prefix: {settings.API_V1_STR}")
 async def root():
     """Root endpoint with basic system information."""
     return {
+        "message": "SabiScore API is running",
         "name": settings.PROJECT_NAME,
         "version": settings.VERSION,
         "environment": settings.ENV,

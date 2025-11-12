@@ -5,16 +5,18 @@ from .token import Token, TokenPayload
 from .team import TeamResponse
 from .league import LeagueResponse
 from .match import (
-    Match, 
-    MatchCreate, 
-    MatchUpdate, 
+    Match,
+    MatchCreate,
+    MatchUpdate,
     MatchInDB,
     MatchInDBBase,
     MatchResponse,
-    MatchDetail
+    MatchDetail,
+    MatchSummary,
 )
-from .prediction import Prediction, PredictionCreate, PredictionResponse
+from .prediction import PredictionCreate, PredictionResponse
 from .odds import Odds, OddsCreate, OddsResponse
+from .value_bet import ValueBetResponse
 
 # Re-export all schemas
 __all__ = [
@@ -43,11 +45,12 @@ __all__ = [
     "MatchInDBBase",
     "MatchResponse",
     "MatchDetail",
+    "MatchSummary",
     
     # Prediction schemas
-    "Prediction",
     "PredictionCreate",
     "PredictionResponse",
+    "ValueBetResponse",
     
     # Odds schemas
     "Odds",

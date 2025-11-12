@@ -60,6 +60,7 @@ coverage/
 .cache/
 # Local editor / CI state
 .local/
+.serena/
 
 # Large artifacts moved out of repo (models / processed data)
 # ML Models (store in S3/GCS - too large for git)

@@ -5,8 +5,10 @@ Naira-based currency, comprehensive value bet information
 
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Tuple
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from enum import Enum
+
+from .value_bet import ValueBetResponse
 
 
 class PredictionOutcome(str, Enum):
@@ -43,51 +45,13 @@ class MatchPredictionRequest(BaseModel):
         le=100_000_000
     )
     
-    @validator('odds')
-    def validate_odds(cls, v):
+    @field_validator('odds', mode='after')
+    def validate_odds(cls, v: Dict[str, float]) -> Dict[str, float]:
         """Ensure odds are valid decimal odds"""
         for market, odd in v.items():
             if odd < 1.01 or odd > 1000:
                 raise ValueError(f"Invalid odd for {market}: {odd}")
         return v
-
-
-class ValueBetResponse(BaseModel):
-    """Value bet with Smart Kelly stake calculation"""
-    match_id: str
-    market: str = Field(..., description="e.g., 'home_win', 'over_2.5'")
-    odds: float = Field(..., description="Decimal odds", ge=1.01)
-    fair_probability: float = Field(..., ge=0, le=1)
-    implied_probability: float = Field(..., ge=0, le=1)
-    edge_percent: float = Field(..., description="Edge as percentage (e.g., 9.3)")
-    edge_ngn: float = Field(..., description="Edge in Naira per ₦10k stake")
-    kelly_stake_ngn: float = Field(..., description="Recommended stake in Naira (⅛ Kelly)")
-    kelly_fraction: float = Field(default=0.125, description="Kelly fraction used")
-    clv_ngn: float = Field(..., description="Closing Line Value in Naira")
-    confidence: float = Field(..., ge=0, le=1, description="Model confidence")
-    expected_roi: float = Field(..., description="Expected ROI on this bet")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    pinnacle_close: Optional[float] = Field(None, description="Pinnacle closing odds")
-    
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "match_id": "epl_2025_234",
-                "market": "home_win",
-                "odds": 1.96,
-                "fair_probability": 0.563,
-                "implied_probability": 0.510,
-                "edge_percent": 9.3,
-                "edge_ngn": 186,
-                "kelly_stake_ngn": 53720,
-                "kelly_fraction": 0.125,
-                "clv_ngn": 81,
-                "confidence": 0.847,
-                "expected_roi": 0.089,
-                "created_at": "2025-11-11T14:32:00Z",
-                "pinnacle_close": 1.91
-            }
-        }
 
 
 class PredictionResponse(BaseModel):
@@ -120,8 +84,8 @@ class PredictionResponse(BaseModel):
     )
     created_at: datetime = Field(default_factory=datetime.utcnow)
     
-    @validator('predictions')
-    def validate_probabilities_sum(cls, v):
+    @field_validator('predictions', mode='after')
+    def validate_probabilities_sum(cls, v: Dict[str, float]) -> Dict[str, float]:
         """Ensure probabilities sum to 1.0 (within tolerance)"""
         total = sum(v.values())
         if not 0.98 <= total <= 1.02:
@@ -163,6 +127,8 @@ class PredictionResponse(BaseModel):
 
 class PredictionCreate(BaseModel):
     """Schema for storing predictions in database"""
+    model_config = ConfigDict(protected_namespaces=())
+
     match_id: str
     home_win_prob: float = Field(..., ge=0, le=1)
     draw_prob: float = Field(..., ge=0, le=1)
@@ -219,8 +185,8 @@ class EdgeDetectionResponse(BaseModel):
         description="LOW, MEDIUM, HIGH based on variance"
     )
     
-    @validator('risk_assessment')
-    def validate_risk(cls, v):
+    @field_validator('risk_assessment', mode='after')
+    def validate_risk(cls, v: str) -> str:
         if v not in ['LOW', 'MEDIUM', 'HIGH']:
             raise ValueError("Risk must be LOW, MEDIUM, or HIGH")
         return v
