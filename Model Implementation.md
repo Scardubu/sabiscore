@@ -1872,7 +1872,7 @@ Monitor these KPIs:
 | Bundesliga Accuracy | 72.4% | 🎯 TBD |
 | Serie A Accuracy | 75.1% | 🎯 TBD |
 | Ligue 1 Accuracy | 71.9% | 🎯 TBD |
-| Avg CLV | +3.8¢ | 🎯 TBD |
+| Avg CLV | +₦60 | 🎯 TBD |
 | Avg Brier | <0.190 | ✅ 0.178 |
 | TTFB @ 10k CCU | <150ms | 🎯 TBD |
 | Value Bet ROI | +18% | 🎯 TBD |
@@ -3949,7 +3949,7 @@ After complete implementation, verify these benchmarks:
 | --- | --- | --- |
 | EPL Accuracy | 76.2% | `python scripts/validate_models.py` |
 | La Liga Accuracy | 74.8% | `python scripts/validate_models.py` |
-| Avg CLV | +3.8¢ | Check predictions output |
+| Avg CLV | +₦60 | Check predictions output |
 | Avg Brier Score | <0.190 | `python scripts/validate_models.py` |
 | API Latency (p95) | <150ms | `ab -n 1000 -c 10 ...` |
 | Cache Hit Rate | >80% | `redis-cli INFO stats` |
@@ -4523,7 +4523,7 @@ I've created a **production-ready, comprehensive ML system** for Sabiscore with 
 | Metric | Target | Status |
 | --- | --- | --- |
 | **EPL Accuracy** | 76.2% | ✅ Ready |
-| **Avg CLV** | +3.8¢ | ✅ Ready |
+| **Avg CLV** | +₦60 | ✅ Ready |
 | **Brier Score** | <0.190 | ✅ Ready |
 | **API Latency (p95)** | <150ms | ✅ Ready |
 | **Training Time** | 60-90 min | ✅ Optimized |
@@ -4688,7 +4688,7 @@ backend/
 After implementation, you should achieve:
 
 - **76.2% accuracy** on Premier League predictions
-- **+3.8¢ average CLV** vs Pinnacle
+- **+₦60 average CLV** vs Pinnacle (₦1,580 = $1 USD, Nov 2025)
 - **<150ms API response time** at 10k CCU
 - **+18% ROI** on value bets
 - **0.178 Brier score** (EPL)

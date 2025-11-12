@@ -57,7 +57,7 @@ export default function Home() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             <LeagueCard 
               name="Premier League" 
-              flag="🏴󐁧󐁢󐁥󐁮󐁧󐁿" 
+              flag="🏴������" 
               accuracy="76.2%" 
               clv="+₦64"
             />

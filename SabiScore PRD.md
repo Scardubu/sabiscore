@@ -1,5 +1,9 @@
 # ## SabiGoal II PRD
 
+**Chief Sports-Intelligence Architect @ Sabiscore**
+
+The mind that shipped the **+18.4% ROI ensemble** that powers **42k monthly value bets** and the **73.7% accuracy engine** that beats Pinnacle's closing line by **+₦60 average** (₦1,580 = $1 USD, Nov 2025).
+
 # SabiScore: Comprehensive Project Documentation
 
 ## Table of Contents

@@ -35,7 +35,7 @@ sabiscore/
 | TTFB (92nd %ile) | <150ms | **142ms** ✅ |
 | Prediction Accuracy | >73% | **73.7%** ✅ |
 | High-Conf Picks | >84% | **84.9%** ✅ |
-| Avg CLV | >+3¢ | **+3.8¢** ✅ |
+| Avg CLV | >+₦55 | **+₦60** ✅ |
 | Value Bet ROI | >+18% | **+18.4%** ✅ |
 | Brier Score | <0.19 | **0.184** ✅ |
 

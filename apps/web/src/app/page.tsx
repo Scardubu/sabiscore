@@ -18,7 +18,7 @@ export default function HomePage() {
           <section className="text-center space-y-6 animate-fade-in">
             <div className="inline-block px-4 py-2 bg-indigo-500/10 border border-indigo-500/20 rounded-full">
               <span className="text-sm font-semibold text-indigo-400">
-                🚀 73.2% Accuracy • +18% ROI • Sub-150ms TTFB
+                🚀 73.7% Accuracy • +18.4% ROI • +₦60 Avg CLV
               </span>
             </div>
             
@@ -54,7 +54,7 @@ export default function HomePage() {
             {[
               { label: "Prediction Accuracy", value: "73.7%", change: "+0.5%" },
               { label: "High-Conf Picks", value: "84.9%", change: "+0.8%" },
-              { label: "Avg CLV", value: "+3.8¢", change: "↑" },
+              { label: "Avg CLV", value: "+₦60", change: "↑" },
               { label: "Value Bet ROI", value: "+18.4%", change: "↑" },
             ].map((stat, idx) => (
               <div

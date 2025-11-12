@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     template: "%s | Sabiscore",
   },
   description:
-    "Advanced football betting insights & predictions powered by machine learning. 73.2% accuracy, +18% ROI value bets.",
+    "Advanced football betting insights & predictions powered by machine learning. 73.7% accuracy, +18.4% ROI, +₦60 avg CLV.",
   keywords: [
     "football predictions",
     "betting analytics",
@@ -32,13 +32,13 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: "https://sabiscore.com",
     title: "Sabiscore - AI-Powered Football Analytics",
-    description: "73.2% prediction accuracy, +18% ROI value bets",
+    description: "73.7% prediction accuracy, +18.4% ROI, +₦60 avg CLV vs Pinnacle",
     siteName: "Sabiscore",
   },
   twitter: {
     card: "summary_large_image",
     title: "Sabiscore - AI-Powered Football Analytics",
-    description: "73.2% prediction accuracy, +18% ROI value bets",
+    description: "73.7% prediction accuracy, +18.4% ROI, +₦60 avg CLV vs Pinnacle",
   },
   robots: {
     index: true,
