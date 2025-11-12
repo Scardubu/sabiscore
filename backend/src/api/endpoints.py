@@ -48,16 +48,9 @@ def _load_model_from_app(request: Request) -> Optional["SabiScoreEnsemble"]:
     if model is not None and getattr(model, "is_trained", False):
         return model
 
-    try:
-        # Lazy load model if not already loaded
-        from .main import load_model_if_needed  # type: ignore
-
-        loaded_model = load_model_if_needed()
-        if loaded_model is not None and getattr(loaded_model, "is_trained", False):
-            return loaded_model
-    except Exception as e:
-        logger.debug(f"Unable to load model: {e}")
-
+    # Do not import api.main here (it defines a FastAPI app and causes side-effects
+    # when imported). Rely on request.app.state which is populated by the running
+    # application process to access loaded model instances.
     return None
 
 
