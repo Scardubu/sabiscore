@@ -13,7 +13,7 @@ from datetime import datetime
 from ...core.database import get_db
 from ...models.orchestrator import orchestrator
 
-router = APIRouter(prefix="/api/v1/predictions", tags=["predictions"])
+router = APIRouter(prefix="/predictions", tags=["predictions"])
 
 
 class PredictionRequest(BaseModel):
