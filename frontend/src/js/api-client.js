@@ -5,8 +5,26 @@
 
 export class APIClient {
     constructor(baseURL = null) {
-        // Use localhost:8000 for development, fallback to relative path for production
-        this.baseURL = baseURL || 'http://localhost:8000/api';
+        // Resolve base URL from Vite env (VITE_API_BASE) or constructor param.
+        // If none provided, default to empty string so relative paths like
+        // '/api/v1/...' work both in dev and deployed environments.
+        let envBase = null;
+        try {
+            envBase = (typeof import !== 'undefined' && import.meta && import.meta.env && import.meta.env.VITE_API_BASE) ? import.meta.env.VITE_API_BASE : null;
+        } catch (e) {
+            // import.meta may be unavailable in some test runners — ignore
+            envBase = null;
+        }
+
+        this.baseURL = baseURL || envBase || '';
+        // Optional API prefix (e.g. '/api/v1') via VITE_API_PREFIX
+        let envPrefix = null;
+        try {
+            envPrefix = (typeof import !== 'undefined' && import.meta && import.meta.env && import.meta.env.VITE_API_PREFIX) ? import.meta.env.VITE_API_PREFIX : null;
+        } catch (e) {
+            envPrefix = null;
+        }
+        this.apiPrefix = envPrefix || '/api/v1';
         this.defaultHeaders = {
             'Content-Type': 'application/json'
         };
@@ -16,7 +34,10 @@ export class APIClient {
      * Generic fetch wrapper with error handling
      */
     async request(endpoint, options = {}) {
-        const url = `${this.baseURL}${endpoint}`;
+        // Build URL robustly: ensure single slash separators
+        const prefix = this.baseURL ? this.baseURL.replace(/\/+$/, '') : '';
+        const ep = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+        const url = `${prefix}${ep}`;
         const config = {
             headers: { ...this.defaultHeaders },
             ...options
@@ -86,7 +107,8 @@ export class APIClient {
      * Health check
      */
     async healthCheck() {
-        return this.get('/v1/health');
+        // Backend exposes a root /health endpoint
+        return this.get('/health');
     }
 
     /**
@@ -95,28 +117,28 @@ export class APIClient {
     async searchMatches(query, league = null) {
         const params = { q: query };
         if (league) params.league = league;
-        return this.get('/v1/matches/search', params);
+        return this.get(`${this.apiPrefix}/matches/search`, params);
     }
 
     /**
      * Generate match insights
      */
     async generateInsights(matchup, league = null) {
-        return this.post('/v1/insights', { matchup, league });
+        return this.post(`${this.apiPrefix}/insights`, { matchup, league });
     }
 
     /**
      * Get model status
      */
     async getModelStatus() {
-        return this.get('/v1/models/status');
+        return this.get(`${this.apiPrefix}/models/status`);
     }
 
     /**
      * Get league information
      */
     async getLeagues() {
-        return this.get('/leagues');
+        return this.get(`${this.apiPrefix}/leagues`);
     }
 
     /**
@@ -125,28 +147,28 @@ export class APIClient {
     async getUpcomingMatches(leagueId = null) {
         const params = {};
         if (leagueId) params.leagueId = leagueId;
-        return this.get('/matches/upcoming', params);
+        return this.get(`${this.apiPrefix}/matches/upcoming`, params);
     }
 
     /**
      * Get detailed match analysis
      */
     async getMatchAnalysis(matchId) {
-        return this.get(`/matches/${matchId}/analysis`);
+        return this.get(`${this.apiPrefix}/matches/${matchId}/analysis`);
     }
 
     /**
      * Get analytics dashboard data
      */
     async getAnalytics() {
-        return this.get('/analytics');
+        return this.get(`${this.apiPrefix}/analytics`);
     }
 
     /**
      * Get team statistics
      */
     async getTeamStats(teamId) {
-        return this.get(`/teams/${teamId}/stats`);
+        return this.get(`${this.apiPrefix}/teams/${teamId}/stats`);
     }
 }
 

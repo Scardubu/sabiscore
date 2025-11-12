@@ -146,7 +146,7 @@ const TeamPicker: React.FC<TeamPickerProps> = ({
         e.preventDefault();
         if (focusedIndex >= 0 && displayResults[focusedIndex]) {
           handleSelect(displayResults[focusedIndex]);
-        } else if (displayResults.length > 0) {
+        } else if (displayResults.length > 0 && displayResults[0]) {
           // If nothing is focused, choose the top result for faster UX
           handleSelect(displayResults[0]);
         }

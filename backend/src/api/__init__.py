@@ -1,11 +1,20 @@
 # API module initialization
 from fastapi import APIRouter
 
-from .endpoints import router as main_router
+# Import the aggregated router from the endpoints package (endpoints/__init__.py)
+from .endpoints import router as modular_router
+
+# Import legacy standalone routes from legacy_endpoints.py file
+from .legacy_endpoints import router as legacy_router
 
 
 api_router = APIRouter()
-api_router.include_router(main_router)
+
+# Include the new modular routes (matches, predictions, odds)
+api_router.include_router(modular_router)
+
+# Include legacy routes (/health, /insights, /models/status, /metrics/cache, /matches/search)
+api_router.include_router(legacy_router)
 
 
 __all__ = ["api_router"]

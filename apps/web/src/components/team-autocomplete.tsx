@@ -132,14 +132,16 @@ export function TeamAutocomplete({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           disabled={disabled}
+          role="combobox"
           aria-autocomplete="both"
           aria-expanded={isOpen}
           aria-haspopup="listbox"
+          aria-controls="team-listbox"
           className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
         />
-
         {isOpen && filteredOptions.length > 0 && (
           <ul
+            id="team-listbox"
             role="listbox"
             className="absolute z-20 mt-1 w-full max-h-60 overflow-auto rounded-lg border border-slate-700 bg-slate-900/95 shadow-lg"
           >
@@ -147,7 +149,7 @@ export function TeamAutocomplete({
               <li
                 key={team}
                 role="option"
-                aria-selected={highlightedIndex === index}
+                aria-selected={highlightedIndex === index ? "true" : "false"}
                 className={`cursor-pointer px-4 py-2 text-sm transition-colors ${
                   highlightedIndex === index
                     ? "bg-indigo-600 text-white"

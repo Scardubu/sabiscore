@@ -10,7 +10,18 @@ import logging
 
 from .api import api_router
 from .core.config import settings
-from .core.logging import configure_logging
+try:
+    from .core.logging import configure_logging
+except Exception:  # Fallback if import fails in certain deploy environments
+    import logging as _py_logging
+
+    def configure_logging(level: str | None = None, format_string: str | None = None) -> None:  # type: ignore
+        lvl = (level or "INFO").upper()
+        fmt = (
+            format_string
+            or "%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s"
+        )
+        _py_logging.basicConfig(level=getattr(_py_logging, lvl, _py_logging.INFO), format=fmt)
 from .core.middleware import (
     LoggingMiddleware,
     RateLimitMiddleware,
