@@ -1,5 +1,5 @@
 # *.db filter=lfs diff=lfs merge=lfs -text  # DISABLED: Causes Render checkout failures
-*.rdb filter=lfs diff=lfs merge=lfs -text
+# *.rdb filter=lfs diff=lfs merge=lfs -text  # DISABLED: Causes Render checkout failures (Redis dump)
 ## Avoid LFS for common web assets to prevent platform checkout issues
 #*.png filter=lfs diff=lfs merge=lfs -text
 #*.jpg filter=lfs diff=lfs merge=lfs -text

@@ -1,10 +1,7 @@
 {
   "version": 2,
-  "framework": "nextjs",
-  "buildCommand": "npm install && cd apps/web && npm install && npm run build",
-  "installCommand": "npm install --include=workspace-root",
+  "buildCommand": "cd apps/web && npm install && npm run build",
   "outputDirectory": "apps/web/.next",
-  "rootDirectory": "apps/web",
   "build": {
     "env": {
       "NEXT_TELEMETRY_DISABLED": "1"
