@@ -50,6 +50,53 @@ class Match(MatchInDBBase):
     pass
 
 
+class MatchResponse(BaseModel):
+    """Basic match information for list views"""
+    id: str
+    home_team: str
+    away_team: str
+    league: str
+    match_date: str
+    venue: Optional[str] = None
+    status: str = Field(description="Match status: scheduled, live, finished")
+    has_odds: bool = Field(default=False, description="Whether odds data is available")
+    
+    class Config:
+        from_attributes = True
+
+
+class MatchDetailResponse(BaseModel):
+    """Detailed match information including odds and metadata"""
+    id: str
+    home_team: str
+    away_team: str
+    league: str
+    match_date: str
+    venue: Optional[str] = None
+    status: str
+    odds: Optional[Dict[str, float]] = Field(
+        default=None,
+        description="Market odds: {home_win, draw, away_win}"
+    )
+    referee: Optional[str] = None
+    season: Optional[str] = None
+    round_number: Optional[int] = None
+    
+    class Config:
+        from_attributes = True
+
+
+class MatchListResponse(BaseModel):
+    """Paginated list of matches with metadata"""
+    matches: List[MatchResponse]
+    total: int
+    league_filter: Optional[str] = None
+    date_range_days: Optional[int] = None
+    
+    class Config:
+        from_attributes = True
+
+
 class MatchResponse(MatchInDBBase):
     """Complete match response with nested team and league data"""
     home_team: TeamResponse
