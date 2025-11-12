@@ -118,7 +118,11 @@ app = FastAPI(
 
 
 # Configure CORS middleware (must be first)
-cors_origins = getattr(settings, 'BACKEND_CORS_ORIGINS', None) or getattr(settings, 'CORS_ORIGINS', [])
+# Use the unified accessor from settings which normalises CSV/JSON env values
+try:
+    cors_origins = settings.cors_origins
+except Exception:
+    cors_origins = getattr(settings, 'cors_allowed_origins', [])
 
 if cors_origins:
     app.add_middleware(
@@ -131,7 +135,7 @@ if cors_origins:
     )
     logger.info(f"CORS enabled for origins: {cors_origins}")
 else:
-    logger.warning("No CORS origins configured")
+    logger.warning("No CORS origins configured; requests from browsers may be blocked")
 
 
 # Add security headers middleware
