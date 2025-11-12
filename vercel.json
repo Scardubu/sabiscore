@@ -18,13 +18,13 @@
   },
   "env": {
     "NEXT_PUBLIC_API_URL": {
-      "production": "https://api.sabiscore.io",
-      "preview": "https://api-preview.sabiscore.io",
+      "production": "https://sabiscore-api.onrender.com",
+      "preview": "https://sabiscore-api.onrender.com",
       "development": "http://localhost:8000"
     },
     "NEXT_PUBLIC_WS_URL": {
-      "production": "wss://ws.sabiscore.io",
-      "preview": "wss://ws-preview.sabiscore.io",
+      "production": "wss://sabiscore-api.onrender.com",
+      "preview": "wss://sabiscore-api.onrender.com",
       "development": "ws://localhost:8000"
     }
   },
@@ -105,11 +105,7 @@
   "rewrites": [
     {
       "source": "/api/v1/:path*",
-      "destination": "https://api.sabiscore.io/api/v1/:path*"
-    },
-    {
-      "source": "/ws/:path*",
-      "destination": "wss://ws.sabiscore.io/ws/:path*"
+      "destination": "https://sabiscore-api.onrender.com/api/v1/:path*"
     }
   ],
   "redirects": [
