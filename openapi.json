@@ -1,0 +1,829 @@
+﻿{
+    "openapi":  "3.1.0",
+    "info":  {
+                 "title":  "Sabiscore",
+                 "description":  "Football Prediction API with advanced analytics and odds comparison",
+                 "contact":  {
+                                 "name":  "API Support",
+                                 "email":  "support@example.com"
+                             },
+                 "version":  "3.0.0"
+             },
+    "paths":  {
+                  "/api/v1/api/v1/health":  {
+                                                "get":  {
+                                                            "summary":  "Health Check",
+                                                            "description":  "Enhanced health check with database and cache status",
+                                                            "operationId":  "health_check",
+                                                            "responses":  {
+                                                                              "200":  {
+                                                                                          "description":  "Successful Response",
+                                                                                          "content":  "@{application/json=}"
+                                                                                      }
+                                                                          }
+                                                        }
+                                            },
+                  "/api/v1/api/v1/matches/search":  {
+                                                        "get":  {
+                                                                    "summary":  "Search Matches",
+                                                                    "description":  "Search for matches with filtering, pagination, and caching.",
+                                                                    "operationId":  "search_matches",
+                                                                    "parameters":  [
+                                                                                       {
+                                                                                           "name":  "q",
+                                                                                           "in":  "query",
+                                                                                           "required":  true,
+                                                                                           "schema":  "@{type=string; minLength=2; description=Search query for teams or matches; title=Q}",
+                                                                                           "description":  "Search query for teams or matches"
+                                                                                       },
+                                                                                       {
+                                                                                           "name":  "league",
+                                                                                           "in":  "query",
+                                                                                           "required":  false,
+                                                                                           "schema":  "@{anyOf=System.Object[]; description=Filter by league; title=League}",
+                                                                                           "description":  "Filter by league"
+                                                                                       },
+                                                                                       {
+                                                                                           "name":  "limit",
+                                                                                           "in":  "query",
+                                                                                           "required":  false,
+                                                                                           "schema":  "@{type=integer; maximum=50; minimum=1; description=Maximum results to return; default=10; title=Limit}",
+                                                                                           "description":  "Maximum results to return"
+                                                                                       }
+                                                                                   ],
+                                                                    "responses":  {
+                                                                                      "200":  {
+                                                                                                  "description":  "Successful Response",
+                                                                                                  "content":  "@{application/json=}"
+                                                                                              },
+                                                                                      "422":  {
+                                                                                                  "description":  "Validation Error",
+                                                                                                  "content":  "@{application/json=}"
+                                                                                              }
+                                                                                  }
+                                                                }
+                                                    },
+                  "/api/v1/api/v1/insights":  {
+                                                  "post":  {
+                                                               "summary":  "Generate Insights",
+                                                               "description":  "Generate comprehensive betting insights for a match.\n\nThis endpoint analyzes a specific matchup and provides:\n- Win/draw/loss probabilities with confidence scores\n- Expected goals (xG) analysis\n- Value betting opportunities with Kelly criterion stakes\n- Monte Carlo simulation results with scenario analysis\n- Risk assessment and recommendations\n- AI-generated narrative explanation\n\nArgs:\n    body: Match details including matchup (e.g., \"Arsenal vs Chelsea\") and league (e.g., \"EPL\")\n\nReturns:\n    Comprehensive insights including predictions, betting analysis, and risk assessment\n\nRaises:\n    400: Invalid input parameters\n    503: Prediction model unavailable\n    500: Internal server error during insights generation",
+                                                               "operationId":  "generate_insights",
+                                                               "requestBody":  {
+                                                                                   "content":  {
+                                                                                                   "application/json":  "@{schema=}"
+                                                                                               },
+                                                                                   "required":  true
+                                                                               },
+                                                               "responses":  {
+                                                                                 "200":  {
+                                                                                             "description":  "Successful Response",
+                                                                                             "content":  "@{application/json=}"
+                                                                                         },
+                                                                                 "422":  {
+                                                                                             "description":  "Validation Error",
+                                                                                             "content":  "@{application/json=}"
+                                                                                         }
+                                                                             }
+                                                           }
+                                              },
+                  "/api/v1/api/v1/models/status":  {
+                                                       "get":  {
+                                                                   "summary":  "Model Status",
+                                                                   "description":  "Return model training metadata sourced from the models directory.",
+                                                                   "operationId":  "model_status",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "name":  "league",
+                                                                                          "in":  "query",
+                                                                                          "required":  false,
+                                                                                          "schema":  "@{anyOf=System.Object[]; title=League}"
+                                                                                      }
+                                                                                  ],
+                                                                   "responses":  {
+                                                                                     "200":  {
+                                                                                                 "description":  "Successful Response",
+                                                                                                 "content":  "@{application/json=}"
+                                                                                             },
+                                                                                     "422":  {
+                                                                                                 "description":  "Validation Error",
+                                                                                                 "content":  "@{application/json=}"
+                                                                                             }
+                                                                                 }
+                                                               }
+                                                   },
+                  "/api/v1/api/v1/metrics/cache":  {
+                                                       "get":  {
+                                                                   "summary":  "Cache Metrics",
+                                                                   "description":  "Expose cache metrics and current circuit breaker state.",
+                                                                   "operationId":  "cache_metrics",
+                                                                   "responses":  {
+                                                                                     "200":  {
+                                                                                                 "description":  "Successful Response",
+                                                                                                 "content":  "@{application/json=}"
+                                                                                             }
+                                                                                 }
+                                                               }
+                                                   },
+                  "/":  {
+                            "get":  {
+                                        "tags":  [
+                                                     "Root"
+                                                 ],
+                                        "summary":  "API Root",
+                                        "description":  "Returns basic information about the API",
+                                        "operationId":  "Root-root",
+                                        "responses":  {
+                                                          "200":  {
+                                                                      "description":  "Basic API information",
+                                                                      "content":  "@{application/json=}"
+                                                                  }
+                                                      }
+                                    }
+                        },
+                  "/health":  {
+                                  "get":  {
+                                              "tags":  [
+                                                           "Health"
+                                                       ],
+                                              "summary":  "Health Check",
+                                              "description":  "Health check endpoint for load balancers and monitoring",
+                                              "operationId":  "Health-health_check",
+                                              "responses":  {
+                                                                "200":  {
+                                                                            "description":  "Health status",
+                                                                            "content":  "@{application/json=}"
+                                                                        }
+                                                            }
+                                          }
+                              },
+                  "/ready":  {
+                                 "get":  {
+                                             "tags":  [
+                                                          "Health"
+                                                      ],
+                                             "summary":  "Readiness Check",
+                                             "description":  "Readiness check for Kubernetes and orchestration systems",
+                                             "operationId":  "Health-readiness_check",
+                                             "responses":  {
+                                                               "200":  {
+                                                                           "description":  "Readiness status",
+                                                                           "content":  "@{application/json=}"
+                                                                       }
+                                                           }
+                                         }
+                             }
+              },
+    "components":  {
+                       "schemas":  {
+                                       "CacheMetricsResponse":  {
+                                                                    "properties":  {
+                                                                                       "hits":  {
+                                                                                                    "type":  "integer",
+                                                                                                    "minimum":  0.0,
+                                                                                                    "title":  "Hits"
+                                                                                                },
+                                                                                       "misses":  {
+                                                                                                      "type":  "integer",
+                                                                                                      "minimum":  0.0,
+                                                                                                      "title":  "Misses"
+                                                                                                  },
+                                                                                       "errors":  {
+                                                                                                      "type":  "integer",
+                                                                                                      "minimum":  0.0,
+                                                                                                      "title":  "Errors"
+                                                                                                  },
+                                                                                       "circuit_open":  {
+                                                                                                            "type":  "boolean",
+                                                                                                            "title":  "Circuit Open"
+                                                                                                        },
+                                                                                       "memory_entries":  {
+                                                                                                              "type":  "integer",
+                                                                                                              "minimum":  0.0,
+                                                                                                              "title":  "Memory Entries"
+                                                                                                          }
+                                                                                   },
+                                                                    "type":  "object",
+                                                                    "required":  [
+                                                                                     "hits",
+                                                                                     "misses",
+                                                                                     "errors",
+                                                                                     "circuit_open",
+                                                                                     "memory_entries"
+                                                                                 ],
+                                                                    "title":  "CacheMetricsResponse"
+                                                                },
+                                       "HTTPValidationError":  {
+                                                                   "properties":  {
+                                                                                      "detail":  {
+                                                                                                     "items":  "@{$ref=#/components/schemas/ValidationError}",
+                                                                                                     "type":  "array",
+                                                                                                     "title":  "Detail"
+                                                                                                 }
+                                                                                  },
+                                                                   "type":  "object",
+                                                                   "title":  "HTTPValidationError"
+                                                               },
+                                       "HealthResponse":  {
+                                                              "properties":  {
+                                                                                 "status":  {
+                                                                                                "type":  "string",
+                                                                                                "title":  "Status",
+                                                                                                "example":  "healthy"
+                                                                                            },
+                                                                                 "database":  {
+                                                                                                  "type":  "boolean",
+                                                                                                  "title":  "Database",
+                                                                                                  "example":  true
+                                                                                              },
+                                                                                 "models":  {
+                                                                                                "type":  "boolean",
+                                                                                                "title":  "Models",
+                                                                                                "example":  true
+                                                                                            },
+                                                                                 "model_loading":  {
+                                                                                                       "anyOf":  " ",
+                                                                                                       "title":  "Model Loading",
+                                                                                                       "default":  false,
+                                                                                                       "example":  false
+                                                                                                   },
+                                                                                 "model_error":  {
+                                                                                                     "anyOf":  " ",
+                                                                                                     "title":  "Model Error",
+                                                                                                     "example":  "No model available"
+                                                                                                 },
+                                                                                 "cache":  {
+                                                                                               "type":  "boolean",
+                                                                                               "title":  "Cache",
+                                                                                               "example":  true
+                                                                                           },
+                                                                                 "cache_metrics":  {
+                                                                                                       "anyOf":  " "
+                                                                                                   },
+                                                                                 "latency_ms":  {
+                                                                                                    "type":  "number",
+                                                                                                    "minimum":  0.0,
+                                                                                                    "title":  "Latency Ms",
+                                                                                                    "example":  12.5
+                                                                                                },
+                                                                                 "timestamp":  {
+                                                                                                   "type":  "string",
+                                                                                                   "format":  "date-time",
+                                                                                                   "title":  "Timestamp"
+                                                                                               }
+                                                                             },
+                                                              "type":  "object",
+                                                              "required":  [
+                                                                               "status",
+                                                                               "database",
+                                                                               "models",
+                                                                               "cache",
+                                                                               "latency_ms"
+                                                                           ],
+                                                              "title":  "HealthResponse"
+                                                          },
+                                       "InsightsRequest":  {
+                                                               "properties":  {
+                                                                                  "matchup":  {
+                                                                                                  "type":  "string",
+                                                                                                  "title":  "Matchup",
+                                                                                                  "description":  "Match matchup in format \u0027Home Team vs Away Team\u0027",
+                                                                                                  "example":  "Manchester United vs Liverpool"
+                                                                                              },
+                                                                                  "league":  {
+                                                                                                 "anyOf":  " ",
+                                                                                                 "title":  "League",
+                                                                                                 "description":  "League identifier (EPL, La Liga, etc.)",
+                                                                                                 "example":  "EPL"
+                                                                                             }
+                                                                              },
+                                                               "type":  "object",
+                                                               "required":  [
+                                                                                "matchup"
+                                                                            ],
+                                                               "title":  "InsightsRequest"
+                                                           },
+                                       "InsightsResponse":  {
+                                                                "properties":  {
+                                                                                   "matchup":  {
+                                                                                                   "type":  "string",
+                                                                                                   "title":  "Matchup",
+                                                                                                   "example":  "Manchester City vs Liverpool"
+                                                                                               },
+                                                                                   "league":  {
+                                                                                                  "type":  "string",
+                                                                                                  "title":  "League",
+                                                                                                  "example":  "EPL"
+                                                                                              },
+                                                                                   "metadata":  {
+                                                                                                    "$ref":  "#/components/schemas/Metadata"
+                                                                                                },
+                                                                                   "predictions":  {
+                                                                                                       "$ref":  "#/components/schemas/PredictionData"
+                                                                                                   },
+                                                                                   "xg_analysis":  {
+                                                                                                       "$ref":  "#/components/schemas/XGData"
+                                                                                                   },
+                                                                                   "value_analysis":  {
+                                                                                                          "type":  "object",
+                                                                                                          "title":  "Value Analysis",
+                                                                                                          "description":  "Enhanced value betting analysis"
+                                                                                                      },
+                                                                                   "monte_carlo":  {
+                                                                                                       "$ref":  "#/components/schemas/MonteCarloData"
+                                                                                                   },
+                                                                                   "scenarios":  {
+                                                                                                     "items":  "@{$ref=#/components/schemas/Scenario}",
+                                                                                                     "type":  "array",
+                                                                                                     "title":  "Scenarios"
+                                                                                                 },
+                                                                                   "explanation":  {
+                                                                                                       "type":  "object",
+                                                                                                       "title":  "Explanation"
+                                                                                                   },
+                                                                                   "risk_assessment":  {
+                                                                                                           "$ref":  "#/components/schemas/RiskAssessment"
+                                                                                                       },
+                                                                                   "narrative":  {
+                                                                                                     "type":  "string",
+                                                                                                     "title":  "Narrative",
+                                                                                                     "description":  "Human-readable analysis summary"
+                                                                                                 },
+                                                                                   "generated_at":  {
+                                                                                                        "type":  "string",
+                                                                                                        "format":  "date-time",
+                                                                                                        "title":  "Generated At"
+                                                                                                    },
+                                                                                   "confidence_level":  {
+                                                                                                            "type":  "number",
+                                                                                                            "maximum":  1.0,
+                                                                                                            "minimum":  0.0,
+                                                                                                            "title":  "Confidence Level",
+                                                                                                            "example":  0.78
+                                                                                                        }
+                                                                               },
+                                                                "type":  "object",
+                                                                "required":  [
+                                                                                 "matchup",
+                                                                                 "league",
+                                                                                 "metadata",
+                                                                                 "predictions",
+                                                                                 "xg_analysis",
+                                                                                 "value_analysis",
+                                                                                 "monte_carlo",
+                                                                                 "risk_assessment",
+                                                                                 "narrative",
+                                                                                 "confidence_level"
+                                                                             ],
+                                                                "title":  "InsightsResponse"
+                                                            },
+                                       "MatchSearchResponse":  {
+                                                                   "properties":  {
+                                                                                      "id":  {
+                                                                                                 "type":  "string",
+                                                                                                 "title":  "Id",
+                                                                                                 "example":  "1"
+                                                                                             },
+                                                                                      "home_team":  {
+                                                                                                        "type":  "string",
+                                                                                                        "title":  "Home Team",
+                                                                                                        "example":  "Manchester City"
+                                                                                                    },
+                                                                                      "away_team":  {
+                                                                                                        "type":  "string",
+                                                                                                        "title":  "Away Team",
+                                                                                                        "example":  "Liverpool"
+                                                                                                    },
+                                                                                      "league":  {
+                                                                                                     "type":  "string",
+                                                                                                     "title":  "League",
+                                                                                                     "example":  "EPL"
+                                                                                                 },
+                                                                                      "match_date":  {
+                                                                                                         "type":  "string",
+                                                                                                         "title":  "Match Date",
+                                                                                                         "example":  "2024-10-26T15:00:00Z"
+                                                                                                     },
+                                                                                      "venue":  {
+                                                                                                    "type":  "string",
+                                                                                                    "title":  "Venue",
+                                                                                                    "example":  "Etihad Stadium"
+                                                                                                }
+                                                                                  },
+                                                                   "type":  "object",
+                                                                   "required":  [
+                                                                                    "id",
+                                                                                    "home_team",
+                                                                                    "away_team",
+                                                                                    "league",
+                                                                                    "match_date",
+                                                                                    "venue"
+                                                                                ],
+                                                                   "title":  "MatchSearchResponse"
+                                                               },
+                                       "Metadata":  {
+                                                        "properties":  {
+                                                                           "matchup":  {
+                                                                                           "type":  "string",
+                                                                                           "title":  "Matchup",
+                                                                                           "example":  "Manchester City vs Liverpool"
+                                                                                       },
+                                                                           "league":  {
+                                                                                          "type":  "string",
+                                                                                          "title":  "League",
+                                                                                          "example":  "EPL"
+                                                                                      },
+                                                                           "home_team":  {
+                                                                                             "type":  "string",
+                                                                                             "title":  "Home Team",
+                                                                                             "example":  "Manchester City"
+                                                                                         },
+                                                                           "away_team":  {
+                                                                                             "type":  "string",
+                                                                                             "title":  "Away Team",
+                                                                                             "example":  "Liverpool"
+                                                                                         }
+                                                                       },
+                                                        "type":  "object",
+                                                        "required":  [
+                                                                         "matchup",
+                                                                         "league",
+                                                                         "home_team",
+                                                                         "away_team"
+                                                                     ],
+                                                        "title":  "Metadata"
+                                                    },
+                                       "MonteCarloData":  {
+                                                              "properties":  {
+                                                                                 "simulations":  {
+                                                                                                     "type":  "integer",
+                                                                                                     "title":  "Simulations",
+                                                                                                     "example":  10000
+                                                                                                 },
+                                                                                 "distribution":  {
+                                                                                                      "additionalProperties":  "@{type=number}",
+                                                                                                      "type":  "object",
+                                                                                                      "title":  "Distribution",
+                                                                                                      "example":  "@{away_win=0.15; draw=0.2; home_win=0.65}"
+                                                                                                  },
+                                                                                 "confidence_intervals":  {
+                                                                                                              "additionalProperties":  "@{items=; type=array}",
+                                                                                                              "type":  "object",
+                                                                                                              "title":  "Confidence Intervals",
+                                                                                                              "example":  "@{home_win=System.Object[]}"
+                                                                                                          }
+                                                                             },
+                                                              "type":  "object",
+                                                              "required":  [
+                                                                               "simulations",
+                                                                               "distribution",
+                                                                               "confidence_intervals"
+                                                                           ],
+                                                              "title":  "MonteCarloData"
+                                                          },
+                                       "PredictionData":  {
+                                                              "properties":  {
+                                                                                 "home_win_prob":  {
+                                                                                                       "type":  "number",
+                                                                                                       "maximum":  1.0,
+                                                                                                       "minimum":  0.0,
+                                                                                                       "title":  "Home Win Prob",
+                                                                                                       "example":  0.65
+                                                                                                   },
+                                                                                 "draw_prob":  {
+                                                                                                   "type":  "number",
+                                                                                                   "maximum":  1.0,
+                                                                                                   "minimum":  0.0,
+                                                                                                   "title":  "Draw Prob",
+                                                                                                   "example":  0.2
+                                                                                               },
+                                                                                 "away_win_prob":  {
+                                                                                                       "type":  "number",
+                                                                                                       "maximum":  1.0,
+                                                                                                       "minimum":  0.0,
+                                                                                                       "title":  "Away Win Prob",
+                                                                                                       "example":  0.15
+                                                                                                   },
+                                                                                 "prediction":  {
+                                                                                                    "type":  "string",
+                                                                                                    "title":  "Prediction",
+                                                                                                    "example":  "home_win"
+                                                                                                },
+                                                                                 "confidence":  {
+                                                                                                    "type":  "number",
+                                                                                                    "maximum":  1.0,
+                                                                                                    "minimum":  0.0,
+                                                                                                    "title":  "Confidence",
+                                                                                                    "example":  0.78
+                                                                                                }
+                                                                             },
+                                                              "type":  "object",
+                                                              "required":  [
+                                                                               "home_win_prob",
+                                                                               "draw_prob",
+                                                                               "away_win_prob",
+                                                                               "prediction",
+                                                                               "confidence"
+                                                                           ],
+                                                              "title":  "PredictionData"
+                                                          },
+                                       "RiskAssessment":  {
+                                                              "properties":  {
+                                                                                 "risk_level":  {
+                                                                                                    "type":  "string",
+                                                                                                    "title":  "Risk Level",
+                                                                                                    "example":  "low"
+                                                                                                },
+                                                                                 "confidence_score":  {
+                                                                                                          "type":  "number",
+                                                                                                          "maximum":  1.0,
+                                                                                                          "minimum":  0.0,
+                                                                                                          "title":  "Confidence Score",
+                                                                                                          "example":  0.78
+                                                                                                      },
+                                                                                 "value_available":  {
+                                                                                                         "type":  "boolean",
+                                                                                                         "title":  "Value Available",
+                                                                                                         "example":  true
+                                                                                                     },
+                                                                                 "best_bet":  {
+                                                                                                  "anyOf":  " "
+                                                                                              },
+                                                                                 "distribution":  {
+                                                                                                      "additionalProperties":  "@{type=number}",
+                                                                                                      "type":  "object",
+                                                                                                      "title":  "Distribution"
+                                                                                                  },
+                                                                                 "recommendation":  {
+                                                                                                        "type":  "string",
+                                                                                                        "title":  "Recommendation",
+                                                                                                        "example":  "Proceed"
+                                                                                                    }
+                                                                             },
+                                                              "type":  "object",
+                                                              "required":  [
+                                                                               "risk_level",
+                                                                               "confidence_score",
+                                                                               "value_available",
+                                                                               "recommendation"
+                                                                           ],
+                                                              "title":  "RiskAssessment"
+                                                          },
+                                       "Scenario":  {
+                                                        "properties":  {
+                                                                           "name":  {
+                                                                                        "type":  "string",
+                                                                                        "title":  "Name",
+                                                                                        "example":  "Most Likely"
+                                                                                    },
+                                                                           "probability":  {
+                                                                                               "type":  "number",
+                                                                                               "maximum":  1.0,
+                                                                                               "minimum":  0.0,
+                                                                                               "title":  "Probability",
+                                                                                               "example":  0.65
+                                                                                           },
+                                                                           "home_score":  {
+                                                                                              "type":  "integer",
+                                                                                              "minimum":  0.0,
+                                                                                              "title":  "Home Score",
+                                                                                              "example":  2
+                                                                                          },
+                                                                           "away_score":  {
+                                                                                              "type":  "integer",
+                                                                                              "minimum":  0.0,
+                                                                                              "title":  "Away Score",
+                                                                                              "example":  1
+                                                                                          },
+                                                                           "result":  {
+                                                                                          "type":  "string",
+                                                                                          "title":  "Result",
+                                                                                          "example":  "home_win"
+                                                                                      }
+                                                                       },
+                                                        "type":  "object",
+                                                        "required":  [
+                                                                         "name",
+                                                                         "probability",
+                                                                         "home_score",
+                                                                         "away_score",
+                                                                         "result"
+                                                                     ],
+                                                        "title":  "Scenario"
+                                                    },
+                                       "ValidationError":  {
+                                                               "properties":  {
+                                                                                  "loc":  {
+                                                                                              "items":  "@{anyOf=System.Object[]}",
+                                                                                              "type":  "array",
+                                                                                              "title":  "Location"
+                                                                                          },
+                                                                                  "msg":  {
+                                                                                              "type":  "string",
+                                                                                              "title":  "Message"
+                                                                                          },
+                                                                                  "type":  {
+                                                                                               "type":  "string",
+                                                                                               "title":  "Error Type"
+                                                                                           }
+                                                                              },
+                                                               "type":  "object",
+                                                               "required":  [
+                                                                                "loc",
+                                                                                "msg",
+                                                                                "type"
+                                                                            ],
+                                                               "title":  "ValidationError"
+                                                           },
+                                       "ValueBet":  {
+                                                        "properties":  {
+                                                                           "bet_type":  {
+                                                                                            "type":  "string",
+                                                                                            "title":  "Bet Type",
+                                                                                            "example":  "home_win"
+                                                                                        },
+                                                                           "market_odds":  {
+                                                                                               "type":  "number",
+                                                                                               "exclusiveMinimum":  0.0,
+                                                                                               "title":  "Market Odds",
+                                                                                               "example":  2.1
+                                                                                           },
+                                                                           "model_prob":  {
+                                                                                              "type":  "number",
+                                                                                              "maximum":  1.0,
+                                                                                              "minimum":  0.0,
+                                                                                              "title":  "Model Prob",
+                                                                                              "example":  0.65
+                                                                                          },
+                                                                           "market_prob":  {
+                                                                                               "type":  "number",
+                                                                                               "maximum":  1.0,
+                                                                                               "minimum":  0.0,
+                                                                                               "title":  "Market Prob",
+                                                                                               "example":  0.476
+                                                                                           },
+                                                                           "expected_value":  {
+                                                                                                  "type":  "number",
+                                                                                                  "title":  "Expected Value",
+                                                                                                  "example":  0.152
+                                                                                              },
+                                                                           "value_pct":  {
+                                                                                             "type":  "number",
+                                                                                             "title":  "Value Pct",
+                                                                                             "example":  36.6
+                                                                                         },
+                                                                           "kelly_stake":  {
+                                                                                               "type":  "number",
+                                                                                               "minimum":  0.0,
+                                                                                               "title":  "Kelly Stake",
+                                                                                               "example":  0.05
+                                                                                           },
+                                                                           "confidence_interval":  {
+                                                                                                       "items":  "@{type=number}",
+                                                                                                       "type":  "array",
+                                                                                                       "title":  "Confidence Interval",
+                                                                                                       "example":  "0.58 0.72"
+                                                                                                   },
+                                                                           "edge":  {
+                                                                                        "type":  "number",
+                                                                                        "title":  "Edge",
+                                                                                        "example":  0.174
+                                                                                    },
+                                                                           "recommendation":  {
+                                                                                                  "type":  "string",
+                                                                                                  "title":  "Recommendation",
+                                                                                                  "example":  "Strong bet"
+                                                                                              },
+                                                                           "quality":  {
+                                                                                           "$ref":  "#/components/schemas/ValueBetQuality"
+                                                                                       }
+                                                                       },
+                                                        "type":  "object",
+                                                        "required":  [
+                                                                         "bet_type",
+                                                                         "market_odds",
+                                                                         "model_prob",
+                                                                         "market_prob",
+                                                                         "expected_value",
+                                                                         "value_pct",
+                                                                         "kelly_stake",
+                                                                         "confidence_interval",
+                                                                         "edge",
+                                                                         "recommendation",
+                                                                         "quality"
+                                                                     ],
+                                                        "title":  "ValueBet"
+                                                    },
+                                       "ValueBetQuality":  {
+                                                               "properties":  {
+                                                                                  "quality_score":  {
+                                                                                                        "type":  "number",
+                                                                                                        "maximum":  100.0,
+                                                                                                        "minimum":  0.0,
+                                                                                                        "title":  "Quality Score",
+                                                                                                        "example":  75.5
+                                                                                                    },
+                                                                                  "tier":  {
+                                                                                               "type":  "string",
+                                                                                               "title":  "Tier",
+                                                                                               "example":  "Good"
+                                                                                           },
+                                                                                  "recommendation":  {
+                                                                                                         "type":  "string",
+                                                                                                         "title":  "Recommendation",
+                                                                                                         "example":  "Consider betting"
+                                                                                                     },
+                                                                                  "ev_contribution":  {
+                                                                                                          "type":  "number",
+                                                                                                          "title":  "Ev Contribution",
+                                                                                                          "example":  15.2
+                                                                                                      },
+                                                                                  "confidence_contribution":  {
+                                                                                                                  "type":  "number",
+                                                                                                                  "title":  "Confidence Contribution",
+                                                                                                                  "example":  39.0
+                                                                                                              },
+                                                                                  "liquidity_contribution":  {
+                                                                                                                 "type":  "number",
+                                                                                                                 "title":  "Liquidity Contribution",
+                                                                                                                 "example":  18.75
+                                                                                                             }
+                                                                              },
+                                                               "type":  "object",
+                                                               "required":  [
+                                                                                "quality_score",
+                                                                                "tier",
+                                                                                "recommendation",
+                                                                                "ev_contribution",
+                                                                                "confidence_contribution",
+                                                                                "liquidity_contribution"
+                                                                            ],
+                                                               "title":  "ValueBetQuality"
+                                                           },
+                                       "XGData":  {
+                                                      "properties":  {
+                                                                         "home_xg":  {
+                                                                                         "type":  "number",
+                                                                                         "minimum":  0.0,
+                                                                                         "title":  "Home Xg",
+                                                                                         "example":  2.1
+                                                                                     },
+                                                                         "away_xg":  {
+                                                                                         "type":  "number",
+                                                                                         "minimum":  0.0,
+                                                                                         "title":  "Away Xg",
+                                                                                         "example":  1.3
+                                                                                     },
+                                                                         "total_xg":  {
+                                                                                          "type":  "number",
+                                                                                          "minimum":  0.0,
+                                                                                          "title":  "Total Xg",
+                                                                                          "example":  3.4
+                                                                                      },
+                                                                         "xg_difference":  {
+                                                                                               "type":  "number",
+                                                                                               "title":  "Xg Difference",
+                                                                                               "example":  0.8
+                                                                                           }
+                                                                     },
+                                                      "type":  "object",
+                                                      "required":  [
+                                                                       "home_xg",
+                                                                       "away_xg",
+                                                                       "total_xg",
+                                                                       "xg_difference"
+                                                                   ],
+                                                      "title":  "XGData"
+                                                  }
+                                   }
+                   },
+    "tags":  [
+                 {
+                     "name":  "Root",
+                     "description":  "Root and system endpoints"
+                 },
+                 {
+                     "name":  "Health",
+                     "description":  "Health check and monitoring endpoints"
+                 },
+                 {
+                     "name":  "Auth",
+                     "description":  "Authentication and authorization"
+                 },
+                 {
+                     "name":  "Matches",
+                     "description":  "Match data and operations"
+                 },
+                 {
+                     "name":  "Predictions",
+                     "description":  "Prediction operations"
+                 },
+                 {
+                     "name":  "Odds",
+                     "description":  "Odds comparison and operations"
+                 },
+                 {
+                     "name":  "Users",
+                     "description":  "User management"
+                 }
+             ]
+}
