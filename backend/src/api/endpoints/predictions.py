@@ -73,8 +73,7 @@ async def create_prediction(
         
         # Initialize prediction service
         prediction_service = PredictionService(
-            db_session=db,
-            redis_client=await cache_manager.get_redis_client()
+            db_session=db
         )
         
         # Generate prediction
@@ -121,10 +120,12 @@ async def get_prediction(
     try:
         # Check cache first
         cache_key = f"prediction:{match_id}"
-        cached_result = await cache_manager.get(cache_key)
+        cached_result = cache_manager.get(cache_key)
         
         if cached_result:
             logger.info(f"Cache hit for prediction {match_id}")
+            if isinstance(cached_result, dict):
+                return PredictionResponse(**cached_result)
             return cached_result
         
         # Fetch from database
@@ -169,7 +170,7 @@ async def get_prediction(
         )
         
         # Cache for 30 minutes
-        await cache_manager.set(cache_key, response, ttl=1800)
+        cache_manager.set(cache_key, response, ttl=1800)
         
         return response
         
@@ -217,7 +218,7 @@ async def get_todays_value_bets(
         
         # Check cache
         cache_key = f"value_bets:today:{min_edge}:{min_confidence}:{league}"
-        cached_result = await cache_manager.get(cache_key)
+        cached_result = cache_manager.get(cache_key)
         
         if cached_result:
             return cached_result
@@ -264,10 +265,10 @@ async def get_todays_value_bets(
                 league=bet.league,
             )
             for bet in value_bets
-        ]
+        )
         
         # Cache for 10 minutes
-        await cache_manager.set(cache_key, responses, ttl=600)
+        cache_manager.set(cache_key, responses, ttl=600)
         
         logger.info(f"Found {len(responses)} value bets for today")
         return responses

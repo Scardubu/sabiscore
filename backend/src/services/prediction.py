@@ -10,6 +10,7 @@ import asyncio
 import logging
 from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime, timedelta
+import json
 import numpy as np
 import pandas as pd
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -49,10 +50,8 @@ class PredictionService:
     def __init__(
         self,
         db_session: Optional[AsyncSession] = None,
-        redis_client: Optional[Any] = None,
     ):
         self.db = db_session
-        self.redis = redis_client
         self.cache = cache_manager
         
         # Initialize components
@@ -63,7 +62,7 @@ class PredictionService:
             max_stake_pct=0.05         # Max 5% bankroll
         )
         self.calibrator = PlattCalibrator(
-            redis_client=redis_client,
+            cache_manager=cache_manager,
             calibration_window_hours=24,
             min_samples=30
         )
@@ -71,8 +70,8 @@ class PredictionService:
         
         # League-specific models
         self.league_models = {
-            'epl': PremierLeagueModel(redis_client=redis_client),
-            'bundesliga': BundesligaModel(redis_client=redis_client),
+            'epl': PremierLeagueModel(cache_manager=cache_manager),
+            'bundesliga': BundesligaModel(cache_manager=cache_manager),
         }
         
         # Meta learner for ensemble orchestration
@@ -114,7 +113,7 @@ class PredictionService:
             
             # Step 1: Check cache (target: 8ms cache hit)
             cache_key = f"prediction:{match_id}:{request.league}"
-            cached = await self._get_cached_prediction(cache_key)
+            cached = self._get_cached_prediction(cache_key)
             if cached:
                 logger.info(f"Cache hit for {match_id} (8ms)")
                 return cached
@@ -203,7 +202,7 @@ class PredictionService:
             )
             
             # Step 13: Cache prediction (15s TTL for ISR)
-            await self._cache_prediction(cache_key, prediction_response, ttl=15)
+            self._cache_prediction(cache_key, prediction_response, ttl=15)
             
             # Step 14: Store in database
             await self._store_prediction(match_id, prediction_response)
@@ -299,9 +298,9 @@ class PredictionService:
     ) -> Dict[str, float]:
         """Apply Platt calibration to probabilities"""
         try:
-            # Get calibration parameters from Redis
-            platt_a = await self.redis.get("platt_a")
-            platt_b = await self.redis.get("platt_b")
+            # Get calibration parameters from cache
+            platt_a = self.cache.get("platt_a")
+            platt_b = self.cache.get("platt_b")
             
             if platt_a is None or platt_b is None:
                 logger.warning("No calibration params, using raw probabilities")
@@ -428,19 +427,21 @@ class PredictionService:
             logger.error(f"Failed to fetch match data: {e}")
             return None
 
-    async def _get_cached_prediction(self, cache_key: str) -> Optional[PredictionResponse]:
+    def _get_cached_prediction(self, cache_key: str) -> Optional[PredictionResponse]:
         """Get prediction from cache"""
         try:
-            cached = await self.redis.get(cache_key)
+            cached = self.cache.get(cache_key)
             if cached:
-                import json
-                data = json.loads(cached)
-                return PredictionResponse(**data)
+                if isinstance(cached, dict):
+                    return PredictionResponse(**cached)
+                elif isinstance(cached, str):
+                    data = json.loads(cached)
+                    return PredictionResponse(**data)
         except Exception as e:
             logger.warning(f"Cache retrieval failed: {e}")
         return None
 
-    async def _cache_prediction(
+    def _cache_prediction(
         self,
         cache_key: str,
         prediction: PredictionResponse,
@@ -448,13 +449,8 @@ class PredictionService:
     ):
         """Cache prediction for ISR"""
         try:
-            import json
             data = prediction.dict()
-            await self.redis.setex(
-                cache_key,
-                ttl,
-                json.dumps(data, default=str)
-            )
+            self.cache.set(cache_key, data, ttl=ttl)
         except Exception as e:
             logger.warning(f"Cache storage failed: {e}")
 
