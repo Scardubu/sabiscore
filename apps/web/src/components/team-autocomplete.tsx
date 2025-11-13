@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useId } from "react";
 
 interface TeamAutocompleteProps {
   label: string;
@@ -27,10 +27,19 @@ export function TeamAutocomplete({
   const [internalValue, setInternalValue] = useState(value);
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const uid = useId();
 
   useEffect(() => {
     setInternalValue(value);
   }, [value]);
+
+  // Ensure menu closes when component becomes disabled
+  useEffect(() => {
+    if (disabled) {
+      setIsOpen(false);
+      setHighlightedIndex(-1);
+    }
+  }, [disabled]);
 
   const filteredOptions = useMemo(() => {
     const query = internalValue.trim().toLowerCase();
@@ -84,23 +93,27 @@ export function TeamAutocomplete({
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (disabled) return;
+
     if (!isOpen && ["ArrowDown", "ArrowUp"].includes(event.key)) {
       event.preventDefault();
       setIsOpen(true);
+      // When opening via arrows, set an initial highlight for better UX
+      setHighlightedIndex(event.key === "ArrowDown" ? 0 : Math.max(0, filteredOptions.length - 1));
       return;
     }
 
     if (event.key === "ArrowDown") {
       event.preventDefault();
       setHighlightedIndex((current) =>
-        current + 1 >= filteredOptions.length ? 0 : current + 1
+        current < 0 ? 0 : current + 1 >= filteredOptions.length ? 0 : current + 1
       );
     }
 
     if (event.key === "ArrowUp") {
       event.preventDefault();
       setHighlightedIndex((current) =>
-        current <= 0 ? filteredOptions.length - 1 : current - 1
+        current < 0 ? Math.max(0, filteredOptions.length - 1) : current <= 0 ? filteredOptions.length - 1 : current - 1
       );
     }
 
@@ -121,11 +134,12 @@ export function TeamAutocomplete({
 
   return (
     <div ref={containerRef} className="space-y-2">
-      <label className="text-sm font-medium text-slate-300">{label}</label>
+      <label className="text-sm font-medium text-slate-300" htmlFor={`team-combobox-${uid}`}>{label}</label>
       <div className="relative">
         <input
           ref={inputRef}
           type="text"
+          id={`team-combobox-${uid}`}
           value={internalValue}
           onChange={handleInputChange}
           onFocus={handleInputFocus}
@@ -133,21 +147,23 @@ export function TeamAutocomplete({
           placeholder={placeholder}
           disabled={disabled}
           role="combobox"
-          aria-autocomplete="both"
+          aria-autocomplete="list"
           aria-expanded={isOpen}
           aria-haspopup="listbox"
-          aria-controls="team-listbox"
+          aria-controls={isOpen ? `team-listbox-${uid}` : undefined}
+          aria-activedescendant={isOpen && highlightedIndex >= 0 ? `team-option-${uid}-${highlightedIndex}` : undefined}
           className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
         />
         {isOpen && filteredOptions.length > 0 && (
           <ul
-            id="team-listbox"
+            id={`team-listbox-${uid}`}
             role="listbox"
             className="absolute z-20 mt-1 w-full max-h-60 overflow-auto rounded-lg border border-slate-700 bg-slate-900/95 shadow-lg"
           >
             {filteredOptions.map((team, index) => (
               <li
                 key={team}
+                id={`team-option-${uid}-${index}`}
                 role="option"
                 aria-selected={highlightedIndex === index ? "true" : "false"}
                 className={`cursor-pointer px-4 py-2 text-sm transition-colors ${

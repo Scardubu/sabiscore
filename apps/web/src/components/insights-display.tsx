@@ -1,17 +1,8 @@
 "use client";
 
-import { Doughnut } from "react-chartjs-2";
-import {
-  Chart as ChartJS,
-  ArcElement,
-  Tooltip,
-  Legend,
-  CategoryScale,
-  LinearScale,
-} from "chart.js";
 import type { InsightsResponse } from "@/lib/api";
-
-ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale);
+import type { ChartOptions } from "@/types/chart";
+import { DoughnutChart } from "./charts/DoughnutChart";
 
 interface InsightsDisplayProps {
   insights: InsightsResponse;
@@ -44,7 +35,7 @@ export function InsightsDisplay({ insights }: InsightsDisplayProps) {
     ],
   };
 
-  const chartOptions = {
+  const chartOptions: ChartOptions<"doughnut"> = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -58,14 +49,14 @@ export function InsightsDisplay({ insights }: InsightsDisplayProps) {
         },
       },
       tooltip: {
-      callbacks: {
-        label: (context: { label?: string; parsed?: number | number[] }) => {
-          const label = context.label || "";
-          const parsed = context.parsed ?? 0;
-          const value = (Array.isArray(parsed) ? parsed[0] : parsed) as number;
-          return `${label}: ${(value * 100).toFixed(1)}%`;
+        callbacks: {
+          label: (context: { label?: string; parsed?: number | number[] }) => {
+            const label = context.label || "";
+            const parsed = context.parsed ?? 0;
+            const value = (Array.isArray(parsed) ? parsed[0] : parsed) as number;
+            return `${label}: ${(value * 100).toFixed(1)}%`;
+          },
         },
-      },
       },
     },
   };
@@ -101,7 +92,7 @@ export function InsightsDisplay({ insights }: InsightsDisplayProps) {
         <div className="glass-card p-8 space-y-6">
           <h2 className="text-2xl font-bold text-slate-100">Match Probabilities</h2>
           <div className="h-80">
-            <Doughnut data={chartData} options={chartOptions} />
+            <DoughnutChart data={chartData} options={chartOptions} />
           </div>
           
           <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-800/50">

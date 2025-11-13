@@ -15,6 +15,10 @@ import pandas as pd
 from datetime import datetime
 from pathlib import Path
 import requests
+from requests.adapters import HTTPAdapter
+from requests.exceptions import SSLError, RequestException
+from urllib3.util.retry import Retry
+import urllib3
 import uuid
 from typing import Dict, List
 from sqlalchemy.orm import Session
@@ -48,6 +52,27 @@ class HistoricalDataLoader:
         self.db_session: Session = next(get_db())
         self.data_path = settings.data_path / 'raw'
         self.data_path.mkdir(parents=True, exist_ok=True)
+        self.session = self._create_http_session()
+
+    def _create_http_session(self) -> requests.Session:
+        """Configure resilient HTTP session for football-data downloads"""
+        session = requests.Session()
+        retry = Retry(
+            total=5,
+            read=5,
+            connect=5,
+            backoff_factor=1.2,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["GET"],
+        )
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount('https://', adapter)
+        session.mount('http://', adapter)
+        session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (compatible; SabiScoreDataLoader/1.0; +https://sabiscore.com)',
+            'Accept': 'text/csv,application/octet-stream;q=0.9,*/*;q=0.8',
+        })
+        return session
         
     def load_all_leagues(self):
         """Load historical data for all leagues"""
@@ -67,17 +92,28 @@ class HistoricalDataLoader:
     def _load_league(self, league_code: str, league_name: str, country: str) -> Dict:
         """Load data for a single league across all seasons"""
         
+        # Map league names to IDs
+        league_id_map = {
+            'Premier League': 'EPL',
+            'Bundesliga': 'Bundesliga',
+            'La Liga': 'La Liga',
+            'Serie A': 'Serie A',
+            'Ligue 1': 'Ligue 1',
+        }
+        
         # Ensure league exists
-        league = self.db_session.query(League).filter_by(name=league_name).first()
+        league_id = league_id_map.get(league_name)
+        league = self.db_session.query(League).filter_by(id=league_id).first()
         if not league:
             league = League(
+                id=league_id,
                 name=league_name,
                 country=country,
                 tier=1
             )
             self.db_session.add(league)
             self.db_session.commit()
-            logger.info(f"Created league: {league_name}")
+            logger.info(f"Created league: {league_name} ({league_id})")
         
         total_matches = 0
         total_odds = 0
@@ -112,16 +148,30 @@ class HistoricalDataLoader:
         
         try:
             logger.info(f"Downloading {url}...")
-            response = requests.get(url, timeout=30)
+            response = self.session.get(url, timeout=30)
             response.raise_for_status()
-            
-            filename.write_bytes(response.content)
-            logger.info(f"Saved to {filename}")
-            return filename
-            
-        except Exception as e:
+
+        except SSLError as ssl_error:
+            logger.warning(f"TLS handshake failed for {url}: {ssl_error}. Retrying without verification...")
+            try:
+                urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+                response = requests.get(
+                    url,
+                    timeout=30,
+                    headers=self.session.headers,
+                    verify=False,
+                )
+                response.raise_for_status()
+            except Exception as retry_error:
+                logger.error(f"Failed to download {url} after TLS fallback: {retry_error}")
+                return None
+        except RequestException as e:
             logger.error(f"Failed to download {url}: {e}")
             return None
+
+        filename.write_bytes(response.content)
+        logger.info(f"Saved to {filename}")
+        return filename
     
     def _import_season_data(self, csv_path: Path, league: League, season: str) -> tuple:
         """Import matches and odds from CSV file"""

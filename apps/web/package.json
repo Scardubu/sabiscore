@@ -28,7 +28,6 @@
     "react-chartjs-2": "^5.2.0",
     "react-dom": "^18.3.1",
     "react-hot-toast": "^2.4.1",
-    "sabiscore-monorepo": "file:../..",
     "tailwind-merge": "^2.5.4",
     "zod": "^3.23.8"
   },
@@ -37,6 +36,7 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "autoprefixer": "^10.4.20",
+    "cssnano": "^7.1.2",
     "eslint": "^9.14.0",
     "eslint-config-next": "^15.0.3",
     "postcss": "^8.4.47",

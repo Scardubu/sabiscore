@@ -32,7 +32,11 @@ function Test-Endpoint {
         }
     } catch {
         $statusCode = if ($_.Exception.Response) { $_.Exception.Response.StatusCode.value__ } else { "N/A" }
+        $errorMsg = $_.Exception.Message
+        $innerMsg = if ($_.Exception.InnerException) { $_.Exception.InnerException.Message } else { $null }
         Write-Host "FAIL $Description ($Path): $statusCode" -ForegroundColor Red
+        if ($errorMsg) { Write-Host "  Error: $errorMsg" -ForegroundColor DarkGray }
+        if ($innerMsg) { Write-Host "  Inner: $innerMsg" -ForegroundColor DarkGray }
         $script:failed++
         return @{ success = $false; status = $statusCode }
     }

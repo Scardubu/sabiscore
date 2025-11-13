@@ -1,10 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "cd apps/web && npm ci && npm run build",
-  "devCommand": "cd apps/web && npm run dev",
-  "installCommand": "npm install --prefix apps/web",
+  "buildCommand": "cd apps/web; npm ci; npm run build",
+  "devCommand": "cd apps/web; npm run dev",
+  "installCommand": "npm ci --prefix apps/web",
   "framework": "nextjs",
-  "outputDirectory": "apps/web/.next",
+  
   "env": {
     "NEXT_PUBLIC_API_URL": "https://sabiscore-api.onrender.com",
     "NEXT_PUBLIC_WS_URL": "wss://sabiscore-api.onrender.com",
@@ -14,42 +14,7 @@
     "NEXT_PUBLIC_KELLY_FRACTION": "0.125",
     "NEXT_PUBLIC_MIN_EDGE_NGN": "66"
   },
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "X-DNS-Prefetch-Control",
-          "value": "on"
-        },
-        {
-          "key": "Strict-Transport-Security",
-          "value": "max-age=63072000; includeSubDomains; preload"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "SAMEORIGIN"
-        },
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "strict-origin-when-cross-origin"
-        }
-      ]
-    },
-    {
-      "source": "/_next/static/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
-      ]
-    }
-  ],
+  
   "rewrites": [
     {
       "source": "/api/v1/:path*",
