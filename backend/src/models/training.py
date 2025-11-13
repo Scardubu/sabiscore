@@ -116,21 +116,25 @@ class ModelTrainer:
 
     def _prepare_training_data(self, data: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """Prepare features and target for training"""
-        # Separate features and target
-        feature_cols = [col for col in data.columns if col != 'result']
+        # Separate features and target (exclude non-feature columns)
+        exclude_cols = ['result', 'match_id', 'kickoff_time']
+        feature_cols = [col for col in data.columns if col not in exclude_cols]
         X = data[feature_cols]
-        y = data[['result']]
+        y = data['result'].copy()
 
-        # Encode target
-        y_encoded = y.copy()
-        y_encoded['result'] = y_encoded['result'].map({
-            'home_win': 0,
-            'draw': 1,
-            'away_win': 2
-        })
+        # Encode target if it's string values
+        if y.dtype == object or y.dtype == str:
+            y = y.map({
+                'home_win': 0,
+                'draw': 1,
+                'away_win': 2
+            })
+        
+        # Convert to DataFrame for compatibility
+        y = pd.DataFrame(y, columns=['result'])
 
         logger.info(f"Prepared {len(X)} samples with {len(feature_cols)} features")
-        return X, y_encoded
+        return X, y
 
     def _compute_dataset_signature(self, df: pd.DataFrame) -> Dict[str, Any]:
         """Generate a signature of the dataset for drift detection."""

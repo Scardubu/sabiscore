@@ -355,22 +355,18 @@ def get_loaded_model(default=None):
 app.include_router(api_router, prefix=getattr(settings, 'API_V1_STR', '/api/v1'), tags=["API"])
 app.include_router(ws_router, tags=["WebSocket"])
 
+# Include health check routes at root level for container orchestration
+from .endpoints.health import router as health_router
+app.include_router(health_router)
+
 
 @app.get("/")
 async def root():
     return {
         "message": "Welcome to SabiScore API",
-        "docs": "/docs",
-        "health": "/health"
-    }
-
-
-@app.get("/health")
-async def health_check():
-    """Root-level health check for Render monitoring"""
-    return {
-        "status": "healthy",
-        "service": "sabiscore-api",
         "version": os.getenv("APP_VERSION", "1.0.0"),
-        "environment": settings.app_env
+        "docs": "/docs",
+        "health": "/health",
+        "ready": "/ready",
+        "startup": "/startup",
     }

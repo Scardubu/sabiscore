@@ -1,20 +1,17 @@
-"""
-Prediction endpoints for generating match predictions and value bets
-"""
+"""Prediction endpoints for generating match predictions and value bets."""
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+import json
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 import logging
 from datetime import datetime
+from pydantic import ValidationError
 
 from ...db.session import get_async_session
 from ...services.prediction import PredictionService
-from ...schemas.prediction import (
-    MatchPredictionRequest,
-    PredictionResponse,
-    PredictionCreate
-)
+from ...schemas.prediction import MatchPredictionRequest, PredictionResponse
 from ...schemas.value_bet import ValueBetResponse
 from ...core.database import Prediction as PredictionModel
 from ...core.cache import cache_manager
@@ -31,6 +28,7 @@ USE_MOCK_PREDICTIONS = False
 async def create_prediction(
     request: MatchPredictionRequest,
     background_tasks: BackgroundTasks,
+    request_context: Request,
     db: AsyncSession = Depends(get_async_session),
 ):
     """
@@ -72,28 +70,53 @@ async def create_prediction(
             return PredictionResponse(**result)
         
         # Initialize prediction service
+        app_state = request_context.app.state
+        ensemble_hint = getattr(app_state, "model_instance", None)
+        cache_backend = getattr(app_state, "cache", cache_manager)
+
         prediction_service = PredictionService(
-            db_session=db
+            db_session=db,
+            cache_backend=cache_backend,
+            ensemble_model=ensemble_hint,
         )
         
         # Generate prediction
         logger.info(f"Generating prediction for {request.home_team} vs {request.away_team}")
         start_time = datetime.utcnow()
         
-        result = await prediction_service.predict_match(
-            match_id=request.match_id or f"{request.home_team}_{request.away_team}_{datetime.utcnow().isoformat()}",
-            request=request
-        )
+        if request.match_id:
+            match_identifier = request.match_id
+        else:
+            base_identifier = f"{request.home_team}_{request.away_team}_{int(datetime.utcnow().timestamp())}"
+            match_identifier = base_identifier.replace(" ", "_").lower()
+
+        try:
+            result = await prediction_service.predict_match(
+                match_id=match_identifier,
+                request=request,
+            )
+        except FileNotFoundError as exc:
+            logger.warning("Model not available: %s", exc)
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        except ValueError as exc:
+            logger.warning("Prediction input rejected: %s", exc)
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         
         processing_time = (datetime.utcnow() - start_time).total_seconds() * 1000
         logger.info(f"Prediction generated in {processing_time:.1f}ms")
         
+        # Provide a simple cache alias for lookup endpoints
+        try:
+            cache_backend.set(f"prediction:{match_identifier}", result.model_dump(), ttl=900)
+        except Exception as cache_exc:
+            logger.debug("Failed to write alias cache for %s: %s", match_identifier, cache_exc)
+
         # Save to database in background
         background_tasks.add_task(
             _save_prediction_to_db,
             db=db,
             prediction_data=result,
-            match_id=request.match_id
+            match_id=match_identifier,
         )
         
         return result
@@ -148,26 +171,31 @@ async def get_prediction(
                 detail=f"Prediction is {age_minutes:.0f} minutes old. Generate a fresh prediction."
             )
         
-        # Transform to response format
-        response = PredictionResponse(
-            match_id=prediction.match_id,
-            home_team=prediction.home_team,
-            away_team=prediction.away_team,
-            league=prediction.league,
-            predictions={
-                'home_win': prediction.home_win_prob,
-                'draw': prediction.draw_prob,
-                'away_win': prediction.away_win_prob,
-            },
-            confidence=prediction.confidence,
-            brier_score=prediction.brier_score,
-            value_bets=prediction.value_bets or [],
-            metadata={
-                'model_version': prediction.model_version,
-                'created_at': prediction.created_at.isoformat(),
-                'age_minutes': int(age_minutes),
-            }
-        )
+        payload = prediction.features
+        response: PredictionResponse
+        if payload:
+            if isinstance(payload, str):
+                try:
+                    payload = json.loads(payload)
+                except json.JSONDecodeError as decode_err:
+                    logger.warning("Failed to decode stored prediction payload for %s: %s", match_id, decode_err)
+                    payload = None
+            if isinstance(payload, dict):
+                try:
+                    response = PredictionResponse(**payload)
+                except ValidationError as val_err:
+                    logger.warning("Stored prediction payload invalid for %s: %s", match_id, val_err)
+                    payload = None
+            if not payload:
+                raise HTTPException(
+                    status_code=410,
+                    detail="Stored prediction payload unavailable or corrupt; please regenerate.",
+                )
+        else:
+            raise HTTPException(
+                status_code=410,
+                detail="Prediction stored without payload; please regenerate.",
+            )
         
         # Cache for 30 minutes
         cache_manager.set(cache_key, response, ttl=1800)
@@ -248,18 +276,21 @@ async def _save_prediction_to_db(
 ):
     """Background task to save prediction to database"""
     try:
+        payload = prediction_data.model_dump(mode="json")
         prediction = PredictionModel(
             match_id=match_id or prediction_data.match_id,
-            home_team=prediction_data.home_team,
-            away_team=prediction_data.away_team,
-            league=prediction_data.league,
             home_win_prob=prediction_data.predictions['home_win'],
             draw_prob=prediction_data.predictions['draw'],
             away_win_prob=prediction_data.predictions['away_win'],
             confidence=prediction_data.confidence,
-            brier_score=prediction_data.brier_score,
-            model_version=prediction_data.metadata.get('model_version', '3.0'),
-            value_bets=prediction_data.value_bets,
+            model_version=str(
+                prediction_data.metadata.get('model_version')
+                or prediction_data.metadata.get('model_key')
+                or '3.0'
+            ),
+            features=payload,
+            shap_values=prediction_data.explanations,
+            created_at=prediction_data.created_at,
         )
         
         db.add(prediction)

@@ -67,12 +67,12 @@ const nextConfig = {
     ]
   },
 
-  // Build output
-  output: 'standalone',
+  // Build output - use default for Vercel
+  // output: 'standalone', // Disabled for Vercel deployment
   // Set outputFileTracingRoot to the repository root so Next can correctly
   // resolve shared files in a monorepo and avoid the "inferred workspace root"
   // warning when multiple lockfiles are present.
-  outputFileTracingRoot: path.join(__dirname, '..', '..'),
+  // outputFileTracingRoot: path.join(__dirname, '..', '..'),
 
   // Skip ESLint during production builds to avoid blocking builds from
   // non-critical lint warnings/errors. CI should still run `npm run lint` on PRs

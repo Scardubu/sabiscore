@@ -240,30 +240,107 @@ def fetch_latest_odds(self):
 @celery_app.task(name='backend.src.tasks.background.retrain_all_models', bind=True)
 def retrain_all_models(self):
     """
-    Full model retraining daily at 2 AM
-    Uses last 180 days of data with 5-fold cross-validation
+    Full model retraining daily at 2 AM.
+    Runs the CLI-based preprocessing + training pipeline and triggers model reload.
     """
-    logger.info("🚀 Starting full model retraining")
-    db = SessionLocal()
-    
+    logger.info("🚀 Starting full model retraining with Edge V3 pipeline")
+
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    repo_root = Path(__file__).resolve().parents[3]
+
     try:
-        orchestrator = ModelOrchestrator()
-        
-        # Train all league models
-        orchestrator.train_all_models(db)
-        
-        # Run validation suite
-        validation_results = orchestrator._run_validation_suite(db)
-        
-        logger.info(f"✅ Model retraining complete: {validation_results}")
-        return {"status": "success", "validation": validation_results}
-    
-    except Exception as e:
-        logger.error(f"Retraining failed: {str(e)}", exc_info=True)
-        return {"status": "error", "message": str(e)}
-    
-    finally:
-        db.close()
+        # Step 1: Preprocess data
+        logger.info("Step 1/3: Preprocessing data...")
+        preprocess_result = subprocess.run(
+            [sys.executable, "-m", "backend.src.cli.preprocess_data"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=1800,
+        )
+
+        if preprocess_result.returncode != 0:
+            logger.error("Preprocessing failed")
+            return {
+                "status": "error",
+                "step": "preprocessing",
+                "message": preprocess_result.stderr[:500],
+            }
+
+        logger.info("✅ Preprocessing complete")
+
+        # Step 2: Train ensemble models
+        logger.info("Step 2/3: Training ensemble models...")
+        train_result = subprocess.run(
+            [sys.executable, "-m", "backend.src.cli.train_models"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=7200,
+        )
+
+        if train_result.returncode != 0:
+            logger.error("Training failed")
+            return {
+                "status": "error",
+                "step": "training",
+                "message": train_result.stderr[:500],
+            }
+
+        logger.info("✅ Training complete")
+
+        # Step 3: Trigger model reload in FastAPI app
+        logger.info("Step 3/3: Reloading models in API...")
+        try:
+            import asyncio
+            import httpx
+
+            async def reload_models():
+                async with httpx.AsyncClient() as client:
+                    response = await client.get("http://localhost:8000/startup")
+                    return response.json()
+
+            reload_result = asyncio.run(reload_models())
+            logger.info(f"Model reload status: {reload_result}")
+        except Exception as reload_error:
+            logger.warning(
+                "Model reload request failed (service may reload models on demand): %s",
+                reload_error,
+            )
+
+        # Step 4: Validate new models exist on disk
+        from ..core.config import settings
+
+        models_path = settings.models_path
+        model_files = list(models_path.glob("*_ensemble.pkl"))
+        logger.info("✅ Retraining complete! Found %s model files", len(model_files))
+        for model_file in model_files:
+            logger.info("  - %s", model_file.name)
+
+        return {
+            "status": "success",
+            "models_trained": len(model_files),
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
+    except subprocess.TimeoutExpired as timeout_err:
+        logger.error("Retraining timed out: %s", timeout_err)
+        return {
+            "status": "error",
+            "step": "timeout",
+            "message": str(timeout_err),
+        }
+
+    except Exception as exc:  # noqa: BLE001
+        logger.error(f"Retraining failed: {exc}", exc_info=True)
+        return {
+            "status": "error",
+            "step": "unknown",
+            "message": str(exc),
+        }
 
 
 @celery_app.task(name='backend.src.tasks.background.generate_value_bets', bind=True)
