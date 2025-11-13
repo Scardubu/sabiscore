@@ -225,7 +225,7 @@ async def get_todays_value_bets(
         
         # Fetch from database
         from sqlalchemy import select, and_
-        from ...models.bet import ValueBet
+        from ...core.database import ValueBet
         from datetime import datetime, timedelta
         
         today_start = datetime.utcnow().replace(hour=0, minute=0, second=0)

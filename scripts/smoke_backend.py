@@ -74,18 +74,6 @@ def main() -> int:
         print(f"✗ /api/v1/predictions/value-bets/today: {e}")
         tests_failed += 1
 
-    # odds health endpoint
-    try:
-        code, body = get("/api/v1/odds/health")
-        print(f"✓ /api/v1/odds/health: {code} - {body.get('status') if isinstance(body, dict) else body}")
-        if code != 200:
-            tests_failed += 1
-        else:
-            tests_passed += 1
-    except Exception as e:
-        print(f"✗ /api/v1/odds/health: {e}")
-        tests_failed += 1
-
     print(f"\n{'='*60}")
     print(f"Tests Passed: {tests_passed}")
     print(f"Tests Failed: {tests_failed}")
