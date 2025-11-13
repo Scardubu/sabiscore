@@ -265,7 +265,7 @@ async def get_todays_value_bets(
                 league=bet.league,
             )
             for bet in value_bets
-        )
+        ]
         
         # Cache for 10 minutes
         cache_manager.set(cache_key, responses, ttl=600)

@@ -397,9 +397,5 @@ async def system_metrics(request: Request):
         }
 
 
-# Include sub-routers
-from .matches import router as matches_router
-from .predictions import router as predictions_router
-
-router.include_router(matches_router)
-router.include_router(predictions_router)
+# Note: Modular routers are already included via api/__init__.py
+# No need to duplicate them here in legacy_endpoints
