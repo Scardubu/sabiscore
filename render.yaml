@@ -7,7 +7,7 @@
     branch: feat/edge-v3
     rootDir: backend
     buildCommand: pip install --upgrade pip && pip install -r requirements.txt
-    startCommand: uvicorn src.main:app --host 0.0.0.0 --port $PORT --workers 4
+    startCommand: uvicorn src.api.main:app --host 0.0.0.0 --port $PORT --workers 1 --limit-max-requests 500
     healthCheckPath: /health
     autoDeploy: true
     envVars:

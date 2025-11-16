@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import type { InsightsResponse } from "@/lib/api";
 import type { ChartOptions } from "@/types/chart";
+import { normalizeValueBet } from "@/types/value-bet";
 import { DoughnutChart } from "./charts/DoughnutChart";
 import { apiClient } from "@/lib/api";
 import { safeErrorMessage } from "@/lib/error-utils";
@@ -125,7 +126,7 @@ export function InsightsDisplay({ insights }: InsightsDisplayProps) {
     },
   };
 
-  const bestBet = value_analysis.best_bet;
+  const bestBet = value_analysis.best_bet ? normalizeValueBet(value_analysis.best_bet) : null;
 
   return (
     <div className="space-y-8">
@@ -239,7 +240,7 @@ export function InsightsDisplay({ insights }: InsightsDisplayProps) {
               💰 Best Value Bet
             </h2>
             <span className="px-3 py-1 bg-green-500/10 border border-green-500/20 rounded-full text-sm font-semibold text-green-400">
-              {bestBet.quality.tier}
+              {bestBet.quality?.tier ?? 'VALUE'}
             </span>
           </div>
 
@@ -296,26 +297,7 @@ export function InsightsDisplay({ insights }: InsightsDisplayProps) {
           {/* Also render a ValueBetCard component (maps server value to UI model) */}
           <div className="mt-4">
             <ValueBetCard
-              bet={{
-                bet_type: bestBet.bet_type ?? 'unknown',
-                market_odds: bestBet.market_odds ?? 1.0,
-                model_prob: bestBet.model_prob ?? 0,
-                market_prob: bestBet.market_prob ?? 0,
-                expected_value: bestBet.expected_value ?? bestBet.edge ?? 0,
-                value_pct: bestBet.value_pct ?? bestBet.edge ?? 0,
-                kelly_stake: bestBet.kelly_stake ?? 0,
-                confidence_interval: bestBet.confidence_interval ?? [0, 0],
-                edge: bestBet.edge ?? bestBet.expected_value ?? 0,
-                recommendation: bestBet.recommendation ?? 'Monitor closely',
-                quality: bestBet.quality ?? {
-                  quality_score: 0,
-                  tier: 'VALUE',
-                  recommendation: 'Monitor closely',
-                  ev_contribution: 0,
-                  confidence_contribution: 0,
-                  liquidity_contribution: 0,
-                },
-              }}
+              bet={normalizeValueBet(bestBet)}
               context={{
                 matchId: current.matchup ?? insights.matchup,
                 homeTeam: insights.metadata?.home_team ?? 'Home',

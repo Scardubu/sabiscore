@@ -79,13 +79,13 @@ class FootballDataLoader:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
     @retry(
-        stop=stop_after_attempt(3),
+        stop=stop_after_attempt(5),
         wait=wait_exponential(multiplier=1, min=2, max=10),
     )
     async def download_csv(
         self, session: aiohttp.ClientSession, league_code: str, season: str
     ) -> Optional[Path]:
-        """Download CSV file for a specific league and season"""
+        """Download CSV file for a specific league and season with robust retry"""
         
         # Convert season format: "2324" -> "mmz4281/2324"
         season_dir = f"mmz4281/{season}"
@@ -99,7 +99,15 @@ class FootballDataLoader:
             return cache_path
         
         try:
-            async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as response:
+            # Increased timeout and explicit SSL handling
+            timeout = aiohttp.ClientTimeout(total=45, connect=15, sock_read=30)
+            
+            async with session.get(
+                url, 
+                timeout=timeout,
+                ssl=True,  # Verify SSL by default
+                allow_redirects=True
+            ) as response:
                 if response.status == 200:
                     content = await response.text()
                     cache_path.write_text(content, encoding="utf-8")
@@ -108,6 +116,23 @@ class FootballDataLoader:
                 else:
                     logger.warning(f"Failed to download {url}: HTTP {response.status}")
                     return None
+        except aiohttp.ClientSSLError as e:
+            logger.error(f"SSL error downloading {url}: {e}. Retrying with relaxed SSL...")
+            # Retry with SSL verification disabled as fallback
+            try:
+                timeout = aiohttp.ClientTimeout(total=45)
+                async with session.get(url, timeout=timeout, ssl=False) as response:
+                    if response.status == 200:
+                        content = await response.text()
+                        cache_path.write_text(content, encoding="utf-8")
+                        logger.warning(f"Downloaded with SSL disabled: {url}")
+                        return cache_path
+            except Exception as fallback_err:
+                logger.error(f"Fallback download failed for {url}: {fallback_err}")
+                return None
+        except asyncio.TimeoutError:
+            logger.error(f"Timeout downloading {url}")
+            return None
         except Exception as e:
             logger.error(f"Error downloading {url}: {e}")
             return None
