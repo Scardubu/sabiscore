@@ -81,4 +81,13 @@
     -webkit-mask-composite: xor;
     mask-composite: exclude;
   }
+
+  /* Progress bar helper: elements using `data-width` will be animated
+     and the actual width is set by a small client-side effect in React.
+     Keeping CSS responsible for visuals (height, rounding, transition)
+     avoids inline styles while allowing dynamic widths from JS. */
+  .h-full[data-width] {
+    width: 0%;
+    transition: width 0.5s ease;
+  }
 }

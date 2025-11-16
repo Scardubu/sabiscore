@@ -1,14 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 
 import { TeamAutocomplete } from "./team-autocomplete";
 import { getTeamsForLeague, LeagueId } from "../lib/team-data";
+import { safeErrorMessage } from "@/lib/error-utils";
 
 const LEAGUES = [
-  { id: "EPL", name: "Premier League", flag: "�🇧" },
+  { id: "EPL", name: "Premier League", flag: "🇬🇧" },
   { id: "La Liga", name: "La Liga", flag: "🇪🇸" },
   { id: "Serie A", name: "Serie A", flag: "🇮🇹" },
   { id: "Bundesliga", name: "Bundesliga", flag: "🇩🇪" },
@@ -21,6 +22,33 @@ export function MatchSelector() {
   const [league, setLeague] = useState<LeagueId>("EPL");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+
+  const STORAGE_KEY = "sabiscore.matchSelector.v1";
+
+  // Restore persisted selector state on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed?.league) setLeague(parsed.league as LeagueId);
+      if (parsed?.homeTeam) setHomeTeam(parsed.homeTeam);
+      if (parsed?.awayTeam) setAwayTeam(parsed.awayTeam);
+    } catch {
+      // ignore parse errors
+      // console.warn("Failed to restore match selector state", err);
+    }
+  }, []);
+
+  // Persist selection when values change
+  useEffect(() => {
+    try {
+      const payload = { league, homeTeam, awayTeam };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    } catch {
+      // ignore storage errors
+    }
+  }, [league, homeTeam, awayTeam]);
 
   const leagueTeams = useMemo(() => getTeamsForLeague(league), [league]);
 
@@ -50,7 +78,9 @@ export function MatchSelector() {
       const encodedMatchup = encodeURIComponent(matchup);
       router.push(`/match/${encodedMatchup}?league=${league}`);
     } catch (error) {
-      toast.error("Failed to load match insights");
+      const message = safeErrorMessage(error);
+      toast.error(message);
+    } finally {
       setLoading(false);
     }
   };
@@ -140,6 +170,24 @@ export function MatchSelector() {
             </>
           )}
         </button>
+
+        <div className="mt-2 text-center">
+          <button
+            type="button"
+            onClick={() => {
+              setHomeTeam("");
+              setAwayTeam("");
+              setLeague("EPL");
+              try {
+                localStorage.removeItem(STORAGE_KEY);
+              } catch {}
+              toast.success("Selector reset");
+            }}
+            className="text-xs text-slate-400 hover:text-slate-200 transition-colors"
+          >
+            Reset selection
+          </button>
+        </div>
       </form>
 
       <div className="pt-4 border-t border-slate-800/50">

@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev --turbo -p 3000",
     "build": "next build",
+    "build:prod": "next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
@@ -23,7 +24,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.454.0",
-    "next": "^15.0.3",
+    "next": "15.1.0",
     "react": "^18.3.1",
     "react-chartjs-2": "^5.2.0",
     "react-dom": "^18.3.1",
@@ -37,11 +38,11 @@
     "@types/react-dom": "^18.3.1",
     "autoprefixer": "^10.4.20",
     "cssnano": "^7.1.2",
-    "eslint": "^9.14.0",
+    "eslint": "^8.57.1",
     "eslint-config-next": "^15.0.3",
     "postcss": "^8.4.47",
     "prettier": "^3.3.3",
-    "tailwindcss": "^3.4.14",
+    "tailwindcss": "3.4.14",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5.6.3"
   }

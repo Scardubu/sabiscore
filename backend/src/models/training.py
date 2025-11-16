@@ -122,14 +122,21 @@ class ModelTrainer:
         X = data[feature_cols]
         y = data['result'].copy()
 
-        # Encode target if it's string values
-        if y.dtype == object or y.dtype == str:
-            y = y.map({
-                'home_win': 0,
-                'draw': 1,
-                'away_win': 2
-            })
-        
+        # Normalize target encoding to numerical classes 0,1,2 regardless of source format
+        target_mapping = {
+            'home_win': 0,
+            'draw': 1,
+            'away_win': 2,
+            0: 0,
+            1: 1,
+            2: 2
+        }
+        y = y.map(target_mapping)
+
+        if y.isnull().any():
+            raise ValueError("Encountered unknown result labels while preparing training data")
+
+        y = y.astype(int)
         # Convert to DataFrame for compatibility
         y = pd.DataFrame(y, columns=['result'])
 

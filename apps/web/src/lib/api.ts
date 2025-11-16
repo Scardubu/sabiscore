@@ -192,7 +192,9 @@ export async function getMatchInsights(
   return data;
   } catch (error) {
     console.error("Insights fetch error:", error);
-    throw error;
+    // Normalize errors so callers can present friendly messages
+    if (error instanceof APIError) throw error;
+    throw new APIError((error as Error).message || "Unknown error", undefined, "UNKNOWN_ERROR");
   }
 }
 
@@ -223,5 +225,17 @@ export const apiClient = {
     return (await response.json()) as InsightsResponse;
   },
 };
+
+export function parseApiError(error: unknown): { message: string; code?: string } {
+  if (error instanceof APIError) {
+    return { message: error.message, code: error.code };
+  }
+
+  if (error instanceof Error) {
+    return { message: error.message };
+  }
+
+  return { message: "An unexpected error occurred" };
+}
 
 export { APIError };

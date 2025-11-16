@@ -4,6 +4,7 @@
   "private": true,
   "description": "Edge-first Next.js 15 + FastAPI monorepo powering Sabiscore - Sub-150ms TTFB, 10k CCU, +18% ROI",
   "license": "MIT",
+  "packageManager": "npm@10.8.2",
   "engines": {
     "node": ">=20.11.0",
     "npm": ">=10.8.0"
@@ -31,18 +32,24 @@
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.12.1",
     "@typescript-eslint/parser": "^8.12.1",
-    "eslint": "^9.14.0",
+    "eslint": "^8.57.1",
     "eslint-config-next": "^15.0.3",
     "eslint-config-prettier": "^9.1.0",
     "prettier": "^3.3.3",
     "prettier-plugin-tailwindcss": "^0.6.9",
+    "tailwindcss": "^3.4.18",
     "tailwindcss-animate": "^1.0.7",
     "tsup": "^8.3.5",
-    "turbo": "^2.2.3",
+    "turbo": "^2.6.1",
+    "turbo-windows-64": "^2.6.1",
     "typescript": "^5.6.3"
   },
   "dependencies": {
+    "@next/swc-win32-x64-msvc": "^15.1.0",
     "@vercel/speed-insights": "^1.2.0",
+    "next": "^15.1.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "react-hot-toast": "^2.4.1"
   }
 }

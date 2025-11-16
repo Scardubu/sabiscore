@@ -1,15 +1,79 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import toast from "react-hot-toast";
 import type { InsightsResponse } from "@/lib/api";
 import type { ChartOptions } from "@/types/chart";
 import { DoughnutChart } from "./charts/DoughnutChart";
+import { apiClient } from "@/lib/api";
+import { safeErrorMessage } from "@/lib/error-utils";
+import { ValueBetCard } from "./ValueBetCard";
 
 interface InsightsDisplayProps {
   insights: InsightsResponse;
 }
 
 export function InsightsDisplay({ insights }: InsightsDisplayProps) {
-  const { predictions, xg_analysis, value_analysis, risk_assessment, monte_carlo } = insights;
+  // Use local state to allow client-side refetch/refresh without navigating
+  const [current, setCurrent] = useState<InsightsResponse>(insights);
+  const { predictions, xg_analysis, value_analysis, risk_assessment } = current;
+
+  const [refreshing, setRefreshing] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Use React Query for caching/deduping/refetch behavior - client-only
+  const { data, refetch } = useQuery<InsightsResponse>({
+    queryKey: ["insights", insights.matchup, insights.league],
+    queryFn: () => apiClient.generateInsights(insights.matchup, insights.league),
+    initialData: insights,
+    staleTime: 60 * 1000,
+    retry: 2,
+    enabled: isClient, // Only run after client hydration
+  });
+
+  useEffect(() => {
+    if (data) setCurrent(data);
+  }, [data]);
+
+  const handleRefetch = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const res = await refetch();
+      // Safely check res.data exists before using it
+      if (res.data && typeof res.data === 'object') {
+        setCurrent(res.data as InsightsResponse);
+        toast.success("Insights refreshed");
+      } else if (res.error) {
+        throw res.error;
+      }
+    } catch (err) {
+      const message = safeErrorMessage(err);
+      toast.error(`Failed to refresh: ${message}`);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetch]);
+
+  // Apply widths for any elements that use `data-width` to avoid inline styles.
+  // This reads the numeric percent from the attribute and sets the element's
+  // style.width accordingly so CSS transition (defined in globals.css) animates it.
+  useEffect(() => {
+    const els = Array.from(document.querySelectorAll<HTMLElement>('[data-width]'));
+    els.forEach((el) => {
+      const v = el.getAttribute("data-width");
+      const num = Number(v);
+      if (!Number.isFinite(num)) return;
+      // clamp 0..100
+      const pct = Math.max(0, Math.min(100, num));
+      el.style.width = `${pct}%`;
+    });
+    // No cleanup required; width will be overwritten on subsequent updates.
+  }, [current]);
 
   const chartData = {
     labels: ["Home Win", "Draw", "Away Win"],
@@ -71,6 +135,15 @@ export function InsightsDisplay({ insights }: InsightsDisplayProps) {
         <p className="text-slate-400 text-lg">{insights.league}</p>
         
         <div className="flex items-center justify-center gap-6 pt-4">
+          <div>
+            <button
+              onClick={handleRefetch}
+              disabled={refreshing}
+              className="mr-2 rounded-md border border-slate-700/50 bg-slate-800/60 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800/70"
+            >
+              {refreshing ? "Refreshing…" : "Refresh insights"}
+            </button>
+          </div>
           <div className="px-4 py-2 bg-indigo-500/10 border border-indigo-500/20 rounded-lg">
             <p className="text-sm text-slate-400">Prediction</p>
             <p className="text-2xl font-bold text-indigo-400 capitalize">
@@ -219,6 +292,39 @@ export function InsightsDisplay({ insights }: InsightsDisplayProps) {
               {bestBet.recommendation}
             </p>
           </div>
+
+          {/* Also render a ValueBetCard component (maps server value to UI model) */}
+          <div className="mt-4">
+            <ValueBetCard
+              bet={{
+                bet_type: bestBet.bet_type ?? 'unknown',
+                market_odds: bestBet.market_odds ?? 1.0,
+                model_prob: bestBet.model_prob ?? 0,
+                market_prob: bestBet.market_prob ?? 0,
+                expected_value: bestBet.expected_value ?? bestBet.edge ?? 0,
+                value_pct: bestBet.value_pct ?? bestBet.edge ?? 0,
+                kelly_stake: bestBet.kelly_stake ?? 0,
+                confidence_interval: bestBet.confidence_interval ?? [0, 0],
+                edge: bestBet.edge ?? bestBet.expected_value ?? 0,
+                recommendation: bestBet.recommendation ?? 'Monitor closely',
+                quality: bestBet.quality ?? {
+                  quality_score: 0,
+                  tier: 'VALUE',
+                  recommendation: 'Monitor closely',
+                  ev_contribution: 0,
+                  confidence_contribution: 0,
+                  liquidity_contribution: 0,
+                },
+              }}
+              context={{
+                matchId: current.matchup ?? insights.matchup,
+                homeTeam: insights.metadata?.home_team ?? 'Home',
+                awayTeam: insights.metadata?.away_team ?? 'Away',
+                bookmaker: 'Preferred Book',
+                clvExpected: bestBet.quality?.ev_contribution ?? null,
+              }}
+            />
+          </div>
         </div>
       )}
 
@@ -247,8 +353,8 @@ export function InsightsDisplay({ insights }: InsightsDisplayProps) {
             <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-500"
-                style={{ width: `${risk_assessment.confidence_score * 100}%` }}
-              ></div>
+                data-width={`${risk_assessment.confidence_score * 100}`}
+              />
             </div>
           </div>
         </div>

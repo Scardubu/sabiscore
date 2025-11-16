@@ -5,18 +5,32 @@ const nextConfig = {
   poweredByHeader: false,
   compress: true,
   
-  // Standalone output for optimized deployment
+  // Force all pages to be dynamic to avoid prerendering issues
   output: 'standalone',
   
   // Silence workspace root warning
   outputFileTracingRoot: path.join(__dirname, '../../'),
   
   // Enable experimental features for edge optimization
-  experimental: {
-    optimizePackageImports: ['lucide-react', '@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select'],
-    // Reduce memory during build
-    webpackMemoryOptimizations: true,
+  // experimental: {
+  //   optimizePackageImports: ['lucide-react', '@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select'],
+  //   // Reduce memory during build
+  //   webpackMemoryOptimizations: true,
+  //   // placeholder to keep experimental block active when toggling styled-jsx
+  //   serverActions: {
+  //     bodySizeLimit: '2mb',
+  //   },
+  // },
+
+  // Disable styled-jsx to avoid SSR context issues
+  compiler: {
+    styledComponents: false,
+    styledJsx: false,
+    removeConsole: process.env.NODE_ENV === 'production',
   },
+  
+  // Explicitly exclude styled-jsx
+  excludeDefaultMomentLocales: true,
 
   // Prevent heavy browser-only libraries from being bundled into the server output
   serverExternalPackages: ['chart.js', 'react-chartjs-2'],
@@ -88,51 +102,16 @@ const nextConfig = {
   
   // Webpack optimization for memory-constrained environments
   webpack: (config, { isServer, webpack }) => {
-    const polyfillPath = path.resolve(__dirname, './src/polyfills.ts');
-
-    if (config.entry) {
-      const originalEntry = config.entry;
-      config.entry = async () => {
-        const entries = await originalEntry();
-        const entryKeys = [
-          'main-app',
-          'app',
-          'pages/_app',
-          'main',
-        ];
-
-        entryKeys.forEach((entryKey) => {
-          const entryValue = entries[entryKey];
-          if (!entryValue) {
-            return;
-          }
-
-          if (Array.isArray(entryValue)) {
-            if (!entryValue.includes(polyfillPath)) {
-              entries[entryKey] = [polyfillPath, ...entryValue];
-            }
-            return;
-          }
-
-          if (typeof entryValue === 'string') {
-            if (entryValue !== polyfillPath) {
-              entries[entryKey] = [polyfillPath, entryValue];
-            }
-            return;
-          }
-
-          if (typeof entryValue === 'object' && entryValue.import) {
-            const originalImport = Array.isArray(entryValue.import) ? entryValue.import : [entryValue.import];
-            if (!originalImport.includes(polyfillPath)) {
-              entryValue.import = [polyfillPath, ...originalImport];
-            }
-          }
-        });
-
-        return entries;
-      };
+    // Don't try to exclude styled-jsx - it's required by Next.js internally
+    // Instead, ensure it's handled properly
+    if (isServer) {
+      // Ensure styled-jsx and React are properly externalized on server
+      config.externals = config.externals || [];
+      if (Array.isArray(config.externals)) {
+        config.externals.push('styled-jsx');
+      }
     }
-
+    
     // Reduce memory usage
     // NOTE: Custom optimization disabled to avoid runtime chunk issues during build.
     // Using Next.js defaults for stability.
@@ -188,19 +167,6 @@ const nextConfig = {
       };
     }
 
-    config.plugins = config.plugins || [];
-    config.plugins.push(
-      new webpack.BannerPlugin({
-        banner: `if (typeof globalThis.self === "undefined") { globalThis.self = globalThis; }
-if (typeof globalThis.window === "undefined") { globalThis.window = globalThis; }
-if (typeof globalThis.document === "undefined") { globalThis.document = { addEventListener: function() {}, removeEventListener: function() {}, createElement: function() { return {}; }, querySelector: function() { return null; }, querySelectorAll: function() { return []; }, setAttribute: function() {}, getElementById: function() { return null; }, body: {}, head: {} }; }
-`,
-        raw: true,
-        entryOnly: false,
-        test: /\.m?js$/,
-      })
-    );
-    
     return config;
   },
 }

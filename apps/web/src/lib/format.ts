@@ -5,7 +5,7 @@ export function formatCurrency(amount: number | null | undefined, locale = 'en-N
   if (amount == null || Number.isNaN(amount)) return '—';
   try {
     return new Intl.NumberFormat(locale, { style: 'currency', currency, maximumFractionDigits: 2 }).format(amount);
-  } catch (e) {
+  } catch {
     // fallback
     return `${currency} ${Number(amount).toFixed(2)}`;
   }
@@ -15,7 +15,7 @@ export function formatNumber(n: number | null | undefined, locale = 'en-NG', dig
   if (n == null || Number.isNaN(n)) return '—';
   try {
     return new Intl.NumberFormat(locale, { maximumFractionDigits: digits }).format(n);
-  } catch (e) {
+  } catch {
     return Number(n).toFixed(digits);
   }
 }

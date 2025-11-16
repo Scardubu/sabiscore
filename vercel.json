@@ -1,9 +1,16 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "cd apps/web; npm ci; npm run build",
-  "devCommand": "cd apps/web; npm run dev",
-  "installCommand": "npm ci --prefix apps/web",
+  "buildCommand": "npm run build:web",
+  "devCommand": "npm run dev:web",
+  "installCommand": "npm ci",
   "framework": "nextjs",
+  "regions": ["iad1"],
+  "build": {
+    "env": {
+      "NEXT_TELEMETRY_DISABLED": "1",
+      "NODE_OPTIONS": "--max-old-space-size=8192"
+    }
+  },
   
   "env": {
     "NEXT_PUBLIC_API_URL": "https://sabiscore-api.onrender.com",

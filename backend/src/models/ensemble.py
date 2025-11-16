@@ -150,22 +150,27 @@ class SabiScoreEnsemble:
         # Get predictions
         predictions = self.predict(X_test)
 
+        # Work with 1D target labels for metric calculations
+        y_true = y_test['result'] if isinstance(y_test, pd.DataFrame) else y_test
+
+        # Map predicted outcome strings back to encoded integers
+        label_mapping = {'home_win': 0, 'draw': 1, 'away_win': 2}
+        predicted_labels = predictions['prediction'].map(label_mapping)
+
         # Calculate metrics
-        accuracy = accuracy_score(y_test, predictions['prediction'])
+        accuracy = accuracy_score(y_true, predicted_labels)
 
         # Brier score for probability calibration - use multiclass version
         # For multiclass, calculate Brier score for each class and average
-        y_test_encoded = y_test.copy()
-        y_test_encoded['result'] = y_test_encoded['result'].map({'home_win': 0, 'draw': 1, 'away_win': 2})
-        brier = 0
-        for i in range(3):
-            y_binary = (y_test_encoded.values.ravel() == i).astype(int)
-            probs = predictions[f'{"home_win_prob" if i==0 else "draw_prob" if i==1 else "away_win_prob"}']
+        brier = 0.0
+        for label_idx, prob_column in enumerate(['home_win_prob', 'draw_prob', 'away_win_prob']):
+            y_binary = (y_true == label_idx).astype(int)
+            probs = predictions[prob_column]
             brier += brier_score_loss(y_binary, probs)
         brier /= 3
 
-        # Log loss
-        logloss = log_loss(y_test, predictions[['home_win_prob', 'draw_prob', 'away_win_prob']].values)
+        # Log loss (explicitly pass label ordering to match probability columns)
+        logloss = log_loss(y_true, predictions[['home_win_prob', 'draw_prob', 'away_win_prob']].values, labels=[0, 1, 2])
 
         logger.info(f"Ensemble Evaluation:")
         logger.info(f"  Accuracy: {accuracy:.4f}")

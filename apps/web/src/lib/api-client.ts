@@ -5,6 +5,9 @@
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+export type ConfidenceIntervalMap = Record<string, [number, number]>;
+export type ExplanationMap = Record<string, unknown>;
+
 export interface Match {
   id: string;
   home_team: string;
@@ -29,8 +32,8 @@ export interface Prediction {
   confidence: number;
   brier_score: number;
   value_bets: ValueBet[];
-  confidence_intervals?: any;
-  explanations?: any;
+  confidence_intervals?: ConfidenceIntervalMap;
+  explanations?: ExplanationMap;
   metadata: {
     model_version: string;
     processing_time_ms?: number;

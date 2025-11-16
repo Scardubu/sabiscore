@@ -23,6 +23,17 @@ router = APIRouter(prefix="/predictions", tags=["predictions"])
 # Feature flag for mock predictions (set to False for production with trained models)
 USE_MOCK_PREDICTIONS = False
 
+# Convenience alias for /predictions endpoint
+@router.post("/predict", response_model=PredictionResponse, include_in_schema=False)
+async def predict_match_alias(
+    request: MatchPredictionRequest,
+    background_tasks: BackgroundTasks,
+    request_context: Request,
+    db: AsyncSession = Depends(get_async_session),
+):
+    """Alias for POST /predictions/ - convenience endpoint for match prediction."""
+    return await create_prediction(request, background_tasks, request_context, db)
+
 
 @router.post("/", response_model=PredictionResponse)
 async def create_prediction(

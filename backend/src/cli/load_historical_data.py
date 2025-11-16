@@ -152,19 +152,31 @@ class HistoricalDataLoader:
             response.raise_for_status()
 
         except SSLError as ssl_error:
-            logger.warning(f"TLS handshake failed for {url}: {ssl_error}. Retrying without verification...")
-            try:
-                urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-                response = requests.get(
-                    url,
-                    timeout=30,
-                    headers=self.session.headers,
-                    verify=False,
-                )
-                response.raise_for_status()
-            except Exception as retry_error:
-                logger.error(f"Failed to download {url} after TLS fallback: {retry_error}")
-                return None
+            logger.warning(f"TLS handshake failed for {url}: {ssl_error}. Retrying with backoff...")
+            # Exponential backoff for SSL/EOF errors (3 attempts)
+            for attempt in range(3):
+                try:
+                    import time
+                    wait_time = (2 ** attempt) * 0.5  # 0.5s, 1s, 2s
+                    if attempt > 0:
+                        logger.info(f"Retry attempt {attempt + 1}/3 after {wait_time}s delay...")
+                        time.sleep(wait_time)
+                    
+                    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+                    response = requests.get(
+                        url,
+                        timeout=30,
+                        headers=self.session.headers,
+                        verify=False,
+                    )
+                    response.raise_for_status()
+                    logger.info(f"Successfully downloaded after {attempt + 1} attempt(s)")
+                    break
+                except Exception as retry_error:
+                    if attempt == 2:  # Last attempt
+                        logger.error(f"Failed to download {url} after 3 retry attempts: {retry_error}")
+                        return None
+                    logger.warning(f"Attempt {attempt + 1} failed: {retry_error}")
         except RequestException as e:
             logger.error(f"Failed to download {url}: {e}")
             return None

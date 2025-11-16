@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, type ComponentType } from "react";
 import type { ChartData, ChartOptions } from "@/types/chart";
 
 interface DoughnutChartProps {
@@ -10,7 +10,7 @@ interface DoughnutChartProps {
 }
 
 export function DoughnutChart({ data, options, className }: DoughnutChartProps) {
-  const [Chart, setChart] = useState<any>(null);
+  const [Chart, setChart] = useState<ComponentType<DoughnutChartProps> | null>(null);
 
   useEffect(() => {
     // Dynamically import Chart.js only on client side
@@ -23,7 +23,7 @@ export function DoughnutChart({ data, options, className }: DoughnutChartProps) 
           chartjs.CategoryScale,
           chartjs.LinearScale
         );
-        setChart(() => mod.Doughnut);
+        setChart(() => mod.Doughnut as ComponentType<DoughnutChartProps>);
       });
     });
   }, []);

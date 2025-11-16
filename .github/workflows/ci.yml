@@ -1,3 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, feat/** ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./apps/web
+
+      - name: Lint
+        run: npm run lint --if-present
+        working-directory: ./apps/web
+
+      - name: Typecheck
+        run: npm run typecheck --if-present
+        working-directory: ./apps/web
+
+      - name: Build
+        run: npm run build --if-present
+        working-directory: ./apps/web
+
+      - name: Upload build artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: apps/web/.next
 name: CI - Monorepo
 
 on:

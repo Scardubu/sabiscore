@@ -152,7 +152,7 @@ export function TeamAutocomplete({
           aria-haspopup="listbox"
           aria-controls={isOpen ? `team-listbox-${uid}` : undefined}
           aria-activedescendant={isOpen && highlightedIndex >= 0 ? `team-option-${uid}-${highlightedIndex}` : undefined}
-          className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+          className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         />
         {isOpen && filteredOptions.length > 0 && (
           <ul
@@ -165,7 +165,7 @@ export function TeamAutocomplete({
                 key={team}
                 id={`team-option-${uid}-${index}`}
                 role="option"
-                aria-selected={highlightedIndex === index ? "true" : "false"}
+                aria-selected={highlightedIndex === index ? "true" : undefined}
                 className={`cursor-pointer px-4 py-2 text-sm transition-colors ${
                   highlightedIndex === index
                     ? "bg-indigo-600 text-white"
