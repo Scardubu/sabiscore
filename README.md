@@ -7,11 +7,16 @@
 Sabiscore is a production-grade sports betting intelligence engine powered by ensemble ML, real-time data fusion, and creative augmentation strategies. Deployed on Vercel Edge + Render with zero cold starts and auto-scaling to 10,000 concurrent users.
 
 **Live URLs:**
-- 🌐 Frontend: https://sabiscore-m3gd1at7h-oversabis-projects.vercel.app  
-- ⚙️ Backend: https://sabiscore-api.onrender.com  
+- 🌐 Frontend: https://sabiscore.vercel.app (auto-deploys from `feat/edge-v3`)
+- ⚙️ Backend: https://sabiscore-api.onrender.com (auto-deploys from `feat/edge-v3`)
 - 📦 GitHub: https://github.com/Scardubu/sabiscore  
 
-**Branch:** `feat/edge-v3` | **Status:** ✅ Production Deployment Complete
+**Branch:** `feat/edge-v3` | **Status:** ✅ Production Deployment Complete (Nov 16, 2025)
+
+**Latest Build:**
+- Frontend: 7 routes, 110kB first-load JS, 0 blocking errors
+- Backend: FastAPI with Redis cache, PostgreSQL, ensemble models
+- Commit: `619d9bdd3` - Edge v3 hardening (memory opt, error handling, smoke tests)
 
 ---
 
@@ -37,7 +42,9 @@ Sabiscore is a production-grade sports betting intelligence engine powered by en
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 20+, Python 3.11+, Docker, PostgreSQL 16, Redis 7
+- Node.js 20+, Python 3.11+, Docker (optional for local dev)
+- PostgreSQL 16 (or use Render's managed instance)
+- Redis 7 (or use Upstash for serverless)
 
 ### Local Development
 ```bash
@@ -46,32 +53,51 @@ git clone https://github.com/Scardubu/sabiscore.git
 cd sabiscore
 npm install
 
-# Start services
+# Option A: Docker Compose (easiest)
 docker-compose up -d  # Postgres + Redis
-cd backend && pip install -r requirements.txt
-uvicorn src.main:app --reload  # Backend on :8000
-cd apps/web && npm run dev     # Frontend on :3000
+
+# Option B: Manual services
+# Start Postgres on :5432, Redis on :6379
+
+# Backend
+cd backend
+pip install -r requirements.txt
+$env:PYTHONPATH="$PWD"  # PowerShell
+uvicorn src.main:app --reload --port 8000
+
+# Frontend (new terminal)
+cd apps/web
+npm run dev  # Starts on :3000
 ```
 
 ### Production Deployment
 
-**Vercel (Frontend):**
+**Automatic (Recommended):**
 ```bash
-cd apps/web
-vercel --prod
-```
-
-**Render (Backend):**
-```bash
-# Push to GitHub (feat/edge-v3)
+# Push to GitHub feat/edge-v3 branch
 git push origin feat/edge-v3
 
-# Deploy via Render Blueprint
-# Dashboard → New → Blueprint → sabiscore repo
-# Auto-detects render.yaml
+# Vercel auto-deploys frontend from GitHub
+# Render auto-deploys backend from GitHub
+# Monitor: https://vercel.com/dashboard
+#          https://dashboard.render.com
 ```
 
-See [`PRODUCTION_DEPLOYMENT_SUMMARY.md`](./PRODUCTION_DEPLOYMENT_SUMMARY.md) for complete guide.
+**Manual Vercel Deploy:**
+```bash
+cd apps/web
+$env:NODE_OPTIONS="--max-old-space-size=8192"
+vercel --prod
+# Or preview first: vercel
+```
+
+**Render Backend:**
+- Connected to GitHub `feat/edge-v3`
+- Auto-deploys on push
+- Uses `render.yaml` blueprint
+- Env vars: `REDIS_URL`, `DATABASE_URL`, `SECRET_KEY`
+
+See [`PRODUCTION_CHECKLIST.md`](./PRODUCTION_CHECKLIST.md) for validation steps.
 
 ---
 

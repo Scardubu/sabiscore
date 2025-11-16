@@ -90,8 +90,92 @@ npm run preview
 ## Verification
 
 ✅ Backend: http://localhost:8000/docs  
-✅ Frontend: http://localhost:4173  
+✅ Frontend: http://localhost:3000 (dev) or :4173 (preview)  
 ✅ Health: http://localhost:8000/api/v1/health
+
+---
+
+## 🔍 Smoke Tests
+
+### Production Backend
+```powershell
+$env:NEXT_PUBLIC_API_URL = "https://sabiscore-api.onrender.com"
+powershell -ExecutionPolicy Bypass -File scripts/smoke-test-backend.ps1
+```
+
+### Local Backend
+```powershell
+$env:NEXT_PUBLIC_API_URL = "http://localhost:8000"
+powershell -ExecutionPolicy Bypass -File scripts/smoke-test-backend.ps1
+```
+
+**Tests:**
+- Health Check (`/health`)
+- OpenAPI Schema (`/docs`, `/openapi.json`)
+- Upcoming Matches (`/matches/upcoming`)
+- Value Bets Today (`/predictions/value-bets/today`)
+- Create Prediction (POST `/predictions/predict`)
+- Predict by Alias (`/predictions/predict/alias/...`)
+
+### Frontend Build
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/smoke-test-frontend.ps1
+```
+
+**Validates:**
+- TypeScript compilation
+- ESLint rules
+- Next.js build (7 routes, 110kB first-load JS)
+- Build artifacts (`.next/standalone`, `.next/static`)
+
+---
+
+## 🛠️ Troubleshooting
+
+### Backend Shows "Degraded" Status
+```json
+{ "status": "degraded", "database": true }
+```
+
+**Cause:** Redis connection not established (cold start, Upstash warmup).
+
+**Fix:**
+1. Wait 30-60s for Redis to connect
+2. Retry health check: `curl https://sabiscore-api.onrender.com/api/v1/health`
+3. Check Render logs for `Connected to Redis` message
+4. Verify `REDIS_URL` env var in Render dashboard
+
+### Smoke Tests Timing Out
+```
+Health Check: FAIL (timeout after 5s)
+```
+
+**Cause:** Cold start (Render spins down after 15min inactivity on free tier).
+
+**Fix:**
+1. First request may take 10-30s (service warmup)
+2. Increase timeout in `smoke-test-backend.ps1`: `-TimeoutSec 30`
+3. Re-run tests after initial warmup
+4. Upgrade to paid tier for zero downtime
+
+### Frontend Unreachable
+**Fix:**
+1. Check Vercel: https://vercel.com/dashboard
+2. Manual deploy: `cd apps/web && vercel --prod`
+3. Verify GitHub integration enabled for `feat/edge-v3`
+4. Check build logs for OOM errors (should use 8GB `NODE_OPTIONS`)
+
+### High TTFB (>150ms)
+**Causes:**
+- Cold Postgres queries (no connection pooling)
+- Redis cache miss
+- ML model loading (first prediction)
+
+**Fixes:**
+- Enable Render persistent disk for model cache
+- Use PgBouncer for connection pooling
+- Pre-warm cache with cron job
+- Monitor with `scripts/monitor_deployment.ps1`
 
 ---
 
@@ -102,14 +186,18 @@ npm run preview
 | INTEGRATION_SUMMARY.md | 📋 Complete integration report |
 | BACKEND_SETUP_GUIDE.md | 🔧 Troubleshoot 500 errors |
 | DEPLOYMENT_CHECKLIST.md | 🚀 Deploy to production |
-| TECHNICAL_OPTIMIZATIONS.md | ⚡ Performance details |
+| PRODUCTION_CHECKLIST.md | ✅ Production validation steps |
+| PHASE_5_DEPLOYMENT_COMPLETE.md | 📦 Edge v3 deployment guide |
 
 ---
 
 ## Status
 
-**Build:** ✅ SUCCESS (140 KB gzipped)  
-**Frontend:** ✅ READY  
-**Backend:** ⏳ **START IT NOW!**
+**Build:** ✅ SUCCESS (110 KB first-load JS, 7 routes)  
+**Frontend:** ✅ Vercel (auto-deploy from `feat/edge-v3`)  
+**Backend:** ✅ Render (auto-deploy from `feat/edge-v3`)  
+**Commit:** `619d9bdd3` - Edge v3 hardening
 
-**Action Required:** Run `.\START_SABISCORE.bat`
+**Production URLs:**
+- 🌐 https://sabiscore.vercel.app
+- ⚙️ https://sabiscore-api.onrender.com
