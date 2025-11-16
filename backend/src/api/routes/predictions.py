@@ -216,8 +216,15 @@ async def health_check():
     
     all_ready = all(s['trained'] for s in status.values())
     
+    # Safe Redis ping with fallback
+    redis_connected = False
+    try:
+        redis_connected = orchestrator.redis.ping()
+    except Exception:
+        redis_connected = False
+    
     return {
         'status': 'healthy' if all_ready else 'training_required',
         'models': status,
-        'redis_connected': orchestrator.redis.ping()
+        'redis_connected': redis_connected
     }

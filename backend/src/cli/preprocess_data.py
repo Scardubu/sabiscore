@@ -95,13 +95,13 @@ class DataPreprocessor:
             .filter(
                 and_(
                     Match.league_id.in_(league_ids),
-                    Match.kickoff_time < datetime.utcnow(),  # Past matches only
-                    Match.kickoff_time > cutoff_date,
+                    Match.match_date < datetime.utcnow(),  # Past matches only
+                    Match.match_date > cutoff_date,
                     Match.home_score.isnot(None),  # Completed matches
                     Match.away_score.isnot(None),
                 )
             )
-            .order_by(Match.kickoff_time)
+            .order_by(Match.match_date)
             .all()
         )
         
@@ -132,7 +132,7 @@ class DataPreprocessor:
                 
                 features['result'] = result
                 features['match_id'] = match.id
-                features['kickoff_time'] = match.kickoff_time
+                features['match_date'] = match.match_date
                 
                 training_samples.append(features)
                 
@@ -151,7 +151,7 @@ class DataPreprocessor:
         
         return {
             'samples': len(df),
-            'features': len(df.columns) - 3,  # Exclude match_id, kickoff_time, result
+            'features': len(df.columns) - 3,  # Exclude match_id, match_date, result
             'path': str(output_path),
         }
     
