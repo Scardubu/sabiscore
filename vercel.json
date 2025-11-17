@@ -69,6 +69,10 @@
   
   "rewrites": [
     {
+      "source": "/api/v1/health",
+      "destination": "https://sabiscore-api.onrender.com/health"
+    },
+    {
       "source": "/api/v1/:path*",
       "destination": "https://sabiscore-api.onrender.com/api/v1/:path*"
     }
