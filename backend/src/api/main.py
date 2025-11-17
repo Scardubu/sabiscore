@@ -373,10 +373,9 @@ def get_loaded_model(default=None):
 app.include_router(api_router, prefix=getattr(settings, 'API_V1_STR', '/api/v1'), tags=["API"])
 app.include_router(ws_router, tags=["WebSocket"])
 
-# Include health check routes at root level for container orchestration
-from .endpoints.health import router as health_router
+# Include monitoring/health check routes at root level for container orchestration
+# Use monitoring router which has /health, /health/live, /health/ready, /metrics
 from .endpoints.monitoring import router as monitoring_router_root
-app.include_router(health_router)
 app.include_router(monitoring_router_root, tags=["monitoring"])
 
 
