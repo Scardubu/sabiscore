@@ -1,6 +1,4 @@
 "use client";
-
-import React from 'react';
 import type { ChartOptions } from '@/types/chart';
 import { TrendingUp, TrendingDown, Activity } from 'lucide-react';
 import { DoughnutChart } from './charts/DoughnutChart';

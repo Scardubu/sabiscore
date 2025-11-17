@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, type ComponentType } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 import type { ChartData, ChartOptions } from "@/types/chart";
 
 interface DoughnutChartProps {

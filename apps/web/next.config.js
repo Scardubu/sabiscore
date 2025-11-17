@@ -12,15 +12,11 @@ const nextConfig = {
   outputFileTracingRoot: path.join(__dirname, '../../'),
   
   // Enable experimental features for edge optimization
-  // experimental: {
-  //   optimizePackageImports: ['lucide-react', '@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select'],
-  //   // Reduce memory during build
-  //   webpackMemoryOptimizations: true,
-  //   // placeholder to keep experimental block active when toggling styled-jsx
-  //   serverActions: {
-  //     bodySizeLimit: '2mb',
-  //   },
-  // },
+  experimental: {
+    optimizePackageImports: ['lucide-react', '@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select', '@radix-ui/react-tooltip'],
+    // Reduce memory during build
+    webpackMemoryOptimizations: true,
+  },
 
   // Disable styled-jsx to avoid SSR context issues
   compiler: {

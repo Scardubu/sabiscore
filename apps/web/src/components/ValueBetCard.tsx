@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { TrendingUp, AlertCircle, Copy, Check, ExternalLink } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import type { ValueBet } from '@/types/value-bet';
