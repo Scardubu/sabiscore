@@ -41,7 +41,7 @@ async def health_check() -> Dict[str, Any]:
     # Check database connectivity
     try:
         with engine.connect() as conn:
-            conn.execute("SELECT 1")
+            conn.execute(text("SELECT 1"))
         health_status["components"]["database"] = {
             "status": "healthy",
             "message": "Connected"
@@ -147,7 +147,7 @@ async def readiness_check(response: Response) -> Dict[str, Any]:
     # Check database
     try:
         with engine.connect() as conn:
-            conn.execute("SELECT 1")
+            conn.execute(text("SELECT 1"))
         checks["database"] = {"status": "ready", "message": "Connected"}
     except Exception as e:
         logger.error(f"Database not ready: {e}")
