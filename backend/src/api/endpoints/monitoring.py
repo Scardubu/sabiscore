@@ -12,6 +12,7 @@ from sqlalchemy import text
 from ...core.cache import cache
 from ...core.database import engine
 from ...core.config import settings
+from ...db.session import check_db_connection
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["monitoring"])
@@ -250,3 +251,39 @@ def metrics() -> Dict[str, Any]:
             "error": "Failed to collect metrics",
             "timestamp": datetime.utcnow().isoformat()
         }
+
+
+@router.get("/internal/smoke")
+async def smoke_check() -> Dict[str, Any]:
+    """
+    Lightweight smoke endpoint for deployment automation.
+    Reports database connectivity, models loaded flag, and app version.
+    """
+    db_ok = False
+    try:
+        db_ok = await check_db_connection()
+    except Exception as e:
+        logger.warning(f"Smoke DB check failed: {e}")
+
+    # Models: prefer app.state if available
+    try:
+        models_flag = False
+        model_instance = getattr(__import__('...api.main', fromlist=['app']).app.state, 'model_instance', None)
+        if model_instance is not None and getattr(model_instance, 'is_trained', False):
+            models_flag = True
+        else:
+            # fallback: check for .pkl files in models directory
+            import os
+            models_dir = settings.models_path
+            if models_dir and models_dir.exists():
+                pkl_files = [f for f in os.listdir(models_dir) if f.endswith('.pkl')]
+                models_flag = len(pkl_files) > 0
+    except Exception:
+        models_flag = False
+
+    return {
+        "db_connected": db_ok,
+        "models_loaded": models_flag,
+        "version": os.getenv('APP_VERSION', '1.0.0'),
+        "timestamp": datetime.utcnow().isoformat()
+    }
