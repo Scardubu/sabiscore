@@ -7,6 +7,7 @@ from fastapi import APIRouter, Response
 from datetime import datetime
 from typing import Dict, Any
 import time
+from sqlalchemy import text
 
 from ...core.cache import cache
 from ...core.database import engine
