@@ -21,7 +21,7 @@ _startup_time = time.time()
 
 
 @router.get("/health")
-async def health_check() -> Dict[str, Any]:
+def health_check() -> Dict[str, Any]:
     """
     Comprehensive health check endpoint for monitoring and load balancers.
     
@@ -125,7 +125,7 @@ async def health_check() -> Dict[str, Any]:
 
 
 @router.get("/health/live")
-async def liveness_check(response: Response) -> Dict[str, str]:
+def liveness_check(response: Response) -> Dict[str, str]:
     """
     Liveness probe for Kubernetes/container orchestration.
     Simple check that the service is running.
@@ -137,7 +137,7 @@ async def liveness_check(response: Response) -> Dict[str, str]:
 
 
 @router.get("/health/ready")
-async def readiness_check(response: Response) -> Dict[str, Any]:
+def readiness_check(response: Response) -> Dict[str, Any]:
     """
     Readiness probe for Kubernetes/container orchestration.
     Checks if service is ready to accept traffic.
@@ -211,7 +211,7 @@ async def readiness_check(response: Response) -> Dict[str, Any]:
 
 
 @router.get("/metrics")
-async def metrics() -> Dict[str, Any]:
+def metrics() -> Dict[str, Any]:
     """
     Prometheus-compatible metrics endpoint.
     Returns key application metrics for monitoring.
