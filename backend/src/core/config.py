@@ -57,6 +57,7 @@ class Settings(BaseSettings):
     # App metadata (backwards-compat with legacy settings access in main.py)
     project_name: str = Field(default="SabiScore API", alias="APP_NAME")
     version: str = Field(default="1.0.0", alias="VERSION")
+    app_version: str = Field(default="1.0.0", alias="APP_VERSION")
     api_v1_str: str = Field(default="/api/v1", alias="API_V1_STR")
     
     # Next.js Integration
@@ -235,6 +236,19 @@ class Settings(BaseSettings):
     def cors_origins(self) -> List[str]:
         """Expose unified accessor used across the app."""
         return self.cors_allowed_origins
+
+    @property
+    def redis_host(self) -> Optional[str]:
+        """Extract redis host from redis_url for backwards compat."""
+        if not self.redis_url:
+            return None
+        # Parse redis://host:port or redis://user:pass@host:port
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(self.redis_url)
+            return parsed.hostname
+        except Exception:
+            return None
 
 
 # Global settings instance
