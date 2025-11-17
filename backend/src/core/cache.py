@@ -53,6 +53,7 @@ class RedisCache:
         self._enabled = settings.redis_enabled
         self._redis_available = False
         self.redis_client: Optional[redis.Redis] = None
+        self._max_memory_entries = 1000  # Prevent unbounded growth
 
         if self._enabled:
             try:
@@ -62,13 +63,25 @@ class RedisCache:
                     decode_responses=False,
                     health_check_interval=30,
                     socket_timeout=5,
-                    socket_connect_timeout=5
+                    socket_connect_timeout=5,
+                    retry_on_timeout=True,
+                    retry_on_error=[ConnectionError]
                 )
                 client.ping()
                 self.redis_client = client
                 self._redis_available = True
+                logger.info("Redis connection established successfully")
             except (RedisError, ConnectionError, TimeoutError) as exc:
-                logger.warning("Redis unavailable, using in-memory cache only: %s", exc)
+                logger.warning(
+                    "Redis unavailable at %s, falling back to in-memory cache: %s",
+                    settings.redis_url,
+                    exc
+                )
+                logger.info(
+                    "In-memory cache active with %d entry limit. "
+                    "Set REDIS_ENABLED=false to suppress Redis connection attempts.",
+                    self._max_memory_entries
+                )
                 self.metrics.record_error()
                 self._enabled = False
                 self.redis_client = None
@@ -272,6 +285,22 @@ class RedisCache:
     def _write_to_memory(self, key: str, value: Any, ttl: Optional[int]) -> bool:
         expires_at = time.time() + ttl if ttl else None
         with self._lock:
+            # Enforce memory cache size limit
+            if len(self._memory_cache) >= self._max_memory_entries:
+                # Remove oldest expired entry or first entry
+                now = time.time()
+                removed = False
+                for k, (_, exp) in list(self._memory_cache.items()):
+                    if exp and exp < now:
+                        self._memory_cache.pop(k)
+                        removed = True
+                        break
+                if not removed and self._memory_cache:
+                    # Remove first entry (FIFO)
+                    first_key = next(iter(self._memory_cache))
+                    self._memory_cache.pop(first_key)
+                    logger.debug(f"Memory cache full, evicted: {first_key}")
+            
             self._memory_cache[key] = (value, expires_at)
         return True
 

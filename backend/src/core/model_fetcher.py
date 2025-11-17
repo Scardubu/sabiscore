@@ -20,6 +20,10 @@ except Exception:
 
 logger = logging.getLogger(__name__)
 
+# Environment flags for model fetching behavior
+SKIP_S3 = os.getenv('SKIP_S3', 'false').lower() in ('true', '1', 'yes')
+MODEL_FETCH_STRICT = os.getenv('MODEL_FETCH_STRICT', 'false').lower() in ('true', '1', 'yes')
+
 # Keep in sync with scripts/fetch-models.sh
 ARTIFACTS = [
     "models/epl_ensemble.pkl",
@@ -71,23 +75,32 @@ def fetch_models_if_needed(model_base_url: Optional[str], dest_root: str, fetch_
 
     # Check for existing .pkl files of reasonable size
     existing = [f for f in os.listdir(models_dir) if f.endswith('.pkl')]
-    valid_found = False
+    valid_models = []
     for fname in existing:
         path = os.path.join(models_dir, fname)
         try:
-            if os.path.getsize(path) >= 10_240:
-                valid_found = True
-                break
+            size = os.path.getsize(path)
+            if size >= 10_240:  # At least 10KB
+                valid_models.append(fname)
         except Exception:
             continue
 
-    if valid_found:
-        logger.info("Valid model artifacts already present; skipping fetch")
+    if valid_models:
+        logger.info(f"Found {len(valid_models)} valid local model(s): {', '.join(valid_models)}")
+        logger.info("Model artifacts loaded successfully from local storage")
         return True
+
+    if SKIP_S3:
+        logger.warning("SKIP_S3=true: Model fetching disabled, no valid local models found")
+        return not MODEL_FETCH_STRICT
 
     if not model_base_url:
         logger.warning("No MODEL_BASE_URL set and no valid models present")
-        return False
+        if MODEL_FETCH_STRICT:
+            logger.error("MODEL_FETCH_STRICT=true: Failing due to missing models")
+            return False
+        logger.info("MODEL_FETCH_STRICT=false: Continuing without remote fetch")
+        return True
 
     # Support s3:// URIs or https:// endpoints
     if not (model_base_url.startswith('https://') or model_base_url.startswith('s3://')):

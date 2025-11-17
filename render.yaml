@@ -7,8 +7,8 @@
     branch: feat/edge-v3
     rootDir: backend
     buildCommand: pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
-    startCommand: uvicorn src.api.main:app --host 0.0.0.0 --port $PORT --workers 1 --limit-max-requests 500 --timeout-keep-alive 30 --log-level warning
-    healthCheckPath: /health
+    startCommand: uvicorn src.api.main:app --host 0.0.0.0 --port $PORT --workers 1 --limit-max-requests 500 --timeout-keep-alive 30 --log-level info
+    healthCheckPath: /health/ready
     autoDeploy: true
     envVars:
       - key: PYTHON_VERSION
@@ -25,12 +25,18 @@
         value: "false"
       - key: API_V1_STR
         value: /api/v1
+      - key: LOG_LEVEL
+        value: INFO
       - key: DATABASE_URL
         fromDatabase:
           name: sabiscore-db
           property: connectionString
       - key: REDIS_URL
         sync: false
+      - key: REDIS_ENABLED
+        value: "true"
+      - key: REDIS_CACHE_TTL
+        value: "900"
       - key: SECRET_KEY
         generateValue: true
       - key: ALGORITHM
@@ -53,14 +59,26 @@
         value: 3.0
       - key: FEATURES_COUNT
         value: 220
+      - key: SKIP_S3
+        value: "true"
+      - key: MODEL_FETCH_STRICT
+        value: "false"
       - key: USE_MOCK_DATA
         value: "false"
       - key: USE_MOCK_PREDICTIONS
         value: "false"
-      - key: ENABLE_RATE_LIMITING
+      - key: SKIP_S3
+        value: "true"
+      - key: MODEL_FETCH_STRICT
         value: "false"
+      - key: ENABLE_RATE_LIMITING
+        value: "true"
+      - key: RATE_LIMIT_REQUESTS
+        value: "100"
+      - key: RATE_LIMIT_WINDOW
+        value: "60"
       - key: CORS_ORIGINS
-        value: https://sabiscore.vercel.app,https://sabiscore-*.vercel.app
+        value: https://sabiscore.vercel.app,https://sabiscore-*.vercel.app,http://localhost:3000
 
 databases:
   - name: sabiscore-db
