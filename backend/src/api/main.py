@@ -98,16 +98,34 @@ def _startup_trigger_model_load():
     try:
         # Attempt to fetch models from MODEL_BASE_URL if needed (production/deploy flows)
         try:
+            # Check SKIP_S3 flag first
+            skip_s3 = os.environ.get('SKIP_S3', 'false').lower() in ('true', '1', 'yes')
             base = os.environ.get('MODEL_BASE_URL') or None
             token = os.environ.get('MODEL_FETCH_TOKEN') or None
-            # dest_root is repo root (parent of backend)
-            repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-            if base:
+            # Use the configured models path to identify repo root so artifact checks are accurate
+            repo_root = str(settings.models_path.parent.resolve())
+            
+            if skip_s3:
+                logger.info('Startup: SKIP_S3=true, skipping remote model fetch')
+                # Just validate local models exist
+                fetched = fetch_models_if_needed(None, repo_root, None)
+                if fetched:
+                    logger.info('Startup: local model artifacts verified')
+                else:
+                    logger.warning('Startup: no valid local models found')
+            elif base:
                 fetched = fetch_models_if_needed(base, repo_root, token)
                 if fetched:
                     logger.info('Startup: model artifacts fetched/verified')
                 else:
                     logger.warning('Startup: model artifact fetch failed or incomplete')
+            else:
+                # No base URL and no SKIP_S3, just check local
+                fetched = fetch_models_if_needed(None, repo_root, None)
+                if fetched:
+                    logger.info('Startup: local model artifacts verified')
+                else:
+                    logger.warning('Startup: no MODEL_BASE_URL set and no valid local models')
         except Exception:
             logger.exception('Startup: model fetch attempt failed')
 
@@ -357,7 +375,9 @@ app.include_router(ws_router, tags=["WebSocket"])
 
 # Include health check routes at root level for container orchestration
 from .endpoints.health import router as health_router
+from .endpoints.monitoring import router as monitoring_router_root
 app.include_router(health_router)
+app.include_router(monitoring_router_root, tags=["monitoring"])
 
 
 @app.get("/")
