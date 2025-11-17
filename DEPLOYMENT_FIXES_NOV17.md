@@ -208,3 +208,26 @@ Next steps (performed/queued):
 
 Timestamped log entry: 2025-11-17T12:53:11Z
 
+## Validation Run (polling) — 2025-11-17T13:19:56 UTC
+
+I ran the validator in polling mode (up to 20 attempts). The backend reached a healthy state
+quickly and the models loaded successfully. The frontend proxy still returns a 502 for
+`/api/v1/health` in Vercel and the favicon is missing (404). I added a targeted rewrite
+in `vercel.json` to map `/api/v1/health` to the backend `/health` endpoint and pushed the change.
+
+Summary:
+- **Backend**: passed all checks consistently after attempt 2
+- **Model loading**: passed (models loaded)
+- **Frontend proxy `/api/v1/health`**: initially 502 — added `vercel.json` rewrite to `/health` and pushed; re-check deployment logs if 502 persists
+- **Favicon**: 404 — add `favicon.ico` to the frontend `public`/`static` folder or add a rewrite to an existing asset
+
+Next actions:
+- [x] Update `backend` readiness to include explicit `models` boolean (done)
+- [x] Commit deployment notes and push (done)
+- [x] Add targeted `vercel.json` rewrite for `/api/v1/health` (done)
+- [ ] Re-deploy frontend on Vercel (trigger rebuild) and re-run validator — I can trigger this if you'd like
+- [ ] Add/restore `favicon.ico` to frontend static assets (optional, recommended)
+
+Timestamped log entry: 2025-11-17T13:28:00Z
+
+
