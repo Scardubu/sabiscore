@@ -1,12 +1,14 @@
 """Prediction endpoints for generating match predictions and value bets."""
 
 import json
+from collections import defaultdict
+from datetime import datetime, timedelta
+from typing import Optional
+import logging
+import asyncio
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Optional
-import logging
-from datetime import datetime
 from pydantic import ValidationError
 
 from ...db.session import get_async_session
@@ -22,6 +24,33 @@ router = APIRouter(prefix="/predictions", tags=["predictions"])
 
 # Feature flag for mock predictions (set to False for production with trained models)
 USE_MOCK_PREDICTIONS = False
+
+# Rate limiting configuration
+RATE_LIMIT_REQUESTS = 100  # requests per window
+RATE_LIMIT_WINDOW = 60  # seconds
+_rate_limit_store: dict = defaultdict(list)
+_rate_limit_lock = asyncio.Lock()
+
+
+async def check_rate_limit(client_ip: str) -> None:
+    """Simple in-memory rate limiter for prediction endpoints."""
+    async with _rate_limit_lock:
+        now = datetime.utcnow()
+        window_start = now - timedelta(seconds=RATE_LIMIT_WINDOW)
+        
+        # Clean old entries
+        _rate_limit_store[client_ip] = [
+            ts for ts in _rate_limit_store[client_ip] if ts > window_start
+        ]
+        
+        # Check limit
+        if len(_rate_limit_store[client_ip]) >= RATE_LIMIT_REQUESTS:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Rate limit exceeded. Max {RATE_LIMIT_REQUESTS} requests per {RATE_LIMIT_WINDOW}s"
+            )
+        
+        _rate_limit_store[client_ip].append(now)
 
 # Convenience alias for /predictions endpoint
 @router.post("/predict", response_model=PredictionResponse, include_in_schema=False)
@@ -54,7 +83,12 @@ async def create_prediction(
     6. Calculate Smart Kelly stakes (⅛ Kelly)
     
     Target: <150ms response time @ 10k CCU
+    Rate Limited: 100 req/min per IP
     """
+    # Rate limiting
+    client_ip = request_context.client.host if request_context.client else "unknown"
+    await check_rate_limit(client_ip)
+    
     try:
         # Check if using mock predictions
         if USE_MOCK_PREDICTIONS:
@@ -102,16 +136,35 @@ async def create_prediction(
             match_identifier = base_identifier.replace(" ", "_").lower()
 
         try:
-            result = await prediction_service.predict_match(
-                match_id=match_identifier,
-                request=request,
+            # Add timeout to prevent hanging requests
+            result = await asyncio.wait_for(
+                prediction_service.predict_match(
+                    match_id=match_identifier,
+                    request=request,
+                ),
+                timeout=10.0  # 10 second timeout
+            )
+        except asyncio.TimeoutError:
+            logger.error("Prediction timed out for %s vs %s", request.home_team, request.away_team)
+            raise HTTPException(
+                status_code=504,
+                detail="Prediction request timed out. Please try again."
             )
         except FileNotFoundError as exc:
             logger.warning("Model not available: %s", exc)
-            raise HTTPException(status_code=503, detail=str(exc)) from exc
+            raise HTTPException(
+                status_code=503,
+                detail="Model artifacts not available. System initializing."
+            ) from exc
         except ValueError as exc:
             logger.warning("Prediction input rejected: %s", exc)
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except MemoryError as exc:
+            logger.error("Out of memory during prediction: %s", exc)
+            raise HTTPException(
+                status_code=503,
+                detail="Service temporarily unavailable due to high load"
+            ) from exc
         
         processing_time = (datetime.utcnow() - start_time).total_seconds() * 1000
         logger.info(f"Prediction generated in {processing_time:.1f}ms")

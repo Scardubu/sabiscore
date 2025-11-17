@@ -195,19 +195,25 @@ def readiness_check(response: Response) -> Dict[str, Any]:
         checks["models"] = {"status": "error", "message": str(e), "trained": False}
         ready = False
     
-    if not ready:
-        response.status_code = 503
-        return {
-            "status": "not_ready",
-            "checks": checks,
-            "timestamp": datetime.utcnow().isoformat()
-        }
-    
-    return {
-        "status": "ready",
+    # Provide an explicit top-level models boolean and optional model_error
+    models_status = checks.get("models", {})
+    models_loaded_flag = bool(models_status.get("trained", False))
+    model_error_message = None
+    if models_status.get("status") in ("not_ready", "error"):
+        model_error_message = models_status.get("message")
+
+    payload = {
+        "status": "ready" if ready else "not_ready",
         "checks": checks,
+        "models": models_loaded_flag,
+        "model_error": model_error_message,
         "timestamp": datetime.utcnow().isoformat()
     }
+
+    if not ready:
+        response.status_code = 503
+
+    return payload
 
 
 @router.get("/metrics")

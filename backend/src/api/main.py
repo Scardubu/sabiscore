@@ -9,6 +9,7 @@ from ..core.database import engine, Base
 from ..core.cache import cache
 from ..models.ensemble import SabiScoreEnsemble
 from ..core.model_fetcher import fetch_models_if_needed
+from ..db.session import init_db, close_db
 import threading
 import time as _time
 import asyncio
@@ -148,6 +149,22 @@ def _startup_trigger_model_load():
         logger.exception("Startup: failed to trigger background model load")
 
 app.add_event_handler("startup", _startup_trigger_model_load)
+@app.on_event("startup")
+async def _startup_init_db():
+    """Initialize async DB engine/session factory on app startup."""
+    try:
+        await init_db()
+    except Exception:
+        logger.exception("Startup: failed to initialize async database")
+
+
+@app.on_event("shutdown")
+async def _shutdown_close_db():
+    """Clean up DB connections on shutdown."""
+    try:
+        await close_db()
+    except Exception:
+        logger.exception("Shutdown: failed to close async database")
 # Load models on first request
 def _load_model_background():
     """Background loader for ML models. Sets global model_instance when done."""

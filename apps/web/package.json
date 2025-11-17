@@ -2,6 +2,7 @@
   "name": "@sabiscore/web",
   "version": "3.0.0",
   "private": true,
+  "packageManager": "npm@10.8.2",
   "scripts": {
     "dev": "next dev --turbo -p 3000",
     "build": "next build",

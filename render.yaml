@@ -8,7 +8,8 @@
     rootDir: backend
     buildCommand: pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
     startCommand: uvicorn src.api.main:app --host 0.0.0.0 --port $PORT --workers 1 --limit-max-requests 500 --timeout-keep-alive 30 --log-level info
-    healthCheckPath: /health
+    # Use readiness probe which validates DB/cache/models before marking instance healthy
+    healthCheckPath: /health/ready
     autoDeploy: true
     envVars:
       - key: PYTHON_VERSION

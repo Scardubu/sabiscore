@@ -95,7 +95,7 @@ function Test-TTFBPerformance {
             $endTime = Get-Date
             $duration = ($endTime - $startTime).TotalMilliseconds
             $times += $duration
-            Write-Host "    Request $i`: $([math]::Round($duration, 0))ms" -ForegroundColor Gray
+            Write-Host "    Request $i : $([math]::Round($duration, 0))ms" -ForegroundColor Gray
         } catch {
             Write-Host "    Request $i`: Failed" -ForegroundColor Red
         }

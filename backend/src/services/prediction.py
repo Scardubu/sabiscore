@@ -28,6 +28,8 @@ class PredictionService:
     _ensemble_cache: Dict[str, SabiScoreEnsemble] = {}
     _metadata_cache: Dict[str, Dict[str, Any]] = {}
     _cache_lock = threading.Lock()
+    _cache_access_times: Dict[str, float] = {}  # Track LRU
+    MAX_CACHED_MODELS = 5  # Limit memory footprint
 
     FEATURE_PREFIX_RANGES: Dict[str, Tuple[float, float]] = {
         "form_": (-1.0, 1.0),
@@ -138,6 +140,7 @@ class PredictionService:
         with self._cache_lock:
             cached = self._ensemble_cache.get(league_slug)
             if cached is not None and getattr(cached, "is_trained", False):
+                self._cache_access_times[league_slug] = datetime.utcnow().timestamp()
                 return cached
 
         model_path = settings.models_path / f"{league_slug}_ensemble.pkl"
@@ -146,8 +149,17 @@ class PredictionService:
 
         model = SabiScoreEnsemble.load_model(str(model_path))
         with self._cache_lock:
+            # LRU eviction if cache is full
+            if len(self._ensemble_cache) >= self.MAX_CACHED_MODELS:
+                oldest_key = min(self._cache_access_times, key=self._cache_access_times.get)
+                logger.info(f"Evicting model from cache: {oldest_key}")
+                self._ensemble_cache.pop(oldest_key, None)
+                self._metadata_cache.pop(oldest_key, None)
+                self._cache_access_times.pop(oldest_key, None)
+            
             self._ensemble_cache[league_slug] = model
             self._metadata_cache[league_slug] = model.model_metadata or {}
+            self._cache_access_times[league_slug] = datetime.utcnow().timestamp()
         return model
 
     def _build_feature_frame(

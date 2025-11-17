@@ -297,7 +297,7 @@ export function InsightsDisplay({ insights }: InsightsDisplayProps) {
           {/* Also render a ValueBetCard component (maps server value to UI model) */}
           <div className="mt-4">
             <ValueBetCard
-              bet={normalizeValueBet(bestBet)}
+              bet={bestBet}
               context={{
                 matchId: current.matchup ?? insights.matchup,
                 homeTeam: insights.metadata?.home_team ?? 'Home',
