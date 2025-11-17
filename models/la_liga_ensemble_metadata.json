@@ -1,14 +1,14 @@
 {
-  "accuracy": 0.0,
-  "brier_score": 0.25180342562312347,
-  "log_loss": 1.5906946940859934,
-  "trained_at": "2025-10-30T16:50:56.441152",
-  "feature_count": 51,
+  "accuracy": 0.5,
+  "brier_score": 0.2547159430047214,
+  "log_loss": 1.427017164484123,
+  "trained_at": "2025-11-17T01:11:26.784880",
+  "feature_count": 86,
   "league": "La Liga",
   "dataset_signature": {
-    "checksum": "0507ec2f1db7d35babd29e993131733d9588c78bba054a288dd2ace9470e656f",
-    "rows": 1000,
-    "generated_at": "2025-10-30T16:50:56.594194"
+    "checksum": "8651779ac9e2299036ad7387544afe0f72a6c3bf2726b2ac9ececdd073269abf",
+    "rows": 380,
+    "generated_at": "2025-11-17T01:11:26.844337"
   },
-  "training_samples": 1000
+  "training_samples": 380
 }

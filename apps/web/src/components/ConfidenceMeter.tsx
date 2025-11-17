@@ -1,17 +1,46 @@
 "use client";
-
-import React, { useEffect, useRef } from 'react';
-import { Doughnut } from 'react-chartjs-2';
-import {
-  Chart as ChartJS,
-  ArcElement,
-  Tooltip,
-  Legend,
-  ChartOptions,
-} from 'chart.js';
+import type { ChartOptions } from '@/types/chart';
 import { TrendingUp, TrendingDown, Activity } from 'lucide-react';
+import { DoughnutChart } from './charts/DoughnutChart';
 
-ChartJS.register(ArcElement, Tooltip, Legend);
+const PROBABILITY_INDICATOR_CLASSES = [
+  'bg-emerald-500/80 border border-emerald-400/70',
+  'bg-amber-400/70 border border-amber-300/60',
+  'bg-rose-500/80 border border-rose-400/70',
+];
+
+const CALIBRATION_WIDTH_LOOKUP: Record<number, string> = {
+  5: 'w-[5%]',
+  10: 'w-[10%]',
+  15: 'w-[15%]',
+  20: 'w-[20%]',
+  25: 'w-[25%]',
+  30: 'w-[30%]',
+  35: 'w-[35%]',
+  40: 'w-[40%]',
+  45: 'w-[45%]',
+  50: 'w-[50%]',
+  55: 'w-[55%]',
+  60: 'w-[60%]',
+  65: 'w-[65%]',
+  70: 'w-[70%]',
+  75: 'w-[75%]',
+  80: 'w-[80%]',
+  85: 'w-[85%]',
+  90: 'w-[90%]',
+  95: 'w-[95%]',
+  100: 'w-[100%]',
+};
+
+const getCalibrationWidthClass = (score?: number) => {
+  if (typeof score !== 'number') {
+    return CALIBRATION_WIDTH_LOOKUP[50];
+  }
+
+  const percent = Math.max(5, Math.min(100, (1 - score) * 100));
+  const rounded = Math.round(percent / 5) * 5;
+  return CALIBRATION_WIDTH_LOOKUP[rounded as keyof typeof CALIBRATION_WIDTH_LOOKUP] ?? CALIBRATION_WIDTH_LOOKUP[50];
+};
 
 interface PredictionMetrics {
   home_win_probability: number;
@@ -44,8 +73,6 @@ export function ConfidenceMeter({
   home_team, 
   away_team 
 }: ConfidenceMeterProps) {
-  const chartRef = useRef<ChartJS<'doughnut'>>(null);
-
   // Prepare chart data
   const chartData = {
     labels: [
@@ -145,6 +172,7 @@ export function ConfidenceMeter({
   const mostLikely = probabilities.reduce((max, p) => 
     p.value > max.value ? p : max
   );
+  const calibrationWidthClass = getCalibrationWidthClass(metrics.brier_score);
 
   return (
     <div className="rounded-xl border border-slate-700/50 bg-gradient-to-br from-slate-800/50 to-slate-900/50 p-6 backdrop-blur-sm">
@@ -161,7 +189,7 @@ export function ConfidenceMeter({
       {/* Chart with Center Label */}
       <div className="relative mb-6">
         <div className="mx-auto max-w-xs">
-          <Doughnut ref={chartRef} data={chartData} options={chartOptions} />
+            <DoughnutChart data={chartData} options={chartOptions} />
         </div>
         
         {/* Center Label - Confidence Score */}
@@ -180,11 +208,10 @@ export function ConfidenceMeter({
         {probabilities.map((prob, index) => (
           <div key={index} className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div 
-                className="h-3 w-3 rounded-full"
-                style={{ 
-                  backgroundColor: chartData.datasets[0].backgroundColor[index] 
-                }}
+              <div
+                className={`h-3 w-3 rounded-full ${
+                  PROBABILITY_INDICATOR_CLASSES[index] ?? 'bg-slate-500/60 border border-slate-400/30'
+                }`}
               />
               <span className="text-sm text-slate-300">{prob.label}</span>
             </div>
@@ -236,10 +263,7 @@ export function ConfidenceMeter({
                   : metrics.brier_score < 0.25 
                   ? 'bg-yellow-500' 
                   : 'bg-red-500'
-              }`}
-              style={{ 
-                width: `${Math.max(5, Math.min(100, (1 - metrics.brier_score) * 100))}%` 
-              }}
+              } ${calibrationWidthClass}`}
             />
           </div>
         </div>

@@ -7,7 +7,9 @@ from pathlib import Path
 from typing import Dict, List, Any, Tuple
 
 import pandas as pd
+import numpy as np
 from tqdm import tqdm
+from sklearn.impute import SimpleImputer
 
 from .ensemble import SabiScoreEnsemble
 from ..data.transformers import FeatureTransformer
@@ -116,21 +118,43 @@ class ModelTrainer:
 
     def _prepare_training_data(self, data: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """Prepare features and target for training"""
-        # Separate features and target
-        feature_cols = [col for col in data.columns if col != 'result']
-        X = data[feature_cols]
-        y = data[['result']]
+        # Separate features and target (exclude non-feature columns)
+        exclude_cols = ['result', 'match_id', 'match_date']
+        feature_cols = [col for col in data.columns if col not in exclude_cols]
+        X = data[feature_cols].copy()
+        y = data['result'].copy()
 
-        # Encode target
-        y_encoded = y.copy()
-        y_encoded['result'] = y_encoded['result'].map({
+        # Handle NaN values in features using median imputation
+        if X.isnull().any().any():
+            nan_count = X.isnull().sum().sum()
+            logger.warning(f"Found {nan_count} NaN values in features, applying median imputation")
+            
+            imputer = SimpleImputer(strategy='median')
+            X_imputed = imputer.fit_transform(X)
+            X = pd.DataFrame(X_imputed, columns=X.columns, index=X.index)
+            
+            logger.info(f"Imputation complete - all NaN values filled")
+
+        # Normalize target encoding to numerical classes 0,1,2 regardless of source format
+        target_mapping = {
             'home_win': 0,
             'draw': 1,
-            'away_win': 2
-        })
+            'away_win': 2,
+            0: 0,
+            1: 1,
+            2: 2
+        }
+        y = y.map(target_mapping)
+
+        if y.isnull().any():
+            raise ValueError("Encountered unknown result labels while preparing training data")
+
+        y = y.astype(int)
+        # Convert to DataFrame for compatibility
+        y = pd.DataFrame(y, columns=['result'])
 
         logger.info(f"Prepared {len(X)} samples with {len(feature_cols)} features")
-        return X, y_encoded
+        return X, y
 
     def _compute_dataset_signature(self, df: pd.DataFrame) -> Dict[str, Any]:
         """Generate a signature of the dataset for drift detection."""

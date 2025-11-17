@@ -57,7 +57,7 @@ export default function DocsPage() {
               <li>• <strong>73.7%</strong> overall prediction accuracy</li>
               <li>• <strong>84.9%</strong> accuracy on high-confidence picks</li>
               <li>• <strong>+18.4%</strong> ROI on value bets</li>
-              <li>• <strong>+3.8¢</strong> average closing line value</li>
+              <li>• <strong>+₦60</strong> average closing line value vs Pinnacle</li>
             </ul>
           </div>
 

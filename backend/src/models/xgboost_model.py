@@ -23,17 +23,18 @@ class XGBoostModel(BaseModel):
         """
         super().__init__(model_name="xgboost", model_version=model_version)
         self.default_params = {
-            'n_estimators': 200,
-            'max_depth': 6,
-            'learning_rate': 0.1,
-            'subsample': 0.8,
-            'colsample_bytree': 0.8,
+            'n_estimators': 250,
+            'max_depth': 7,
+            'learning_rate': 0.08,
+            'subsample': 0.85,
+            'colsample_bytree': 0.85,
             'gamma': 0.1,
             'min_child_weight': 3,
             'reg_alpha': 0.1,
             'reg_lambda': 1.0,
             'random_state': 42,
             'n_jobs': -1,
+            'tree_method': 'hist',
             'objective': 'multi:softprob',
             'eval_metric': 'mlogloss'
         }

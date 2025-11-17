@@ -27,7 +27,7 @@ This guide outlines the steps required to deploy the SabiScore platform (backend
    DEBUG=false
    SECRET_KEY=<unique-32-char-secret>
    DATABASE_URL=postgresql+psycopg2://user:pass@host:5432/sabiscore
-   REDIS_URL=redis://:password@redis-host:6379/0
+   REDIS_URL=redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379
    CORS_ORIGINS=https://app.sabiscore.com
    RATE_LIMIT_REQUESTS=120
    RATE_LIMIT_WINDOW_SECONDS=60

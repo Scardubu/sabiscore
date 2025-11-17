@@ -143,12 +143,22 @@ def setup_middleware(app):
         allow_headers=["*"],
     )
 
-    # Trusted hosts (only in production or when explicitly configured)
+    # Trusted hosts (only in production or when explicitly configured).
+    # If `allowed_hosts` is left as the default development list, skip enabling
+    # TrustedHostMiddleware to avoid rejecting valid production Host headers
+    # (e.g. Render/Cloudflare domains) when the operator hasn't configured
+    # ALLOWED_HOSTS for the deployment.
     if settings.app_env == "production" and settings.allowed_hosts:
-        app.add_middleware(
-            TrustedHostMiddleware,
-            allowed_hosts=settings.allowed_hosts,
-        )
+        default_hosts = ["localhost", "127.0.0.1"]
+        if settings.allowed_hosts == default_hosts:
+            logger.warning(
+                "TrustedHostMiddleware not enabled: ALLOWED_HOSTS is default localhost. "
+                "Set allowed_hosts environment variable to your production host to enable.")
+        else:
+            app.add_middleware(
+                TrustedHostMiddleware,
+                allowed_hosts=settings.allowed_hosts,
+            )
 
     # Rate limiting
     app.add_middleware(

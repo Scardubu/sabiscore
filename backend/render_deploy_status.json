@@ -1,0 +1,14 @@
+﻿{
+    "id":  "dep-d4ai7m7pm1nc73971t3g",
+    "commit":  {
+                   "id":  "fc278e727ad6a7dbc8810fc4b9855802bc9c27ea",
+                   "message":  "chore(ci): add smoke tests and workflow",
+                   "createdAt":  "2025-11-13T00:15:57Z"
+               },
+    "status":  "update_failed",
+    "trigger":  "api",
+    "createdAt":  "2025-11-13T00:18:34.622813Z",
+    "updatedAt":  "2025-11-13T00:23:01.400869Z",
+    "startedAt":  "2025-11-13T00:18:34.472241Z",
+    "finishedAt":  "2025-11-13T00:23:01.399785Z"
+}

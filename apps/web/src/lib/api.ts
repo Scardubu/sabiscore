@@ -8,7 +8,7 @@ export interface HealthResponse {
   database: boolean;
   models: boolean;
   cache: boolean;
-  cache_metrics: any;
+  cache_metrics: Record<string, unknown>;
   latency_ms: number;
 }
 
@@ -94,7 +94,7 @@ export interface InsightsResponse {
   };
   monte_carlo: MonteCarloData;
   scenarios: Scenario[];
-  explanation: Record<string, any>;
+  explanation: Record<string, unknown>;
   risk_assessment: RiskAssessment;
   narrative: string;
   generated_at: string;
@@ -188,11 +188,13 @@ export async function getMatchInsights(
       throw new APIError(errorMessage, response.status, "INSIGHTS_ERROR");
     }
 
-    const data = await response.json();
-    return data;
+  const data = (await response.json()) as InsightsResponse;
+  return data;
   } catch (error) {
     console.error("Insights fetch error:", error);
-    throw error;
+    // Normalize errors so callers can present friendly messages
+    if (error instanceof APIError) throw error;
+    throw new APIError((error as Error).message || "Unknown error", undefined, "UNKNOWN_ERROR");
   }
 }
 
@@ -220,8 +222,20 @@ export const apiClient = {
       throw new APIError(errorMessage, response.status, "INSIGHTS_ERROR");
     }
 
-    return await response.json();
+    return (await response.json()) as InsightsResponse;
   },
 };
+
+export function parseApiError(error: unknown): { message: string; code?: string } {
+  if (error instanceof APIError) {
+    return { message: error.message, code: error.code };
+  }
+
+  if (error instanceof Error) {
+    return { message: error.message };
+  }
+
+  return { message: "An unexpected error occurred" };
+}
 
 export { APIError };

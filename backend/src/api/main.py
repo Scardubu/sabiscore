@@ -2,12 +2,17 @@ import json
 from fastapi import FastAPI
 import logging
 from .middleware import setup_middleware
-from .endpoints import router
+from . import api_router
 from .websocket import router as ws_router
 from ..core.config import settings
 from ..core.database import engine, Base
 from ..core.cache import cache
 from ..models.ensemble import SabiScoreEnsemble
+from ..core.model_fetcher import fetch_models_if_needed
+from ..db.session import init_db, close_db
+import threading
+import time as _time
+import asyncio
 import os
 from datetime import datetime
 
@@ -46,6 +51,8 @@ logger = logging.getLogger(__name__)
 
 # Global model instance
 model_instance = None
+# Simple flag to avoid concurrent background loads
+model_load_in_progress = False
 
 # Initialize database tables on import
 try:
@@ -85,21 +92,286 @@ app.json_encoder = CustomJSONEncoder
 # Initialize cache and model state
 app.state.cache = cache
 app.state.model_instance = None
+app.state.model_load_error_message = None
 
-# Load models on first request
-def load_model_if_needed():
-    """Lazy load model on first request"""
-    global model_instance
-    if model_instance is None:
+# Proactively trigger a background model load at startup (non-blocking)
+def _startup_trigger_model_load():
+    try:
+        # Attempt to fetch models from MODEL_BASE_URL if needed (production/deploy flows)
         try:
-            logger.info("Loading ML models...")
-            model_instance = SabiScoreEnsemble.load_latest_model(settings.models_path)
-            app.state.model_instance = model_instance
-            logger.info("ML models loaded successfully")
-        except Exception as e:
-            logger.error(f"Failed to load ML models: {e}")
-            model_instance = None
+            # Check SKIP_S3 flag first
+            skip_s3 = os.environ.get('SKIP_S3', 'false').lower() in ('true', '1', 'yes')
+            base = os.environ.get('MODEL_BASE_URL') or None
+            token = os.environ.get('MODEL_FETCH_TOKEN') or None
+            # Use the configured models path to identify repo root so artifact checks are accurate
+            repo_root = str(settings.models_path.parent.resolve())
+            
+            if skip_s3:
+                logger.info('Startup: SKIP_S3=true, skipping remote model fetch')
+                # Just validate local models exist
+                fetched = fetch_models_if_needed(None, repo_root, None)
+                if fetched:
+                    logger.info('Startup: local model artifacts verified')
+                else:
+                    logger.warning('Startup: no valid local models found')
+            elif base:
+                fetched = fetch_models_if_needed(base, repo_root, token)
+                if fetched:
+                    logger.info('Startup: model artifacts fetched/verified')
+                else:
+                    logger.warning('Startup: model artifact fetch failed or incomplete')
+            else:
+                # No base URL and no SKIP_S3, just check local
+                fetched = fetch_models_if_needed(None, repo_root, None)
+                if fetched:
+                    logger.info('Startup: local model artifacts verified')
+                else:
+                    logger.warning('Startup: no MODEL_BASE_URL set and no valid local models')
+        except Exception:
+            logger.exception('Startup: model fetch attempt failed')
+
+        # Do not block startup - start background loader
+        # Prefer asyncio background task so FastAPI/uvicorn lifecycles manage it
+        # and the process won't exit if the thread daemon state changes.
+        loop = None
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop is not None:
+            # schedule async wrapper
+            loop.create_task(_load_model_background_async())
+        else:
+            # fallback to existing threaded loader (kept for legacy/runtime cases)
+            load_model_if_needed(start_background=True)
+    except Exception:
+        logger.exception("Startup: failed to trigger background model load")
+
+app.add_event_handler("startup", _startup_trigger_model_load)
+@app.on_event("startup")
+async def _startup_init_db():
+    """Initialize async DB engine/session factory on app startup."""
+    try:
+        await init_db()
+    except Exception:
+        logger.exception("Startup: failed to initialize async database")
+
+
+@app.on_event("shutdown")
+async def _shutdown_close_db():
+    """Clean up DB connections on shutdown."""
+    try:
+        await close_db()
+    except Exception:
+        logger.exception("Shutdown: failed to close async database")
+# Load models on first request
+def _load_model_background():
+    """Background loader for ML models. Sets global model_instance when done."""
+    global model_instance, model_load_in_progress
+    try:
+        # reflect loading state on app.state for health checks
+        try:
+            app.state.model_load_in_progress = True
+        except Exception:
+            pass
+        logger.info("Background: starting ML model load")
+        # clear any previous error
+        try:
+            app.state.model_load_error_message = None
+            app.state.model_load_attempts = 0
+        except Exception:
+            pass
+
+        # Try loading with retries/backoff to handle temporary corruption or fetch latency.
+        max_retries = 5
+        delay_seconds = 5
+        loaded = None
+
+        for attempt in range(1, max_retries + 1):
+            try:
+                app.state.model_load_attempts = attempt
+                logger.info(f"Model load attempt {attempt}/{max_retries}")
+                loaded = SabiScoreEnsemble.load_latest_model(settings.models_path)
+                if loaded is not None:
+                    model_instance = loaded
+                    app.state.model_instance = loaded
+                    # clear error if successful
+                    try:
+                        app.state.model_load_error_message = None
+                    except Exception:
+                        pass
+                    logger.info("Background: ML models loaded successfully")
+                    break
+            except Exception as e:
+                # record the latest error and decide whether to retry
+                logger.warning(f"Model load attempt {attempt} failed: {e}")
+                try:
+                    app.state.model_load_error_message = str(e)
+                except Exception:
+                    pass
+                # If the error indicates that there are no valid model files (common in dev), stop retrying
+                msg = str(e)
+                if "No valid model files found" in msg or "No model files found" in msg:
+                    logger.error("No valid model artifacts found on disk; aborting model load retries.")
+                    # leave model_instance as None and expose error
+                    break
+
+                if attempt < max_retries:
+                    sleep_time = delay_seconds * (2 ** (attempt - 1))
+                    logger.info(f"Retrying model load in {sleep_time}s")
+                    try:
+                        _time.sleep(sleep_time)
+                    except Exception:
+                        pass
+                    continue
+                else:
+                    logger.error(f"Model load failed after {max_retries} attempts")
+                    # leave model_instance as None and expose error
+                    break
+    except Exception as e:
+        logger.exception(f"Background: Failed to load ML models: {e}")
+        model_instance = None
+        try:
             app.state.model_instance = None
+        except Exception:
+            pass
+        # expose the failure message for health checks and monitoring
+        try:
+            app.state.model_load_error_message = str(e)
+        except Exception:
+            pass
+    finally:
+        model_load_in_progress = False
+        try:
+            app.state.model_load_in_progress = False
+        except Exception:
+            pass
+
+
+async def _load_model_background_async():
+    """Async wrapper for the background loader so it can be scheduled in the event loop.
+
+    This reuses the same logic as the threaded loader but uses asyncio.sleep for backoff
+    to avoid blocking the event loop.
+    """
+    global model_instance, model_load_in_progress
+    try:
+        try:
+            app.state.model_load_in_progress = True
+        except Exception:
+            pass
+
+        logger.info("Async background: starting ML model load")
+        app.state.model_load_error_message = None
+        app.state.model_load_attempts = 0
+
+        max_retries = 5
+        delay_seconds = 5
+
+        for attempt in range(1, max_retries + 1):
+            try:
+                app.state.model_load_attempts = attempt
+                logger.info(f"Async model load attempt {attempt}/{max_retries}")
+                loaded = SabiScoreEnsemble.load_latest_model(settings.models_path)
+                if loaded is not None:
+                    model_instance = loaded
+                    app.state.model_instance = loaded
+                    app.state.model_load_error_message = None
+                    logger.info("Async background: ML models loaded successfully")
+                    break
+            except Exception as e:
+                logger.warning(f"Async model load attempt {attempt} failed: {e}")
+                try:
+                    app.state.model_load_error_message = str(e)
+                except Exception:
+                    pass
+                msg = str(e)
+                if "No valid model files found" in msg or "No model files found" in msg:
+                    logger.error("No valid model artifacts found on disk; aborting async model load retries.")
+                    break
+
+                if attempt < max_retries:
+                    sleep_time = delay_seconds * (2 ** (attempt - 1))
+                    logger.info(f"Async retrying model load in {sleep_time}s")
+                    try:
+                        await asyncio.sleep(sleep_time)
+                    except Exception:
+                        pass
+                    continue
+                else:
+                    logger.error(f"Async model load failed after {max_retries} attempts")
+                    break
+    except Exception as e:
+        logger.exception(f"Async background: Failed to load ML models: {e}")
+        model_instance = None
+        try:
+            app.state.model_instance = None
+        except Exception:
+            pass
+        try:
+            app.state.model_load_error_message = str(e)
+        except Exception:
+            pass
+    finally:
+        model_load_in_progress = False
+        try:
+            app.state.model_load_in_progress = False
+        except Exception:
+            pass
+
+
+def load_model_if_needed(start_background: bool = True):
+    """Lazy load model on first request.
+
+    Behavior:
+    - If model is already loaded, return it.
+    - If not loaded and a background load is not running, optionally start a background loader
+      and return None immediately (the caller should then handle a missing model gracefully).
+    - This keeps first-request TTFB small while still triggering model population.
+    """
+    global model_instance, model_load_in_progress
+
+    if model_instance is not None:
+        return model_instance
+
+    # If another thread is already loading, return None immediately
+    if model_load_in_progress:
+        logger.debug("Model load already in progress, returning None")
+        return None
+
+    # Start background loader unless caller explicitly asked to block
+    if start_background:
+        try:
+            model_load_in_progress = True
+            try:
+                app.state.model_load_in_progress = True
+                # clear old error while starting a fresh load attempt
+                app.state.model_load_error_message = None
+            except Exception:
+                pass
+            t = threading.Thread(target=_load_model_background, name="sabiscore-model-loader", daemon=True)
+            t.start()
+            logger.info("Triggered background ML model load")
+        except Exception as e:
+            model_load_in_progress = False
+            try:
+                app.state.model_load_in_progress = False
+            except Exception:
+                pass
+            logger.exception(f"Failed to start background model loader: {e}")
+        return None
+
+    # Blocking load (not used by default) - fall back to old behavior
+    try:
+        logger.info("Loading ML models (blocking)...")
+        model_instance = SabiScoreEnsemble.load_latest_model(settings.models_path)
+        app.state.model_instance = model_instance
+        logger.info("ML models loaded successfully (blocking)")
+    except Exception as e:
+        logger.exception(f"Failed to load ML models: {e}")
+        model_instance = None
+        app.state.model_instance = None
     return model_instance
 
 # Setup middleware
@@ -115,14 +387,22 @@ def get_loaded_model(default=None):
     return default
 
 # Include routers
-app.include_router(router, prefix="/api/v1", tags=["API"])
+app.include_router(api_router, prefix=getattr(settings, 'API_V1_STR', '/api/v1'), tags=["API"])
 app.include_router(ws_router, tags=["WebSocket"])
+
+# Include monitoring/health check routes at root level for container orchestration
+# Use monitoring router which has /health, /health/live, /health/ready, /metrics
+from .endpoints.monitoring import router as monitoring_router_root
+app.include_router(monitoring_router_root, tags=["monitoring"])
 
 
 @app.get("/")
 async def root():
     return {
         "message": "Welcome to SabiScore API",
+        "version": os.getenv("APP_VERSION", "1.0.0"),
         "docs": "/docs",
-        "health": "/api/v1/health"
+        "health": "/health",
+        "ready": "/ready",
+        "startup": "/startup",
     }

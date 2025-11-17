@@ -59,7 +59,7 @@ vercel env add REVALIDATE_SECRET production
 
 # Set Sentry DSN (optional)
 vercel env add NEXT_PUBLIC_SENTRY_DSN production
-# Enter: https://your-sentry-dsn@sentry.io/project
+# Enter: https://c6916240a502e784eda3f658973e7506@o4510211912761344.ingest.de.sentry.io/4510350290124880
 ```
 
 ### Step 5: Redeploy with Env Vars
@@ -91,7 +91,7 @@ git push origin main
 ```env
 NEXT_PUBLIC_API_URL=https://your-backend-api.railway.app
 REVALIDATE_SECRET=your-secret-token-here
-NEXT_PUBLIC_SENTRY_DSN=https://your-sentry-dsn@sentry.io/project
+NEXT_PUBLIC_SENTRY_DSN=https://c6916240a502e784eda3f658973e7506@o4510211912761344.ingest.de.sentry.io/4510350290124880
 ```
 
 ### Step 4: Click Deploy

@@ -16,6 +16,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
 
       - name: Install web dependencies
         run: |
@@ -34,10 +35,44 @@ jobs:
           python-version: '3.11'
 
       - name: Install backend deps
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements*.txt') }}
+
+      - name: Install backend deps (prefer minimal requirements)
         run: |
           cd backend
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          if [ -f requirements.min.txt ]; then
+            echo "Using requirements.min.txt for faster installs"
+            pip install -r requirements.min.txt
+          else
+            pip install -r requirements.txt
+          fi
+
+      - name: Validate MODEL_BASE_URL and verify artifacts (required)
+        env:
+          MODEL_BASE_URL: ${{ secrets.MODEL_BASE_URL }}
+          MODEL_FETCH_TOKEN: ${{ secrets.MODEL_FETCH_TOKEN }}
+        run: |
+          # Fail fast in production if models are not reachable. The verify script
+          # will exit non-zero when MODEL_BASE_URL is missing or an example artifact
+          # is not accessible.
+          echo "Validating MODEL_BASE_URL and example artifacts"
+          if [ -z "${MODEL_BASE_URL:-}" ]; then
+            echo "ERROR: MODEL_BASE_URL secret not set. Set secrets.MODEL_BASE_URL in repository settings."
+            exit 1
+          fi
+          bash -lc "./scripts/verify-models.sh"
+
+      - name: Fetch models & datasets (required)
+        env:
+          MODEL_BASE_URL: ${{ secrets.MODEL_BASE_URL }}
+          MODEL_FETCH_TOKEN: ${{ secrets.MODEL_FETCH_TOKEN }}
+        run: |
+          echo "Downloading model artifacts into backend/"
+          bash -lc "./scripts/fetch-models.sh backend"
 
   deploy-render:
     needs: build
@@ -46,11 +81,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Trigger Render deploy
+      - name: Install jq for JSON parsing
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Trigger Render deploy and capture deploy id
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+        id: trigger
         run: |
+          set -euo pipefail
           echo "Triggering Render deploy for service $RENDER_SERVICE_ID"
           RESPONSE=$(curl -s -X POST \
             -H "Accept: application/json" \
@@ -59,21 +99,25 @@ jobs:
             -d '{"clearCache":false}' \
             "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys")
           echo "$RESPONSE"
-          if echo "$RESPONSE" | grep -q 'error'; then
-            echo "Render deploy failed:" >&2
+          DEPLOY_ID=$(echo "$RESPONSE" | jq -r '.id // empty')
+          if [ -z "$DEPLOY_ID" ]; then
+            echo "Failed to obtain deploy id from response:" >&2
             echo "$RESPONSE" >&2
             exit 1
           fi
+          echo "deploy_id=$DEPLOY_ID" >> $GITHUB_OUTPUT
 
       - name: Wait for Render build (poll)
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
         run: |
-          DEPLOY_ID=$(curl -s -H "Authorization: Bearer $RENDER_API_KEY" "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys" | jq -r '.[0].id')
+          set -euo pipefail
+          DEPLOY_ID=${{ steps.trigger.outputs.deploy_id }}
           echo "Waiting for deploy $DEPLOY_ID"
-          for i in {1..60}; do
-            STATUS=$(curl -s -H "Authorization: Bearer $RENDER_API_KEY" "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys/$DEPLOY_ID" | jq -r '.status')
+          # Poll up to 30 minutes with backoff
+          for i in $(seq 1 180); do
+            STATUS=$(curl -s -H "Authorization: Bearer $RENDER_API_KEY" "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys/$DEPLOY_ID" | jq -r '.status // empty')
             echo "Status: $STATUS"
             if [ "$STATUS" = "success" ]; then
               echo "Render deploy succeeded"
@@ -88,6 +132,35 @@ jobs:
           done
           echo "Render deploy polling timed out" >&2
           exit 1
+
+      - name: Post-deploy health checks
+        run: |
+          set -euo pipefail
+          echo "Checking public web endpoint and backend health"
+          # Best-effort web health check (may require exposing a public URL or use Render service URL)
+          # Attempt the Render service's default domain via /api/v1/health and root
+          SERVICE_URL=$(curl -s -H "Authorization: Bearer $RENDER_API_KEY" "https://api.render.com/v1/services/$RENDER_SERVICE_ID" | jq -r '.serviceDetails?.url // .url // empty')
+          if [ -z "$SERVICE_URL" ]; then
+            echo "Could not determine service URL; skipping public HTTP checks"
+            exit 0
+          fi
+          echo "Service URL: $SERVICE_URL"
+          for i in {1..12}; do
+            if curl -fsS "$SERVICE_URL/api/v1/health" -m 10; then
+              echo "Backend health ok"
+              break
+            fi
+            echo "Waiting for backend health..."
+            sleep 10
+          done
+          for i in {1..12}; do
+            if curl -fsS "$SERVICE_URL" -m 10; then
+              echo "Web OK"
+              break
+            fi
+            echo "Waiting for web root..."
+            sleep 10
+          done
 
   deploy-vercel:
     needs: build

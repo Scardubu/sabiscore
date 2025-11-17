@@ -5,7 +5,7 @@ echo Starting SabiScore Backend...
 
 REM Set environment variables
 REM set DATABASE_URL=postgresql://sabi:your_secure_password@localhost:5432/sabiscore
-set REDIS_URL=redis://localhost:6380/0
+set REDIS_URL=redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379
 
 REM Change to backend directory
 cd backend

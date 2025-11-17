@@ -1,0 +1,89 @@
+﻿services:
+  - type: web
+    name: sabiscore-api
+    runtime: python
+    region: oregon
+    plan: free
+    branch: feat/edge-v3
+    rootDir: backend
+    buildCommand: pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
+    startCommand: uvicorn src.api.main:app --host 0.0.0.0 --port $PORT --workers 1 --limit-max-requests 500 --timeout-keep-alive 30 --log-level info
+    # Use readiness probe which validates DB/cache/models before marking instance healthy
+    healthCheckPath: /health/ready
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: APP_ENV
+        value: production
+      - key: APP_NAME
+        value: Sabiscore
+      - key: VERSION
+        value: 3.0.0
+      - key: DEBUG
+        value: "false"
+      - key: API_V1_STR
+        value: /api/v1
+      - key: LOG_LEVEL
+        value: INFO
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sabiscore-db
+          property: connectionString
+      - key: REDIS_URL
+        sync: false
+      - key: REDIS_ENABLED
+        value: "true"
+      - key: REDIS_CACHE_TTL
+        value: "900"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 30
+      - key: CURRENCY
+        value: NGN
+      - key: CURRENCY_SYMBOL
+        value: ₦
+      - key: NGN_PER_USD
+        value: 1580.0
+      - key: BASE_BANKROLL_NGN
+        value: 10000
+      - key: MIN_EDGE_NGN
+        value: 66
+      - key: KELLY_FRACTION
+        value: 0.125
+      - key: MODEL_VERSION
+        value: 3.0
+      - key: FEATURES_COUNT
+        value: 220
+      - key: SKIP_S3
+        value: "true"
+      - key: MODEL_FETCH_STRICT
+        value: "false"
+      - key: USE_MOCK_DATA
+        value: "false"
+      - key: USE_MOCK_PREDICTIONS
+        value: "false"
+      - key: SKIP_S3
+        value: "true"
+      - key: MODEL_FETCH_STRICT
+        value: "false"
+      - key: ENABLE_RATE_LIMITING
+        value: "true"
+      - key: RATE_LIMIT_REQUESTS
+        value: "100"
+      - key: RATE_LIMIT_WINDOW
+        value: "60"
+      - key: CORS_ORIGINS
+        value: https://sabiscore.vercel.app,https://sabiscore-*.vercel.app,http://localhost:3000
+
+databases:
+  - name: sabiscore-db
+    databaseName: sabiscore_production
+    user: sabiscore_user
+    plan: free
+    region: oregon

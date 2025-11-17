@@ -12,11 +12,14 @@ class CacheMetricsResponse(BaseModel):
 
 
 class HealthResponse(BaseModel):
-    model_config = ConfigDict(json_encoders={datetime: lambda v: v.isoformat()})
+    # include json encoder and allow use of properties starting with 'model_'
+    model_config = ConfigDict(json_encoders={datetime: lambda v: v.isoformat()}, protected_namespaces=())
 
     status: str = Field(..., json_schema_extra={"example": "healthy"})
     database: bool = Field(..., json_schema_extra={"example": True})
     models: bool = Field(..., json_schema_extra={"example": True})
+    model_loading: Optional[bool] = Field(False, json_schema_extra={"example": False})
+    model_error: Optional[str] = Field(None, json_schema_extra={"example": "No model available"})
     cache: bool = Field(..., json_schema_extra={"example": True})
     cache_metrics: Optional[CacheMetricsResponse] = None
     latency_ms: float = Field(..., ge=0, json_schema_extra={"example": 12.5})

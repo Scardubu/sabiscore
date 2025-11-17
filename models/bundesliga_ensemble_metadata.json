@@ -1,14 +1,14 @@
 {
-  "accuracy": 0.0,
-  "brier_score": 0.25180342562312347,
-  "log_loss": 1.5906946940859934,
-  "trained_at": "2025-10-30T16:51:08.693810",
-  "feature_count": 51,
+  "accuracy": 0.5,
+  "brier_score": 0.2670722081704715,
+  "log_loss": 1.5267117481980788,
+  "trained_at": "2025-11-17T01:11:22.766179",
+  "feature_count": 86,
   "league": "Bundesliga",
   "dataset_signature": {
-    "checksum": "0507ec2f1db7d35babd29e993131733d9588c78bba054a288dd2ace9470e656f",
-    "rows": 1000,
-    "generated_at": "2025-10-30T16:51:08.854975"
+    "checksum": "a081435c48fc85485763fcdd7d04918db7c33310f666bee01e6e6ea4d1c36714",
+    "rows": 306,
+    "generated_at": "2025-11-17T01:11:22.802832"
   },
-  "training_samples": 1000
+  "training_samples": 306
 }

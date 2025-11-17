@@ -23,14 +23,15 @@ class RandomForestModel(BaseModel):
         """
         super().__init__(model_name="random_forest", model_version=model_version)
         self.default_params = {
-            'n_estimators': 200,
-            'max_depth': 10,
-            'min_samples_split': 10,
-            'min_samples_leaf': 5,
+            'n_estimators': 300,
+            'max_depth': 12,
+            'min_samples_split': 8,
+            'min_samples_leaf': 4,
             'max_features': 'sqrt',
             'random_state': 42,
             'n_jobs': -1,
-            'class_weight': 'balanced'
+            'class_weight': 'balanced',
+            'warm_start': False
         }
     
     def build(self, **params) -> None:

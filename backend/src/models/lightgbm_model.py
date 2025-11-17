@@ -23,13 +23,13 @@ class LightGBMModel(BaseModel):
         """
         super().__init__(model_name="lightgbm", model_version=model_version)
         self.default_params = {
-            'n_estimators': 200,
-            'max_depth': 6,
-            'learning_rate': 0.1,
-            'subsample': 0.8,
-            'colsample_bytree': 0.8,
-            'num_leaves': 31,
+            'n_estimators': 250,
+            'max_depth': 7,
+            'learning_rate': 0.08,
+            'subsample': 0.85,
+            'colsample_bytree': 0.85,
             'min_child_samples': 20,
+            'num_leaves': 63,
             'reg_alpha': 0.1,
             'reg_lambda': 1.0,
             'random_state': 42,

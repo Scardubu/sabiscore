@@ -3,7 +3,7 @@ import logging
 import random
 import re
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 from urllib.parse import quote_plus
@@ -13,12 +13,58 @@ import requests
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-from requests.exceptions import SSLError
+from requests.exceptions import SSLError, ConnectionError, Timeout
 
 from ..core.config import settings
 
 
 logger = logging.getLogger(__name__)
+
+
+class CircuitBreaker:
+    """Circuit breaker to prevent repeated failures from overloading scrapers."""
+    
+    def __init__(self, failure_threshold: int = 5, timeout: int = 60):
+        self.failure_threshold = failure_threshold
+        self.timeout = timeout
+        self.failures = 0
+        self.last_failure_time: Optional[datetime] = None
+        self.state = "closed"  # closed, open, half_open
+    
+    def record_success(self) -> None:
+        """Reset circuit breaker on success."""
+        self.failures = 0
+        self.state = "closed"
+    
+    def record_failure(self) -> None:
+        """Record a failure and potentially open circuit."""
+        self.failures += 1
+        self.last_failure_time = datetime.utcnow()
+        
+        if self.failures >= self.failure_threshold:
+            self.state = "open"
+            logger.warning(
+                f"Circuit breaker opened after {self.failures} failures. "
+                f"Will retry after {self.timeout}s"
+            )
+    
+    def can_attempt(self) -> bool:
+        """Check if request can be attempted."""
+        if self.state == "closed":
+            return True
+        
+        if self.state == "open" and self.last_failure_time:
+            elapsed = (datetime.utcnow() - self.last_failure_time).total_seconds()
+            if elapsed >= self.timeout:
+                self.state = "half_open"
+                logger.info("Circuit breaker entering half-open state")
+                return True
+        
+        return False
+    
+    def is_open(self) -> bool:
+        """Check if circuit is open."""
+        return self.state == "open"
 
 
 def _create_retry_session() -> requests.Session:
@@ -38,66 +84,121 @@ def _create_retry_session() -> requests.Session:
 
 
 class BaseScraper:
-    """Base scraper with retry, rate limiting, and polite headers."""
+    """Base scraper with retry, rate limiting, circuit breaker, and polite headers."""
 
     def __init__(self) -> None:
         self.session = _create_retry_session()
         self.base_delay = settings.rate_limit_delay
         self.last_scrape_at: Optional[datetime] = None
         self._default_verify = settings.scraper_ssl_verify
+        self.circuit_breaker = CircuitBreaker(failure_threshold=5, timeout=60)
+        self.metrics = {
+            "requests_total": 0,
+            "requests_success": 0,
+            "requests_failed": 0,
+            "retries_total": 0,
+        }
 
     def _throttle(self, attempt: int = 0) -> None:
         jitter = random.uniform(0, 0.3 * self.base_delay)
-        delay = self.base_delay * (2 ** attempt) + jitter
-        logger.debug("Throttling for %.2fs", delay)
+        # Exponential backoff with max cap
+        delay = min(self.base_delay * (2 ** attempt) + jitter, 30.0)
+        logger.debug("Throttling for %.2fs (attempt %d)", delay, attempt + 1)
         time.sleep(delay)
 
     def _make_request(self, url: str, retries: int = 3) -> Optional[requests.Response]:
+        """Make HTTP request with circuit breaker, retries, and metrics."""
+        self.metrics["requests_total"] += 1
+        
+        # Check circuit breaker
+        if not self.circuit_breaker.can_attempt():
+            logger.warning("Circuit breaker is open, skipping request to %s", url)
+            self.metrics["requests_failed"] += 1
+            return None
+        
         last_exception: Optional[Exception] = None
         verify: bool | str = self._default_verify
+        
         for attempt in range(retries):
+            if attempt > 0:
+                self.metrics["retries_total"] += 1
+                self._throttle(attempt)
+            
             try:
                 response = self.session.get(
                     url,
                     timeout=settings.request_timeout,
                     verify=verify,
                 )
+                
+                # Handle server errors
                 if response.status_code >= 500:
                     raise requests.HTTPError(f"Server error {response.status_code}")
+                
                 response.raise_for_status()
                 self.last_scrape_at = datetime.utcnow()
+                
+                # Success - update metrics and circuit breaker
+                self.metrics["requests_success"] += 1
+                self.circuit_breaker.record_success()
                 return response
+                
             except SSLError as exc:
                 last_exception = exc
                 if settings.scraper_allow_insecure_fallback and verify:
                     logger.warning(
-                        "SSL verification failed for %s (%s/%s). Retrying without verification.",
+                        "SSL verification failed for %s (%d/%d). Retrying without verification.",
                         url,
                         attempt + 1,
                         retries,
                     )
                     verify = False
-                    self._throttle(attempt)
                     continue
                 logger.warning(
-                    "SSL failure for %s (%s/%s): %s",
+                    "SSL failure for %s (%d/%d): %s",
                     url,
                     attempt + 1,
                     retries,
                     exc,
+                )
+            except (ConnectionError, Timeout) as exc:
+                last_exception = exc
+                logger.warning(
+                    "Network error for %s (%d/%d): %s",
+                    url,
+                    attempt + 1,
+                    retries,
+                    type(exc).__name__,
                 )
             except Exception as exc:
                 last_exception = exc
                 logger.warning(
-                    "Request to %s failed (%s/%s): %s",
+                    "Request to %s failed (%d/%d): %s",
                     url,
                     attempt + 1,
                     retries,
                     exc,
                 )
-                self._throttle(attempt)
+        
+        # All retries exhausted
         logger.error("All retries failed for %s: %s", url, last_exception)
+        self.metrics["requests_failed"] += 1
+        self.circuit_breaker.record_failure()
         return None
+    
+    def get_metrics(self) -> Dict[str, any]:
+        """Get scraper metrics for monitoring."""
+        success_rate = (
+            self.metrics["requests_success"] / self.metrics["requests_total"]
+            if self.metrics["requests_total"] > 0
+            else 0.0
+        )
+        return {
+            **self.metrics,
+            "success_rate": success_rate,
+            "circuit_breaker_state": self.circuit_breaker.state,
+            "circuit_breaker_failures": self.circuit_breaker.failures,
+        }
 
     def _parse_table_to_df(self, soup: BeautifulSoup, table_selector: str) -> pd.DataFrame:
         table = soup.select_one(table_selector)
@@ -112,6 +213,22 @@ class BaseScraper:
                 rows.append(cells)
 
         return pd.DataFrame(rows, columns=headers or None)
+    
+    def _validate_match_data(self, match: Dict) -> bool:
+        """Validate scraped match data has required fields."""
+        required_fields = ['home_team', 'away_team', 'date']
+        
+        for field in required_fields:
+            if not match.get(field):
+                logger.warning(f"Missing required field: {field}")
+                return False
+        
+        # Validate team names are not empty or invalid
+        if not match['home_team'].strip() or not match['away_team'].strip():
+            logger.warning("Invalid team names")
+            return False
+        
+        return True
 
 
 def _slugify_team(name: str) -> str:

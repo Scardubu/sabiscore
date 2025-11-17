@@ -1,28 +1,35 @@
 "use client";
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { TrendingUp, AlertCircle, Copy, Check, ExternalLink } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import type { ValueBet } from '@/types/value-bet';
 import { formatCurrency } from '../lib/format';
+import { safeMessage } from '../lib/error-utils';
 
-interface ValueBet {
-  match_id: string;
-  home_team: string;
-  away_team: string;
-  market: 'home' | 'draw' | 'away';
-  fair_probability: number;
-  bookmaker_odds: number;
-  implied_probability: number;
-  edge_percentage: number;
-  kelly_stake_percentage: number;
-  recommended_stake: number;
-  quality: 'PREMIUM' | 'VALUE' | 'MARGINAL' | 'AVOID';
-  bookmaker: string;
-  clv_expected?: number;
+interface ValueBetContext {
+  matchId: string;
+  homeTeam: string;
+  awayTeam: string;
+  bookmaker?: string;
+  clvExpected?: number | null;
 }
+
+// Safe defaults for ValueBet fields to prevent runtime errors
+const getValueBetDefaults = (bet: ValueBet) => ({
+  betType: bet.bet_type ?? 'unknown',
+  marketOdds: bet.market_odds ?? 1.0,
+  modelProb: bet.model_prob ?? 0,
+  marketProb: bet.market_prob ?? 0,
+  edge: bet.edge ?? bet.value_pct ?? 0,
+  kellyStake: bet.kelly_stake ?? 0,
+  qualityTier: bet.quality?.tier ?? 'VALUE',
+  recommendation: bet.quality?.recommendation ?? bet.recommendation ?? 'Evaluate carefully',
+});
 
 interface ValueBetCardProps {
   bet: ValueBet;
+  context: ValueBetContext;
   bankroll?: number;
 }
 
@@ -37,8 +44,12 @@ interface ValueBetCardProps {
  * - Direct bookmaker link
  * - CLV (Closing Line Value) projection
  */
-export function ValueBetCard({ bet, bankroll = 1000 }: ValueBetCardProps) {
+export function ValueBetCard({ bet, context, bankroll = 1000 }: ValueBetCardProps) {
   const [copied, setCopied] = useState(false);
+  const bookmakerName = context.bookmaker ?? 'Preferred Book';
+  
+  // Apply safe defaults to prevent undefined/null errors
+  const safe = getValueBetDefaults(bet);
 
   const getQualityColor = (quality: string) => {
     switch (quality) {
@@ -53,69 +64,77 @@ export function ValueBetCard({ bet, bankroll = 1000 }: ValueBetCardProps) {
     }
   };
 
-  const getMarketLabel = (market: string) => {
-    switch (market) {
-      case 'home':
-        return `${bet.home_team} Win`;
-      case 'away':
-        return `${bet.away_team} Win`;
-      default:
+  const getMarketLabel = () => {
+    switch (safe.betType) {
+      case 'home_win':
+        return `${context.homeTeam} Win`;
+      case 'away_win':
+        return `${context.awayTeam} Win`;
+      case 'draw':
         return 'Draw';
+      default:
+        return safe.betType.replace(/_/g, ' ');
     }
   };
 
-  const stakeValue = bet.recommended_stake * bankroll;
-  const potentialReturnValue = stakeValue * bet.bookmaker_odds;
+  const kellyFraction = Math.max(safe.kellyStake, 0);
+  const stakeValue = bankroll * kellyFraction;
+  const bookmakerOdds = safe.marketOdds;
+  const potentialReturnValue = stakeValue * bookmakerOdds;
   const potentialProfitValue = potentialReturnValue - stakeValue;
-  const stakeAmount = stakeValue.toFixed(2);
-  const potentialReturn = potentialReturnValue.toFixed(2);
-  const potentialProfit = potentialProfitValue.toFixed(2);
+  const fairProbability = safe.modelProb;
+  const impliedProbability = safe.marketProb;
+  const edgePercentage = safe.edge * 100;
+  const qualityTier = safe.qualityTier;
 
   const copyBetDetails = async () => {
-  const betDetails = `
+    const betDetails = `
 🎯 VALUE BET ALERT
-${bet.home_team} vs ${bet.away_team}
-Market: ${getMarketLabel(bet.market)}
-Odds: ${bet.bookmaker_odds.toFixed(2)} @ ${bet.bookmaker}
-Edge: ${bet.edge_percentage.toFixed(1)}%
-Recommended Stake: ${formatCurrency(stakeValue)} (${(bet.kelly_stake_percentage * 100).toFixed(1)}% of bankroll)
+${context.homeTeam} vs ${context.awayTeam}
+Market: ${getMarketLabel()}
+Odds: ${bookmakerOdds.toFixed(2)} @ ${bookmakerName}
+Edge: ${edgePercentage.toFixed(1)}%
+Recommended Stake: ${formatCurrency(stakeValue)} (${(kellyFraction * 100).toFixed(1)}% of bankroll)
 Potential Return: ${formatCurrency(potentialReturnValue)}
-Quality: ${bet.quality}
-${bet.clv_expected ? `Expected CLV: ${bet.clv_expected.toFixed(1)}¢` : ''}
+Quality: ${qualityTier}
+${context.clvExpected ? `Expected CLV: ${context.clvExpected.toFixed(1)}¢` : ''}
     `.trim();
 
     try {
+      if (!navigator?.clipboard) {
+        throw new Error('Clipboard API not available');
+      }
       await navigator.clipboard.writeText(betDetails);
       setCopied(true);
-      toast.success('Bet details copied to clipboard!');
+      toast.success(safeMessage('Bet details copied to clipboard!'));
       setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      toast.error('Failed to copy bet details');
+    } catch {
+      toast.error(safeMessage('Failed to copy bet details'));
     }
   };
 
   const openBookmaker = () => {
-    toast.success(`Opening ${bet.bookmaker}...`);
+    toast.success(safeMessage(`Opening ${bookmakerName}...`));
     // In production, open bookmaker deep link
-    // window.open(`https://${bet.bookmaker}.com/match/${bet.match_id}`, '_blank');
+    // window.open(`https://${bookmakerName}.com/match/${context.matchId}`, '_blank');
   };
 
   return (
     <div className="group relative overflow-hidden rounded-xl border border-slate-700/50 bg-gradient-to-br from-slate-800/50 to-slate-900/50 p-6 backdrop-blur-sm transition-all hover:border-green-500/50 hover:shadow-lg hover:shadow-green-500/20">
       {/* Quality Badge */}
       <div className="absolute right-4 top-4">
-        <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${getQualityColor(bet.quality)}`}>
-          {bet.quality}
+        <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${getQualityColor(qualityTier)}`}>
+          {qualityTier}
         </span>
       </div>
 
       {/* Match Info */}
       <div className="mb-4">
         <h3 className="text-lg font-bold text-white">
-          {bet.home_team} vs {bet.away_team}
+          {context.homeTeam} vs {context.awayTeam}
         </h3>
         <p className="text-sm text-slate-400">
-          {getMarketLabel(bet.market)} @ {bet.bookmaker}
+          {getMarketLabel()} @ {bookmakerName}
         </p>
       </div>
 
@@ -127,14 +146,14 @@ ${bet.clv_expected ? `Expected CLV: ${bet.clv_expected.toFixed(1)}¢` : ''}
             <span>Edge</span>
           </div>
           <p className="mt-1 text-2xl font-bold text-green-400">
-            +{bet.edge_percentage.toFixed(1)}%
+            +{edgePercentage.toFixed(1)}%
           </p>
         </div>
 
         <div className="rounded-lg bg-slate-800/50 p-3">
           <div className="text-xs text-slate-400">Odds</div>
           <p className="mt-1 text-2xl font-bold text-white">
-            {bet.bookmaker_odds.toFixed(2)}
+            {bookmakerOdds.toFixed(2)}
           </p>
         </div>
       </div>
@@ -144,7 +163,7 @@ ${bet.clv_expected ? `Expected CLV: ${bet.clv_expected.toFixed(1)}¢` : ''}
         <div className="mb-2 flex items-center justify-between">
           <span className="text-sm font-medium text-slate-300">Recommended Stake</span>
           <span className="text-xs text-slate-500">
-            {(bet.kelly_stake_percentage * 100).toFixed(1)}% Kelly
+            {(kellyFraction * 100).toFixed(1)}% Kelly
           </span>
         </div>
         <div className="flex items-baseline gap-2">
@@ -163,20 +182,20 @@ ${bet.clv_expected ? `Expected CLV: ${bet.clv_expected.toFixed(1)}¢` : ''}
         <div className="flex items-center justify-between text-xs">
           <span className="text-slate-400">Fair Probability</span>
           <span className="font-medium text-white">
-            {(bet.fair_probability * 100).toFixed(1)}%
+            {(fairProbability * 100).toFixed(1)}%
           </span>
         </div>
         <div className="flex items-center justify-between text-xs">
           <span className="text-slate-400">Implied Probability</span>
           <span className="font-medium text-slate-500">
-            {(bet.implied_probability * 100).toFixed(1)}%
+            {(impliedProbability * 100).toFixed(1)}%
           </span>
         </div>
-        {bet.clv_expected && (
+        {typeof context.clvExpected === 'number' && (
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-400">Expected CLV</span>
             <span className="font-medium text-blue-400">
-              +{bet.clv_expected.toFixed(1)}¢
+              +{context.clvExpected.toFixed(1)}¢
             </span>
           </div>
         )}
@@ -211,11 +230,11 @@ ${bet.clv_expected ? `Expected CLV: ${bet.clv_expected.toFixed(1)}¢` : ''}
       </div>
 
       {/* Warning for MARGINAL/AVOID */}
-      {(bet.quality === 'MARGINAL' || bet.quality === 'AVOID') && (
+      {(qualityTier === 'MARGINAL' || qualityTier === 'AVOID') && (
         <div className="mt-4 flex items-start gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3">
           <AlertCircle className="h-4 w-4 flex-shrink-0 text-yellow-400" />
           <p className="text-xs text-yellow-300">
-            {bet.quality === 'MARGINAL' 
+            {qualityTier === 'MARGINAL' 
               ? 'Edge is marginal. Consider waiting for better opportunities.'
               : 'Edge below threshold. Not recommended for betting.'}
           </p>

@@ -30,9 +30,10 @@ CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--re
 FROM python:3.11-slim as production
 
 ENV PYTHONUNBUFFERED=1 \
-    PORT=8000 \
-    GUNICORN_WORKERS=4 \
-    GUNICORN_TIMEOUT=120
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PORT=8000
 
 WORKDIR /app
 
@@ -61,4 +62,4 @@ RUN mkdir -p /app/models /app/data
 HEALTHCHECK --interval=30s --timeout=3s \
   CMD curl -f http://localhost:$PORT/health || exit 1
 
-CMD ["sh", "-c", "echo 'Starting SabiScore backend at $(date)...' && uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --log-level info"]
+CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "warning", "--workers", "1", "--limit-max-requests", "500", "--timeout-keep-alive", "30"]

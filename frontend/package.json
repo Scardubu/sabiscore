@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@rollbar/react": "^1.0.0",
     "@tanstack/react-query": "^5.14.0",
     "chart.js": "^4.4.0",
     "date-fns": "^2.30.0",
@@ -20,7 +21,8 @@
     "react-chartjs-2": "^5.2.0",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.48.2",
-    "react-hot-toast": "^2.4.1"
+    "react-hot-toast": "^2.4.1",
+    "rollbar": "^2.26.5"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.1.4",
