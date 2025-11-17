@@ -127,10 +127,13 @@ async def readiness_check(
         logger.warning("Model check failed: %s", exc)
         checks["models"] = {"status": "unknown", "error": str(exc)}
 
-    # Determine overall status
-    if not all_healthy:
+    # Determine overall status (models degrade readiness when missing)
+    models_status = checks.get("models", {}).get("status")
+    if not all_healthy or models_status != "healthy":
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-        overall_status = "unhealthy"
+        # expose why we're unhealthy for easier diagnostics
+        reason = "models" if models_status != "healthy" else "dependencies"
+        overall_status = f"unhealthy:{reason}"
     elif any(check.get("status") == "degraded" for check in checks.values()):
         overall_status = "degraded"
     else:
@@ -140,7 +143,7 @@ async def readiness_check(
         "status": overall_status,
         "timestamp": datetime.utcnow().isoformat(),
         "checks": checks,
-        "ready": all_healthy,
+        "ready": all_healthy and models_status == "healthy",
     }
 
 

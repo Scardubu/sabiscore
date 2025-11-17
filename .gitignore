@@ -92,6 +92,14 @@ checkpoints/
 *.ckpt
 *.checkpoint
 
+# Allow production-ready artifacts needed at runtime
+!models/*.pkl
+!models/*.json
+!data/processed/
+!data/processed/*.csv
+data/processed/*.json
+data/processed/raw/
+
 # Python cache and compiled files
 *.py[cod]
 *$py.class
