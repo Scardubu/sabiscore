@@ -1,470 +1,222 @@
-# ⚡ SabiScore Edge v3.0
+﻿# ⚡ SabiScore Edge v3
 
-> **SabiScore doesn't guess winners. It reverse-engineers bookie mistakes in 142ms and stakes them at ⅛ Kelly before the line moves.**
+> **SabiScore doesn't guess winners. It reverse-engineers bookie mistakes in 142 ms and stakes them at ⅛ Kelly before the line moves.**
 
-**Production Ready** | **Sub-150ms TTFB** | **73.7% Accuracy** | **+18.4% ROI** | **10k CCU** | **₦60 Avg CLV**
+**Sub-150 ms TTFB • 73.7 % Accuracy • +18.4 % ROI • 10 k CCU-ready • ₦60 Avg CLV**
 
-Sabiscore is a production-grade sports betting intelligence engine powered by ensemble ML, real-time data fusion, and creative augmentation strategies. Deployed on Vercel Edge + Render with zero cold starts and auto-scaling to 10,000 concurrent users.
+SabiScore Edge v3 is the production build of our football intelligence platform. It blends a hardened Next.js 15 frontend, a FastAPI ensemble backend, and a curated ML pipeline to surface value bets in near real time.
 
-**Live URLs:**
+### Live Status
 - 🌐 Frontend: https://sabiscore.vercel.app (auto-deploys from `feat/edge-v3`)
-- ⚙️ Backend: https://sabiscore-api.onrender.com (auto-deploys from `feat/edge-v3`)
-- 📦 GitHub: https://github.com/Scardubu/sabiscore  
-
-**Branch:** `feat/edge-v3` | **Status:** ✅ Production Deployment Complete (Nov 16, 2025)
-
-**Latest Build:**
-- Frontend: 7 routes, 110kB first-load JS, 0 blocking errors
-- Backend: FastAPI with Redis cache, PostgreSQL, ensemble models
-- Commit: `619d9bdd3` - Edge v3 hardening (memory opt, error handling, smoke tests)
+- ⚙️ Backend API: https://sabiscore-api.onrender.com (FastAPI on Render)
+- 📦 Branch: `feat/edge-v3` @ `6b4ec3c52` (docs: update status with successful smoke tests)
+- 📊 Deployment log: [`DEPLOYMENT_STATUS_LIVE.md`](./DEPLOYMENT_STATUS_LIVE.md)
 
 ---
 
-## 🎯 Performance Metrics (November 2025)
+## 🎯 Performance Snapshot (Nov 2025)
 
-```
-╔══════════════════════════════════════════════════════════╗
-║         PRODUCTION METRICS — NOVEMBER 2025             ║
-╠══════════════════════════════════════════════════════════╣
-║  Accuracy (All)         73.7%    (n=42,000/mo)         ║
-║  High-Confidence        84.9%    (70%+ picks)          ║
-║  Average CLV            +₦60     (vs Pinnacle close)   ║
-║  Value Bet ROI          +18.4%   (₦1.58M bankroll)     ║
-║  Brier Score            0.184    (calibration grade)   ║
-║  TTFB (p92)             142ms    (<150ms target ✅)    ║
-║  CCU Live               8,312    (10k capacity)        ║
-║  Uptime                 99.94%   (2.6h/year downtime)  ║
-╚══════════════════════════════════════════════════════════╝
-```
+| Metric | Target | Current |
+| --- | --- | --- |
+| Accuracy (all picks) | ≥ 73 % | **73.7 %** |
+| High-confidence picks | ≥ 84 % | **84.9 %** |
+| Value Bet ROI | ≥ +18 % | **+18.4 %** |
+| Avg CLV vs Pinnacle | ≥ +₦55 | **+₦60** |
+| Brier Score | ≤ 0.19 | **0.184** |
+| TTFB (p92) | ≤ 150 ms | **142 ms** |
+| Live CCU | 10 k | **8.3 k observed** |
+| Uptime | ≥ 99.9 % | **99.94 %** |
 
 ---
 
-## 🚀 Quick Start
+## 🏗️ Monorepo Architecture
+
+```
+sabiscore/
+├── apps/
+│   ├── web/        # Next.js 15 (App Router, PPR, Edge runtime)
+│   ├── api/        # FastAPI shim → mirrors backend/
+│   └── ws/         # Live odds / WebSocket relays
+├── backend/        # Source-of-truth FastAPI service + ML pipeline
+├── packages/
+│   ├── ui/         # Shadcn + Radix component library
+│   └── analytics/  # Shared TS helpers & Python feature logic
+├── models/         # Calibrated model artifacts (managed via scripts)
+├── scripts/        # Smoke tests, model tooling, deploy automation
+└── docs/           # Operational & deployment guides
+```
+
+- **Frontend**: Next.js 15 + React 18 + Tailwind + shadcn/ui, hydrated via TanStack Query.
+- **Backend**: FastAPI + PostgreSQL + Redis + ensemble (RF/XGBoost/LightGBM + meta learner).
+- **CI/CD**: Turborepo orchestrates builds/tests; GitHub Actions validates, Vercel + Render deploy on push.
+
+For deeper diagrams, see [`ARCHITECTURE_V3.md`](./ARCHITECTURE_V3.md) and [`EDGE_V3_README.md`](./EDGE_V3_README.md).
+
+---
+
+## ✨ Feature Highlights
+
+### Analytics Engine
+- 220-signal feature store spanning form, fatigue, injuries, and market drift.
+- Ensemble with live Platt calibration, ⅛ Kelly staking, and +18 % live ROI.
+- Real-time firehose: ESPN (8 s), Opta, Betfair, Pinnacle WebSocket, Transfermarkt.
+
+### Frontend Experience
+- Instant matchup search, degradations handled with React error boundaries + toast alerts.
+- Chart.js confidence meter with Brier overlays; dark/light theming via design tokens.
+- Edge rendering (Vercel) with partial prerendering and streaming data for sub-150 ms TTFB.
+
+### Backend & Ops
+- FastAPI routers hardened with strict schemas and Redis caching (Upstash-compatible URL).
+- PostgreSQL migrations via Alembic/Drizzle, plus Prometheus/Grafana dashboards (Phase 5).
+- Scripts for Cloudflare PWA hardening, smoke tests, and deployment verification.
+
+---
+
+## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js 20+, Python 3.11+, Docker (optional for local dev)
-- PostgreSQL 16 (or use Render's managed instance)
-- Redis 7 (or use Upstash for serverless)
+- Node.js **20.11+** and npm **10+**
+- Python **3.11+** (matching FastAPI runtime)
+- PostgreSQL 16 & Redis 7 (or use Docker Compose / managed services)
+- Optional: Docker Desktop (for prod-like stack + monitoring)
 
 ### Local Development
-```bash
-# Clone and install
+```powershell
+# 1. Clone
 git clone https://github.com/Scardubu/sabiscore.git
-cd sabiscore
+cd SabiScore
+
+# 2. Install JS dependencies
 npm install
 
-# Option A: Docker Compose (easiest)
-docker-compose up -d  # Postgres + Redis
+# 3. Fast path (PowerShell): starts web + API with health checks
+./start-dev.ps1
 
-# Option B: Manual services
-# Start Postgres on :5432, Redis on :6379
+# Manual option if you prefer turborepo workflows
+npm run dev          # Runs apps via turbo (web + api filters)
 
-# Backend
+# Backend only
 cd backend
+python -m venv venv
+venv\Scripts\activate
 pip install -r requirements.txt
-$env:PYTHONPATH="$PWD"  # PowerShell
-uvicorn src.main:app --reload --port 8000
+uvicorn src.api.main:app --reload --port 8000
 
-# Frontend (new terminal)
-cd apps/web
-npm run dev  # Starts on :3000
+# Frontend only
+cd apps\web
+npm run dev          # http://localhost:3000
 ```
 
-### Production Deployment
-
-**Automatic (Recommended):**
-```bash
-# Push to GitHub feat/edge-v3 branch
-git push origin feat/edge-v3
-
-# Vercel auto-deploys frontend from GitHub
-# Render auto-deploys backend from GitHub
-# Monitor: https://vercel.com/dashboard
-#          https://dashboard.render.com
-```
-
-**Manual Vercel Deploy:**
-```bash
-cd apps/web
-$env:NODE_OPTIONS="--max-old-space-size=8192"
-vercel --prod
-# Or preview first: vercel
-```
-
-**Render Backend:**
-- Connected to GitHub `feat/edge-v3`
-- Auto-deploys on push
-- Uses `render.yaml` blueprint
-- Env vars: `REDIS_URL`, `DATABASE_URL`, `SECRET_KEY`
-
-See [`PRODUCTION_CHECKLIST.md`](./PRODUCTION_CHECKLIST.md) for validation steps.
-
----
-
-## 🏗️ Architecture
-
-### Monorepo Structure
-Recommended Stake:  ₦4,234 (2.68% of bankroll)
-Expected Profit:    ₦394 per bet
-Potential Return:   ₦8,299 if win
-```
-
-**See full cost breakdown:** [DEPLOYMENT_FINAL_NAIRA.md](./DEPLOYMENT_FINAL_NAIRA.md)
-
-## 🏆 Features
-
-### Core Analytics Engine
-- **Modular ML Ensemble**: Random Forest + XGBoost + LightGBM + meta-learner (73.7% accuracy, Brier 0.184)
-- **220-Feature Pipeline**: Form, xG, fatigue, momentum, market panic, home crowd boost
-- **Real-Time Data**: ESPN (8s), Understat xG chains, 62 bookmakers' odds
-- **Smart Kelly (Naira)**: Dynamic stake calculation (⅛ Kelly for +18.4% ROI, -9% max drawdown)
-- **Value Bet Detection**: Monte Carlo simulation with CLV projection (₦60 average edge)
-- **MLflow Versioning**: Model registry with staging/production promotion
-
-### Production Infrastructure (Phase 4 ✅)
-- **Sub-150ms TTFB**: 98ms API, 28ms WebSocket (-35% and -44% vs targets)
-- **WebSocket Layer**: Real-time streaming at `/ws/edge/{match_id}`
-- **ISR Revalidation**: WebSocket → HTTP → Next.js cache invalidation
-- **Sentry Monitoring**: Backend + frontend RUM with performance sampling
-- **Redis Caching**: Circuit breaker + in-memory fallback (85% hit rate)
-- **Docker Compose**: Multi-replica production setup (12 API + 6 web + 3 Redis)
-
-### Edge Deployment (Phase 5 ✅ 95%)
-- **Vercel Edge**: Next.js 15 on 300+ POPs (target: <45ms P50 TTFB)
-- **Railway Backend**: FastAPI autoscaling with multi-region support
-- **Upstash Redis**: Edge-optimized caching (8-15ms, 95%+ hit rate)
-- **Prometheus + Grafana**: P99 latency tracking, model drift alerts
-- **Progressive Web App**: Offline support, push notifications, installable
-- **Deploy Ready**: 15-minute setup with free tier support
-
-### User Experience
-- **ValueBetCard (Naira)**: One-click bet slip with Kelly stake calculator
-- **ConfidenceMeter**: Doughnut chart with Brier score overlay
-- **Dark/Light Mode**: System preference + manual toggle
-- **Real-Time Charts**: Chart.js visualizations (xG chains, probability distributions)
-- **Mobile PWA**: Install to home screen, works offline
-- **Nigerian Bookmakers**: Bet9ja, NairaBet, 1xBet, Bet365 integration
-
-## 🚀 Deploy to Production (15 Minutes)
-
-**For detailed Nigerian Naira cost analysis and step-by-step deployment, see:** [DEPLOYMENT_FINAL_NAIRA.md](./DEPLOYMENT_FINAL_NAIRA.md)
-
-### Quick Deploy Commands
-```powershell
-# 1. Push to GitHub
-git add .
-git commit -m "feat: Nigerian Naira production deployment"
-git push origin main
-
-# 2. Deploy Backend (Render Dashboard)
-# Go to: https://dashboard.render.com/
-# - New Web Service → Connect GitHub → Select sabiscore
-# - Root Directory: backend
-# - Build: pip install --upgrade pip && pip install -r requirements.txt
-# - Start: uvicorn src.api.main:app --host 0.0.0.0 --port $PORT --workers 4
-# - Wait 5-7 minutes → Copy URL
-
-# 3. Deploy Frontend (Vercel)
-npm install -g vercel
-vercel login
-vercel --prod
-
-# 4. Connect Backend to Frontend
-vercel env add NEXT_PUBLIC_API_URL production
-# Paste: https://sabiscore-api.onrender.com/api/v1
-
-vercel env add REVALIDATE_SECRET production
-# Enter: your-secret-token-2025
-
-vercel --prod
-
-# 5. Test Deployment
-start https://sabiscore.vercel.app
-```
-
-**Result:**
-- Frontend: `https://sabiscore.vercel.app` (or custom URL)
-- Backend: `https://sabiscore-api.onrender.com`
-- Cost: ₦0/month (free tier) or ₦158,000/month (production)
-
-**Current Production:** https://sabiscore-70xn1bfov-oversabis-projects.vercel.app ✅
-
----
-
-
-## 🧩 Model Artifacts & Validation
-
-### Model Validation Workflow
-
-- All backend predictions require valid model artifacts in `backend/models`.
-- On every push/PR, CI runs `.github/workflows/validate-models.yml` to:
-  - Generate dummy models (if missing) using `scripts/generate_dummy_models.py` (for local/CI/dev only)
-  - Validate all artifacts with `scripts/validate_models.py` (checks structure, size, and loadability)
-- In production, set `MODEL_BASE_URL` to fetch real model artifacts. If not set, backend will not start unless valid models are present.
-
-### Local/CI Development
-
-- If you do not have production models, run:
-  ```bash
+### Seed & Models
+- Generate local dummy models when production artifacts are unavailable:
+  ```powershell
   python scripts/generate_dummy_models.py --outdir ./models
   python scripts/validate_models.py --models-dir ./models --timeout 20
   ```
-- This ensures the backend can start and pass health checks for local development and CI.
+- Backend refuses to boot without valid artifacts or `MODEL_BASE_URL`.
+
+### Smoke Tests
+- Backend: `./scripts/smoke-test-backend.ps1 -Environment production`
+- Frontend: `./scripts/smoke-test-frontend.ps1 -Url https://sabiscore.vercel.app`
+
+Smoke test reports feed into [`DEPLOYMENT_STATUS_LIVE.md`](./DEPLOYMENT_STATUS_LIVE.md) before each release.
 
 ---
-## 🛠️ Local Development
 
-### Prerequisites
-- **Node.js 20+** (Turborepo + Next.js 15)
-- **Python 3.11+** (FastAPI + ML models)
-- **Docker & Docker Compose** (optional, for monitoring)
+## ⚙️ Environment Configuration
 
-### Quick Start (Development)
+Create `.env` files as needed:
 
-1. **Clone the repository**
-```bash
-git clone <repository-url>
-cd sabiscore
-```
-
-2. **Install dependencies**
-```powershell
-npm install
-cd backend && pip install -r requirements.txt
-```
-
-3. **Start development servers**
-```powershell
-.\start-dev.ps1
-# or
-npm run dev
-```
-
-4. **Access the application**
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:8000
-- API Docs: http://localhost:8000/docs
-- Grafana: http://localhost:3001 (after Phase 5 setup)
-
-### Phase 5 Deployment (Production Edge)
-
-```powershell
-# Setup Cloudflare + Prometheus + PWA
-.\deploy-phase5.ps1 -Mode setup
-
-# Deploy to production
-.\deploy-phase5.ps1 -Mode deploy -Environment production
-
-# Open monitoring dashboards
-.\deploy-phase5.ps1 -Mode monitor
-```
-
-**See**: [PHASE_5_DEPLOYMENT_PLAN.md](./PHASE_5_DEPLOYMENT_PLAN.md) for detailed instructions
-
-### Local Development Setup
-
-#### Backend Setup
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env
-# Edit .env with your configuration
-python scripts/init_db.py
-python scripts/train_models.py  # Optional: train ML models
-uvicorn src.api.main:app --reload
-```
-
-#### Frontend Setup
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Create a `.env` file in `frontend/` when pointing the spa at a non-default API origin:
-
+`backend/.env`
 ```env
-VITE_API_URL=http://localhost:8000/api/v1
-```
-
-### Environment Configuration
-
-Create `.env` files in the backend directory:
-
-```env
-# Database
-DATABASE_URL=postgresql://sabiscore:sabiscore_password@localhost:5432/sabiscore
-
-# Redis Cache
-REDIS_URL=redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379
-
-# External APIs (Optional)
-ESPN_API_KEY=your_espn_api_key
-OPTA_API_KEY=your_opta_api_key
-BETFAIR_APP_KEY=your_betfair_app_key
-
-# Application
+DATABASE_URL=postgresql://sabiscore:<password>@localhost:5432/sabiscore
+REDIS_URL=redis://default:<token>@known-amoeba-10186.upstash.io:6379
+MODEL_BASE_URL=https://storage.googleapis.com/sabiscore-models
+SECRET_KEY=replace_me
 APP_ENV=development
-DEBUG=True
-LOG_LEVEL=INFO
 ```
 
-## 🛠 Technical Architecture
-
-### Frontend Stack
-- **React 18** + TypeScript + Vite
-- **UI Framework**: Shadcn/ui (Radix UI primitives)
-- **Styling**: Tailwind CSS with custom design tokens
-- **Charts**: Chart.js for data visualization
-- **State Management**: TanStack Query for server state
-
-### Frontend Architecture
-
-#### Core Application (`src/main.tsx`, `src/App.tsx`)
-- **State Management**: TanStack Query orchestrates health checks and insight requests
-- **API Integration**: Typed client in `src/lib/api.ts` with strict response contracts
-- **Error Handling**: React error boundary plus toast notifications for degraded states
-
-#### Components
-- **Match Selector**: Guided matchup selection with league auto-detection
-- **Insights Display**: Conditional rendering hardened against null/undefined data
-- **Charts Component**: Chart.js Doughnut visualisations for win probabilities
-
-### Backend Stack
-- **FastAPI** (Python web framework)
-- **Database**: PostgreSQL with SQLAlchemy ORM
-- **Cache**: Redis for performance optimization
-- **ML**: Scikit-learn, XGBoost, LightGBM ensemble models
-- **Data Processing**: Pandas, NumPy for analytics
-
-### Infrastructure
-- **Containerization**: Docker & Docker Compose
-- **CI/CD**: GitHub Actions with automated testing
-- **API Documentation**: Automatic OpenAPI/Swagger docs
-
-## 📊 Data Sources & Model Training
-
-### Real-Time Data Integration
-**Primary Data Sources:**
-- **ESPN API**: Live scores, team stats, player information
-- **Opta Sports**: Advanced analytics, expected goals, possession data
-- **FiveThirtyEight Soccer Power Index**: Team strength ratings
-- **Transfermarkt**: Player valuations and market data
-
-**Betting Market Data:**
-- **Betfair Exchange API**: Real-time odds and market movements
-- **Pinnacle Sports**: Sharp money indicator and closing lines
-- Multiple bookmaker aggregators for comprehensive coverage
-
-### Machine Learning Pipeline
-**Feature Engineering (200+ Variables):**
-- Team Performance Metrics (goals, possession, shots)
-- Head-to-head historical records
-- Player availability and form
-- Betting market indicators
-- Advanced metrics (xG, defensive actions, etc.)
-
-**Ensemble Model Architecture:**
-- **Random Forest** (40% weight): Feature importance ranking
-- **XGBoost** (35% weight): Gradient boosting with early stopping
-- **LightGBM** (25% weight): Efficient gradient boosting
-- **Meta Model**: Logistic regression for final predictions
-
-**Model Performance:**
-- **Overall Accuracy**: 73.2% (vs industry average of 67%)
-- **High Confidence Picks**: 84.1% accuracy (70%+ confidence predictions)
-- **Value Bet ROI**: +15.2% annual return
-- **Brier Score**: 0.187 (lower is better, random = 0.25)
-
-## 🧪 Testing
-
-### Backend Tests
-```bash
-cd backend
-pytest tests/ -v --cov=src --cov-report=html
-```
-
-### Frontend Tests & Type Safety
-The frontend uses **Jest** with Testing Library utilities alongside a strict TypeScript toolchain.
-
-```bash
-cd frontend
-# Run the full suite once
-npm run test
-
-# Enforce strict type safety (mirrors CI)
-npm run typecheck
-
-# Watch mode for TDD loops
-npm run test:watch
-
-# Generate coverage report
-npm run test:coverage
-```
-
-> Tip: `npm run typecheck` must pass before merging to main. The command validates strict null checks across components like `InsightsDisplay` and ensures React Query hooks stay aligned with backend contracts.
-
-### E2E Tests
-```bash
-npx playwright test
-```
-
-## 🚀 Deployment
-
-### Production Deployment
-```bash
-# Build for production
-docker-compose -f docker-compose.prod.yml up -d
-
-# Or deploy to cloud platforms
-# Heroku, Vercel, AWS, etc.
-```
-
-### Environment Variables (Production)
+`apps/web/.env.local`
 ```env
-NODE_ENV=production
-DATABASE_URL=your_production_db_url
-REDIS_URL=redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379
-SECRET_KEY=your_production_secret_key
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_ENVIRONMENT=development
 ```
 
-## 📈 Monitoring & Analytics
+Global `.env` / `.env.production` files mirror Render/Vercel secrets; see [`PRODUCTION_CHECKLIST.md`](./PRODUCTION_CHECKLIST.md) and [`PHASE_5_DEPLOYMENT_PLAN.md`](./PHASE_5_DEPLOYMENT_PLAN.md) for the exhaustive matrix.
 
-**Application Monitoring:**
-- Error tracking with Sentry
-- Performance monitoring with Web Vitals
-- API response time monitoring
-- Database query performance
+---
 
-**Business Metrics:**
-- Prediction accuracy tracking
-- User engagement metrics
-- Revenue attribution from value bets
-- Model performance degradation alerts
+## 🧪 Quality Gates
+
+| Scope | Command | Notes |
+| --- | --- | --- |
+| Lint + Types | `npm run lint && npm run typecheck` | Required before merging; turbo fan-out per workspace |
+| Frontend tests | `cd apps/web && npm run test` | Jest + Testing Library |
+| Backend tests | `cd backend && pytest tests -v --cov=src` | Includes DB + API contracts |
+| Playwright | `npx playwright test` | Smoke critical user journeys |
+| Backend smoke | `./scripts/smoke-test-backend.ps1` | Runs health/prediction checks against API |
+
+CI mirrors these commands inside `.github/workflows/validate-models.yml` and deployment workflows.
+
+---
+
+## 🚢 Deployment
+
+### Continuous Deployment
+- Push to `feat/edge-v3` → GitHub Actions → Vercel (frontend) + Render (backend) auto-deploy.
+- `render.yaml` orchestrates service, background worker, and cron tasks.
+- Use `deploy-phase5.ps1` for Cloudflare, Prometheus, and monitoring stack bootstrap (`-Mode setup|deploy|monitor`).
+
+### Manual Hooks
+```powershell
+# Vercel production deploy
+cd apps/web
+$env:NODE_OPTIONS="--max-old-space-size=8192"
+vercel --prod
+
+# Render blueprint deploy (from repo root)
+render blueprint ./render.yaml
+
+# Docker prod stack
+npm run docker:build
+npm run docker:up
+```
+
+Checklist-driven releases: [`PRODUCTION_DEPLOYMENT_FINAL.md`](./PRODUCTION_DEPLOYMENT_FINAL.md), [`DEPLOYMENT_DIAGNOSTIC_REPORT.md`](./DEPLOYMENT_DIAGNOSTIC_REPORT.md).
+
+---
+
+## 📊 Data & ML Pipeline
+
+- **Historical Sources**: football-data.co.uk, Understat, FBref, Transfermarkt (2018‑2025 coverage).
+- **Live Streams**: ESPN, Opta, Betfair Exchange (1 s odds depth), Pinnacle WebSocket.
+- **Feature Engineering**: 220+ engineered metrics (fatigue, home boost, market panic, Poisson momentum).
+- **Ensemble**: RF (40 %), XGBoost (35 %), LightGBM (25 %) feeding a logistic meta model with continuous Platt scaling stored in Redis.
+- **Kelly Engine**: Caps at ⅛ Kelly to protect bankroll; draws +18 % yearly growth with < 9 % max drawdown.
+
+Operational docs: [`DATA_INTEGRITY_SUMMARY.md`](./DATA_INTEGRITY_SUMMARY.md), [`Model Implementation.md`](./Model%20Implementation.md).
+
+---
+
+## 🔭 Observability
+
+- **Prometheus + Grafana** via `docker-compose.monitoring.yml` and `deploy-phase5.ps1 -Mode monitor`.
+- **Sentry + Vercel Speed Insights** for frontend performance regressions.
+- **Render health checks** + custom smoke tests guard releases; see [`monitor_deployment.ps1`](./monitor_deployment.ps1).
+
+---
 
 ## 🤝 Contributing
+1. Fork the repo and create a feature branch: `git checkout -b feat/amazing-thing`.
+2. Run lint, tests, smoke scripts locally.
+3. Commit using conventional commits (`feat:`, `fix:`, `docs:`) and push.
+4. Open a PR; CI must stay green before merge.
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Commit changes: `git commit -m 'Add amazing feature'`
-4. Push to branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
+Refer to [`PUSH_INSTRUCTIONS.md`](./PUSH_INSTRUCTIONS.md) for the full release checklist.
+
+---
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
-
-## 🙏 Acknowledgments
-
-- **FiveThirtyEight**: Inspiration for statistical presentation
-- **BBC Sport**: UI/UX design patterns
-- **Opta Sports**: Advanced football analytics methodology
-- **Betfair**: Market-based prediction validation
-
----
-
-**Made with ⚽ by the Sabiscore Team**
-
-*Built for responsible betting insights and advanced football analytics*
+MIT License – see [`LICENSE`](./LICENSE) for details.

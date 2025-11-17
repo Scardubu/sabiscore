@@ -1,14 +1,14 @@
 {
-  "accuracy": 0.40789473684210525,
-  "brier_score": 0.32732017830490623,
-  "log_loss": 1.9332887409162505,
-  "trained_at": "2025-11-16T23:35:27.061197",
+  "accuracy": 0.39473684210526316,
+  "brier_score": 0.32969777372934145,
+  "log_loss": 1.9146309790975762,
+  "trained_at": "2025-11-17T01:11:31.119052",
   "feature_count": 86,
   "league": "Serie A",
   "dataset_signature": {
     "checksum": "0e73fdfa93941a6137f102f67568cf9f6aadc42e382d9d359900d817395f71d9",
     "rows": 380,
-    "generated_at": "2025-11-16T23:35:27.110299"
+    "generated_at": "2025-11-17T01:11:31.170883"
   },
   "training_samples": 380
 }

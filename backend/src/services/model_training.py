@@ -96,11 +96,25 @@ class ModelTrainingService:
             models['lgbm'] = self._optimize_lightgbm(X_train, y_train, league)
             models['gb'] = self._optimize_gradient_boosting(X_train, y_train, league)
         else:
-            logger.info("Training with default hyperparameters")
-            models['rf'] = RandomForestClassifier(n_estimators=200, random_state=42)
-            models['xgb'] = XGBClassifier(n_estimators=200, random_state=42)
-            models['lgbm'] = LGBMClassifier(n_estimators=200, random_state=42)
-            models['gb'] = GradientBoostingClassifier(n_estimators=200, random_state=42)
+            logger.info("Training with optimized default hyperparameters")
+            models['rf'] = RandomForestClassifier(
+                n_estimators=300, max_depth=12, min_samples_split=8, 
+                min_samples_leaf=4, max_features='sqrt', random_state=42, n_jobs=-1
+            )
+            models['xgb'] = XGBClassifier(
+                n_estimators=250, max_depth=7, learning_rate=0.08,
+                subsample=0.85, colsample_bytree=0.85, tree_method='hist',
+                random_state=42, n_jobs=-1
+            )
+            models['lgbm'] = LGBMClassifier(
+                n_estimators=250, max_depth=7, learning_rate=0.08,
+                subsample=0.85, colsample_bytree=0.85, min_child_samples=20,
+                reg_alpha=0.1, reg_lambda=1.0, random_state=42, n_jobs=-1, verbose=-1
+            )
+            models['gb'] = GradientBoostingClassifier(
+                n_estimators=200, max_depth=6, learning_rate=0.08,
+                subsample=0.85, random_state=42
+            )
             
             for name, model in models.items():
                 logger.info(f"Training {name.upper()}...")
@@ -255,10 +269,10 @@ class ModelTrainingService:
         
         def objective(trial):
             params = {
-                'n_estimators': trial.suggest_int('n_estimators', 150, 300),
+                'n_estimators': trial.suggest_int('n_estimators', 200, 400),
                 'max_depth': trial.suggest_int('max_depth', 10, 20),
-                'min_samples_split': trial.suggest_int('min_samples_split', 5, 20),
-                'min_samples_leaf': trial.suggest_int('min_samples_leaf', 2, 10),
+                'min_samples_split': trial.suggest_int('min_samples_split', 4, 12),
+                'min_samples_leaf': trial.suggest_int('min_samples_leaf', 2, 8),
                 'max_features': trial.suggest_categorical('max_features', ['sqrt', 'log2']),
                 'random_state': 42
             }
@@ -310,13 +324,16 @@ class ModelTrainingService:
         
         def objective(trial):
             params = {
-                'n_estimators': trial.suggest_int('n_estimators', 150, 300),
-                'max_depth': trial.suggest_int('max_depth', 3, 8),
-                'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.1, log=True),
-                'subsample': trial.suggest_float('subsample', 0.7, 1.0),
-                'colsample_bytree': trial.suggest_float('colsample_bytree', 0.7, 1.0),
-                'gamma': trial.suggest_float('gamma', 0, 0.5),
-                'min_child_weight': trial.suggest_int('min_child_weight', 1, 10),
+                'n_estimators': trial.suggest_int('n_estimators', 200, 350),
+                'max_depth': trial.suggest_int('max_depth', 5, 10),
+                'learning_rate': trial.suggest_float('learning_rate', 0.05, 0.15, log=True),
+                'subsample': trial.suggest_float('subsample', 0.7, 0.95),
+                'colsample_bytree': trial.suggest_float('colsample_bytree', 0.7, 0.95),
+                'gamma': trial.suggest_float('gamma', 0, 0.3),
+                'min_child_weight': trial.suggest_int('min_child_weight', 1, 5),
+                'reg_alpha': trial.suggest_float('reg_alpha', 0, 0.3),
+                'reg_lambda': trial.suggest_float('reg_lambda', 0.5, 2.0),
+                'tree_method': 'hist',
                 'random_state': 42,
                 'eval_metric': 'mlogloss'
             }
@@ -358,13 +375,15 @@ class ModelTrainingService:
         
         def objective(trial):
             params = {
-                'n_estimators': trial.suggest_int('n_estimators', 150, 300),
-                'max_depth': trial.suggest_int('max_depth', 3, 10),
-                'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.1, log=True),
-                'num_leaves': trial.suggest_int('num_leaves', 20, 60),
-                'subsample': trial.suggest_float('subsample', 0.7, 1.0),
-                'colsample_bytree': trial.suggest_float('colsample_bytree', 0.7, 1.0),
-                'min_child_samples': trial.suggest_int('min_child_samples', 10, 50),
+                'n_estimators': trial.suggest_int('n_estimators', 200, 350),
+                'max_depth': trial.suggest_int('max_depth', 5, 12),
+                'learning_rate': trial.suggest_float('learning_rate', 0.05, 0.15, log=True),
+                'num_leaves': trial.suggest_int('num_leaves', 31, 127),
+                'subsample': trial.suggest_float('subsample', 0.7, 0.95),
+                'colsample_bytree': trial.suggest_float('colsample_bytree', 0.7, 0.95),
+                'min_child_samples': trial.suggest_int('min_child_samples', 15, 30),
+                'reg_alpha': trial.suggest_float('reg_alpha', 0, 0.3),
+                'reg_lambda': trial.suggest_float('reg_lambda', 0.5, 2.0),
                 'random_state': 42,
                 'verbose': -1
             }

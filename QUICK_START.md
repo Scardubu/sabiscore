@@ -7,24 +7,27 @@
 ```
 
 That's it! This will:
-- ✅ Start backend API (port 8000)
-- ✅ Start frontend preview (port 4173)
+- ✅ Start backend API (port 8001)
+- ✅ Start frontend preview (port 3001)
 - ✅ Open browser automatically
 
 ---
 
 ## What You're Seeing
 
-### ❌ Current Error:
-```
+### Current Error
+
+```text
 Failed to load resource: 500 (Internal Server Error)
-http://localhost:4173/api/v1/health
+http://localhost:3001/api/v1/health
 ```
 
-### ✅ Cause:
+### Cause
+
 Backend API not running
 
-### ✅ Solution:
+### Solution
+
 Run the startup script above!
 
 ---
@@ -38,9 +41,11 @@ Before starting the backend, ensure valid model artifacts exist in `models/`.
 - Model artifacts must be real production-ready ensembles. This repository no longer ships or supports placeholder/dummy artifacts.
 
 - Validation (required): use the validator to check any artifact before starting the backend. The validator will fail if artifacts contain toy/dummy models.
+
 ```powershell
 python scripts/validate_models.py --models-dir ./models --timeout 20
 ```
+
 - For production, host artifacts on S3 (recommended) or any HTTPS file server and set `MODEL_BASE_URL`.
 
 Example S3 workflow (recommended):
@@ -69,17 +74,18 @@ Notes:
 ---
 ## Manual Startup (if needed)
 
+### Backend (Terminal 1)
 
-### Backend (Terminal 1):
 ```powershell
 cd backend
 # Ensure real model artifacts exist in ../models or set MODEL_BASE_URL (see below)
 python ../scripts/validate_models.py --models-dir ../models --timeout 20
 $env:PYTHONPATH=$PWD
-python -m uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
+python -m uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8001
 ```
 
-### Frontend (Terminal 2):
+### Frontend (Terminal 2)
+
 ```powershell
 cd frontend
 npm run preview
@@ -89,9 +95,9 @@ npm run preview
 
 ## Verification
 
-✅ Backend: http://localhost:8000/docs  
-✅ Frontend: http://localhost:3000 (dev) or :4173 (preview)  
-✅ Health: http://localhost:8000/api/v1/health
+✅ Backend: http://localhost:8001/docs  
+✅ Frontend: http://localhost:3001 (dev) or :3001 (preview)  
+✅ Health: http://localhost:8001/api/v1/health
 
 ---
 
@@ -105,7 +111,7 @@ powershell -ExecutionPolicy Bypass -File scripts/smoke-test-backend.ps1
 
 ### Local Backend
 ```powershell
-$env:NEXT_PUBLIC_API_URL = "http://localhost:8000"
+$env:NEXT_PUBLIC_API_URL = "http://localhost:8001"
 powershell -ExecutionPolicy Bypass -File scripts/smoke-test-backend.ps1
 ```
 
@@ -183,11 +189,10 @@ Health Check: FAIL (timeout after 5s)
 
 | File | Purpose |
 |------|---------|
-| INTEGRATION_SUMMARY.md | 📋 Complete integration report |
-| BACKEND_SETUP_GUIDE.md | 🔧 Troubleshoot 500 errors |
-| DEPLOYMENT_CHECKLIST.md | 🚀 Deploy to production |
-| PRODUCTION_CHECKLIST.md | ✅ Production validation steps |
-| PHASE_5_DEPLOYMENT_COMPLETE.md | 📦 Edge v3 deployment guide |
+| README.md | 📋 Main project overview and getting started |
+| ARCHITECTURE_V3.md | 🏗️ System architecture details |
+| BACKEND_SETUP_GUIDE.md | 🔧 Backend troubleshooting guide |
+| DEPLOYMENT_STATUS_LIVE.md | 📊 Live deployment status and logs |
 
 ---
 
@@ -196,7 +201,7 @@ Health Check: FAIL (timeout after 5s)
 **Build:** ✅ SUCCESS (110 KB first-load JS, 7 routes)  
 **Frontend:** ✅ Vercel (auto-deploy from `feat/edge-v3`)  
 **Backend:** ✅ Render (auto-deploy from `feat/edge-v3`)  
-**Commit:** `619d9bdd3` - Edge v3 hardening
+**Commit:** `6b4ec3c52` - Edge v3 hardening
 
 **Production URLs:**
 - 🌐 https://sabiscore.vercel.app

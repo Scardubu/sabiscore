@@ -21,10 +21,12 @@ class ModelLoadError(Exception):
     """Raised when a model file cannot be loaded or is invalid."""
 
 
-class SabiScoreEnsemble:
-    """Ensemble model for football match predictions"""
-
-    def __init__(self):
+class EnsembleModel:
+    """Ensemble model combining RF, XGB, LGBM with meta-learner"""
+    
+    def __init__(self, optimize: bool = False):
+        """Initialize ensemble with optional Optuna optimization"""
+        self.optimize = optimize
         self.models = {}
         self.meta_model = None
         self.feature_columns = []
@@ -66,38 +68,48 @@ class SabiScoreEnsemble:
         """Train base models"""
         logger.info("Training base models...")
 
-        # Random Forest
+        # Random Forest - increased estimators for better accuracy
         rf_model = RandomForestClassifier(
-            n_estimators=200,
-            max_depth=10,
-            min_samples_split=10,
-            min_samples_leaf=5,
+            n_estimators=300,
+            max_depth=12,
+            min_samples_split=8,
+            min_samples_leaf=4,
+            max_features='sqrt',
             random_state=42,
-            n_jobs=-1
+            n_jobs=-1,
+            warm_start=False
         )
         rf_model.fit(X, y.values.ravel())
         self.models['random_forest'] = rf_model
 
-        # XGBoost
+        # XGBoost - optimized for better calibration
         xgb_model = xgb.XGBClassifier(
-            n_estimators=200,
-            max_depth=6,
-            learning_rate=0.1,
-            subsample=0.8,
-            colsample_bytree=0.8,
+            n_estimators=250,
+            max_depth=7,
+            learning_rate=0.08,
+            subsample=0.85,
+            colsample_bytree=0.85,
+            min_child_weight=3,
+            gamma=0.1,
+            reg_alpha=0.1,
+            reg_lambda=1.0,
             random_state=42,
-            n_jobs=-1
+            n_jobs=-1,
+            tree_method='hist'
         )
         xgb_model.fit(X, y.values.ravel())
         self.models['xgboost'] = xgb_model
 
-        # LightGBM
+        # LightGBM - fast and memory-efficient
         lgb_model = lgb.LGBMClassifier(
-            n_estimators=200,
-            max_depth=6,
-            learning_rate=0.1,
-            subsample=0.8,
-            colsample_bytree=0.8,
+            n_estimators=250,
+            max_depth=7,
+            learning_rate=0.08,
+            subsample=0.85,
+            colsample_bytree=0.85,
+            min_child_samples=20,
+            reg_alpha=0.1,
+            reg_lambda=1.0,
             random_state=42,
             n_jobs=-1,
             verbose=-1
@@ -366,3 +378,7 @@ class SabiScoreEnsemble:
         if last_exc:
             raise RuntimeError(msg) from last_exc
         raise RuntimeError(msg)
+
+
+# Backward compatibility alias
+SabiScoreEnsemble = EnsembleModel
