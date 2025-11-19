@@ -55,13 +55,11 @@ class Settings(BaseSettings):
         alias="ALLOWED_HOSTS",
         description="Comma-separated or JSON list string of allowed hosts for TrustedHostMiddleware",
     )
-    # Internal-only; populated from allowed_hosts_raw in model_post_init and
-    # intentionally not bound to any environment variable to avoid
-    # pydantic-settings complex env decoding issues.
-    allowed_hosts: List[str] = Field(
-        default_factory=lambda: ["localhost", "127.0.0.1"],
-        alias=None,
-    )
+    # NOTE: `allowed_hosts` is intentionally not declared as a settings field
+    # so that pydantic-settings will not attempt to decode complex env values
+    # into it. Use `ALLOWED_HOSTS` (mapped to `allowed_hosts_raw`) as the
+    # single environment entry; the `allowed_hosts` value is computed at
+    # runtime via the `allowed_hosts` property below.
     espn_api_key: Optional[str] = None
     opta_api_key: Optional[str] = None
     betfair_app_key: Optional[str] = None
@@ -158,7 +156,7 @@ class Settings(BaseSettings):
         """Parse ALLOWED_HOSTS from raw env value (CSV or JSON list string)."""
         value = self.allowed_hosts_raw
         if value is None:
-            return self.allowed_hosts
+            return ["localhost", "127.0.0.1"]
         s = value.strip()
         if s == "":
             return []
@@ -239,8 +237,7 @@ class Settings(BaseSettings):
         self.cors_allowed_origins = [
             str(o).rstrip("/") for o in self._parse_cors_raw()
         ]
-        # Normalize allowed hosts from raw env once model is initialized
-        self.allowed_hosts = [str(h) for h in self._parse_hosts_raw()]
+        # Note: allowed_hosts is computed dynamically via the property.
 
     # Backwards-compat properties expected by legacy code paths
     @property
@@ -263,6 +260,16 @@ class Settings(BaseSettings):
     def cors_origins(self) -> List[str]:
         """Expose unified accessor used across the app."""
         return self.cors_allowed_origins
+
+    @property
+    def allowed_hosts(self) -> List[str]:
+        """Expose parsed ALLOWED_HOSTS as a list. Supports CSV or JSON array.
+
+        This is a computed property (not a settings field) to avoid pydantic
+        attempting to parse complex values directly from environment sources.
+        """
+        hosts = self._parse_hosts_raw()
+        return [str(h) for h in hosts]
 
     @property
     def redis_host(self) -> Optional[str]:
