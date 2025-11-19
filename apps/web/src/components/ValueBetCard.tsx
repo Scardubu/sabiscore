@@ -4,8 +4,8 @@ import { useState } from 'react';
 import { TrendingUp, AlertCircle, Copy, Check, ExternalLink } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import type { ValueBet } from '@/types/value-bet';
-import { formatCurrency } from '../lib/format';
-import { safeMessage } from '../lib/error-utils';
+import { formatCurrency } from '@/lib/format';
+import { safeMessage } from '@/lib/error-utils';
 
 interface ValueBetContext {
   matchId: string;

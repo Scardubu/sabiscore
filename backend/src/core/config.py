@@ -46,6 +46,13 @@ class Settings(BaseSettings):
     algorithm: str = Field(default="HS256")
     access_token_expire_minutes: int = Field(default=30, ge=5)
     enable_security_headers: bool = Field(default=True)
+    # Accept env ALLOWED_HOSTS as CSV or JSON list string via a separate raw field to avoid
+    # pydantic-settings pre-parsing JSON for complex types which would otherwise fail on CSV.
+    allowed_hosts_raw: Optional[str] = Field(
+        default=None,
+        alias="ALLOWED_HOSTS",
+        description="Comma-separated or JSON list string of allowed hosts for TrustedHostMiddleware",
+    )
     allowed_hosts: List[str] = Field(default_factory=lambda: ["localhost", "127.0.0.1"])
     espn_api_key: Optional[str] = None
     opta_api_key: Optional[str] = None
@@ -139,12 +146,22 @@ class Settings(BaseSettings):
         # CSV fallback
         return [origin.strip() for origin in s.split(",") if origin.strip()]
 
-    @field_validator("allowed_hosts", mode="before")
-    @classmethod
-    def _split_allowed_hosts(cls, value):
-        if isinstance(value, str):
-            return [host.strip() for host in value.split(",") if host.strip()]
-        return value
+    def _parse_hosts_raw(self) -> List[str]:
+        """Parse ALLOWED_HOSTS from raw env value (CSV or JSON list string)."""
+        value = self.allowed_hosts_raw
+        if value is None:
+            return self.allowed_hosts
+        s = value.strip()
+        if s == "":
+            return []
+        if s.startswith("[") and s.endswith("]"):
+            try:
+                parsed = json.loads(s)
+                if isinstance(parsed, list):
+                    return [str(h).strip() for h in parsed if str(h).strip()]
+            except Exception:
+                pass
+        return [h.strip() for h in s.split(",") if h.strip()]
 
     @field_validator("models_path", "data_path", mode="before")
     @classmethod
@@ -214,6 +231,8 @@ class Settings(BaseSettings):
         self.cors_allowed_origins = [
             str(o).rstrip("/") for o in self._parse_cors_raw()
         ]
+        # Normalize allowed hosts from raw env once model is initialized
+        self.allowed_hosts = [str(h) for h in self._parse_hosts_raw()]
 
     # Backwards-compat properties expected by legacy code paths
     @property

@@ -80,6 +80,10 @@ const nextConfig = {
     
     return [
       {
+        source: '/api/v1/health',
+        destination: `${apiBaseUrl}/health`,
+      },
+      {
         source: '/api/v1/:path*',
         destination: `${apiBaseUrl}/api/v1/:path*`,
       },
