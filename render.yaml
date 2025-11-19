@@ -33,9 +33,9 @@
           name: sabiscore-db
           property: connectionString
       - key: REDIS_URL
-        sync: false
+        value: "redis://default:UgnIjbBTIEutO3Rz8hSFnZchPqiR3Xbx@redis-15727.c8.us-east-1-4.ec2.cloud.redislabs.com:15727"
       - key: REDIS_ENABLED
-        value: "false"
+        value: "true"
       - key: ALLOWED_HOSTS
         value: sabiscore-api.onrender.com
       - key: REDIS_CACHE_TTL

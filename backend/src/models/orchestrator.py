@@ -42,7 +42,7 @@ class ModelOrchestrator:
         'eredivisie': 'eredivisie'
     }
     
-    def __init__(self, redis_url: str = "redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379"):
+    def __init__(self, redis_url: str = "redis://localhost:6379"):
         self.redis = redis.from_url(redis_url, decode_responses=True)
         
         # Import additional league models

@@ -32,8 +32,10 @@ class Settings(BaseSettings):
     database_pool_recycle: int = Field(default=3600, ge=60)
 
     # Redis Cache
+    # NOTE: In production, REDIS_URL should be provided via environment variable
+    # and must NOT be hard-coded with credentials.
     redis_url: str = Field(
-        default="redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379",
+        default="redis://localhost:6379",
         alias="REDIS_URL",
         description="Redis connection URL.",
     )
