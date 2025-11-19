@@ -55,7 +55,13 @@ class Settings(BaseSettings):
         alias="ALLOWED_HOSTS",
         description="Comma-separated or JSON list string of allowed hosts for TrustedHostMiddleware",
     )
-    allowed_hosts: List[str] = Field(default_factory=lambda: ["localhost", "127.0.0.1"])
+    # Internal-only; populated from allowed_hosts_raw in model_post_init and
+    # intentionally not bound to any environment variable to avoid
+    # pydantic-settings complex env decoding issues.
+    allowed_hosts: List[str] = Field(
+        default_factory=lambda: ["localhost", "127.0.0.1"],
+        alias=None,
+    )
     espn_api_key: Optional[str] = None
     opta_api_key: Optional[str] = None
     betfair_app_key: Optional[str] = None
