@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_serializer
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
@@ -12,8 +12,8 @@ class CacheMetricsResponse(BaseModel):
 
 
 class HealthResponse(BaseModel):
-    # include json encoder and allow use of properties starting with 'model_'
-    model_config = ConfigDict(json_encoders={datetime: lambda v: v.isoformat()}, protected_namespaces=())
+    # allow use of properties starting with 'model_'
+    model_config = ConfigDict(protected_namespaces=())
 
     status: str = Field(..., json_schema_extra={"example": "healthy"})
     database: bool = Field(..., json_schema_extra={"example": True})
@@ -24,6 +24,10 @@ class HealthResponse(BaseModel):
     cache_metrics: Optional[CacheMetricsResponse] = None
     latency_ms: float = Field(..., ge=0, json_schema_extra={"example": 12.5})
     timestamp: datetime = Field(default_factory=datetime.utcnow)
+    
+    @field_serializer('timestamp')
+    def serialize_timestamp(self, dt: datetime, _info):
+        return dt.isoformat()
 
 class MatchSearchResponse(BaseModel):
     id: str = Field(..., json_schema_extra={"example": "1"})
@@ -96,8 +100,6 @@ class Metadata(BaseModel):
     away_team: str = Field(..., json_schema_extra={"example": "Liverpool"})
 
 class InsightsResponse(BaseModel):
-    model_config = ConfigDict(json_encoders={datetime: lambda v: v.isoformat()})
-
     matchup: str = Field(..., json_schema_extra={"example": "Manchester City vs Liverpool"})
     league: str = Field(..., json_schema_extra={"example": "EPL"})
     metadata: Metadata
@@ -111,10 +113,16 @@ class InsightsResponse(BaseModel):
     narrative: str = Field(..., description="Human-readable analysis summary")
     generated_at: datetime = Field(default_factory=datetime.utcnow)
     confidence_level: float = Field(..., ge=0, le=1, json_schema_extra={"example": 0.78})
+    
+    @field_serializer('generated_at')
+    def serialize_generated_at(self, dt: datetime, _info):
+        return dt.isoformat()
 
 class ErrorResponse(BaseModel):
-    model_config = ConfigDict(json_encoders={datetime: lambda v: v.isoformat()})
-
     detail: str = Field(..., json_schema_extra={"example": "An error occurred"})
     error_code: Optional[str] = Field(None, json_schema_extra={"example": "VALIDATION_ERROR"})
     timestamp: datetime = Field(default_factory=datetime.utcnow)
+    
+    @field_serializer('timestamp')
+    def serialize_timestamp(self, dt: datetime, _info):
+        return dt.isoformat()

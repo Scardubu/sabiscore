@@ -56,12 +56,22 @@ def _register_engine_dependencies():
         'great_expectations.dataset': ge_dataset_module,
     }
 
+    original_modules = {name: sys.modules.get(name) for name in stubs}
     sys.modules.update(stubs)
 
+    try:
+        from src.insights.engine import InsightsEngine as _InsightsEngine  # type: ignore
+    finally:
+        for name, original in original_modules.items():
+            if original is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = original
 
-_register_engine_dependencies()
+    return _InsightsEngine
 
-from src.insights.engine import InsightsEngine
+
+InsightsEngine = _register_engine_dependencies()
 
 @pytest.fixture
 def engine():

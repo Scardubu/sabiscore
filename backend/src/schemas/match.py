@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from .league import LeagueResponse
 from .team import TeamResponse
@@ -44,14 +44,13 @@ class MatchUpdate(BaseModel):
 class MatchInDBBase(MatchBase):
     """Fields stored in the database for a match."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     created_at: datetime
     updated_at: datetime
     home_goals: Optional[int] = None
     away_goals: Optional[int] = None
-
-    class Config:
-        from_attributes = True
 
 
 class Match(MatchInDBBase):

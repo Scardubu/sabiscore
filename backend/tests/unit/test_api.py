@@ -29,7 +29,7 @@ class TestAPIEndpoints:
         data = response.json()
         assert isinstance(data, list)
 
-    @patch('src.api.endpoints._load_model_from_app')
+    @patch('src.api.legacy_endpoints._load_model_from_app')
     @patch('src.insights.engine.InsightsEngine.generate_match_insights')
     def test_insights_generation(self, mock_insights, mock_load_model):
         """Test insights generation endpoint"""
@@ -101,7 +101,7 @@ class TestAPIEndpoints:
         data = response.json()
         assert "models_loaded" in data
 
-    @patch('src.api.endpoints.cache.metrics_snapshot')
+    @patch('src.api.legacy_endpoints.cache.metrics_snapshot')
     def test_cache_metrics(self, mock_metrics):
         """Test cache metrics endpoint"""
         mock_metrics.return_value = {

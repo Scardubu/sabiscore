@@ -91,3 +91,89 @@
     transition: width 0.5s ease;
   }
 }
+
+/* Reduced motion support - respects user preferences for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Custom animation utilities */
+@layer utilities {
+  /* Fade in animation */
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  /* Slide in from top */
+  @keyframes slide-in-from-top {
+    from {
+      transform: translateY(-0.5rem);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+
+  /* Slide in from bottom */
+  @keyframes slide-in-from-bottom {
+    from {
+      transform: translateY(0.75rem);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+
+  .animate-in {
+    animation-fill-mode: both;
+  }
+
+  .fade-in {
+    animation-name: fade-in;
+  }
+
+  .slide-in-from-top-2 {
+    animation-name: slide-in-from-top;
+  }
+
+  .slide-in-from-bottom-3 {
+    animation-name: slide-in-from-bottom;
+  }
+
+  .duration-200 {
+    animation-duration: 200ms;
+  }
+
+  .duration-300 {
+    animation-duration: 300ms;
+  }
+}
+
+/* Focus visible enhancement for better keyboard navigation */
+@layer base {
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  /* Improve button and interactive element accessibility */
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    @apply ring-2 ring-indigo-500 ring-offset-2 ring-offset-slate-900;
+  }
+}

@@ -11,7 +11,6 @@ from pydantic import ValidationError
 
 from ..core.database import (
     get_db,
-    check_database_health,
     Match,
     Team,
 )
@@ -22,7 +21,6 @@ from ..schemas.responses import (
     ErrorResponse,
     InsightsResponse,
     MatchSearchResponse,
-    HealthResponse,
     CacheMetricsResponse,
 )
 from typing import TYPE_CHECKING
@@ -53,55 +51,6 @@ def _load_model_from_app(request: Request) -> Optional["SabiScoreEnsemble"]:
     # application process to access loaded model instances.
     return None
 
-
-@router.get("/health", response_model=HealthResponse)
-async def health_check(request: Request, db: Session = Depends(get_db)):
-    """Enhanced health check with database and cache status"""
-    start_time = time.time()
-
-    try:
-        # Test database connection
-        db_healthy = check_database_health()
-
-        # Test cache connection
-        cache_healthy = cache.ping()
-
-        # Test model availability using in-memory instance
-        model_instance = getattr(request.app.state, "model_instance", None)
-        models_healthy = bool(model_instance and getattr(model_instance, "is_trained", False))
-        # indicate if a background model load is in progress
-        model_loading = bool(getattr(request.app.state, "model_load_in_progress", False))
-        model_error = getattr(request.app.state, "model_load_error_message", None)
-
-        metrics_snapshot = cache.metrics_snapshot()
-        latency_ms = (time.time() - start_time) * 1000
-
-        status = "healthy" if all([db_healthy, cache_healthy, models_healthy]) else "degraded"
-
-        return HealthResponse(
-            status=status,
-            database=db_healthy,
-            models=models_healthy,
-            model_loading=model_loading,
-            model_error=model_error,
-            cache=cache_healthy,
-            cache_metrics=CacheMetricsResponse(**metrics_snapshot),
-            latency_ms=latency_ms,
-        )
-
-    except Exception as e:
-        logger.error(f"Health check failed: {e}")
-        latency_ms = (time.time() - start_time) * 1000
-        return HealthResponse(
-            status="unhealthy",
-            database=False,
-            models=False,
-            model_loading=False,
-            model_error=None,
-            cache=False,
-            cache_metrics=None,
-            latency_ms=latency_ms,
-        )
 
 @router.get("/matches/search", response_model=List[MatchSearchResponse])
 async def search_matches(

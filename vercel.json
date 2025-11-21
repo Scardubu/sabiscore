@@ -1,29 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "cd apps/web && npm run build && cp -R .next ../.next",
+  "buildCommand": "cd apps/web && npm run build",
   "devCommand": "cd apps/web && npm run dev",
   "installCommand": "npm ci",
   "framework": "nextjs",
+  "outputDirectory": "apps/web/.next",
   "regions": ["iad1"],
-  
-  "build": {
-    "env": {
-      "NEXT_TELEMETRY_DISABLED": "1",
-      "NODE_OPTIONS": "--max-old-space-size=8192",
-      "NEXT_PUBLIC_API_URL": "https://sabiscore-api.onrender.com",
-      "NEXT_PUBLIC_WS_URL": "wss://sabiscore-api.onrender.com"
-    }
-  },
-  
-  "env": {
-    "NEXT_PUBLIC_API_URL": "https://sabiscore-api.onrender.com",
-    "NEXT_PUBLIC_WS_URL": "wss://sabiscore-api.onrender.com",
-    "NEXT_PUBLIC_CURRENCY": "NGN",
-    "NEXT_PUBLIC_CURRENCY_SYMBOL": "₦",
-    "NEXT_PUBLIC_BASE_BANKROLL": "10000",
-    "NEXT_PUBLIC_KELLY_FRACTION": "0.125",
-    "NEXT_PUBLIC_MIN_EDGE_NGN": "66"
-  },
   
   "headers": [
     {

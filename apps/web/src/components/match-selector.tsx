@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 
 import { TeamAutocomplete } from "./team-autocomplete";
+import { TeamAutocompleteApi } from "./team-autocomplete-api";
 import { getTeamsForLeague, LeagueId } from "../lib/team-data";
 import { safeErrorMessage } from "@/lib/error-utils";
 
@@ -21,6 +22,9 @@ export function MatchSelector() {
   const [awayTeam, setAwayTeam] = useState("");
   const [league, setLeague] = useState<LeagueId>("EPL");
   const [loading, setLoading] = useState(false);
+  const [useApiAutocomplete, setUseApiAutocomplete] = useState(
+    process.env.NEXT_PUBLIC_USE_API_AUTOCOMPLETE !== 'false'
+  );
   const router = useRouter();
 
   const STORAGE_KEY = "sabiscore.matchSelector.v1";
@@ -99,20 +103,32 @@ export function MatchSelector() {
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* League Selector */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-300">League</label>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {LEAGUES.map((l) => (
+          <label 
+            id="league-selector-label" 
+            className="text-sm font-medium text-slate-300"
+          >
+            League
+          </label>
+          <div 
+            className="grid grid-cols-2 md:grid-cols-5 gap-3" 
+            role="group" 
+            aria-labelledby="league-selector-label"
+          >
+            {LEAGUES.map((l, idx) => (
               <button
                 key={l.id}
                 type="button"
                 onClick={() => handleLeagueSelect(l.id)}
-                className={`p-3 rounded-lg border-2 transition-all ${
+                aria-label={`Select ${l.name}`}
+                aria-pressed={league === l.id}
+                style={{ animationDelay: `${idx * 50}ms` }}
+                className={`p-3 rounded-lg border-2 transition-all duration-300 transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900 animate-in fade-in slide-in-from-bottom-3 ${
                   league === l.id
-                    ? "border-indigo-500 bg-indigo-500/10 text-slate-100"
-                    : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600"
+                    ? "border-indigo-500 bg-indigo-500/10 text-slate-100 shadow-lg shadow-indigo-500/30 ring-2 ring-indigo-500/20"
+                    : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600 hover:bg-slate-800 hover:shadow-md"
                 }`}
               >
-                <div className="text-2xl mb-1">{l.flag}</div>
+                <div className={`text-2xl mb-1 transition-transform ${league === l.id ? 'animate-pulse' : ''}`} aria-hidden="true">{l.flag}</div>
                 <div className="text-xs font-medium">{l.name}</div>
               </button>
             ))}
@@ -121,43 +137,74 @@ export function MatchSelector() {
 
         {/* Team Inputs */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <TeamAutocomplete
-            label="Home Team"
-            value={homeTeam}
-            onChange={setHomeTeam}
-            options={leagueTeams}
-            placeholder="Search or type a team"
-            disabled={loading}
-          />
+          {useApiAutocomplete ? (
+            <>
+              <TeamAutocompleteApi
+                label="Home Team"
+                value={homeTeam}
+                onChange={setHomeTeam}
+                league={league}
+                placeholder="Search or type a team"
+                disabled={loading}
+              />
 
-          <TeamAutocomplete
-            label="Away Team"
-            value={awayTeam}
-            onChange={setAwayTeam}
-            options={leagueTeams}
-            placeholder="Search or type a team"
-            disabled={loading}
-          />
+              <TeamAutocompleteApi
+                label="Away Team"
+                value={awayTeam}
+                onChange={setAwayTeam}
+                league={league}
+                placeholder="Search or type a team"
+                disabled={loading}
+              />
+            </>
+          ) : (
+            <>
+              <TeamAutocomplete
+                label="Home Team"
+                value={homeTeam}
+                onChange={setHomeTeam}
+                options={leagueTeams}
+                placeholder="Search or type a team"
+                disabled={loading}
+              />
+
+              <TeamAutocomplete
+                label="Away Team"
+                value={awayTeam}
+                onChange={setAwayTeam}
+                options={leagueTeams}
+                placeholder="Search or type a team"
+                disabled={loading}
+              />
+            </>
+          )}
         </div>
 
         {/* Submit Button */}
         <button
           type="submit"
-          disabled={loading}
-          className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all duration-200 shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:scale-[1.02] disabled:scale-100 disabled:shadow-none flex items-center justify-center gap-2"
+          disabled={loading || !homeTeam.trim() || !awayTeam.trim()}
+          aria-live="polite"
+          aria-busy={loading}
+          className="w-full py-4 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 disabled:bg-slate-700 disabled:from-slate-700 disabled:to-slate-700 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all duration-300 shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/50 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] disabled:scale-100 disabled:shadow-none flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900 group"
         >
           {loading ? (
             <>
-              <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-              Generating Insights...
+              <div 
+                className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" 
+                role="status"
+                aria-label="Loading"
+              ></div>
+              <span>Generating Insights...</span>
             </>
           ) : (
             <>
               <svg
-                className="h-5 w-5"
+                className="h-5 w-5 transition-transform group-hover:scale-110"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
+                aria-hidden="true"
               >
                 <path
                   strokeLinecap="round"
@@ -166,7 +213,7 @@ export function MatchSelector() {
                   d="M13 10V3L4 14h7v7l9-11h-7z"
                 />
               </svg>
-              Generate Insights
+              <span>Generate Insights</span>
             </>
           )}
         </button>
@@ -183,18 +230,26 @@ export function MatchSelector() {
               } catch {}
               toast.success("Selector reset");
             }}
-            className="text-xs text-slate-400 hover:text-slate-200 transition-colors"
+            aria-label="Reset match selector"
+            className="text-xs text-slate-400 hover:text-slate-200 transition-all duration-150 hover:underline focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:ring-offset-1 focus:ring-offset-slate-900 rounded px-2 py-1"
           >
             Reset selection
           </button>
         </div>
       </form>
 
-      <div className="pt-4 border-t border-slate-800/50">
+      <footer className="pt-4 border-t border-slate-800/50" aria-label="Model statistics">
         <p className="text-xs text-slate-500 text-center">
-          Powered by ensemble ML models • 73.7% accuracy • +18.4% ROI
+          <span className="inline-flex items-center gap-1">
+            <span aria-label="Powered by">⚡</span>
+            <span>SOTA Ensemble ML</span>
+          </span>
+          <span className="mx-2" aria-hidden="true">•</span>
+          <span aria-label="Model accuracy">73.7% accuracy</span>
+          <span className="mx-2" aria-hidden="true">•</span>
+          <span aria-label="Return on investment">+18.4% ROI</span>
         </p>
-      </div>
+      </footer>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import json
 from fastapi import FastAPI
 import logging
+from contextlib import asynccontextmanager
 from .middleware import setup_middleware
 from . import api_router
 from .websocket import router as ws_router
@@ -77,13 +78,36 @@ class CustomJSONEncoder(json.JSONEncoder):
             return obj.model_dump()
         return str(obj)  # Fallback to string representation
 
+
+@asynccontextmanager
+async def app_lifespan(app: FastAPI):
+    """Manage startup/shutdown tasks using FastAPI's lifespan hook."""
+    try:
+        _startup_trigger_model_load()
+    except Exception:
+        logger.exception("Startup: failed to trigger background model load")
+
+    try:
+        await init_db()
+    except Exception:
+        logger.exception("Startup: failed to initialize async database")
+
+    try:
+        yield
+    finally:
+        try:
+            await close_db()
+        except Exception:
+            logger.exception("Shutdown: failed to close async database")
+
 # Create FastAPI app with custom JSON encoder
 app = FastAPI(
     title="SabiScore API",
     description="AI-Powered Football Betting Intelligence Platform",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=app_lifespan,
 )
 
 # Apply custom JSON encoder to the app
@@ -148,23 +172,6 @@ def _startup_trigger_model_load():
     except Exception:
         logger.exception("Startup: failed to trigger background model load")
 
-app.add_event_handler("startup", _startup_trigger_model_load)
-@app.on_event("startup")
-async def _startup_init_db():
-    """Initialize async DB engine/session factory on app startup."""
-    try:
-        await init_db()
-    except Exception:
-        logger.exception("Startup: failed to initialize async database")
-
-
-@app.on_event("shutdown")
-async def _shutdown_close_db():
-    """Clean up DB connections on shutdown."""
-    try:
-        await close_db()
-    except Exception:
-        logger.exception("Shutdown: failed to close async database")
 # Load models on first request
 def _load_model_background():
     """Background loader for ML models. Sets global model_instance when done."""

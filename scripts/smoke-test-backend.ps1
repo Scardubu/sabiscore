@@ -92,38 +92,51 @@ function Test-Endpoint {
     }
 }
 
-# Test 1: Health Check
+# Test 1: Health Check (basic liveness)
 $results += Test-Endpoint `
-    -Name "Health Check" `
+    -Name "Health Check (Liveness)" `
     -Method "GET" `
     -Url "$BASE_URL/health"
 
-# Test 2: OpenAPI Schema
+# Test 2: Readiness Check (full system status)
+$results += Test-Endpoint `
+    -Name "Readiness Check" `
+    -Method "GET" `
+    -Url "$BASE_URL/health/ready" `
+    -ExpectedStatus 200  # Accept 200 or 503, but test framework expects 200
+
+# Test 3: Startup Status
+$results += Test-Endpoint `
+    -Name "Startup Status" `
+    -Method "GET" `
+    -Url "$BASE_URL/startup"
+
+# Test 4: OpenAPI Schema
 $results += Test-Endpoint `
     -Name "OpenAPI Schema" `
     -Method "GET" `
     -Url "$API_URL/openapi.json"
 
-# Test 3: Upcoming Matches
+# Test 5: Upcoming Matches
 $results += Test-Endpoint `
     -Name "Upcoming Matches" `
     -Method "GET" `
     -Url "$BASE_URL/matches/upcoming"
 
-# Test 4: Today's Value Bets
+# Test 6: Today's Value Bets
 $results += Test-Endpoint `
     -Name "Value Bets (Today)" `
     -Method "GET" `
     -Url "$BASE_URL/predictions/value-bets/today"
 
-# Test 5: Create Prediction (Skip - requires trained models)
+# Test 7: Create Prediction (Skip - requires trained models)
 # Note: This endpoint requires trained ML models which may not be available
 # in cold start scenarios. Test manually with trained models deployed.
 Write-Host "Testing: Create Prediction..." -NoNewline
 Write-Host " [SKIP] (requires trained models)" -ForegroundColor Yellow
 $script:passed++
 
-# Test 6: Predict Alias (Skip - requires trained models)
+# Test 8: Predict Alias (Skip - requires trained models)
 Write-Host "Testing: Predict Alias..." -NoNewline
 Write-Host " [SKIP] (requires trained models)" -ForegroundColor Yellow
 $script:passed++

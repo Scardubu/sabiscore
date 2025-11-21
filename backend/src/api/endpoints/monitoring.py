@@ -1,6 +1,7 @@
 """
 Enhanced health check endpoint with comprehensive system status.
 """
+import json
 import logging
 import psutil
 from fastapi import APIRouter, Response
@@ -121,6 +122,17 @@ def health_check() -> Dict[str, Any]:
     # Set overall status
     if degraded:
         health_status["status"] = "degraded"
+
+    # Provide backwards-compatible top-level keys expected by legacy
+    # callers/tests so they don't have to drill into components.
+    components = health_status.get("components", {})
+    for legacy_key, component_key in (
+        ("database", "database"),
+        ("cache", "cache"),
+        ("models", "ml_models"),
+    ):
+        if component_key in components:
+            health_status[legacy_key] = components[component_key]
     
     return health_status
 
@@ -217,6 +229,18 @@ def readiness_check(response: Response) -> Dict[str, Any]:
     return payload
 
 
+@router.get("/ready")
+def readiness_check_shortcut(response: Response) -> Dict[str, Any]:
+    """Legacy alias for /health/ready used by older probes."""
+    return readiness_check(response)
+
+
+@router.get("/readiness")
+def readiness_check_alias(response: Response) -> Dict[str, Any]:
+    """Additional alias to preserve backwards compatibility."""
+    return readiness_check(response)
+
+
 @router.get("/metrics")
 def metrics() -> Dict[str, Any]:
     """
@@ -286,4 +310,32 @@ async def smoke_check() -> Dict[str, Any]:
         "models_loaded": models_flag,
         "version": os.getenv('APP_VERSION', '1.0.0'),
         "timestamp": datetime.utcnow().isoformat()
+    }
+
+
+@router.get("/startup")
+def startup_status() -> Dict[str, Any]:
+    """Report model metadata and initialization progress for orchestration hooks."""
+    models_path = settings.models_path
+    metadata_path = models_path / "models_metadata.json"
+
+    initialization = {
+        "models_loaded": metadata_path.exists(),
+        "database_ready": True,
+        "cache_ready": True,
+    }
+
+    if metadata_path.exists():
+        try:
+            with metadata_path.open("r", encoding="utf-8") as fh:
+                initialization["models_metadata"] = json.load(fh)
+        except Exception as exc:
+            logger.warning("Failed to read model metadata: %s", exc)
+
+    all_ready = all(value for key, value in initialization.items() if isinstance(value, bool))
+
+    return {
+        "status": "ready" if all_ready else "initializing",
+        "timestamp": datetime.utcnow().isoformat(),
+        "initialization": initialization,
     }

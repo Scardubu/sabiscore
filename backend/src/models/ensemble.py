@@ -1,18 +1,15 @@
-import pandas as pd
-import numpy as np
-import joblib
-import os
 import json
-import pickle
-from typing import Dict, List, Any, Optional, Tuple
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, brier_score_loss, log_loss
-import xgboost as xgb
-import lightgbm as lgb
-from datetime import datetime
 import logging
+import os
+import pickle
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+import joblib
+import pandas as pd
+
+from .god_stack_superlearner import GodStackSuperLearner
+from .sota_stack import SotaStackingEnsemble
 
 logger = logging.getLogger(__name__)
 
@@ -22,222 +19,156 @@ class ModelLoadError(Exception):
 
 
 class EnsembleModel:
-    """Ensemble model combining RF, XGB, LGBM with meta-learner"""
-    
-    def __init__(self, optimize: bool = False):
-        """Initialize ensemble with optional Optuna optimization"""
+    """Facade over the Super Learner stack with optional SOTA stacking."""
+
+    def __init__(
+        self,
+        *,
+        optimize: bool = False,
+        super_learner_kwargs: Optional[Dict[str, Any]] = None,
+        enable_sota_stack: Optional[bool] = None,
+        sota_kwargs: Optional[Dict[str, Any]] = None,
+    ):
+        """Initialize ensemble facade."""
         self.optimize = optimize
-        self.models = {}
-        self.meta_model = None
-        self.feature_columns = []
-        self.model_metadata = {}
+        self.models: Dict[str, Any] = {}  # legacy artifacts
+        self.meta_model: Optional[Any] = None  # legacy artifact
+        self.feature_columns: List[str] = []
+        self.model_metadata: Dict[str, Any] = {}
         self.is_trained = False
+        self.super_learner: Optional[GodStackSuperLearner] = None
+        self.super_learner_kwargs = super_learner_kwargs or {}
+        env_flag = os.getenv("ENABLE_SOTA_STACK")
+        self.enable_sota_stack = (
+            enable_sota_stack
+            if enable_sota_stack is not None
+            else env_flag is not None and env_flag.lower() in {"1", "true", "yes", "on"}
+        )
+        self.sota_kwargs = sota_kwargs or {}
+        self.sota_stack: Optional[SotaStackingEnsemble] = None
 
     def build_ensemble(self, X: pd.DataFrame, y: pd.DataFrame) -> None:
-        """Build the ensemble model"""
+        """Train the God Stack Super Learner."""
         try:
-            logger.info("Building ensemble model...")
+            logger.info("Building GodStack Super Learner ensemble...")
+            target = self._extract_target(y)
+            self.feature_columns = list(X.columns)
 
-            # Split data
-            X_train, X_test, y_train, y_test = train_test_split(
-                X, y, test_size=0.2, random_state=42, stratify=y
-            )
-
-            # Train base models
-            self._train_base_models(X_train, y_train)
-
-            # Create meta features
-            meta_features_train = self._create_meta_features(X_train)
-            meta_features_test = self._create_meta_features(X_test)
-
-            # Train meta model
-            self._train_meta_model(meta_features_train, y_train, meta_features_test, y_test)
-
+            self.super_learner = GodStackSuperLearner(**self.super_learner_kwargs)
+            self.super_learner.fit(X, target)
             self.is_trained = True
+            self.model_metadata = self._build_metadata(len(X))
 
-            # Evaluate ensemble
-            self._evaluate_ensemble(X_test, y_test)
+            if self.enable_sota_stack and SotaStackingEnsemble.is_available():
+                try:
+                    logger.info("Training AutoGluon SOTA stacking layer")
+                    self.sota_stack = SotaStackingEnsemble(**self.sota_kwargs)
+                    self.sota_stack.fit(X, target)
+                    self.model_metadata.update(
+                        {
+                            "sota_accuracy": self.sota_stack.metrics.get("blend_accuracy"),
+                            "sota_brier": self.sota_stack.metrics.get("blend_brier"),
+                            "sota_log_loss": self.sota_stack.metrics.get("blend_log_loss"),
+                            "sota_engine": self.sota_stack.metrics.get("engine"),
+                            "sota_component_weights": self.sota_stack.metrics.get("component_weights"),
+                        }
+                    )
+                except Exception as exc:  # pragma: no cover - optional path
+                    logger.warning("SOTA stacking layer failed: %s", exc)
+                    self.sota_stack = None
+            elif self.enable_sota_stack:
+                logger.warning("ENABLE_SOTA_STACK=1 but autogluon.tabular is not installed")
 
-            logger.info("Ensemble model built successfully")
+            logger.info("Super Learner ensemble built successfully")
 
-        except Exception as e:
-            logger.error(f"Failed to build ensemble: {e}")
+        except Exception as exc:
+            logger.error("Failed to build Super Learner ensemble: %s", exc)
             raise
 
-    def _train_base_models(self, X: pd.DataFrame, y: pd.DataFrame) -> None:
-        """Train base models"""
-        logger.info("Training base models...")
-
-        # Random Forest - increased estimators for better accuracy
-        rf_model = RandomForestClassifier(
-            n_estimators=300,
-            max_depth=12,
-            min_samples_split=8,
-            min_samples_leaf=4,
-            max_features='sqrt',
-            random_state=42,
-            n_jobs=-1,
-            warm_start=False
-        )
-        rf_model.fit(X, y.values.ravel())
-        self.models['random_forest'] = rf_model
-
-        # XGBoost - optimized for better calibration
-        xgb_model = xgb.XGBClassifier(
-            n_estimators=250,
-            max_depth=7,
-            learning_rate=0.08,
-            subsample=0.85,
-            colsample_bytree=0.85,
-            min_child_weight=3,
-            gamma=0.1,
-            reg_alpha=0.1,
-            reg_lambda=1.0,
-            random_state=42,
-            n_jobs=-1,
-            tree_method='hist'
-        )
-        xgb_model.fit(X, y.values.ravel())
-        self.models['xgboost'] = xgb_model
-
-        # LightGBM - fast and memory-efficient
-        lgb_model = lgb.LGBMClassifier(
-            n_estimators=250,
-            max_depth=7,
-            learning_rate=0.08,
-            subsample=0.85,
-            colsample_bytree=0.85,
-            min_child_samples=20,
-            reg_alpha=0.1,
-            reg_lambda=1.0,
-            random_state=42,
-            n_jobs=-1,
-            verbose=-1
-        )
-        lgb_model.fit(X, y.values.ravel())
-        self.models['lightgbm'] = lgb_model
-
-        logger.info("Base models trained")
-
     def _create_meta_features(self, X: pd.DataFrame) -> pd.DataFrame:
-        """Create meta features from base model predictions"""
+        """Legacy helper retained for backward-compatible inference."""
         meta_features = pd.DataFrame()
 
         for model_name, model in self.models.items():
-            # Get probability predictions
             probs = model.predict_proba(X)
 
-            # For multiclass, take probability of positive class (home win)
             if probs.shape[1] > 2:
-                meta_features[f'{model_name}_prob_home'] = probs[:, 0]  # Home win probability
-                meta_features[f'{model_name}_prob_draw'] = probs[:, 1]  # Draw probability
-                meta_features[f'{model_name}_prob_away'] = probs[:, 2]  # Away win probability
+                meta_features[f"{model_name}_prob_home"] = probs[:, 0]
+                meta_features[f"{model_name}_prob_draw"] = probs[:, 1]
+                meta_features[f"{model_name}_prob_away"] = probs[:, 2]
             else:
-                meta_features[f'{model_name}_prob'] = probs[:, 1]
+                meta_features[f"{model_name}_prob"] = probs[:, 1]
 
         return meta_features
 
-    def _train_meta_model(self, X_meta: pd.DataFrame, y: pd.DataFrame,
-                         X_meta_test: pd.DataFrame, y_test: pd.DataFrame) -> None:
-        """Train meta model"""
-        logger.info("Training meta model...")
-
-        # Use Logistic Regression as meta model
-        self.meta_model = LogisticRegression(
-            random_state=42,
-            max_iter=1000,
-            multi_class='ovr'
-        )
-
-        self.meta_model.fit(X_meta, y.values.ravel())
-
-        # Evaluate meta model
-        meta_accuracy = self.meta_model.score(X_meta_test, y_test.values.ravel())
-        logger.info(f"Meta model accuracy: {meta_accuracy:.4f}")
-
-    def _evaluate_ensemble(self, X_test: pd.DataFrame, y_test: pd.DataFrame) -> None:
-        """Evaluate ensemble performance"""
-        logger.info("Evaluating ensemble...")
-
-        # Get predictions
-        predictions = self.predict(X_test)
-
-        # Work with 1D target labels for metric calculations
-        y_true = y_test['result'] if isinstance(y_test, pd.DataFrame) else y_test
-
-        # Map predicted outcome strings back to encoded integers
-        label_mapping = {'home_win': 0, 'draw': 1, 'away_win': 2}
-        predicted_labels = predictions['prediction'].map(label_mapping)
-
-        # Calculate metrics
-        accuracy = accuracy_score(y_true, predicted_labels)
-
-        # Brier score for probability calibration - use multiclass version
-        # For multiclass, calculate Brier score for each class and average
-        brier = 0.0
-        for label_idx, prob_column in enumerate(['home_win_prob', 'draw_prob', 'away_win_prob']):
-            y_binary = (y_true == label_idx).astype(int)
-            probs = predictions[prob_column]
-            brier += brier_score_loss(y_binary, probs)
-        brier /= 3
-
-        # Log loss (explicitly pass label ordering to match probability columns)
-        logloss = log_loss(y_true, predictions[['home_win_prob', 'draw_prob', 'away_win_prob']].values, labels=[0, 1, 2])
-
-        logger.info(f"Ensemble Evaluation:")
-        logger.info(f"  Accuracy: {accuracy:.4f}")
-        logger.info(f"  Brier Score: {brier:.4f}")
-        logger.info(f"  Log Loss: {logloss:.4f}")
-
-        self.model_metadata = {
-            'accuracy': accuracy,
-            'brier_score': brier,
-            'log_loss': logloss,
-            'trained_at': datetime.utcnow().isoformat(),
-            'feature_count': len(self.feature_columns)
-        }
-
     def predict(self, X: pd.DataFrame) -> pd.DataFrame:
-        """Make predictions with the ensemble"""
+        """Make predictions with either the new or legacy ensemble."""
         if not self.is_trained:
             raise ValueError("Model not trained yet")
 
+        if self.super_learner is not None and getattr(self.super_learner, "is_fitted", False):
+            sanitized = self._sanitize_features(X)
+            return self._predict_super_learner(sanitized)
+
+        return self._predict_legacy(X)
+
+    def _predict_super_learner(self, X: pd.DataFrame) -> pd.DataFrame:
+        if self.super_learner is None:
+            raise RuntimeError("Super Learner not initialised")
+        probs = self.super_learner.predict_proba(X)
+
+        if self.sota_stack is not None:
+            try:
+                probs = self.sota_stack.blend_with_super_learner(probs, X)
+            except Exception:  # pragma: no cover - non-critical
+                logger.warning("Failed to blend AutoGluon predictions", exc_info=True)
+
+        df = pd.DataFrame(
+            probs,
+            columns=["home_win_prob", "draw_prob", "away_win_prob"],
+            index=X.index,
+        )
+        df["prediction"] = df[["home_win_prob", "draw_prob", "away_win_prob"]].idxmax(axis=1)
+        df["prediction"] = df["prediction"].map(
+            {
+                "home_win_prob": "home_win",
+                "draw_prob": "draw",
+                "away_win_prob": "away_win",
+            }
+        )
+        df["confidence"] = df[["home_win_prob", "draw_prob", "away_win_prob"]].max(axis=1)
+        return df
+
+    def _predict_legacy(self, X: pd.DataFrame) -> pd.DataFrame:
+        """Legacy prediction path for pre-Super Learner artifacts."""
         try:
-            # Handle missing values
             X = X.fillna(X.mean())
-            
-            # Ensure no NaN values remain
             if X.isnull().any().any():
                 logger.warning("NaN values still present after fillna, filling with 0")
                 X = X.fillna(0)
-            # Get meta features
-            meta_features = self._create_meta_features(X)
 
-            # Get meta model predictions
+            meta_features = self._create_meta_features(X)
             probs = self.meta_model.predict_proba(meta_features)
 
-            # Create results DataFrame
             results = pd.DataFrame({
-                'home_win_prob': probs[:, 0],
-                'draw_prob': probs[:, 1],
-                'away_win_prob': probs[:, 2]
+                "home_win_prob": probs[:, 0],
+                "draw_prob": probs[:, 1],
+                "away_win_prob": probs[:, 2],
             })
 
-            # Get prediction (highest probability)
-            results['prediction'] = results[['home_win_prob', 'draw_prob', 'away_win_prob']].idxmax(axis=1)
-            results['prediction'] = results['prediction'].map({
-                'home_win_prob': 'home_win',
-                'draw_prob': 'draw',
-                'away_win_prob': 'away_win'
-            })
-
-            # Calculate confidence
-            results['confidence'] = results[['home_win_prob', 'draw_prob', 'away_win_prob']].max(axis=1)
-
+            results["prediction"] = results[["home_win_prob", "draw_prob", "away_win_prob"]].idxmax(axis=1)
+            results["prediction"] = results["prediction"].map(
+                {
+                    "home_win_prob": "home_win",
+                    "draw_prob": "draw",
+                    "away_win_prob": "away_win",
+                }
+            )
+            results["confidence"] = results[["home_win_prob", "draw_prob", "away_win_prob"]].max(axis=1)
             return results
 
-        except Exception as e:
-            logger.error(f"Prediction failed: {e}")
+        except Exception as exc:
+            logger.error("Legacy prediction failed: %s", exc)
             raise
 
     def explain_predictions(self, X: pd.DataFrame) -> Dict[str, Any]:
@@ -265,17 +196,62 @@ class EnsembleModel:
             logger.error(f"SHAP explanation failed: {e}")
             return {}
 
+    def _sanitize_features(self, X: pd.DataFrame) -> pd.DataFrame:
+        frame = X.copy()
+        if self.feature_columns:
+            missing = [col for col in self.feature_columns if col not in frame.columns]
+            for column in missing:
+                frame[column] = 0.0
+            frame = frame[self.feature_columns]
+        frame = frame.fillna(0.0)
+        return frame
+
+    def _build_metadata(self, sample_count: int) -> Dict[str, Any]:
+        metrics = getattr(self.super_learner, "metrics", {}) if self.super_learner else {}
+        metadata = {
+            "accuracy": metrics.get("final_accuracy") or metrics.get("level1_accuracy"),
+            "brier_score": metrics.get("final_brier") or metrics.get("level1_brier"),
+            "log_loss": metrics.get("final_log_loss"),
+            "trained_at": datetime.utcnow().isoformat(),
+            "feature_count": len(self.feature_columns),
+            "engine": "god_stack_superlearner",
+            "engine_backend": metrics.get("engine_backend"),
+            "level1_accuracy": metrics.get("level1_accuracy"),
+            "level1_brier": metrics.get("level1_brier"),
+            "brier_guardrail_triggered": metrics.get("brier_guardrail_triggered"),
+            "training_samples": sample_count,
+        }
+        if self.sota_stack is not None and self.sota_stack.metrics:
+            metadata.update(
+                {
+                    "sota_accuracy": self.sota_stack.metrics.get("final_accuracy"),
+                    "sota_brier": self.sota_stack.metrics.get("final_brier"),
+                    "sota_log_loss": self.sota_stack.metrics.get("final_log_loss"),
+                }
+            )
+        return {key: value for key, value in metadata.items() if value is not None}
+
+    @staticmethod
+    def _extract_target(y: pd.DataFrame) -> pd.Series:
+        if isinstance(y, pd.DataFrame):
+            return y.iloc[:, 0].astype(int)
+        if isinstance(y, pd.Series):
+            return y.astype(int)
+        return pd.Series(y).astype(int)
+
     def save_model(self, path: str, model_name: str = "ensemble") -> None:
         """Save model to disk"""
         try:
             os.makedirs(path, exist_ok=True)
 
             model_data = {
-                'models': self.models,
-                'meta_model': self.meta_model,
-                'feature_columns': self.feature_columns,
-                'model_metadata': self.model_metadata,
-                'is_trained': self.is_trained
+                "models": self.models,
+                "meta_model": self.meta_model,
+                "feature_columns": self.feature_columns,
+                "model_metadata": self.model_metadata,
+                "is_trained": self.is_trained,
+                "super_learner": self.super_learner,
+                "sota_stack": self.sota_stack,
             }
 
             model_path = os.path.join(path, f"{model_name}.pkl")
@@ -314,11 +290,18 @@ class EnsembleModel:
             model_data = joblib.load(model_path)
 
             instance = cls()
-            instance.models = model_data['models']
-            instance.meta_model = model_data['meta_model']
-            instance.feature_columns = model_data.get('feature_columns', [])
-            instance.model_metadata = model_data.get('model_metadata', {})
-            instance.is_trained = model_data.get('is_trained', False)
+            if 'super_learner' in model_data and model_data['super_learner'] is not None:
+                instance.super_learner = model_data['super_learner']
+                instance.feature_columns = model_data.get('feature_columns', [])
+                instance.model_metadata = model_data.get('model_metadata', {})
+                instance.is_trained = model_data.get('is_trained', False)
+                instance.sota_stack = model_data.get('sota_stack')
+            else:
+                instance.models = model_data['models']
+                instance.meta_model = model_data['meta_model']
+                instance.feature_columns = model_data.get('feature_columns', [])
+                instance.model_metadata = model_data.get('model_metadata', {})
+                instance.is_trained = model_data.get('is_trained', False)
 
             logger.info(f"Model loaded from {model_path}")
             return instance

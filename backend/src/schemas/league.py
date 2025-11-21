@@ -3,11 +3,13 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class LeagueResponse(BaseModel):
     """Lightweight league representation for embedding in match payloads."""
+
+    model_config = ConfigDict(from_attributes=True)
 
     id: str = Field(..., description="League identifier, e.g. EPL")
     name: str = Field(..., description="Friendly league name")
@@ -16,9 +18,6 @@ class LeagueResponse(BaseModel):
     active: bool = Field(default=True)
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
 
 
 __all__ = ["LeagueResponse"]
