@@ -79,7 +79,7 @@ def health_check() -> Dict[str, Any]:
     # Check model availability
     try:
         from ...models.ensemble import SabiScoreEnsemble
-        model_path = settings.models_path / "premier_league_ensemble.pkl"
+        model_path = settings.models_path / "epl_ensemble.pkl"
         model_available = model_path.exists()
         
         health_status["components"]["ml_models"] = {
