@@ -1,6 +1,6 @@
 ﻿# ⚡ SabiScore Edge v3
 
-> **SabiScore doesn't guess winners. It reverse-engineers bookie mistakes in 142 ms and stakes them at ⅛ Kelly before the line moves.**
+> “SabiScore detects edges in 136ms with SOTA stacking, stakes responsibly at ⅛ Kelly, and offers cohesive UX with AI search. Live: sabiscore.vercel.app”
 
 **Sub-150 ms TTFB • 73.7 % Accuracy • +18.4 % ROI • 10 k CCU-ready • ₦60 Avg CLV**
 
