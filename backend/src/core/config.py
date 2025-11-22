@@ -73,6 +73,7 @@ class Settings(BaseSettings):
     betfair_session_token: Optional[str] = None
     pinnacle_api_key: Optional[str] = None
     fivethirtyeight_api_key: Optional[str] = None
+    odds_api_key: Optional[str] = Field(default=None, alias="ODDS_API_KEY")
     
     # App metadata (backwards-compat with legacy settings access in main.py)
     project_name: str = Field(default="SabiScore API", alias="APP_NAME")
@@ -140,7 +141,11 @@ class Settings(BaseSettings):
     )
 
     # Paths
-    models_path: Path = Field(default_factory=lambda: _PROJECT_ROOT / "models")
+    models_path: Path = Field(
+        default_factory=lambda: _PROJECT_ROOT / "models",
+        alias="MODELS_PATH",
+        description="Directory containing trained model artifacts"
+    )
     data_path: Path = Field(default_factory=lambda: (_PROJECT_ROOT / "data" / "processed"))
 
     @model_validator(mode="before")

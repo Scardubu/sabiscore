@@ -135,6 +135,13 @@ async def create_prediction(
             base_identifier = f"{request.home_team}_{request.away_team}_{int(datetime.utcnow().timestamp())}"
             match_identifier = base_identifier.replace(" ", "_").lower()
 
+        # Check cache for recent identical predictions (5 min TTL)
+        cache_key = f"prediction:{request.league}:{request.home_team}:{request.away_team}".lower().replace(" ", "_")
+        cached_prediction = cache_manager.get(cache_key)
+        if cached_prediction:
+            logger.info(f"Serving cached prediction for {request.home_team} vs {request.away_team}")
+            return PredictionResponse(**cached_prediction)
+
         try:
             # Add timeout to prevent hanging requests
             result = await asyncio.wait_for(
@@ -144,6 +151,9 @@ async def create_prediction(
                 ),
                 timeout=10.0  # 10 second timeout
             )
+            
+            # Cache successful predictions for 5 minutes
+            cache_manager.set(cache_key, result, ttl=300)
         except asyncio.TimeoutError:
             logger.error("Prediction timed out for %s vs %s", request.home_team, request.away_team)
             raise HTTPException(

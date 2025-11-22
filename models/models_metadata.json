@@ -1,5 +1,5 @@
 {
-  "last_updated": "2025-11-22T10:40:59.385611",
+  "last_updated": "2025-11-22T19:10:03.042263",
   "models": {
     "Bundesliga": {
       "accuracy": 0.5,
@@ -1648,7 +1648,7 @@
       "dataset_signature": {
         "checksum": "dc61a4d88bd3346064d3065e0d84c80a62371dcc8557b7f7a753a25a74123c38",
         "rows": 150,
-        "generated_at": "2025-11-22T10:40:57.842549"
+        "generated_at": "2025-11-22T19:10:02.880924"
       },
       "training_samples": 150
     }

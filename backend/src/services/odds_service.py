@@ -27,8 +27,13 @@ class OddsService:
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
             self._client = httpx.AsyncClient(
-                timeout=httpx.Timeout(10.0),
-                limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
+                timeout=httpx.Timeout(10.0, connect=5.0),
+                limits=httpx.Limits(
+                    max_keepalive_connections=10,
+                    max_connections=20,
+                    keepalive_expiry=30.0
+                ),
+                http2=True,  # Enable HTTP/2 for better performance
             )
         return self._client
 
@@ -107,9 +112,11 @@ class OddsService:
         Returns:
             Dictionary with home_win, draw, away_win odds
         """
+        # Normalize and create cache key for consistent lookups
         cache_key = f"match_odds:{league}:{home_team}:{away_team}".lower().replace(" ", "_")
         cached = self.cache.get(cache_key)
         if cached:
+            logger.debug("Cache hit for match odds: %s", cache_key)
             return cached
 
         sport_key = self._league_to_sport_key(league)

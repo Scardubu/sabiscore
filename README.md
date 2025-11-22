@@ -12,6 +12,12 @@ SabiScore Edge v3 is the production build of our football intelligence platform.
 - 📦 Branch: `feat/edge-v3` @ `6b4ec3c52` (docs: update status with successful smoke tests)
 - 📊 Deployment log: [`DEPLOYMENT_STATUS_LIVE.md`](./DEPLOYMENT_STATUS_LIVE.md)
 
+### Nov 22 2025 Production Polish
+- ✅ Added `MODELS_PATH=/opt/render/project/src/backend/models` in the Render service so the API loads the artifacts copied during `buildCommand`.
+- ✅ `test_production_smoke.ps1` now exercises `/api/v1/matches/search?q=` which matches the FastAPI route, allowing 7/7 checks to pass when the backend is awake.
+- ✅ `MODELS_PATH` can also be overridden locally via `.env` thanks to the new `MODELS_PATH` alias in `src/core/config.py`.
+- 🧪 Target: rerun smoke tests after the next deployment to confirm the health payload reports `"ml_models": "healthy"`.
+
 ---
 
 ## 🎯 Performance Snapshot (Nov 2025)

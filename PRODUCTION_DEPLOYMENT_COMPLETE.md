@@ -44,6 +44,12 @@
   - **Resolution:** Updated `render.yaml` build command to copy models on next deployment
   - **Action Required:** Push changes and trigger Render re-deployment
 
+#### New Fixes (Nov 22 2025)
+- **MODELS_PATH Env:** Added `MODELS_PATH=/opt/render/project/src/backend/models` so FastAPI reads from the directory populated during the Render build step.
+- **Config Alias:** `src/core/config.py` now honors the `MODELS_PATH` environment variable, allowing overrides across environments (Render, local `.env`, CI).
+- **Smoke Test:** `test_production_smoke.ps1` now calls `/api/v1/matches/search?q=` (the actual FastAPI route) which removes the previous 404 false-positive during production checks.
+- **Next Step:** Re-deploy backend → rerun `./test_production_smoke.ps1` (expect 7/7) → verify `/health` shows `"ml_models": { "status": "healthy" }`.
+
 ---
 
 ## 🔧 Configuration Changes Applied

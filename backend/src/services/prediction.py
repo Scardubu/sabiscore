@@ -117,13 +117,15 @@ class PredictionService:
         sample_size = int(metadata.get("training_samples") or 500)
         confidence_intervals = self._calculate_confidence_intervals(probabilities, sample_size=sample_size)
 
+        confidence_value = self._resolve_confidence(row, probabilities)
+
         prediction = PredictionResponse(
             match_id=match_id,
             home_team=request.home_team,
             away_team=request.away_team,
             league=request.league,
             predictions=probabilities,
-            confidence=float(row["confidence"]),
+            confidence=confidence_value,
             brier_score=self._calculate_brier_score(probabilities),
             value_bets=value_bets,
             confidence_intervals=confidence_intervals,
@@ -135,6 +137,26 @@ class PredictionService:
         self._update_metrics(prediction)
 
         return prediction
+
+    def _resolve_confidence(self, row: pd.Series, probabilities: Dict[str, float]) -> float:
+        """Gracefully derive a confidence value from prediction output."""
+        preferred_keys = (
+            "confidence",
+            "confidence_score",
+            "max_probability",
+            "max_prob",
+        )
+
+        for key in preferred_keys:
+            value = row.get(key) if isinstance(row, pd.Series) else None
+            if value is not None and not (isinstance(value, float) and math.isnan(value)):
+                return float(value)
+
+        # Fall back to max predicted probability if model didn't emit a confidence field
+        if probabilities:
+            return float(max(probabilities.values()))
+
+        return 0.0
 
     def _get_ensemble_for_league(self, league_slug: str) -> SabiScoreEnsemble:
         provided = self._provided_model
