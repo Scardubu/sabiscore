@@ -28,6 +28,15 @@ def _ensure_numpy_shim() -> None:
     if not hasattr(np, "nan"):
         setattr(np, "nan", float("nan"))
 
+    # pandas>=2 expects ``numpy._NoValue`` to exist. Older numpy builds and some
+    # lightweight stubs omit it, so create a sentinel when missing.
+    if not hasattr(np, "_NoValue"):
+        class _NoValueType:
+            def __repr__(self) -> str:  # pragma: no cover - helper repr only
+                return "<no value>"
+
+        setattr(np, "_NoValue", _NoValueType())
+
     # Keep additions minimal; do not shadow real numpy if present.
 
 

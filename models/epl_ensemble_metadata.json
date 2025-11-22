@@ -1,14 +1,19 @@
 {
-  "accuracy": 0.5131578947368421,
-  "brier_score": 0.24019041471689495,
-  "log_loss": 1.3886136917378744,
-  "trained_at": "2025-11-17T01:11:18.813261",
+  "accuracy": 0.5657894736842105,
+  "brier_score": 0.19846592741621819,
+  "log_loss": 1.0024527946798019,
+  "trained_at": "2025-11-20T16:49:34.980848",
   "feature_count": 86,
+  "engine": "god_stack_superlearner",
+  "engine_backend": "h2o",
+  "level1_accuracy": 0.4605263157894737,
+  "level1_brier": 0.21184928710745554,
+  "brier_guardrail_triggered": false,
+  "training_samples": 380,
   "league": "EPL",
   "dataset_signature": {
     "checksum": "a7ed013b4f759d4ff70d31a58dc74f15ffcadbe1c08f0147304c885f1e7731a6",
     "rows": 380,
-    "generated_at": "2025-11-17T01:11:18.881937"
-  },
-  "training_samples": 380
+    "generated_at": "2025-11-20T16:49:35.162222"
+  }
 }

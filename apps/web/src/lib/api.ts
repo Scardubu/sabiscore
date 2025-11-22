@@ -1,5 +1,6 @@
 // Edge-optimized API client for Sabiscore
 // Supports Cloudflare KV → Upstash Redis → PostgreSQL cache hierarchy
+// Backend API base URL - should include /api/v1 prefix in NEXT_PUBLIC_API_URL env var
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 

@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
 
 
 class UserBase(BaseModel):
@@ -33,13 +33,12 @@ class UserUpdate(BaseModel):
 class UserInDBBase(UserBase):
 	"""Base information persisted for a user record."""
 
+	model_config = ConfigDict(from_attributes=True)
+
 	id: str
 	is_superuser: bool = False
 	created_at: Optional[datetime] = None
 	updated_at: Optional[datetime] = None
-
-	class Config:
-		from_attributes = True
 
 
 class User(UserInDBBase):

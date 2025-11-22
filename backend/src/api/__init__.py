@@ -16,11 +16,13 @@ api_router = APIRouter()
 # Include monitoring routes (health checks, metrics)
 api_router.include_router(monitoring_router)
 
+# Include legacy routes before the modular ones so that compatibility
+# endpoints (e.g., /matches/search) take precedence over catch-all
+# parameterized routes defined in the modular router.
+api_router.include_router(legacy_router)
+
 # Include the new modular routes (matches, predictions, odds)
 api_router.include_router(modular_router)
-
-# Include legacy routes (/health, /insights, /models/status, /metrics/cache, /matches/search)
-api_router.include_router(legacy_router)
 
 
 __all__ = ["api_router"]

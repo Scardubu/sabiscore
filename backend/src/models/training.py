@@ -4,7 +4,7 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any, Tuple
+from typing import Dict, List, Any, Tuple, Optional
 
 import pandas as pd
 import numpy as np
@@ -20,12 +20,47 @@ logger = logging.getLogger(__name__)
 class ModelTrainer:
     """Handles model training pipeline"""
 
-    def __init__(self):
+    def __init__(
+        self,
+        *,
+        super_learner_engine: Optional[str] = None,
+        h2o_max_mem: Optional[str] = None,
+        prefer_gpu: Optional[bool] = None,
+        enable_online_adapter: Optional[bool] = None,
+        enable_sota_stack: Optional[bool] = None,
+        sota_time_limit: Optional[int] = None,
+        sota_presets: Optional[str] = None,
+        sota_hyperparameters: Optional[Any] = None,
+    ):
         self.transformer = FeatureTransformer()
-        self.models_path = settings.models_path
-        self.data_path = settings.data_path
+        self.models_path = Path(settings.models_path)
+        self.data_path = Path(settings.data_path)
         self.models_path.mkdir(parents=True, exist_ok=True)
         self.data_path.mkdir(parents=True, exist_ok=True)
+        self.super_learner_kwargs: Dict[str, Any] = {}
+        if super_learner_engine:
+            self.super_learner_kwargs["engine_preference"] = super_learner_engine
+        if h2o_max_mem:
+            self.super_learner_kwargs["h2o_max_mem"] = h2o_max_mem
+        if prefer_gpu is not None:
+            self.super_learner_kwargs["prefer_gpu"] = prefer_gpu
+        if enable_online_adapter is not None:
+            self.super_learner_kwargs["enable_online_adapter"] = enable_online_adapter
+
+        settings_enable = settings.enable_sota_stack if hasattr(settings, "enable_sota_stack") else False
+        self.enable_sota_stack = enable_sota_stack if enable_sota_stack is not None else settings_enable
+        self.sota_kwargs: Dict[str, Any] = {}
+        time_limit = sota_time_limit if sota_time_limit is not None else getattr(settings, "sota_time_limit", None)
+        if time_limit:
+            self.sota_kwargs["time_limit"] = time_limit
+        presets = sota_presets if sota_presets is not None else getattr(settings, "sota_presets", None)
+        if presets:
+            self.sota_kwargs["presets"] = presets
+        hyperparams = (
+            sota_hyperparameters if sota_hyperparameters is not None else getattr(settings, "sota_hyperparameters", None)
+        )
+        if hyperparams:
+            self.sota_kwargs["hyperparameters"] = hyperparams
 
     def train_league_models(self, leagues: List[str] = None) -> Dict[str, Any]:
         """Train models for specified leagues"""
@@ -50,15 +85,20 @@ class ModelTrainer:
     def _train_single_league_model(self, league: str) -> Dict[str, Any]:
         """Train model for a single league"""
         try:
-            training_data = self._load_training_data(league)
+            training_data = self._load_league_data(league)
             if training_data.empty:
                 raise ValueError(f"No training data available for {league}")
 
-            X, y = self._prepare_training_data(training_data)
+            X, y = self._prepare_features(training_data)
 
-            ensemble = SabiScoreEnsemble()
+            ensemble = SabiScoreEnsemble(
+                models_path=self.models_path,
+                super_learner_kwargs=dict(self.super_learner_kwargs),
+                enable_sota_stack=self.enable_sota_stack,
+                sota_kwargs=dict(self.sota_kwargs),
+            )
             ensemble.feature_columns = list(X.columns)
-            ensemble.build_ensemble(X, y)
+            ensemble.build_ensemble(X, y, league=league)
 
             dataset_signature = self._compute_dataset_signature(training_data)
             model_filename = f"{self._slugify_league(league)}_ensemble"
@@ -70,11 +110,11 @@ class ModelTrainer:
                 }
             )
 
-            ensemble.save_model(self.models_path, model_filename)
+            saved_path = ensemble.save_model(self.models_path, model_filename)
             self._update_league_metadata(model_filename, ensemble.model_metadata)
 
             return {
-                "model_path": os.path.join(self.models_path, f"{model_filename}.pkl"),
+                "model_path": str(saved_path),
                 "accuracy": ensemble.model_metadata.get("accuracy", 0),
                 "brier_score": ensemble.model_metadata.get("brier_score", 0),
                 "log_loss": ensemble.model_metadata.get("log_loss", 0),
@@ -82,11 +122,19 @@ class ModelTrainer:
                 "training_samples": len(X),
                 "trained_at": ensemble.model_metadata.get("trained_at"),
                 "dataset_signature": dataset_signature,
+                "engine": ensemble.model_metadata.get("engine"),
+                "engine_backend": ensemble.model_metadata.get("engine_backend"),
+                "level1_accuracy": ensemble.model_metadata.get("level1_accuracy"),
+                "brier_guardrail_triggered": ensemble.model_metadata.get("brier_guardrail_triggered"),
             }
 
         except Exception as e:
             logger.error(f"Training failed for {league}: {e}")
             raise
+
+    def _load_league_data(self, league: str) -> pd.DataFrame:
+        """Hook for loading league-specific data (patchable in tests)."""
+        return self._load_training_data(league)
 
     def _load_training_data(self, league: str) -> pd.DataFrame:
         """Load training data for a league from processed datasets."""
@@ -156,6 +204,10 @@ class ModelTrainer:
         logger.info(f"Prepared {len(X)} samples with {len(feature_cols)} features")
         return X, y
 
+    def _prepare_features(self, data: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        """Hook for tests to patch feature preparation pipeline."""
+        return self._prepare_training_data(data)
+
     def _compute_dataset_signature(self, df: pd.DataFrame) -> Dict[str, Any]:
         """Generate a signature of the dataset for drift detection."""
         buffer = df.to_csv(index=False).encode("utf-8")
@@ -217,9 +269,9 @@ class ModelTrainer:
         except Exception as e:
             logger.error(f"Failed to update metadata: {e}")
 
-def train_league_models(leagues: List[str] = None) -> Dict[str, Any]:
+def train_league_models(leagues: List[str] = None, **trainer_kwargs: Any) -> Dict[str, Any]:
     """Convenience function to train league models"""
-    trainer = ModelTrainer()
+    trainer = ModelTrainer(**trainer_kwargs)
     results = trainer.train_league_models(leagues)
     trainer.update_model_metadata()
     return results

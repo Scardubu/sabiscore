@@ -1,8 +1,17 @@
+"""Aggregated API routers and compatibility exports for tests."""
+
 from fastapi import APIRouter
-from typing import List
+
+# Re-export helpers expected by legacy tests so patching works without dragging
+# in the heavy legacy endpoints module when importing ``src.api.endpoints``.
+# These names are thin aliases and do not introduce circular imports.
+from ...core.cache import cache  # noqa: F401  (re-export)
+from ...core.database import check_database_health, get_db  # noqa: F401
+from ..legacy_endpoints import _load_model_from_app  # noqa: F401
 
 # Aggregate sub-routers inside the endpoints package so imports like
-# `from .endpoints import router` resolve to this package's router.
+# ``from src.api.endpoints import router`` resolve to a complete router that
+# includes all modularized endpoints.
 router = APIRouter()
 
 # Import sub-routers (these live in the same directory)
@@ -16,4 +25,10 @@ router.include_router(matches_router)
 router.include_router(predictions_router)
 router.include_router(odds_router)
 
-__all__ = ["router"]
+__all__ = [
+	"router",
+	"cache",
+	"check_database_health",
+	"get_db",
+	"_load_model_from_app",
+]

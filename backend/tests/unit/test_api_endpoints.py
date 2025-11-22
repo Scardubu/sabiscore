@@ -10,8 +10,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from fastapi.encoders import jsonable_encoder
 
-# Import only the router and dependencies, not the full app
-from src.api.endpoints import router
+# Import the full API router so tests exercise the same routes as production
+from src.api import api_router
 from src.core.config import settings
 
 class TestJSONEncoder(json.JSONEncoder):
@@ -29,7 +29,7 @@ class TestJSONEncoder(json.JSONEncoder):
 
 # Create test client with the main app and custom JSON handling
 test_app = FastAPI(title="Test SabiScore API")
-test_app.include_router(router, prefix="/api/v1", tags=["API"])
+test_app.include_router(api_router, prefix="/api/v1", tags=["API"])
 
 class CustomTestClient(TestClient):
     def __init__(self, app):
@@ -73,9 +73,10 @@ def ensure_serializable(data: Any) -> Any:
 def mock_model() -> Generator[MagicMock, None, None]:
     """Fixture to provide a mock model instance."""
     with patch('src.models.ensemble.SabiScoreEnsemble') as mock_model_class, \
-         patch('src.api.endpoints.check_database_health', return_value=True), \
-         patch('src.api.endpoints.cache') as mock_cache, \
-         patch('src.api.endpoints.get_db') as mock_get_db:
+        patch('src.api.legacy_endpoints.cache') as mock_cache, \
+        patch('src.api.legacy_endpoints.get_db') as mock_get_db, \
+        patch('src.api.endpoints.monitoring.cache') as mock_monitoring_cache, \
+        patch('src.api.endpoints.monitoring.engine') as mock_monitoring_engine:
         
         mock_model = MagicMock()
         mock_model.is_trained = True
@@ -86,7 +87,7 @@ def mock_model() -> Generator[MagicMock, None, None]:
         mock_db_session = MagicMock()
         mock_get_db.return_value = mock_db_session
         
-        # Mock cache methods
+        # Mock legacy cache methods for search endpoints
         mock_cache.ping.return_value = True
         mock_cache.metrics_snapshot.return_value = {
             "hits": 10,
@@ -95,6 +96,14 @@ def mock_model() -> Generator[MagicMock, None, None]:
             "circuit_open": False,
             "memory_entries": 5
         }
+
+        # Monitoring health dependency mocks
+        mock_monitoring_cache.ping.return_value = True
+        mock_monitoring_cache.metrics_snapshot.return_value = mock_cache.metrics_snapshot.return_value
+
+        mock_conn = MagicMock()
+        mock_monitoring_engine.connect.return_value.__enter__.return_value = mock_conn
+        mock_conn.execute.return_value = None
         
         test_app.state.model_instance = mock_model
         yield mock_model

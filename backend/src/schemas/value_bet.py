@@ -3,11 +3,31 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class ValueBetResponse(BaseModel):
 	"""Rich description of a detected value betting opportunity."""
+
+	model_config = ConfigDict(
+		json_schema_extra={
+			"example": {
+				"match_id": "epl_2025_234",
+				"market": "home_win",
+				"odds": 1.96,
+				"fair_probability": 0.563,
+				"implied_probability": 0.510,
+				"edge_percent": 9.3,
+				"edge_ngn": 186.0,
+				"kelly_stake_ngn": 53720.0,
+				"kelly_fraction": 0.125,
+				"clv_ngn": 81.0,
+				"confidence": 0.847,
+				"expected_roi": 0.089,
+				"created_at": "2025-11-11T14:32:00Z",
+			}
+		}
+	)
 
 	match_id: str = Field(..., description="Match identifier")
 	market: str = Field(..., description="Market name, e.g. home_win")
@@ -27,25 +47,6 @@ class ValueBetResponse(BaseModel):
 		description="Reference Pinnacle closing price, if available",
 		ge=1.01,
 	)
-
-	class Config:
-		json_schema_extra = {
-			"example": {
-				"match_id": "epl_2025_234",
-				"market": "home_win",
-				"odds": 1.96,
-				"fair_probability": 0.563,
-				"implied_probability": 0.510,
-				"edge_percent": 9.3,
-				"edge_ngn": 186.0,
-				"kelly_stake_ngn": 53720.0,
-				"kelly_fraction": 0.125,
-				"clv_ngn": 81.0,
-				"confidence": 0.847,
-				"expected_roi": 0.089,
-				"created_at": "2025-11-11T14:32:00Z",
-			}
-		}
 
 
 __all__ = ["ValueBetResponse"]

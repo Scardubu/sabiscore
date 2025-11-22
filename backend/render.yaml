@@ -1,23 +1,35 @@
 services:
   - type: web
     name: sabiscore-api
-    env: python
+    runtime: python
     region: oregon
     plan: free
     branch: feat/edge-v3
     rootDir: backend
-    buildCommand: pip install --upgrade pip && pip install -r requirements.min.txt
-    startCommand: uvicorn src.api.main:app --host 0.0.0.0 --port $PORT --workers 2
-    healthCheckPath: /health
+    buildCommand: pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt && mkdir -p models && cp -r ../models/* models/ || true
+    startCommand: uvicorn src.api.main:app --host 0.0.0.0 --port $PORT --workers 1 --limit-max-requests 500 --timeout-keep-alive 30 --log-level info
+    healthCheckPath: /health/ready
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
-      - key: ENVIRONMENT
+      - key: APP_ENV
         value: production
+      - key: APP_NAME
+        value: Sabiscore
+      - key: DEBUG
+        value: "false"
+      - key: API_V1_STR
+        value: /api/v1
+      - key: LOG_LEVEL
+        value: INFO
       - key: DATABASE_URL
         sync: false
       - key: REDIS_URL
         sync: false
+      - key: REDIS_ENABLED
+        value: "false"
+      - key: CORS_ORIGINS
+        value: https://sabiscore.vercel.app,https://sabiscore-*.vercel.app,http://localhost:3000
       - key: SENTRY_DSN
         sync: false
     autoDeploy: false

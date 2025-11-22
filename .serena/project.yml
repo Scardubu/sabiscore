@@ -1,695 +1,84 @@
-# SabiScore Edge v3.1 — Serena Project Configuration
-# Last Updated: November 13, 2025
-# Branch: feat/edge-v3
-# Commit: e30e62996
+# SabiScore — Improved Serena Project Configuration (v3.1)
+# Generated: 2025-11-21
+# Maintainer: SabiScore / Oscar Dubu
+# Purpose: Production-ready Serena MCP config tuned for Windows dev host.
 
+# ---- Core (required) ------------------------------------------------------
+project_root: "C:/Users/USR/Documents/SabiScore"  # Absolute path (Windows-compatible)
+active_project: "C:/Users/USR/Documents/SabiScore" # Force this project to be the active project
+
+# Operational modes (influence assistant/system prompts and tool behavior)
+modes:
+  - "ide-assistant"
+
+# MCP tooling toggles (enable/disable capabilities exposed to the MCP agent)
+tools:
+  code_search: true
+  edit_file: true
+  list_files: true
+  read_file: true
+  test_execution: false   # Keep disabled when tests may mutate important data
+  run_command: false      # Keep disabled for security; enable only for trusted local dev
+
+# Indexing configuration (controls how the project is indexed for retrieval)
+index:
+  enabled: true
+  index_on_start: true   # Build/refresh index automatically when MCP server starts
+  exclude_patterns:
+    - ".git/"
+    - "node_modules/"
+    - ".next/"
+    - "dist/"
+    - "__pycache__/"
+    - "*.log"
+    - "*.db"
+    - "cache/"
+    - ".turbo/"
+    - ".env*"       # avoid seeding secrets into the index
+  include_file_globs:
+    - "**/*.py"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.md"
+  batch_size: 500      # tuneable: reduce if memory pressure
+
+# Language servers for symbol-level features & intelligence
+language_servers:
+  - "python"
+  - "typescript"
+
+# MCP server settings (tunable; useful when running locally or in container)
+mcp_server:
+  host: "127.0.0.1"
+  port: 8000
+  enable_tls: false
+
+# Optional: Known projects list (helps CLI/agents present choices)
+known_projects:
+  - name: "SabiScore"
+    path: "C:/Users/USR/Documents/SabiScore"
+
+# Project metadata (informational only)
 project:
   name: "SabiScore"
   version: "3.1.0"
-  description: "Sub-150ms sports betting edge detection platform with 73.7% accuracy and +18.4% ROI"
+  description: "Low-latency sports-betting edge detection platform"
   repository: "https://github.com/Scardubu/sabiscore.git"
   branch: "feat/edge-v3"
-  
-  # One-liner mission statement
-  tagline: "SabiScore doesn't guess winners. It reverse-engineers bookie mistakes in 142ms and stakes them at ⅛ Kelly before the line moves."
+  tagline: "Reverse-engineers bookie mistakes and stakes with disciplined sizing."
 
-# Architecture Overview
-architecture:
-  type: "monorepo"
-  build_system: "turborepo"
-  
-  frontend:
-    framework: "Next.js 15"
-    runtime: "edge"
-    features:
-      - "App Router with PPR (Partial Pre-Rendering)"
-      - "ISR with 15s revalidation"
-      - "Edge runtime deployment"
-      - "Multi-region distribution (iad1, lhr1, fra1)"
-    deployment:
-      platform: "Vercel"
-      url: "https://sabiscore-m3gd1at7h-oversabis-projects.vercel.app"
-      status: "deployed"
-      
-  backend:
-    framework: "FastAPI"
-    server: "Uvicorn + Gunicorn"
-    workers: 4
-    deployment:
-      platform: "Render"
-      url: "https://sabiscore-api.onrender.com"
-      status: "production_ready"
-      auto_deploy: true
-      
-  infrastructure:
-    container: "Docker Compose v3"
-    cache:
-      - "Cloudflare KV (2ms - hot matches)"
-      - "Upstash Redis @ Edge (8ms - xG chains)"
-      - "PostgreSQL (35ms - fallback)"
-    messaging: "Kafka (value bet alerts)"
-    monitoring:
-      - "Sentry RUM"
-      - "Prometheus + Grafana"
-      - "Upstash Redis monitoring"
+# Safety / dev notes
+# - Keep run_command/test_execution disabled for CI or shared environments.
+# - Use absolute paths on Windows; Serena has had issues with relative mounts in containers.
+# - If running in Docker, mount the project to the same path inside the container, or
+#   update project_root to the container-visible path.
 
-# Current Implementation Status
-status:
-  overall: "production_ready"
-  deployment_stage: "awaiting_git_push"
-  
-  components:
-    data_pipeline:
-      status: "complete"
-      coverage: "99.9%"
-      features:
-        historical_data:
-          status: "imported"
-          matches: 4190
-          odds_records: 8379
-          date_range: "2018-11-12 to 2025-11-12"
-          sources:
-            - "football-data.co.uk (180k matches, 62 bookmakers)"
-            - "Understat xG chains"
-            - "FBref scouting reports"
-            - "Transfermarkt market values"
-          
-        realtime_firehose:
-          status: "ready"
-          latency: "≤8s"
-          sources:
-            - "ESPN (live scores, subs, cards)"
-            - "Opta (xG, xT, pressure heatmaps)"
-            - "Betfair Exchange API (1s odds depth)"
-            - "Pinnacle WebSocket (closing lines)"
-          
-        scrapers:
-          status: "complete"
-          uptime: "99.9%"
-          avg_duration: "850ms"
-          implementations:
-            - name: "ScraperClusterManager"
-              file: "backend/src/scrapers/cluster_manager.py"
-              lines: 387
-              features:
-                - "Connection pooling (8 workers)"
-                - "Exponential backoff (3 retries)"
-                - "Proxy rotation"
-                - "Circuit breaker (5 failures, 60s reset)"
-            
-            - name: "UnderstatXGScraper"
-              file: "backend/src/scrapers/understat_xg.py"
-              lines: 358
-              cache_ttl: "30s"
-              
-            - name: "FBrefScoutingScraper"
-              file: "backend/src/scrapers/fbref_scouting.py"
-              lines: 370
-              metrics:
-                - "PPDA, progressive passes, pressure success"
-                - "Defensive line height, aerial duels"
-                
-            - name: "TwitterSentimentAnalyzer"
-              file: "backend/src/scrapers/twitter_sentiment.py"
-              lines: 435
-              features:
-                - "Market overreaction detection (>0.6 shift)"
-                - "Credibility weighting (5x verified)"
-                - "48hr lookback window"
-    
-    ml_models:
-      status: "complete"
-      accuracy: "73.7%"
-      high_confidence_accuracy: "84.9%"
-      avg_clv: "+₦60"
-      roi: "+18.4%"
-      brier_score: 0.184
-      
-      ensemble:
-        - name: "Random Forest"
-          weight: "40%"
-          purpose: "Feature stability"
-          
-        - name: "XGBoost"
-          weight: "35%"
-          calibration: "Isotonic regression"
-          
-        - name: "LightGBM"
-          weight: "25%"
-          retrain_interval: "3min"
-          
-        - name: "Meta-learner"
-          type: "StackingCV Logistic Regression"
-      
-      enhancements:
-        vector_embeddings:
-          status: "complete"
-          file: "backend/src/models/vector_embeddings.py"
-          lines: 449
-          dimensions: 384
-          model: "sentence-transformers/MiniLM-L6"
-          features:
-            - "K-NN similar match clustering"
-            - "Analog-based prediction augmentation (70/30 blend)"
-            - "Outlier detection (Mahalanobis distance)"
-          performance:
-            embedding_generation: "40ms"
-            similarity_search: "120ms (10k matches)"
-            accuracy_boost: "+1.2% on novel situations"
-        
-        data_augmentation:
-          status: "complete"
-          file: "backend/src/models/data_augmentation.py"
-          lines: 705
-          ratio: "20% synthetic samples"
-          strategies:
-            - name: "Perturbation"
-              type: "Gaussian noise (5% std)"
-              
-            - name: "Monte Carlo Injury Simulation"
-              impact:
-                attacker: "-15% attack, +8% opponent confidence"
-                midfielder: "-10% midfield rating"
-                defender: "-12% defense rating"
-              clv_gain: "+₦12 per injured match"
-              
-            - name: "SMOTE"
-              purpose: "Rare event oversampling"
-              neighbors: 5
-              
-            - name: "Mixup"
-              lambda: "Beta(0.2, 0.2)"
-              
-            - name: "Weather/Referee Scenarios"
-              conditions:
-                rain: "-8% xG, +12% fouls"
-                wind: "-5% long balls, +20% GK errors"
-                snow: "-25% xG, +300% cards"
-                heat: "+18% fatigue"
-          accuracy_improvement: "+2.3% on rare events"
-        
-        live_calibrator:
-          status: "optimized"
-          file: "backend/src/models/live_calibrator.py"
-          interval: "180s"
-          performance:
-            before: "850ms"
-            after: "250ms"
-            improvement: "-70.6%"
-          features:
-            - "Circuit breaker (3 failures, 5min cooldown)"
-            - "Async Redis operations (3ms vs 15ms)"
-            - "Thread pool for CPU-intensive fitting"
-            - "Parallel isotonic regression"
-    
-    frontend:
-      status: "optimized"
-      ttfb_p92: "142ms"
-      target: "<150ms"
-      
-      components:
-        homepage:
-          file: "apps/web/app/page.tsx"
-          runtime: "edge"
-          revalidate: "15s"
-          regions: ["iad1", "lhr1", "fra1"]
-          features:
-            - "PPR streaming"
-            - "ISR with force-dynamic"
-            - "Premier League flag display fixed"
-        
-        one_click_betslip:
-          status: "complete"
-          file: "apps/web/src/components/OneClickBetSlip.tsx"
-          lines: 297
-          features:
-            scenario_simulators:
-              red_card: "-30% edge, -15% confidence, -40% stake"
-              injury: "-20% edge, -10% confidence, -30% stake"
-              weather: "-8% edge, -5% confidence, -15% stake"
-            displays:
-              - "Edge percentage (+9.3% EV)"
-              - "Live CLV tracking (₦60 vs Pinnacle)"
-              - "Smart Kelly stake (⅛ Kelly)"
-              - "Confidence score (84.7%)"
-              - "Brier score calibration"
-            quick_actions:
-              - "Copy Betfair Lay URL"
-              - "Copy Pinnacle Ticket"
-              - "Reset scenario"
-          design:
-            - "Gradient backgrounds with glassmorphism"
-            - "Hover animations"
-            - "Mobile-responsive"
-            - "Dark theme optimized"
-    
-    infrastructure:
-      status: "production_ready"
-      
-      docker_compose:
-        file: "docker-compose.prod.yml"
-        strategy: "zero-downtime"
-        services:
-          web:
-            replicas: 6
-            cpu: "0.5"
-            memory: "512MB"
-            
-          api:
-            replicas: 12
-            cpu: "1.0"
-            memory: "1GB"
-            
-          redis:
-            replicas: 3
-            cpu: "0.25"
-            memory: "256MB"
-            
-          ws:
-            replicas: 4
-        
-        deployment:
-          parallelism: "2-3"
-          delay: "10s"
-          failure_action: "rollback"
-          order: "start-first"
-          monitor_window: "30s"
-        
-        health_checks:
-          interval: "30s"
-          timeout: "10s"
-          retries: 3
-          start_period: "40s"
-      
-      ci_cd:
-        platform: "GitHub Actions"
-        checks:
-          - "typecheck"
-          - "test"
-          - "playwright"
-        deployment:
-          - "Canary to Vercel Preview"
-          - "Auto-deploy to Render on push"
-        smoke_tests:
-          - "Poll routes until 200 OK"
-          - "Verify health endpoints"
+# Example recommended commands (Windows PowerShell):
+# 1) Start the MCP server and explicitly set project at start:
+#    uvx --from git+https://github.com/oraios/serena.git serena start-mcp-server --project "C:/Users/USR/Documents/SabiScore"
+# 2) Force an index (from project root):
+#    cd "C:/Users/USR/Documents/SabiScore"; uvx --from git+https://github.com/oraios/serena.git serena project index
+# 3) Verify active project via serena CLI (if available):
+#    serena project status
 
-# Performance Metrics
-metrics:
-  current:
-    accuracy_all: "73.7%"
-    accuracy_high_conf: "84.9%"
-    avg_clv: "+₦60"
-    roi: "+18.4%"
-    brier_score: 0.184
-    ttfb_p92: "142ms"
-    live_ccu: 8312
-    
-  improvements_v31:
-    scraper_uptime: "+5.7% (94.2% → 99.9%)"
-    scraper_duration: "-59.5% (2100ms → 850ms)"
-    calibration_time: "-70.6% (850ms → 250ms)"
-    redis_operations: "-80% (15ms → 3ms)"
-    ttfb: "-9% (156ms → 142ms)"
-    rare_event_accuracy: "+2.3% (68.4% → 70.7%)"
-    
-  roi_breakdown:
-    injury_simulations: "+₦12 CLV per match"
-    sentiment_analysis: "+₦8 CLV per narrative spike"
-    vector_analogs: "+1.2% confidence boost"
-
-# Known Issues & Resolutions
-issues:
-  resolved:
-    - name: "ModuleNotFoundError for src.db.models"
-      solution: "Created re-export shim"
-      status: "fixed"
-      
-    - name: "Async/sync cache mismatch"
-      solution: "Unified to synchronous cache_manager"
-      status: "fixed"
-      
-    - name: "Empty odds.py ImportError"
-      solution: "Implemented 6 comprehensive endpoints (415 lines)"
-      status: "fixed"
-      
-    - name: "Predictions syntax error"
-      solution: "Fixed list comprehension bracket"
-      status: "fixed"
-      
-    - name: "ValueBet import error"
-      solution: "Corrected path to core.database"
-      status: "fixed"
-      
-    - name: "500 error on value-bets endpoint"
-      solution: "Simplified to return empty array gracefully"
-      status: "fixed"
-      
-    - name: "Git LFS smudge failures"
-      solution: "Removed *.db from LFS, migrated to external storage"
-      status: "fixed"
-      
-    - name: "Duplicated API prefixes in OpenAPI"
-      solution: "Aggregated routers in single __init__.py"
-      status: "fixed"
-      
-    - name: "Premier League flag display"
-      solution: "Fixed Unicode encoding in team-data.ts"
-      status: "fixed"
-  
-  pending:
-    - name: "Git push to GitHub"
-      reason: "Network connectivity pending"
-      impact: "Blocking auto-deploy trigger"
-      priority: "high"
-      action: "Retry when network stable"
-      
-    - name: "Vercel homepage smoke tests"
-      status: "N/A responses"
-      possible_causes:
-        - "Deployment not yet published"
-        - "Vercel routing/monorepo detection issue"
-        - "DNS/TLS connectivity"
-      action: "Trigger fresh deployment, run smoke tests"
-      
-    - name: "Remote CSV download SSL failures"
-      impact: "Some seasons skipped in historical import"
-      severity: "low"
-      action: "Retry with fallback mirrors or cached copies"
-
-# Code Statistics
-code_stats:
-  total_changes:
-    files_modified: 6
-    files_new: 8
-    insertions: 2727
-    deletions: 65
-    net_change: "+2,662 lines"
-    
-  by_language:
-    python: 2219
-    typescript: 305
-    markdown: 185
-    yaml: 25
-    
-  key_files:
-    - path: "backend/src/scrapers/cluster_manager.py"
-      lines: 387
-      status: "new"
-      
-    - path: "backend/src/scrapers/understat_xg.py"
-      lines: 358
-      status: "new"
-      
-    - path: "backend/src/scrapers/fbref_scouting.py"
-      lines: 370
-      status: "new"
-      
-    - path: "backend/src/scrapers/twitter_sentiment.py"
-      lines: 435
-      status: "new"
-      
-    - path: "backend/src/models/vector_embeddings.py"
-      lines: 449
-      status: "new"
-      
-    - path: "backend/src/models/data_augmentation.py"
-      lines: 705
-      status: "new"
-      
-    - path: "apps/web/src/components/OneClickBetSlip.tsx"
-      lines: 297
-      status: "new"
-      
-    - path: "backend/src/models/live_calibrator.py"
-      changes: "+115, -45"
-      status: "modified"
-      
-    - path: "README.md"
-      changes: "+185"
-      status: "modified"
-      
-    - path: "docker-compose.prod.yml"
-      changes: "+25, -12"
-      status: "modified"
-
-# Deployment Checklist
-deployment:
-  pre_deployment:
-    - task: "All code committed and tested"
-      status: "complete"
-      
-    - task: "README updated with one-liner"
-      status: "complete"
-      
-    - task: "docker-compose.prod.yml enhanced"
-      status: "complete"
-      
-    - task: "Frontend optimized for Edge runtime"
-      status: "complete"
-      
-    - task: "Backend scrapers with circuit breakers"
-      status: "complete"
-      
-    - task: "ML augmentation pipeline complete"
-      status: "complete"
-      
-    - task: "Health checks configured"
-      status: "complete"
-      
-    - task: "Zero-downtime strategy implemented"
-      status: "complete"
-      
-  deployment_steps:
-    - task: "Git push to GitHub"
-      status: "pending"
-      command: "git push origin feat/edge-v3"
-      
-    - task: "Verify Render auto-deploy"
-      status: "pending"
-      url: "https://dashboard.render.com/services/sabiscore-api"
-      expected_time: "5-8 minutes"
-      
-    - task: "Test new endpoints in production"
-      status: "pending"
-      endpoints:
-        - "/api/v1/scrapers/test"
-        - "/api/v1/predictions/similar-matches"
-        - "/api/v1/predictions/augmented"
-        
-    - task: "Monitor metrics for 24 hours"
-      status: "pending"
-      metrics_to_watch:
-        - "TTFB (p92) <150ms"
-        - "Scraper success rate >99%"
-        - "Circuit breaker status: closed"
-        - "Cache hit rate >90%"
-        - "Calibration errors <1%"
-
-# Next Steps (Post-Deployment)
-roadmap:
-  phase_1_monitoring:
-    timeline: "Week 1"
-    tasks:
-      - "Set up Sentry alerts for error rates >0.1%"
-      - "Configure Prometheus dashboards (Grafana)"
-      - "Run 7-day A/B test: Base vs Augmented model"
-      - "Measure vector embeddings impact"
-      - "Validate sentiment analysis correlation"
-      
-  phase_2_tuning:
-    timeline: "Week 2-3"
-    tasks:
-      - "Calibrate injury impact coefficients"
-      - "Tune augmentation ratio (optimize from 20%)"
-      - "Optimize Redis cache TTLs"
-      - "Adjust circuit breaker thresholds"
-      - "Fine-tune vector similarity threshold"
-      
-  phase_3_expansion:
-    timeline: "Month 2"
-    tasks:
-      - "Add NPFL (Nigerian Premier League) model"
-      - "Implement live xG streaming (Opta API)"
-      - "Build referee bias model"
-      - "Add weather API integration"
-      - "Create player injury predictor"
-      
-  phase_4_scale:
-    timeline: "Month 3+"
-    tasks:
-      - "Scale to 50k CCU"
-      - "Implement user authentication (JWT + OAuth)"
-      - "Add subscription tiers (Free, Pro, Elite)"
-      - "Build affiliate integrations (Bet365, Betfair)"
-      - "Launch mobile apps (React Native)"
-
-# Testing & Validation
-testing:
-  smoke_tests:
-    backend:
-      script: "scripts/smoke_backend.py"
-      url: "https://sabiscore-api.onrender.com"
-      endpoints:
-        - path: "/health"
-          expected: "200 OK"
-          status: "passing"
-          
-        - path: "/openapi.json"
-          expected: "200 OK (19 paths)"
-          status: "passing"
-          
-        - path: "/api/v1/matches/upcoming"
-          expected: "200 OK"
-          status: "passing"
-          
-        - path: "/api/v1/predictions/value-bets/today"
-          expected: "200 OK"
-          status: "passing"
-          
-    frontend:
-      script: "scripts/smoke_frontend.ps1"
-      url: "https://sabiscore-m3gd1at7h-oversabis-projects.vercel.app"
-      endpoints:
-        - path: "/"
-          expected: "200 OK"
-          status: "pending_verification"
-          
-        - path: "/favicon.ico"
-          expected: "200 OK"
-          status: "pending_verification"
-          
-        - path: "/icon"
-          expected: "200 OK"
-          status: "pending_verification"
-          
-        - path: "/api/v1/matches/upcoming"
-          expected: "200 OK (proxy)"
-          status: "pending_verification"
-  
-  integration_tests:
-    - name: "test_prediction_pipeline.py"
-      coverage: "Async smoke coverage"
-      tests:
-        - "Health probes"
-        - "Model loading"
-        - "Feature synthesis"
-        - "HTTP/Service predictions"
-        - "Odds integration"
-        - "Data aggregation"
-        - "End-to-end flow"
-      command: "pytest test_prediction_pipeline.py --asyncio-mode=auto"
-
-# Environment Configuration
-environment:
-  backend:
-    required_vars:
-      - "REDIS_URL"
-      - "DATABASE_URL"
-      - "SENTRY_DSN"
-      - "CELERY_BROKER_URL"
-      
-  frontend:
-    required_vars:
-      - "NEXT_PUBLIC_API_URL"
-      - "NEXT_PUBLIC_SENTRY_DSN"
-      
-  production_urls:
-    backend: "https://sabiscore-api.onrender.com"
-    frontend: "https://sabiscore-m3gd1at7h-oversabis-projects.vercel.app"
-    github: "https://github.com/Scardubu/sabiscore.git"
-
-# Success Criteria
-success_criteria:
-  all_met: true
-  
-  criteria:
-    - metric: "TTFB (p92)"
-      target: "<150ms"
-      achieved: "142ms"
-      status: "✅ +8ms buffer"
-      
-    - metric: "Scraper Uptime"
-      target: "99.9%"
-      achieved: "99.9%"
-      status: "✅"
-      
-    - metric: "Calibration Loop"
-      target: "Async"
-      achieved: "Yes + Circuit Breaker"
-      status: "✅"
-      
-    - metric: "Vector Embeddings"
-      target: "384-dim"
-      achieved: "384-dim (MiniLM-L6)"
-      status: "✅"
-      
-    - metric: "Data Augmentation"
-      target: "5 strategies"
-      achieved: "5 implemented"
-      status: "✅"
-      
-    - metric: "UI Components"
-      target: "Interactive"
-      achieved: "Scenario simulator"
-      status: "✅"
-      
-    - metric: "Zero-Downtime"
-      target: "Yes"
-      achieved: "Rollback + start-first"
-      status: "✅"
-      
-    - metric: "README One-Liner"
-      target: "Compelling"
-      achieved: "Reverse-engineers bookie mistakes"
-      status: "✅"
-      
-    - metric: "Deployment Ready"
-      target: "Yes"
-      achieved: "Vercel + Render configured"
-      status: "✅"
-
-# Documentation
-documentation:
-  - name: "README.md"
-    status: "complete"
-    includes:
-      - "One-liner mission statement"
-      - "Performance dashboard (ASCII art)"
-      - "Quick start guide (local & production)"
-      - "Live URLs"
-      - "Architecture diagram"
-      
-  - name: "EDGE_V3.1_COMPLETE.md"
-    status: "complete"
-    includes:
-      - "Complete implementation summary"
-      - "Code statistics"
-      - "Performance impact analysis"
-      - "Deployment instructions"
-      
-  - name: "DEPLOYMENT_SUCCESS_REPORT.md"
-    status: "complete"
-    includes:
-      - "Issues fixed"
-      - "Smoke test results"
-      - "New features implemented"
-
-# Team & Contact
-team:
-  architect: "Chief Sports-Intelligence Architect"
-  organization: "SabiScore"
-  implementation_date: "November 12, 2025"
-  
-contact:
-  github: "https://github.com/Scardubu/sabiscore"
-  branch: "feat/edge-v3"
-  commit: "e30e62996"
-
-# Project Metadata
-metadata:
-  created: "2025-11-12"
-  last_updated: "2025-11-13"
-  config_version: "3.1.0"
-  status: "production_ready"
-  deployment_stage: "awaiting_git_push"
+# --- End of config ---------------------------------------------------------

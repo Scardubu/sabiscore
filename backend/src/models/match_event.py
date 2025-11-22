@@ -2,9 +2,11 @@
 from typing import Any, Dict, List, Optional
 from enum import Enum
 
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Enum as SQLEnum
+from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Enum as SQLEnum, Boolean, select
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .base import Base
 
@@ -44,7 +46,7 @@ class MatchEvent(Base):
     def __repr__(self) -> str:
         return f"<MatchEvent {self.event_type} @ {self.minute}' ({self.match_id})>"
 
-    [classmethod](cci:4://file://classmethod:0:0-0:0)
+    @classmethod
     async def get_match_events(
         cls,
         db: "AsyncSession",
@@ -65,7 +67,7 @@ class MatchEvent(Base):
         result = await db.execute(query)
         return result.scalars().all()
 
-    [classmethod](cci:4://file://classmethod:0:0-0:0)
+    @classmethod
     async def get_goals(
         cls,
         db: "AsyncSession",
@@ -77,7 +79,7 @@ class MatchEvent(Base):
             db, match_id, event_type=EventType.GOAL, team_id=team_id
         )
 
-    [classmethod](cci:4://file://classmethod:0:0-0:0)
+    @classmethod
     async def get_cards(
         cls,
         db: "AsyncSession",
@@ -101,12 +103,16 @@ class MatchEvent(Base):
         result = await db.execute(query)
         return result.scalars().all()
 
-    [classmethod](cci:4://file://classmethod:0:0-0:0)
+    @classmethod
     async def get_substitutions(
         cls,
         db: "AsyncSession",
         match_id: str,
         team_id: Optional[str] = None,
     ) -> List["MatchEvent"]:
+        """Get all substitution events for a match"""
+        return await cls.get_match_events(
+            db, match_id, event_type=EventType.SUBSTITUTION, team_id=team_id
+        )
         """Get all substitution events for a match"""
         return

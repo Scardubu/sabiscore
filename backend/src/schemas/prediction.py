@@ -80,7 +80,7 @@ class PredictionResponse(BaseModel):
     )
     metadata: Dict[str, Any] = Field(
         default_factory=dict,
-        description="Model metadata and performance metrics"
+        description="Model metadata: engine, accuracy, brier_score, log_loss, level1_accuracy, brier_guardrail_triggered, training_samples, feature_count"
     )
     created_at: datetime = Field(default_factory=datetime.utcnow)
     
@@ -92,8 +92,8 @@ class PredictionResponse(BaseModel):
             raise ValueError(f"Probabilities must sum to ~1.0, got {total}")
         return v
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "match_id": "epl_2025_234",
                 "home_team": "Arsenal",
@@ -123,6 +123,7 @@ class PredictionResponse(BaseModel):
                 "created_at": "2025-11-11T14:32:00Z"
             }
         }
+    )
 
 
 class PredictionCreate(BaseModel):
@@ -142,16 +143,8 @@ class PredictionCreate(BaseModel):
 
 class CalibrationMetrics(BaseModel):
     """Live calibration status and metrics"""
-    platt_a: float = Field(..., description="Platt scaling parameter A")
-    platt_b: float = Field(..., description="Platt scaling parameter B")
-    last_calibration: Optional[datetime] = None
-    samples_used: int = Field(..., ge=0, description="Samples in calibration window")
-    calibration_window_hours: int = 24
-    mean_squared_error: Optional[float] = None
-    log_loss: Optional[float] = None
-    
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "platt_a": 1.042,
                 "platt_b": -0.018,
@@ -160,6 +153,15 @@ class CalibrationMetrics(BaseModel):
                 "mean_squared_error": 0.0184
             }
         }
+    )
+
+    platt_a: float = Field(..., description="Platt scaling parameter A")
+    platt_b: float = Field(..., description="Platt scaling parameter B")
+    last_calibration: Optional[datetime] = None
+    samples_used: int = Field(..., ge=0, description="Samples in calibration window")
+    calibration_window_hours: int = 24
+    mean_squared_error: Optional[float] = None
+    log_loss: Optional[float] = None
 
 
 class EdgeDetectionRequest(BaseModel):
@@ -216,8 +218,8 @@ class PredictionHistoryResponse(BaseModel):
     league_breakdown: Dict[str, Dict[str, float]]
     date_range: Dict[str, datetime]
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "total_predictions": 42000,
                 "accuracy": 0.737,
@@ -237,6 +239,7 @@ class PredictionHistoryResponse(BaseModel):
                 }
             }
         }
+    )
 
 
 class ModelPerformanceMetrics(BaseModel):
@@ -250,8 +253,8 @@ class ModelPerformanceMetrics(BaseModel):
     uptime_percent: float = Field(..., ge=0, le=100)
     errors_last_hour: int
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "predictions_today": 347,
                 "avg_processing_time_ms": 142,
@@ -262,3 +265,4 @@ class ModelPerformanceMetrics(BaseModel):
                 "errors_last_hour": 0
             }
         }
+    )

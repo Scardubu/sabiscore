@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class TeamBase(BaseModel):
@@ -17,6 +17,8 @@ class TeamBase(BaseModel):
 class TeamResponse(TeamBase):
 	"""Public team representation returned by APIs."""
 
+	model_config = ConfigDict(from_attributes=True)
+
 	country: Optional[str] = Field(default=None, description="Country of the team")
 	founded_year: Optional[int] = Field(default=None, description="Year the club was founded", ge=1850)
 	stadium: Optional[str] = Field(default=None, description="Home stadium")
@@ -24,9 +26,6 @@ class TeamResponse(TeamBase):
 	active: bool = Field(default=True, description="Whether the team is active in the league")
 	created_at: Optional[datetime] = None
 	updated_at: Optional[datetime] = None
-
-	class Config:
-		from_attributes = True
 
 
 __all__ = ["TeamResponse"]

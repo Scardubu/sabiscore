@@ -30,6 +30,7 @@
     "docker:build": "docker-compose -f docker-compose.prod.yml build"
   },
   "devDependencies": {
+    "@playwright/test": "^1.56.1",
     "@typescript-eslint/eslint-plugin": "^8.12.1",
     "@typescript-eslint/parser": "^8.12.1",
     "eslint": "^8.57.1",

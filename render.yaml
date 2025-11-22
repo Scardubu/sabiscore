@@ -6,7 +6,7 @@
     plan: free
     branch: main
     rootDir: backend
-    buildCommand: pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
+    buildCommand: pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt && mkdir -p models && cp -r ../models/* models/ || true
     startCommand: uvicorn src.api.main:app --host 0.0.0.0 --port $PORT --workers 1 --limit-max-requests 500 --timeout-keep-alive 30 --log-level info
     # Use readiness probe which validates DB/cache/models before marking instance healthy
     healthCheckPath: /health/ready
@@ -33,9 +33,9 @@
           name: sabiscore-db
           property: connectionString
       - key: REDIS_URL
-        sync: false
+        value: "redis://default:UgnIjbBTIEutO3Rz8hSFnZchPqiR3Xbx@redis-15727.c8.us-east-1-4.ec2.cloud.redislabs.com:15727"
       - key: REDIS_ENABLED
-        value: "false"
+        value: "true"
       - key: ALLOWED_HOSTS
         value: sabiscore-api.onrender.com
       - key: REDIS_CACHE_TTL
@@ -82,6 +82,10 @@
         value: "60"
       - key: CORS_ORIGINS
         value: https://sabiscore.vercel.app,https://sabiscore-*.vercel.app,http://localhost:3000
+      - key: ODDS_API_KEY
+        value: 000974fa1984eddc45c57d6217cb43bb
+      - key: MODELS_PATH
+        value: /opt/render/project/src/backend/models
 
 databases:
   - name: sabiscore-db

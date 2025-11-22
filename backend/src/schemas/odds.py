@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class OddsBase(BaseModel):
@@ -26,12 +26,11 @@ class OddsCreate(OddsBase):
 class OddsResponse(OddsBase):
 	"""API response model for odds data."""
 
+	model_config = ConfigDict(from_attributes=True)
+
 	id: Optional[int] = None
 	created_at: Optional[datetime] = None
 	updated_at: Optional[datetime] = None
-
-	class Config:
-		from_attributes = True
 
 
 __all__ = ["Odds", "OddsCreate", "OddsResponse"]

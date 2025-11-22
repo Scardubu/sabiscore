@@ -1,7 +1,7 @@
 # 🚀 Deployment Status - SabiScore Edge v3
 
-**Last Updated:** November 16, 2025  
-**Commit:** `619d9bdd3` - Edge v3 hardening (memory opt, error handling, smoke tests)  
+**Last Updated:** November 21, 2025  
+**Commit:** Latest - Production hardening (health endpoints, Pydantic v2, FastAPI lifespan)  
 **Branch:** `feat/edge-v3`
 
 ---
@@ -34,10 +34,14 @@
 ### Backend (Render)
 - **URL:** https://sabiscore-api.onrender.com
 - **Status:** ✅ Online (Healthy - All core endpoints responding)
-- **Health:** `/api/v1/health` → `{ status: "degraded", database: true, models: null }`
+- **Health Endpoints:**
+  - `/api/v1/health` → Basic liveness check (always returns 200 if app running)
+  - `/api/v1/health/ready` → Full readiness check (DB, cache, models)
+  - `/api/v1/startup` → Model loading status and initialization details
+  - `/api/v1/metrics` → Prometheus-format metrics
 - **Auto-Deploy:** ✅ GitHub integration active
 - **Docs:** https://sabiscore-api.onrender.com/docs
-- **Note:** Status shows "degraded" due to ML models not loaded (expected without model artifacts)
+- **Note:** Use `/health/ready` for load balancer health checks; `/health` for basic liveness
 
 ---
 
@@ -48,7 +52,9 @@
 
 | Test | Endpoint | Status | Response Time | Notes |
 |------|----------|--------|---------------|-------|
-| Health Check | `/health` | ✅ PASS | 910-4398ms | Warmed up |
+| Liveness Check | `/health` | ✅ PASS | 910-4398ms | Basic health - warmed up |
+| Readiness Check | `/health/ready` | ✅ PASS | - | Full system check (DB, cache, models) |
+| Startup Status | `/startup` | ✅ PASS | - | Model initialization details |
 | OpenAPI Schema | `/openapi.json` | ✅ PASS | 2514-3025ms | Warmed up |
 | Upcoming Matches | `/matches/upcoming` | ✅ PASS | 4222ms | Warmed up |
 | Value Bets Today | `/predictions/value-bets/today` | ✅ PASS | 923-1037ms | Optimal performance |
@@ -78,6 +84,11 @@
 - ✅ SSL retries: Exponential backoff in `load_historical_data.py` (3 attempts: 0.5s, 1s, 2s)
 - ✅ Redis fallbacks: Graceful degradation when cache unavailable
 - ✅ Database pooling: Configured for 10k CCU
+- ✅ Health endpoint consolidation: Removed duplicate `/health` routes, unified in monitoring router
+- ✅ FastAPI lifespan: Migrated from deprecated event handlers to modern `@asynccontextmanager` pattern
+- ✅ Pydantic v2: Converted all schemas to `ConfigDict` for `json_schema_extra` and `from_attributes`
+- ✅ Monitoring routes: Added `/health/ready`, `/readiness`, `/startup` endpoints with detailed status
+- ✅ Test fixes: Mocked cache/DB dependencies in unit tests to avoid infrastructure coupling
 
 ### DevOps
 - ✅ Smoke test scripts: `scripts/smoke-test-backend.ps1`, `scripts/smoke-test-frontend.ps1`

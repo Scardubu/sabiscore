@@ -1,5 +1,6 @@
 """Async and sync database session management for the SabiScore backend."""
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator, Dict, Optional
@@ -19,6 +20,7 @@ SessionLocal = SyncSessionLocal
 # Global async engine and session factory
 async_engine: Optional[AsyncEngine] = None
 AsyncSessionLocal: Optional[async_sessionmaker[AsyncSession]] = None
+_init_lock: Optional[asyncio.Lock] = None
 
 
 async def init_db() -> None:
@@ -84,6 +86,22 @@ async def init_db() -> None:
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}", exc_info=True)
         raise
+
+
+async def _ensure_async_session() -> None:
+    """Lazily initialize the async session factory on first use."""
+
+    global _init_lock
+
+    if AsyncSessionLocal is not None:
+        return
+
+    if _init_lock is None:
+        _init_lock = asyncio.Lock()
+
+    async with _init_lock:
+        if AsyncSessionLocal is None:
+            await init_db()
 
 
 async def close_db() -> None:
@@ -157,6 +175,9 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     Yields:
         AsyncSession: Database session
     """
+    if AsyncSessionLocal is None:
+        await _ensure_async_session()
+
     if AsyncSessionLocal is None:
         raise RuntimeError("Database not initialized. Call init_db() first.")
     

@@ -239,7 +239,7 @@ async def health_check():
 
 # Readiness check endpoint
 @app.get(
-    "/ready",
+    "/health/ready",
     tags=["Health"],
     summary="Readiness Check",
     description="Readiness check for Kubernetes and orchestration systems",
@@ -263,6 +263,27 @@ async def readiness_check():
     
     return {
         "status": "ready",
+        "version": settings.VERSION,
+        "environment": settings.ENV,
+    }
+
+
+# Liveness check endpoint
+@app.get(
+    "/health/live",
+    tags=["Health"],
+    summary="Liveness Check",
+    description="Liveness check for Kubernetes and orchestration systems",
+    response_description="Liveness status"
+)
+async def liveness_check():
+    """
+    Liveness check endpoint.
+    Indicates if the application is running.
+    Does not check dependencies.
+    """
+    return {
+        "status": "alive",
         "version": settings.VERSION,
         "environment": settings.ENV,
     }

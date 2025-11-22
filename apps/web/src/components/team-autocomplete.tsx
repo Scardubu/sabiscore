@@ -148,24 +148,24 @@ export function TeamAutocomplete({
           disabled={disabled}
           role="combobox"
           aria-autocomplete="list"
-          aria-expanded={isOpen}
+          aria-expanded={isOpen ? true : undefined}
           aria-haspopup="listbox"
           aria-controls={isOpen ? `team-listbox-${uid}` : undefined}
           aria-activedescendant={isOpen && highlightedIndex >= 0 ? `team-option-${uid}-${highlightedIndex}` : undefined}
-          className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900 focus:border-transparent transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:border-slate-600"
         />
         {isOpen && filteredOptions.length > 0 && (
           <ul
             id={`team-listbox-${uid}`}
             role="listbox"
-            className="absolute z-20 mt-1 w-full max-h-60 overflow-auto rounded-lg border border-slate-700 bg-slate-900/95 shadow-lg"
+            className="absolute z-20 mt-1 w-full max-h-60 overflow-auto rounded-lg border border-slate-700 bg-slate-900/95 backdrop-blur-sm shadow-xl animate-in fade-in slide-in-from-top-2 duration-200"
           >
             {filteredOptions.map((team, index) => (
               <li
                 key={team}
                 id={`team-option-${uid}-${index}`}
                 role="option"
-                aria-selected={highlightedIndex === index ? "true" : undefined}
+                aria-selected={highlightedIndex === index ? true : undefined}
                 className={`cursor-pointer px-4 py-2 text-sm transition-colors ${
                   highlightedIndex === index
                     ? "bg-indigo-600 text-white"
@@ -182,7 +182,7 @@ export function TeamAutocomplete({
         )}
 
         {isOpen && filteredOptions.length === 0 && (
-          <div className="absolute z-20 mt-1 w-full rounded-lg border border-slate-700 bg-slate-900/95 px-4 py-3 text-sm text-slate-400 shadow-lg">
+          <div className="absolute z-20 mt-1 w-full rounded-lg border border-slate-700 bg-slate-900/95 backdrop-blur-sm px-4 py-3 text-sm text-slate-400 shadow-xl animate-in fade-in slide-in-from-top-2 duration-200">
             No teams found. Keep typing to use a custom name.
           </div>
         )}

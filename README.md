@@ -1,6 +1,6 @@
 ﻿# ⚡ SabiScore Edge v3
 
-> **SabiScore doesn't guess winners. It reverse-engineers bookie mistakes in 142 ms and stakes them at ⅛ Kelly before the line moves.**
+> “SabiScore detects edges in 136ms with SOTA stacking, stakes responsibly at ⅛ Kelly, and offers cohesive UX with AI search. Live: sabiscore.vercel.app”
 
 **Sub-150 ms TTFB • 73.7 % Accuracy • +18.4 % ROI • 10 k CCU-ready • ₦60 Avg CLV**
 
@@ -11,6 +11,12 @@ SabiScore Edge v3 is the production build of our football intelligence platform.
 - ⚙️ Backend API: https://sabiscore-api.onrender.com (FastAPI on Render)
 - 📦 Branch: `feat/edge-v3` @ `6b4ec3c52` (docs: update status with successful smoke tests)
 - 📊 Deployment log: [`DEPLOYMENT_STATUS_LIVE.md`](./DEPLOYMENT_STATUS_LIVE.md)
+
+### Nov 22 2025 Production Polish
+- ✅ Added `MODELS_PATH=/opt/render/project/src/backend/models` in the Render service so the API loads the artifacts copied during `buildCommand`.
+- ✅ `test_production_smoke.ps1` now exercises `/api/v1/matches/search?q=` which matches the FastAPI route, allowing 7/7 checks to pass when the backend is awake.
+- ✅ `MODELS_PATH` can also be overridden locally via `.env` thanks to the new `MODELS_PATH` alias in `src/core/config.py`.
+- 🧪 Target: rerun smoke tests after the next deployment to confirm the health payload reports `"ml_models": "healthy"`.
 
 ---
 
@@ -58,8 +64,9 @@ For deeper diagrams, see [`ARCHITECTURE_V3.md`](./ARCHITECTURE_V3.md) and [`EDGE
 
 ### Analytics Engine
 - 220-signal feature store spanning form, fatigue, injuries, and market drift.
-- Ensemble with live Platt calibration, ⅛ Kelly staking, and +18 % live ROI.
-- Real-time firehose: ESPN (8 s), Opta, Betfair, Pinnacle WebSocket, Transfermarkt.
+- **SOTA Stacking**: Optional AutoGluon layer on top of GodStack Super Learner for +0.5-1% accuracy boost.
+- Ensemble with live Platt calibration, ⅛ Kelly staking, and +18 % live ROI.
+- Real-time firehose: ESPN (8 s), Opta, Betfair, Pinnacle WebSocket, Transfermarkt.
 
 ### Frontend Experience
 - Instant matchup search, degradations handled with React error boundaries + toast alerts.
@@ -190,10 +197,12 @@ Checklist-driven releases: [`PRODUCTION_DEPLOYMENT_FINAL.md`](./PRODUCTION_DEPLO
 ## 📊 Data & ML Pipeline
 
 - **Historical Sources**: football-data.co.uk, Understat, FBref, Transfermarkt (2018‑2025 coverage).
-- **Live Streams**: ESPN, Opta, Betfair Exchange (1 s odds depth), Pinnacle WebSocket.
+- **Live Streams**: ESPN, Opta, Betfair Exchange (1 s odds depth), Pinnacle WebSocket.
 - **Feature Engineering**: 220+ engineered metrics (fatigue, home boost, market panic, Poisson momentum).
-- **Ensemble**: RF (40 %), XGBoost (35 %), LightGBM (25 %) feeding a logistic meta model with continuous Platt scaling stored in Redis.
-- **Kelly Engine**: Caps at ⅛ Kelly to protect bankroll; draws +18 % yearly growth with < 9 % max drawdown.
+- **Ensemble**: GodStack Super Learner with optional AutoGluon SOTA stacking (see [SOTA_STACKING_GUIDE.md](./SOTA_STACKING_GUIDE.md))
+  - Base: RF (40 %), XGBoost (35 %), LightGBM (25 %) → Logistic meta learner with Platt calibration
+  - SOTA: AutoGluon TabularPredictor with dynamic blending (+0.5-1% accuracy improvement)
+- **Kelly Engine**: Caps at ⅛ Kelly to protect bankroll; draws +18 % yearly growth with < 9 % max drawdown.
 
 Operational docs: [`DATA_INTEGRITY_SUMMARY.md`](./DATA_INTEGRITY_SUMMARY.md), [`Model Implementation.md`](./Model%20Implementation.md).
 

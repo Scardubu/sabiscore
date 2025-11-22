@@ -11,12 +11,13 @@ from datetime import datetime, timedelta
 import logging
 
 from ...db.session import get_async_session
-from ...db.models import Match, Odds
+from ...db.models import Match, Odds, Team
 from ...schemas.match import (
     MatchSummary,
     MatchListResponse,
     MatchDetailResponse
 )
+from ...schemas.team import TeamResponse
 from ...core.cache import cache_manager
 from ...utils.mock_data import mock_generator
 
@@ -149,6 +150,56 @@ async def get_upcoming_matches(
     except Exception as e:
         logger.error(f"Error fetching upcoming matches: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch upcoming matches")
+
+
+@router.get("/teams/search", response_model=List[TeamResponse])
+async def search_teams(
+    query: str = Query(..., min_length=2, description="Team name search query"),
+    league: Optional[str] = Query(None, description="Filter by league ID"),
+    limit: int = Query(10, ge=1, le=50, description="Maximum results"),
+    db: AsyncSession = Depends(get_async_session),
+) -> List[TeamResponse]:
+    """
+    Search for teams by name with optional league filter.
+    
+    Supports fuzzy matching for team name autocomplete in match selector.
+    Returns up to `limit` teams ordered by relevance.
+    """
+    try:
+        stmt = select(Team).where(Team.active == True)
+        
+        # Add case-insensitive name search
+        search_pattern = f"%{query}%"
+        stmt = stmt.where(func.lower(Team.name).like(func.lower(search_pattern)))
+        
+        # Optional league filter
+        if league:
+            stmt = stmt.where(Team.league_id == league)
+        
+        # Order by exact match first, then alphabetically
+        exact_match = (func.lower(Team.name) == func.lower(query)).desc()
+        stmt = stmt.order_by(exact_match, Team.name).limit(limit)
+        
+        result = await db.execute(stmt)
+        teams = result.scalars().all()
+        
+        return [
+            TeamResponse(
+                id=str(team.id),
+                name=team.name,
+                league_id=str(team.league_id),
+                country=team.country,
+                stadium=team.stadium,
+            )
+            for team in teams
+        ]
+    
+    except Exception as exc:
+        logger.error(f"Team search failed for query '{query}': {exc}")
+        raise HTTPException(
+            status_code=500,
+            detail="Team search failed"
+        )
 
 
 @router.get("/{match_id}", response_model=MatchDetailResponse)
@@ -309,3 +360,6 @@ async def _fetch_latest_odds(db: AsyncSession, match_ids: List[str]) -> Dict[str
         }
 
     return odds_map
+
+
+
