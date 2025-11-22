@@ -1,6 +1,12 @@
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Any
 import json
+import os
+from dotenv import load_dotenv
+
+# Load environment variables manually to ensure os.environ is populated
+# for fields we handle manually (like ALLOWED_HOSTS)
+load_dotenv()
 
 from pydantic import Field, ValidationError, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -50,14 +56,15 @@ class Settings(BaseSettings):
     enable_security_headers: bool = Field(default=True)
     # Accept env ALLOWED_HOSTS as CSV or JSON list string via a separate raw field to avoid
     # pydantic-settings pre-parsing JSON for complex types which would otherwise fail on CSV.
+    # We intentionally remove the alias here and handle it in a pre-validator to bypass
+    # pydantic-settings' aggressive JSON parsing logic.
     allowed_hosts_raw: Optional[str] = Field(
         default=None,
-        alias="ALLOWED_HOSTS",
         description="Comma-separated or JSON list string of allowed hosts for TrustedHostMiddleware",
     )
     # NOTE: `allowed_hosts` is intentionally not declared as a settings field
     # so that pydantic-settings will not attempt to decode complex env values
-    # into it. Use `ALLOWED_HOSTS` (mapped to `allowed_hosts_raw`) as the
+    # into it. Use `ALLOWED_HOSTS` (mapped to `allowed_hosts_raw` manually) as the
     # single environment entry; the `allowed_hosts` value is computed at
     # runtime via the `allowed_hosts` property below.
     espn_api_key: Optional[str] = None
@@ -135,6 +142,19 @@ class Settings(BaseSettings):
     # Paths
     models_path: Path = Field(default_factory=lambda: _PROJECT_ROOT / "models")
     data_path: Path = Field(default_factory=lambda: (_PROJECT_ROOT / "data" / "processed"))
+
+    @model_validator(mode="before")
+    @classmethod
+    def _load_manual_fields(cls, data: Any) -> Any:
+        """Manually load fields that cause parsing issues with pydantic-settings."""
+        if isinstance(data, dict):
+            # Manually load ALLOWED_HOSTS to avoid pydantic-settings JSON parsing issues
+            if "allowed_hosts_raw" not in data:
+                # Check os.environ directly (populated by load_dotenv or system)
+                val = os.environ.get("ALLOWED_HOSTS")
+                if val is not None:
+                    data["allowed_hosts_raw"] = val
+        return data
 
     def _parse_cors_raw(self) -> List[str]:
         """Parse CORS_ORIGINS from raw env value (CSV or JSON string)."""
