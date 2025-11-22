@@ -3,6 +3,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
+import * as Tooltip from "@radix-ui/react-tooltip";
 
 import { TeamAutocomplete } from "./team-autocomplete";
 import { TeamAutocompleteApi } from "./team-autocomplete-api";
@@ -195,41 +196,56 @@ export function MatchSelector() {
         </div>
 
         {/* Submit Button */}
-        <button
-          type="submit"
-          disabled={loading || !homeTeam.trim() || !awayTeam.trim()}
-          aria-live="polite"
-          className="w-full py-4 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 disabled:bg-slate-700 disabled:from-slate-700 disabled:to-slate-700 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all duration-300 shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/50 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] disabled:scale-100 disabled:shadow-none flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900 group"
-        >
-          {loading ? (
-            <>
-              <div 
-                className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" 
-                role="status"
-                aria-label="Loading"
-              ></div>
-              <span>Generating Insights...</span>
-            </>
-          ) : (
-            <>
-              <svg
-                className="h-5 w-5 transition-transform group-hover:scale-110"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
+        <Tooltip.Provider>
+          <Tooltip.Root>
+            <Tooltip.Trigger asChild>
+              <button
+                type="submit"
+                disabled={loading || !homeTeam.trim() || !awayTeam.trim()}
+                aria-live="polite"
+                className="w-full py-4 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 disabled:bg-slate-700 disabled:from-slate-700 disabled:to-slate-700 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all duration-300 shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/50 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] disabled:scale-100 disabled:shadow-none flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900 group"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 10V3L4 14h7v7l9-11h-7z"
-                />
-              </svg>
-              <span>Generate Insights</span>
-            </>
-          )}
-        </button>
+                {loading ? (
+                  <>
+                    <div 
+                      className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" 
+                      role="status"
+                      aria-label="Loading"
+                    ></div>
+                    <span>Generating Insights...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className="h-5 w-5 transition-transform group-hover:scale-110"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 10V3L4 14h7v7l9-11h-7z"
+                      />
+                    </svg>
+                    <span>Generate Insights</span>
+                  </>
+                )}
+              </button>
+            </Tooltip.Trigger>
+            <Tooltip.Portal>
+              <Tooltip.Content
+                className="z-50 overflow-hidden rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-300 shadow-md animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2"
+                sideOffset={5}
+              >
+                Remember to bet responsibly. Set limits via settings.
+                <Tooltip.Arrow className="fill-slate-900" />
+              </Tooltip.Content>
+            </Tooltip.Portal>
+          </Tooltip.Root>
+        </Tooltip.Provider>
 
         <div className="mt-2 text-center">
           <button
@@ -262,6 +278,35 @@ export function MatchSelector() {
           <span className="mx-2" aria-hidden="true">•</span>
           <span aria-label="Return on investment">+18.4% ROI</span>
         </p>
+        
+        <div className="mt-3 flex justify-center">
+          <Tooltip.Provider delayDuration={300}>
+            <Tooltip.Root>
+              <Tooltip.Trigger asChild>
+                <button 
+                  type="button"
+                  className="text-[10px] uppercase tracking-wider text-slate-600 hover:text-indigo-400 flex items-center gap-1.5 transition-colors group"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 group-hover:scale-110 transition-transform">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                  Responsible Gambling
+                </button>
+              </Tooltip.Trigger>
+              <Tooltip.Portal>
+                <Tooltip.Content
+                  className="z-50 max-w-xs rounded-lg bg-slate-900 px-4 py-3 text-xs leading-relaxed text-slate-300 shadow-xl border border-slate-800 animate-in fade-in zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95"
+                  sideOffset={5}
+                  side="bottom"
+                >
+                  <p className="font-medium text-slate-200 mb-1">Play Responsibly</p>
+                  <p>Betting involves risk. Please gamble responsibly and only bet what you can afford to lose. 18+</p>
+                  <Tooltip.Arrow className="fill-slate-900 border-t border-l border-slate-800" />
+                </Tooltip.Content>
+              </Tooltip.Portal>
+            </Tooltip.Root>
+          </Tooltip.Provider>
+        </div>
       </footer>
     </div>
   );

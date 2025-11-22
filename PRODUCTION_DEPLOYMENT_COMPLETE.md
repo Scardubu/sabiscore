@@ -317,6 +317,26 @@ All core functionality is operational:
 
 ---
 
+## 🛠️ Post-Deployment Fixes (Nov 22, 2025)
+
+### 1. Render Build Command
+- **Fixed:** Added model copying to `render.yaml` build command.
+- **Status:** Applied, pending deployment.
+
+### 2. Smoke Test Script
+- **Fixed:** Updated API endpoint in `test_production_smoke.ps1`.
+- **Status:** Verified locally.
+
+### 3. Frontend Polish
+- **Added:** Responsible gambling tooltip in `match-selector.tsx`.
+- **Status:** Applied.
+
+### 4. Test Hardening
+- **Fixed:** Added `aiosqlite` to `requirements.txt` for local testing.
+- **Status:** Tests passing (121 passed, 55% coverage).
+
+---
+
 **Generated:** November 21, 2025  
 **Deployment Version:** v1.0.0  
 **Branch:** feat/edge-v3  
