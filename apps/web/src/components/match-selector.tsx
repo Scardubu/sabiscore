@@ -22,9 +22,8 @@ export function MatchSelector() {
   const [awayTeam, setAwayTeam] = useState("");
   const [league, setLeague] = useState<LeagueId>("EPL");
   const [loading, setLoading] = useState(false);
-  const [useApiAutocomplete, setUseApiAutocomplete] = useState(
-    process.env.NEXT_PUBLIC_USE_API_AUTOCOMPLETE !== 'false'
-  );
+  const useApiAutocomplete =
+    process.env.NEXT_PUBLIC_USE_API_AUTOCOMPLETE !== "false";
   const router = useRouter();
 
   const STORAGE_KEY = "sabiscore.matchSelector.v1";
@@ -114,24 +113,39 @@ export function MatchSelector() {
             role="group" 
             aria-labelledby="league-selector-label"
           >
-            {LEAGUES.map((l, idx) => (
-              <button
-                key={l.id}
-                type="button"
-                onClick={() => handleLeagueSelect(l.id)}
-                aria-label={`Select ${l.name}`}
-                aria-pressed={league === l.id}
-                style={{ animationDelay: `${idx * 50}ms` }}
-                className={`p-3 rounded-lg border-2 transition-all duration-300 transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900 animate-in fade-in slide-in-from-bottom-3 ${
-                  league === l.id
-                    ? "border-indigo-500 bg-indigo-500/10 text-slate-100 shadow-lg shadow-indigo-500/30 ring-2 ring-indigo-500/20"
-                    : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600 hover:bg-slate-800 hover:shadow-md"
-                }`}
-              >
-                <div className={`text-2xl mb-1 transition-transform ${league === l.id ? 'animate-pulse' : ''}`} aria-hidden="true">{l.flag}</div>
-                <div className="text-xs font-medium">{l.name}</div>
-              </button>
-            ))}
+            {LEAGUES.map((l, idx) => {
+              const animationDelayClass = [
+                "delay-0",
+                "delay-75",
+                "delay-150",
+                "delay-225",
+                "delay-300",
+              ][idx] ?? "delay-0";
+
+              return (
+                <button
+                  key={l.id}
+                  type="button"
+                  onClick={() => handleLeagueSelect(l.id)}
+                  aria-label={`Select ${l.name}`}
+                  className={`p-3 rounded-lg border-2 transition-all duration-300 transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900 animate-in fade-in slide-in-from-bottom-3 ${animationDelayClass} ${
+                    league === l.id
+                      ? "border-indigo-500 bg-indigo-500/10 text-slate-100 shadow-lg shadow-indigo-500/30 ring-2 ring-indigo-500/20"
+                      : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600 hover:bg-slate-800 hover:shadow-md"
+                  }`}
+                >
+                  <div
+                    className={`text-2xl mb-1 transition-transform ${
+                      league === l.id ? "animate-pulse" : ""
+                    }`}
+                    aria-hidden="true"
+                  >
+                    {l.flag}
+                  </div>
+                  <div className="text-xs font-medium">{l.name}</div>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -185,7 +199,6 @@ export function MatchSelector() {
           type="submit"
           disabled={loading || !homeTeam.trim() || !awayTeam.trim()}
           aria-live="polite"
-          aria-busy={loading}
           className="w-full py-4 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 disabled:bg-slate-700 disabled:from-slate-700 disabled:to-slate-700 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all duration-300 shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/50 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] disabled:scale-100 disabled:shadow-none flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900 group"
         >
           {loading ? (

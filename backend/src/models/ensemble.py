@@ -3,13 +3,15 @@ import logging
 import os
 import pickle
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
 
 import joblib
 import pandas as pd
 
 from .god_stack_superlearner import GodStackSuperLearner
 from .sota_stack import SotaStackingEnsemble
+from ..core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +26,7 @@ class EnsembleModel:
     def __init__(
         self,
         *,
+        models_path: Optional[Union[str, Path]] = None,
         optimize: bool = False,
         super_learner_kwargs: Optional[Dict[str, Any]] = None,
         enable_sota_stack: Optional[bool] = None,
@@ -46,23 +49,31 @@ class EnsembleModel:
         )
         self.sota_kwargs = sota_kwargs or {}
         self.sota_stack: Optional[SotaStackingEnsemble] = None
+        self.models_path = Path(models_path) if models_path else settings.models_path
+        self.models_path.mkdir(parents=True, exist_ok=True)
+        self.league: Optional[str] = None
 
-    def build_ensemble(self, X: pd.DataFrame, y: pd.DataFrame) -> None:
+    def build_ensemble(self, X: pd.DataFrame, y: pd.DataFrame, *, league: Optional[str] = None) -> None:
         """Train the God Stack Super Learner."""
         try:
             logger.info("Building GodStack Super Learner ensemble...")
             target = self._extract_target(y)
             self.feature_columns = list(X.columns)
+            self.league = league or self.league
 
             self.super_learner = GodStackSuperLearner(**self.super_learner_kwargs)
             self.super_learner.fit(X, target)
             self.is_trained = True
             self.model_metadata = self._build_metadata(len(X))
+            if self.league:
+                self.model_metadata.setdefault("league", self.league)
 
             if self.enable_sota_stack and SotaStackingEnsemble.is_available():
                 try:
                     logger.info("Training AutoGluon SOTA stacking layer")
-                    self.sota_stack = SotaStackingEnsemble(**self.sota_kwargs)
+                    sota_params = dict(self.sota_kwargs)
+                    sota_params.setdefault("predictor_path", self.models_path)
+                    self.sota_stack = SotaStackingEnsemble(**sota_params)
                     self.sota_stack.fit(X, target)
                     self.model_metadata.update(
                         {
@@ -84,6 +95,10 @@ class EnsembleModel:
         except Exception as exc:
             logger.error("Failed to build Super Learner ensemble: %s", exc)
             raise
+
+    def get_metadata(self) -> Dict[str, Any]:
+        """Return a shallow copy of model metadata for inspection/tests."""
+        return dict(self.model_metadata)
 
     def _create_meta_features(self, X: pd.DataFrame) -> pd.DataFrame:
         """Legacy helper retained for backward-compatible inference."""
@@ -115,29 +130,42 @@ class EnsembleModel:
     def _predict_super_learner(self, X: pd.DataFrame) -> pd.DataFrame:
         if self.super_learner is None:
             raise RuntimeError("Super Learner not initialised")
-        probs = self.super_learner.predict_proba(X)
+
+        prob_columns = ["home_win", "draw", "away_win"]
+        prediction_frame: Optional[pd.DataFrame] = None
+
+        if hasattr(self.super_learner, "predict"):
+            try:
+                raw_preds = self.super_learner.predict(X)
+                if isinstance(raw_preds, pd.DataFrame):
+                    prediction_frame = raw_preds.copy()
+            except Exception:  # pragma: no cover - fall back gracefully
+                logger.debug("Super Learner predict path failed, falling back to predict_proba", exc_info=True)
+
+        if prediction_frame is None and hasattr(self.super_learner, "predict_proba"):
+            probs = self.super_learner.predict_proba(X)
+            prediction_frame = pd.DataFrame(probs, columns=["home_win_prob", "draw_prob", "away_win_prob"], index=X.index)
+
+        if prediction_frame is None:
+            raise RuntimeError("Super Learner does not provide predict or predict_proba outputs")
+
+        if set(prob_columns).issubset(prediction_frame.columns):
+            df = prediction_frame[prob_columns].copy()
+        else:
+            alt_columns = ["home_win_prob", "draw_prob", "away_win_prob"]
+            if not set(alt_columns).issubset(prediction_frame.columns):
+                raise RuntimeError("Super Learner predictions missing probability columns")
+            rename_map = dict(zip(alt_columns, prob_columns))
+            df = prediction_frame[alt_columns].rename(columns=rename_map)
 
         if self.sota_stack is not None:
             try:
-                probs = self.sota_stack.blend_with_super_learner(probs, X)
-            except Exception:  # pragma: no cover - non-critical
+                blended = self.sota_stack.blend_with_super_learner(df[prob_columns].to_numpy(), X)
+                df = pd.DataFrame(blended, columns=prob_columns, index=X.index)
+            except Exception:  # pragma: no cover - blending is optional
                 logger.warning("Failed to blend AutoGluon predictions", exc_info=True)
 
-        df = pd.DataFrame(
-            probs,
-            columns=["home_win_prob", "draw_prob", "away_win_prob"],
-            index=X.index,
-        )
-        df["prediction"] = df[["home_win_prob", "draw_prob", "away_win_prob"]].idxmax(axis=1)
-        df["prediction"] = df["prediction"].map(
-            {
-                "home_win_prob": "home_win",
-                "draw_prob": "draw",
-                "away_win_prob": "away_win",
-            }
-        )
-        df["confidence"] = df[["home_win_prob", "draw_prob", "away_win_prob"]].max(axis=1)
-        return df
+        return df[prob_columns]
 
     def _predict_legacy(self, X: pd.DataFrame) -> pd.DataFrame:
         """Legacy prediction path for pre-Super Learner artifacts."""
@@ -239,10 +267,25 @@ class EnsembleModel:
             return y.astype(int)
         return pd.Series(y).astype(int)
 
-    def save_model(self, path: str, model_name: str = "ensemble") -> None:
-        """Save model to disk"""
+    def save_model(self, destination: Optional[Union[str, Path]] = None, model_name: Optional[str] = None) -> Path:
+        """Persist the ensemble to disk.
+
+        Supports both directory targets (plus optional model_name) and direct
+        file paths ending in .pkl for backward compatibility with existing
+        training scripts and unit tests.
+        """
         try:
-            os.makedirs(path, exist_ok=True)
+            target = Path(destination) if destination else self.models_path
+            if target.suffix == ".pkl":
+                model_path = target
+                model_path.parent.mkdir(parents=True, exist_ok=True)
+                metadata_path = model_path.with_name(f"{model_path.stem}_metadata.json")
+            else:
+                model_dir = target
+                model_dir.mkdir(parents=True, exist_ok=True)
+                model_id = model_name or "ensemble"
+                model_path = model_dir / f"{model_id}.pkl"
+                metadata_path = model_dir / f"{model_id}_metadata.json"
 
             model_data = {
                 "models": self.models,
@@ -254,24 +297,28 @@ class EnsembleModel:
                 "sota_stack": self.sota_stack,
             }
 
-            model_path = os.path.join(path, f"{model_name}.pkl")
             joblib.dump(model_data, model_path)
 
-            # Save metadata
-            metadata_path = os.path.join(path, f"{model_name}_metadata.json")
-            with open(metadata_path, 'w') as f:
+            with metadata_path.open("w", encoding="utf-8") as f:
                 json.dump(self.model_metadata, f, indent=2)
 
-            logger.info(f"Model saved to {model_path}")
+            logger.info("Model saved to %s", model_path)
+            return model_path
 
         except Exception as e:
-            logger.error(f"Failed to save model: {e}")
+            logger.error("Failed to save model: %s", e)
             raise
 
     @classmethod
-    def load_model(cls, model_path: str) -> 'SabiScoreEnsemble':
+    def load_model(
+        cls,
+        model_path: Union[str, Path],
+        *,
+        models_path: Optional[Union[str, Path]] = None,
+    ) -> 'SabiScoreEnsemble':
         """Load model from disk"""
-        if not os.path.exists(model_path):
+        model_path = Path(model_path)
+        if not model_path.exists():
             raise FileNotFoundError(f"Model file not found: {model_path}")
 
         try:
@@ -289,7 +336,7 @@ class EnsembleModel:
             # Use joblib to load; catch pickle/unpickle related errors explicitly
             model_data = joblib.load(model_path)
 
-            instance = cls()
+            instance = cls(models_path=models_path or model_path.parent)
             if 'super_learner' in model_data and model_data['super_learner'] is not None:
                 instance.super_learner = model_data['super_learner']
                 instance.feature_columns = model_data.get('feature_columns', [])
@@ -302,6 +349,14 @@ class EnsembleModel:
                 instance.feature_columns = model_data.get('feature_columns', [])
                 instance.model_metadata = model_data.get('model_metadata', {})
                 instance.is_trained = model_data.get('is_trained', False)
+
+            metadata_file = model_path.with_name(f"{model_path.stem}_metadata.json")
+            if metadata_file.exists():
+                try:
+                    with metadata_file.open("r", encoding="utf-8") as meta_fh:
+                        instance.model_metadata = json.load(meta_fh)
+                except Exception:
+                    logger.warning("Failed to read metadata file %s", metadata_file)
 
             logger.info(f"Model loaded from {model_path}")
             return instance
@@ -346,7 +401,7 @@ class EnsembleModel:
 
             try:
                 logger.info(f"Attempting to load model candidate: {model_path}")
-                return cls.load_model(model_path)
+                return cls.load_model(model_path, models_path=models_path)
             except ModelLoadError as mle:
                 # Log and try next candidate
                 logger.warning(f"Model candidate {candidate} is invalid: {mle}")

@@ -21,27 +21,40 @@ else:
 
 @pytest.fixture(scope="session", autouse=True)
 def mock_heavy_imports():
-    """Mock heavy ML libraries before they're imported to speed up tests."""
-    # Mock sklearn components that take long to import
-    mock_sklearn = MagicMock()
-    sys.modules['sklearn'] = mock_sklearn
-    sys.modules['sklearn.ensemble'] = MagicMock()
-    sys.modules['sklearn.linear_model'] = MagicMock()
-    sys.modules['sklearn.preprocessing'] = MagicMock()
-    sys.modules['sklearn.model_selection'] = MagicMock()
-    sys.modules['sklearn.metrics'] = MagicMock()
-    sys.modules['sklearn.calibration'] = MagicMock()
-    
-    # Mock other heavy imports
-    sys.modules['xgboost'] = MagicMock()
-    sys.modules['lightgbm'] = MagicMock()
-    sys.modules['catboost'] = MagicMock()
-    sys.modules['h2o'] = MagicMock()
-    
+    """Mock optional heavy ML libraries only when they are missing.
+
+    The original implementation replaced real packages (sklearn, lightgbm, etc.)
+    with MagicMocks even when they were installed, which caused AutoGluon to emit
+    MagicMock values that could not be pickled during SOTA ensemble tests. The
+    updated shim now inspects each module first and only injects a MagicMock when
+    the real dependency is *not* available on the current machine.
+    """
+
+    mocked_modules = []
+    heavy_modules = [
+        "sklearn",
+        "sklearn.ensemble",
+        "sklearn.linear_model",
+        "sklearn.preprocessing",
+        "sklearn.model_selection",
+        "sklearn.metrics",
+        "sklearn.calibration",
+        "xgboost",
+        "lightgbm",
+        "catboost",
+        "h2o",
+    ]
+
+    for module_name in heavy_modules:
+        if module_name in sys.modules:
+            continue
+        try:
+            __import__(module_name)
+        except ImportError:
+            sys.modules[module_name] = MagicMock(name=f"mock_{module_name}")
+            mocked_modules.append(module_name)
+
     yield
-    
-    # Cleanup after tests
-    for module in ['sklearn', 'sklearn.ensemble', 'sklearn.linear_model', 
-                   'sklearn.preprocessing', 'sklearn.model_selection', 'sklearn.metrics',
-                   'sklearn.calibration', 'xgboost', 'lightgbm', 'catboost', 'h2o']:
-        sys.modules.pop(module, None)
+
+    for module_name in mocked_modules:
+        sys.modules.pop(module_name, None)

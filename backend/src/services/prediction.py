@@ -94,11 +94,20 @@ class PredictionService:
             raise
 
         row = prediction_df.iloc[0]
-        probabilities = {
-            "home_win": float(row["home_win_prob"]),
-            "draw": float(row["draw_prob"]),
-            "away_win": float(row["away_win_prob"]),
-        }
+        
+        # Handle both legacy and new column names
+        if "home_win_prob" in row:
+            probabilities = {
+                "home_win": float(row["home_win_prob"]),
+                "draw": float(row["draw_prob"]),
+                "away_win": float(row["away_win_prob"]),
+            }
+        else:
+            probabilities = {
+                "home_win": float(row["home_win"]),
+                "draw": float(row["draw"]),
+                "away_win": float(row["away_win"]),
+            }
 
         bankroll = float(request.bankroll or self._default_bankroll)
         value_bets = self._detect_value_bets(match_id, probabilities, request.odds, bankroll)

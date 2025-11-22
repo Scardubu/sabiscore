@@ -86,6 +86,7 @@ class SotaStackingEnsemble:
         presets: str = _DEFAULT_PRESETS,
         hyperparameters: str | Dict[str, Any] | None = _DEFAULT_HPARAMS,
         calibration: bool = True,
+        calibrate: Optional[bool] = None,
         artifact_subdir: str = "autogluon_sota",
         predictor_path: Optional[Path] = None,
         blend_floor: float = 0.25,
@@ -101,7 +102,7 @@ class SotaStackingEnsemble:
         self.time_limit = time_limit
         self.presets = presets
         self.hyperparameters = hyperparameters
-        self.calibration = calibration
+        self.calibration = calibration if calibrate is None else calibrate
         self.metrics: Dict[str, Any] = {}
         self._class_labels: List[str] = list(_CLASS_LABELS)
         self._artifact_root = (predictor_path or settings.models_path).joinpath(artifact_subdir)
@@ -110,7 +111,7 @@ class SotaStackingEnsemble:
         self._predictor: Optional[TabularPredictor] = None  # type: ignore[assignment]
         self._blend_floor = blend_floor
         self._blend_ceiling = blend_ceiling
-        self.enabled = AUTOGLUON_AVAILABLE
+        self.enabled = self.is_available()
         self.prefer_gpu = prefer_gpu
         self.enable_tabpfn_adapter = enable_tabpfn_adapter and TABPFN_AVAILABLE
         self.enable_river_adapter = enable_river_adapter and RIVER_AVAILABLE
@@ -133,7 +134,7 @@ class SotaStackingEnsemble:
     # Public API
     # ------------------------------------------------------------------
     def fit(self, X: pd.DataFrame, y: pd.Series) -> None:
-        if not AUTOGLUON_AVAILABLE or TabularPredictor is None:
+        if not self.enabled or not self.is_available() or TabularPredictor is None:
             raise RuntimeError(
                 "AutoGluon Tabular is not installed. Install autogluon.tabular to enable SOTA stacking."
             )
@@ -255,7 +256,7 @@ class SotaStackingEnsemble:
 
     @staticmethod
     def is_available() -> bool:
-        return AUTOGLUON_AVAILABLE
+        return bool(AUTOGLUON_AVAILABLE and TabularPredictor is not None)
 
     # ------------------------------------------------------------------
     # Persistence helpers
@@ -265,7 +266,7 @@ class SotaStackingEnsemble:
             return self._predictor
         if self._predictor_dir is None:
             return None
-        if not AUTOGLUON_AVAILABLE or TabularPredictor is None:
+        if not self.is_available():
             logger.warning("Cannot reload AutoGluon predictor because autogluon is missing")
             return None
         if not self._predictor_dir.exists():

@@ -140,7 +140,10 @@ class GodStackSuperLearner:
     def _resolve_engine(self, preference: Optional[str]) -> str:
         pref = (preference or "auto").strip().lower()
         if pref == "auto":
-            return "h2o" if H2O_AVAILABLE else "sklearn"
+            # Default to sklearn for deterministic local runs; users can
+            # explicitly set SUPER_LEARNER_ENGINE=h2o when the H2O stack is
+            # available and desired.
+            return "sklearn"
         if pref == "h2o":
             if H2O_AVAILABLE:
                 return "h2o"

@@ -74,10 +74,9 @@ export default function HomePage() {
             ))}
           </section>
 
-          {/* Match Selector - temporarily removed for debugging */}
-          {/* <section className="animate-fade-in">
+          <section className="animate-fade-in">
             <MatchSelector />
-          </section> */}
+          </section>
 
           {/* Features */}
           <section className="grid grid-cols-1 md:grid-cols-3 gap-8 animate-fade-in">
