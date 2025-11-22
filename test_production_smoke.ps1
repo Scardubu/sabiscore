@@ -104,7 +104,7 @@ $apiHealthResult = Test-Endpoint -Name "API v1 Health" -Url "$renderApiUrl/api/v
 $testResults += @{ Test = "API v1 Health"; Result = $apiHealthResult }
 
 # Test team search (validate autocomplete path)
-$teamSearchUrl = "$renderApiUrl/api/v1/matches/search?q=Chelsea"
+$teamSearchUrl = "$renderApiUrl/api/v1/matches/teams/search?query=Chelsea"
 $teamSearchResult = Test-Endpoint -Name "Team Search" -Url $teamSearchUrl
 if ($teamSearchResult.Success) {
     $teamsPayload = $teamSearchResult.Data
