@@ -114,7 +114,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# Python lib - but exclude apps/web/src/lib which is needed
+/lib/
 lib64/
 parts/
 sdist/
