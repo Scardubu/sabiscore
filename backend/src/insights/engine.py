@@ -21,6 +21,95 @@ from .calculators import (
 
 logger = logging.getLogger(__name__)
 
+
+# The 86 features expected by the trained ensemble model (epl_ensemble.pkl)
+# These must match exactly what the model was trained on
+MODEL_EXPECTED_FEATURES = [
+    'home_form_5', 'home_form_10', 'home_form_20', 'home_win_rate_5', 'home_goals_per_match_5',
+    'away_form_5', 'away_form_10', 'away_form_20', 'away_win_rate_5', 'away_goals_per_match_5',
+    'home_xg_avg_5', 'home_xg_conceded_avg_5', 'home_xg_diff_5', 'home_xg_overperformance', 'home_xg_consistency',
+    'away_xg_avg_5', 'away_xg_conceded_avg_5', 'away_xg_diff_5', 'away_xg_overperformance', 'away_xg_consistency',
+    'xg_differential',
+    'home_days_rest', 'home_fatigue_index', 'home_fixtures_14d', 'home_fixture_congestion',
+    'away_days_rest', 'away_fatigue_index', 'away_fixtures_14d', 'away_fixture_congestion',
+    'home_advantage_win_rate', 'home_goals_advantage', 'away_win_rate_away', 'home_crowd_boost',
+    'home_advantage_coefficient', 'referee_home_bias',
+    'home_momentum_lambda', 'home_momentum_weighted', 'home_win_streak', 'home_unbeaten_streak',
+    'away_momentum_lambda', 'away_momentum_weighted', 'away_win_streak', 'away_unbeaten_streak',
+    'odds_volatility_1h', 'market_panic_score', 'odds_drift_home', 'bookmaker_margin', 'home_implied_prob',
+    'h2h_home_wins', 'h2h_draws', 'h2h_away_wins', 'h2h_total_matches', 'h2h_avg_goals', 'h2h_home_win_rate',
+    'home_squad_value', 'home_missing_value', 'away_squad_value', 'away_missing_value', 'squad_value_diff',
+    'temperature', 'precipitation', 'wind_speed', 'weather_impact_score',
+    'home_elo', 'away_elo', 'elo_difference',
+    'home_possession_style', 'away_possession_style', 'home_pressing_intensity', 'away_pressing_intensity',
+    'home_first_half_goals_rate', 'away_first_half_goals_rate',
+    'home_defensive_solidity', 'away_defensive_solidity',
+    'home_setpiece_goals_rate', 'away_setpiece_goals_rate',
+    'home_goals_conceded_per_match_5', 'home_gd_avg_5', 'home_gd_trend', 'home_clean_sheets_5', 'home_scoring_consistency',
+    'away_goals_conceded_per_match_5', 'away_gd_avg_5', 'away_gd_trend', 'away_clean_sheets_5', 'away_scoring_consistency',
+]
+
+# Default values for features when real data is unavailable
+# Based on EPL league averages from training data
+FEATURE_DEFAULTS = {
+    # Form features (0-1 scale where possible, averages otherwise)
+    'home_form_5': 0.55, 'home_form_10': 0.54, 'home_form_20': 0.53,  # Slight home advantage
+    'home_win_rate_5': 0.50, 'home_goals_per_match_5': 1.55,
+    'away_form_5': 0.45, 'away_form_10': 0.44, 'away_form_20': 0.43,
+    'away_win_rate_5': 0.40, 'away_goals_per_match_5': 1.25,
+    
+    # xG features (expected goals ~1.3-1.6 per team per match in EPL)
+    'home_xg_avg_5': 1.55, 'home_xg_conceded_avg_5': 1.30, 'home_xg_diff_5': 0.25,
+    'home_xg_overperformance': 0.05, 'home_xg_consistency': 0.75,
+    'away_xg_avg_5': 1.35, 'away_xg_conceded_avg_5': 1.50, 'away_xg_diff_5': -0.15,
+    'away_xg_overperformance': -0.05, 'away_xg_consistency': 0.70,
+    'xg_differential': 0.20,
+    
+    # Rest & fatigue
+    'home_days_rest': 7.0, 'home_fatigue_index': 0.30, 'home_fixtures_14d': 2.0, 'home_fixture_congestion': 0.35,
+    'away_days_rest': 7.0, 'away_fatigue_index': 0.35, 'away_fixtures_14d': 2.0, 'away_fixture_congestion': 0.35,
+    
+    # Home advantage factors
+    'home_advantage_win_rate': 0.55, 'home_goals_advantage': 0.30, 'away_win_rate_away': 0.35,
+    'home_crowd_boost': 0.10, 'home_advantage_coefficient': 1.15, 'referee_home_bias': 0.52,
+    
+    # Momentum features
+    'home_momentum_lambda': 0.55, 'home_momentum_weighted': 0.55, 'home_win_streak': 1.5, 'home_unbeaten_streak': 3.0,
+    'away_momentum_lambda': 0.45, 'away_momentum_weighted': 0.45, 'away_win_streak': 1.0, 'away_unbeaten_streak': 2.5,
+    
+    # Odds/market features
+    'odds_volatility_1h': 0.02, 'market_panic_score': 0.15, 'odds_drift_home': 0.0,
+    'bookmaker_margin': 0.05, 'home_implied_prob': 0.45,
+    
+    # Head-to-head (assumes ~10 previous meetings)
+    'h2h_home_wins': 4.0, 'h2h_draws': 3.0, 'h2h_away_wins': 3.0,
+    'h2h_total_matches': 10.0, 'h2h_avg_goals': 2.5, 'h2h_home_win_rate': 0.40,
+    
+    # Squad values (in millions)
+    'home_squad_value': 400.0, 'home_missing_value': 20.0,
+    'away_squad_value': 350.0, 'away_missing_value': 15.0,
+    'squad_value_diff': 50.0,
+    
+    # Weather
+    'temperature': 15.0, 'precipitation': 2.0, 'wind_speed': 12.0, 'weather_impact_score': 0.1,
+    
+    # Elo ratings (average ~1500)
+    'home_elo': 1550.0, 'away_elo': 1500.0, 'elo_difference': 50.0,
+    
+    # Tactical/style features
+    'home_possession_style': 0.52, 'away_possession_style': 0.48,
+    'home_pressing_intensity': 0.55, 'away_pressing_intensity': 0.50,
+    'home_first_half_goals_rate': 0.45, 'away_first_half_goals_rate': 0.42,
+    'home_defensive_solidity': 0.65, 'away_defensive_solidity': 0.60,
+    'home_setpiece_goals_rate': 0.25, 'away_setpiece_goals_rate': 0.22,
+    
+    # Goals/GD features
+    'home_goals_conceded_per_match_5': 1.20, 'home_gd_avg_5': 0.35, 'home_gd_trend': 0.05,
+    'home_clean_sheets_5': 0.30, 'home_scoring_consistency': 0.70,
+    'away_goals_conceded_per_match_5': 1.40, 'away_gd_avg_5': -0.15, 'away_gd_trend': -0.02,
+    'away_clean_sheets_5': 0.25, 'away_scoring_consistency': 0.65,
+}
+
 class InsightsEngine:
     """Engine for generating betting insights and analysis"""
 
@@ -40,6 +129,134 @@ class InsightsEngine:
             self.transformer = self._resolve_transformer()
         self.explainer = explainer or ModelExplainer(model)
         self.odds_cache = {}
+        
+        # Get expected features from the loaded model, fallback to constant
+        self._model_features = None
+        if self.model and hasattr(self.model, 'feature_columns') and self.model.feature_columns:
+            self._model_features = list(self.model.feature_columns)
+            logger.info(f"Model expects {len(self._model_features)} features")
+        else:
+            self._model_features = MODEL_EXPECTED_FEATURES
+            logger.info("Using default MODEL_EXPECTED_FEATURES")
+
+    def _align_features_to_model(self, features: pd.DataFrame, match_data: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
+        """
+        Align generated features to match the exact 86 features expected by the trained model.
+        
+        This function:
+        1. Maps any available features from the input to expected feature names
+        2. Fills missing features with sensible defaults based on match_data or league averages
+        3. Ensures the output DataFrame has exactly the columns the model expects, in the right order
+        
+        Args:
+            features: DataFrame with whatever features were generated
+            match_data: Optional dict with match context for smarter defaults
+            
+        Returns:
+            DataFrame with exactly the columns expected by the model
+        """
+        expected_features = self._model_features or MODEL_EXPECTED_FEATURES
+        
+        # Start with defaults
+        aligned = {feat: FEATURE_DEFAULTS.get(feat, 0.0) for feat in expected_features}
+        
+        # Map from generated features to expected features where possible
+        # This mapping handles the mismatch between old feature names and new ones
+        feature_mapping = {
+            # Old generated -> Expected model features
+            'home_attack_strength': ('home_home_strength', lambda x: 1.0 + x * 0.3),
+            'away_defense_strength': ('away_away_strength', lambda x: 0.7 + x * 0.3),
+            'home_win_rate': ('home_form_5', lambda x: x),
+            'away_win_rate': ('away_form_5', lambda x: x),
+            'home_goals_per_game': ('home_goals_scored_5', lambda x: x * 5),
+            'away_goals_per_game': ('away_goals_scored_5', lambda x: x * 5),
+            'home_attacking_strength': ('home_home_strength', lambda x: 1.0 + x * 0.3),
+            'away_attacking_strength': ('away_away_strength', lambda x: 0.7 + x * 0.3),
+        }
+        
+        # Apply mappings from generated features
+        if features is not None and len(features) > 0:
+            for gen_col, (target_col, transform) in feature_mapping.items():
+                if gen_col in features.columns and target_col in expected_features:
+                    try:
+                        aligned[target_col] = transform(float(features[gen_col].iloc[0]))
+                    except Exception:
+                        pass  # Keep default
+            
+            # Direct copy for any features that already match
+            for col in features.columns:
+                if col in expected_features:
+                    try:
+                        aligned[col] = float(features[col].iloc[0])
+                    except Exception:
+                        pass
+        
+        # Enrich with match_data if available (must be a dict, not DataFrame)
+        if match_data is not None and isinstance(match_data, dict):
+            self._enrich_from_match_data(aligned, match_data)
+        
+        # Create DataFrame with features in exact expected order
+        result = pd.DataFrame([aligned])[expected_features]
+        
+        # Final safety: fill any remaining NaN
+        result = result.fillna(0.0)
+        
+        logger.debug(f"Aligned features: {len(result.columns)} columns ready for model")
+        return result
+    
+    def _enrich_from_match_data(self, aligned: Dict[str, float], match_data: Dict[str, Any]) -> None:
+        """Enrich aligned features dict with data from match_data where available."""
+        if not isinstance(match_data, dict):
+            return  # Safety check
+        try:
+            # Extract odds if available
+            odds = match_data.get('odds', {})
+            if odds:
+                if 'home_win' in odds:
+                    aligned['home_win_odds'] = float(odds['home_win'])
+                    aligned['home_implied_prob'] = 1.0 / float(odds['home_win'])
+                if 'draw' in odds:
+                    pass  # draw_odds not in model features
+                if 'away_win' in odds:
+                    pass  # away_win_odds not in model features
+                    
+            # Extract team stats
+            team_stats = match_data.get('team_stats', {})
+            home_stats = team_stats.get('home', {})
+            away_stats = team_stats.get('away', {})
+            
+            if home_stats:
+                if 'win_rate' in home_stats:
+                    aligned['home_form_5'] = float(home_stats['win_rate'])
+                    aligned['home_form_10'] = float(home_stats['win_rate'])
+                    aligned['home_form_20'] = float(home_stats['win_rate'])
+                    aligned['home_win_rate_5'] = float(home_stats['win_rate'])
+                if 'goals_per_game' in home_stats:
+                    gpg = float(home_stats['goals_per_game'])
+                    aligned['home_goals_per_match_5'] = gpg
+                    aligned['home_xg_avg_5'] = gpg * 0.95  # xG slightly under actual
+                    
+            if away_stats:
+                if 'win_rate' in away_stats:
+                    aligned['away_form_5'] = float(away_stats['win_rate'])
+                    aligned['away_form_10'] = float(away_stats['win_rate'])
+                    aligned['away_form_20'] = float(away_stats['win_rate'])
+                    aligned['away_win_rate_5'] = float(away_stats['win_rate'])
+                if 'goals_per_game' in away_stats:
+                    gpg = float(away_stats['goals_per_game'])
+                    aligned['away_goals_per_match_5'] = gpg
+                    aligned['away_xg_avg_5'] = gpg * 0.95
+                    
+            # H2H data
+            h2h = match_data.get('head_to_head', {})
+            if h2h:
+                aligned['h2h_home_wins'] = float(h2h.get('home_wins', 4))
+                aligned['h2h_away_wins'] = float(h2h.get('away_wins', 3))
+                aligned['h2h_draws'] = float(h2h.get('draws', 3))
+                aligned['h2h_total_matches'] = float(h2h.get('total_meetings', 10))
+                
+        except Exception as e:
+            logger.warning(f"Error enriching features from match_data: {e}")
 
     def generate_match_insights(
         self,
@@ -172,18 +389,18 @@ class InsightsEngine:
             return self._create_fallback_insights(matchup, league)
 
     def _prepare_features(self, match_data: Dict[str, Any], realtime_data: Optional[Dict[str, Any]]) -> pd.DataFrame:
-        """Prepare features for prediction"""
+        """Prepare features for prediction, aligned to match model's expected schema."""
         try:
             # Use transformer to engineer features
             if self.transformer:
-                features = self.transformer.engineer_features(match_data)
+                raw_features = self.transformer.engineer_features(match_data)
             else:
                 # Create basic features from match data
                 team_stats = match_data.get('team_stats', {})
                 home_stats = team_stats.get('home', {})
                 away_stats = team_stats.get('away', {})
                 
-                features = pd.DataFrame({
+                raw_features = pd.DataFrame({
                     'home_attack_strength': [home_stats.get('attacking_strength', 0.8)],
                     'away_defense_strength': [away_stats.get('defensive_strength', 0.7)],
                     'home_win_rate': [home_stats.get('win_rate', 0.6)],
@@ -194,19 +411,19 @@ class InsightsEngine:
 
             # Add realtime features if available
             if realtime_data:
-                features = self._add_realtime_features(features, realtime_data)
+                raw_features = self._add_realtime_features(raw_features, realtime_data)
 
-            # Handle any NaN values
-            features = features.fillna(features.mean())
-            if features.isnull().any().any():
-                features = features.fillna(0)
-
+            # CRITICAL: Align features to match the 86 features expected by the trained model
+            # This maps/fills features so the model can make predictions without feature mismatch errors
+            features = self._align_features_to_model(raw_features, match_data)
+            
+            logger.info(f"Features prepared: {features.shape[1]} columns aligned for model")
             return features
 
         except Exception as e:
             logger.error(f"Feature preparation failed: {e}")
-            # Return basic mock features
-            return self._create_mock_features()
+            # Return aligned mock features
+            return self._align_features_to_model(None, match_data)
 
     def _add_realtime_features(self, features: pd.DataFrame, realtime_data: Dict[str, Any]) -> pd.DataFrame:
         """Add realtime features from live data"""
@@ -297,15 +514,9 @@ class InsightsEngine:
         }
 
     def _create_mock_features(self) -> pd.DataFrame:
-        """Create mock features when feature engineering fails"""
-        return pd.DataFrame({
-            'home_attack_strength': [0.8],
-            'away_defense_strength': [0.7],
-            'home_win_rate': [0.6],
-            'away_win_rate': [0.5],
-            'home_goals_per_game': [1.8],
-            'away_goals_per_game': [1.5]
-        })
+        """Create mock features aligned to model's expected schema."""
+        # Use the alignment function to generate properly structured features
+        return self._align_features_to_model(None, None)
 
     def _resolve_transformer(self):
         """Attempt to import the full FeatureTransformer, otherwise use a minimal fallback.

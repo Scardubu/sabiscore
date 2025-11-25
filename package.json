@@ -4,7 +4,6 @@
   "private": true,
   "description": "Edge-first Next.js 15 + FastAPI monorepo powering Sabiscore - Sub-150ms TTFB, 10k CCU, +18% ROI",
   "license": "MIT",
-  "packageManager": "npm@10.8.2",
   "engines": {
     "node": ">=20.11.0",
     "npm": ">=10.8.0"

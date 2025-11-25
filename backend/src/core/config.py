@@ -31,9 +31,9 @@ class Settings(BaseSettings):
     database_pool_timeout: int = Field(default=30, ge=1)
     database_pool_recycle: int = Field(default=3600, ge=60)
 
-    # Redis Cache
+    # Redis Cache (Redis Labs Cloud)
     redis_url: str = Field(
-        default="redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379",
+        default="redis://default:UgnIjbBTIEutO3Rz8hSFnZchPqiR3Xbx@redis-15727.c8.us-east-1-4.ec2.cloud.redislabs.com:15727",
         alias="REDIS_URL",
         description="Redis connection URL.",
     )

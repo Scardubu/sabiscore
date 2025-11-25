@@ -22,11 +22,14 @@ from ..core.logging import get_logger
 
 logger = get_logger(__name__)
 
+# Redis Labs Cloud URL
+REDIS_URL = "redis://default:UgnIjbBTIEutO3Rz8hSFnZchPqiR3Xbx@redis-15727.c8.us-east-1-4.ec2.cloud.redislabs.com:15727"
+
 # Initialize Celery
 celery_app = Celery(
     'sabiscore_tasks',
-    broker='redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379',
-    backend='redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379'
+    broker=REDIS_URL,
+    backend=REDIS_URL
 )
 
 # Celery configuration
@@ -84,7 +87,7 @@ def calibrate_models(self):
     """
     logger.info("🔄 Starting model calibration task")
     db = SessionLocal()
-    redis_client = redis.from_url("redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379", decode_responses=True)
+    redis_client = redis.from_url(REDIS_URL, decode_responses=True)
     
     try:
         orchestrator = ModelOrchestrator()
@@ -351,7 +354,7 @@ def generate_value_bets(self):
     """
     logger.info("💎 Generating value bets")
     db = SessionLocal()
-    redis_client = redis.from_url("redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379", decode_responses=True)
+    redis_client = redis.from_url(REDIS_URL, decode_responses=True)
     
     try:
         from ..services.prediction import PredictionService
@@ -413,7 +416,7 @@ def cleanup_old_data(self):
     """
     logger.info("🧹 Cleaning up old data")
     db = SessionLocal()
-    redis_client = redis.from_url("redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379", decode_responses=True)
+    redis_client = redis.from_url(REDIS_URL, decode_responses=True)
     
     try:
         cutoff_date = datetime.utcnow() - timedelta(days=30)
@@ -464,7 +467,7 @@ def calculate_performance_metrics(self):
     """
     logger.info("📊 Calculating performance metrics")
     db = SessionLocal()
-    redis_client = redis.from_url("redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379", decode_responses=True)
+    redis_client = redis.from_url(REDIS_URL, decode_responses=True)
     
     try:
         # Get predictions from last 7 days

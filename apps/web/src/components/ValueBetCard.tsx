@@ -6,6 +6,7 @@ import { toast } from 'react-hot-toast';
 import type { ValueBet } from '@/types/value-bet';
 import { formatCurrency } from '../lib/format';
 import { safeMessage } from '../lib/error-utils';
+import { KellyTooltip, EdgeTooltip } from './ui/ResponsibleGamblingTooltip';
 
 interface ValueBetContext {
   matchId: string;
@@ -144,6 +145,7 @@ ${context.clvExpected ? `Expected CLV: ${context.clvExpected.toFixed(1)}¢` : ''
           <div className="flex items-center gap-2 text-xs text-slate-400">
             <TrendingUp className="h-4 w-4" />
             <span>Edge</span>
+            <EdgeTooltip />
           </div>
           <p className="mt-1 text-2xl font-bold text-green-400">
             +{edgePercentage.toFixed(1)}%
@@ -161,7 +163,10 @@ ${context.clvExpected ? `Expected CLV: ${context.clvExpected.toFixed(1)}¢` : ''
       {/* Stake Recommendation */}
       <div className="mb-4 rounded-lg border border-slate-700/50 bg-slate-900/50 p-4">
         <div className="mb-2 flex items-center justify-between">
-          <span className="text-sm font-medium text-slate-300">Recommended Stake</span>
+          <div className="flex items-center gap-1">
+            <span className="text-sm font-medium text-slate-300">Recommended Stake</span>
+            <KellyTooltip />
+          </div>
           <span className="text-xs text-slate-500">
             {(kellyFraction * 100).toFixed(1)}% Kelly
           </span>

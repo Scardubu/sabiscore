@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """
     Application lifespan manager for startup and shutdown events.
-    Handles database initialization, connection verification, and cleanup.
+    Handles database initialization, connection verification, model loading, and cleanup.
     """
     # Startup: Initialize database
     logger.info("=" * 60)
@@ -57,7 +57,9 @@ async def lifespan(app: FastAPI):
         logger.info("✓ Database tables initialized")
         
         # Verify database connection
-        if await check_db_connection():
+        logger.info("Checking database connection...")
+        db_ok = await check_db_connection()
+        if db_ok:
             logger.info("✓ Database connection verified")
             
             # Log connection pool stats in development
@@ -66,6 +68,24 @@ async def lifespan(app: FastAPI):
                 logger.info(f"Database pool stats: {stats}")
         else:
             logger.warning("⚠ Database connection check failed")
+        
+        # Load ML prediction model
+        logger.info("Starting model loading sequence...")
+        try:
+            from .models.ensemble import SabiScoreEnsemble
+            models_path_str = str(settings.models_path)
+            logger.info(f"Loading ML prediction model from {models_path_str}...")
+            model = SabiScoreEnsemble.load_latest_model(models_path_str)
+            if model and hasattr(model, 'is_trained') and model.is_trained:
+                app.state.model_instance = model
+                logger.info("✓ ML model loaded successfully")
+            else:
+                logger.warning("⚠ Model loaded but not trained")
+                app.state.model_instance = None
+        except Exception as e:
+            logger.warning(f"⚠ Failed to load ML model: {e}", exc_info=True)
+            logger.info("API will function with degraded prediction capabilities")
+            app.state.model_instance = None
             
     except Exception as e:
         logger.error(f"✗ Error during startup: {e}", exc_info=True)

@@ -1,9 +1,9 @@
+import { API_ORIGIN, API_V1_BASE } from './api-base';
+
 /**
  * Frontend API client for Sabiscore predictions
  * Handles all communication with the FastAPI backend
  */
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export type ConfidenceIntervalMap = Record<string, [number, number]>;
 export type ExplanationMap = Record<string, unknown>;
@@ -70,10 +70,12 @@ export interface PredictionRequest {
 }
 
 class SabiscoreAPIClient {
-  private baseURL: string;
+  private origin: string;
+  private apiV1Base: string;
 
-  constructor(baseURL: string = API_BASE_URL) {
-    this.baseURL = baseURL;
+  constructor(origin: string = API_ORIGIN, apiV1Base: string = API_V1_BASE) {
+    this.origin = origin.replace(/\/+$/, '');
+    this.apiV1Base = apiV1Base.replace(/\/+$/, '');
   }
 
   /**
@@ -89,7 +91,7 @@ class SabiscoreAPIClient {
     if (params?.days_ahead) queryParams.append('days_ahead', params.days_ahead.toString());
     if (params?.limit) queryParams.append('limit', params.limit.toString());
 
-    const url = `${this.baseURL}/api/v1/matches/upcoming?${queryParams.toString()}`;
+    const url = `${this.apiV1Base}/matches/upcoming?${queryParams.toString()}`;
     
     try {
       const response = await fetch(url, {
@@ -115,7 +117,7 @@ class SabiscoreAPIClient {
    * Get match details
    */
   async getMatchDetail(matchId: string): Promise<Match> {
-    const url = `${this.baseURL}/api/v1/matches/${matchId}`;
+    const url = `${this.apiV1Base}/matches/${matchId}`;
     
     try {
       const response = await fetch(url, {
@@ -140,7 +142,7 @@ class SabiscoreAPIClient {
    * Create a new prediction
    */
   async createPrediction(request: PredictionRequest): Promise<Prediction> {
-    const url = `${this.baseURL}/api/v1/predictions/`;
+    const url = `${this.apiV1Base}/predictions/`;
     
     try {
       const response = await fetch(url, {
@@ -168,7 +170,7 @@ class SabiscoreAPIClient {
    * Get existing prediction for a match
    */
   async getPrediction(matchId: string): Promise<Prediction> {
-    const url = `${this.baseURL}/api/v1/predictions/${matchId}`;
+    const url = `${this.apiV1Base}/predictions/${matchId}`;
     
     try {
       const response = await fetch(url, {
@@ -210,7 +212,7 @@ class SabiscoreAPIClient {
     if (params?.league) queryParams.append('league', params.league);
     if (params?.limit) queryParams.append('limit', params.limit.toString());
 
-    const url = `${this.baseURL}/api/v1/predictions/value-bets/today?${queryParams.toString()}`;
+    const url = `${this.apiV1Base}/predictions/value-bets/today?${queryParams.toString()}`;
     
     try {
       const response = await fetch(url, {
@@ -236,7 +238,7 @@ class SabiscoreAPIClient {
    * Health check
    */
   async healthCheck(): Promise<{ status: string; timestamp: string }> {
-    const url = `${this.baseURL}/health`;
+    const url = `${this.origin}/health`;
     
     try {
       const response = await fetch(url, {

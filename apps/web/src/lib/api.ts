@@ -1,7 +1,7 @@
 // Edge-optimized API client for Sabiscore
 // Supports Cloudflare KV → Upstash Redis → PostgreSQL cache hierarchy
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+import { API_ORIGIN, API_V1_BASE } from "./api-base";
 
 export interface HealthResponse {
   status: "healthy" | "degraded" | "unhealthy";
@@ -110,6 +110,21 @@ class APIError extends Error {
     super(message);
     this.name = "APIError";
   }
+
+  // Ensure proper serialization for logging
+  toJSON() {
+    return {
+      name: this.name,
+      message: this.message,
+      status: this.status,
+      code: this.code,
+    };
+  }
+
+  // Proper string representation
+  toString() {
+    return `${this.name}: ${this.message}${this.status ? ` (${this.status})` : ''}${this.code ? ` [${this.code}]` : ''}`;
+  }
 }
 
 async function fetchWithTimeout(
@@ -138,7 +153,7 @@ async function fetchWithTimeout(
 
 export async function healthCheck(): Promise<HealthResponse> {
   try {
-    const response = await fetchWithTimeout(`${API_BASE_URL}/health`, {
+    const response = await fetchWithTimeout(`${API_ORIGIN}/health`, {
       next: { revalidate: 60 }, // Cache for 60 seconds
     });
 
@@ -163,7 +178,7 @@ export async function getMatchInsights(
 ): Promise<InsightsResponse> {
   try {
     const response = await fetchWithTimeout(
-      `${API_BASE_URL}/insights`,
+      `${API_V1_BASE}/insights`,
       {
         method: "POST",
         headers: {
@@ -173,7 +188,7 @@ export async function getMatchInsights(
         // Force fresh data for insights (no cache)
         cache: "no-store",
       },
-      30000 // 30 second timeout for insights generation
+      60000 // 60 second timeout for insights generation (handles Render cold starts)
     );
 
     if (!response.ok) {

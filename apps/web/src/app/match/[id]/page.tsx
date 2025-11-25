@@ -9,15 +9,18 @@ export const revalidate = 15; // ISR: revalidate every 15 seconds
 export const fetchCache = "force-no-store"; // Always fresh for live data
 
 type PageProps = {
-  params: Promise<{ id: string }>;
+  params?: Promise<{ id: string }>;
   searchParams?: Promise<{ league?: string }>;
 };
 
 export async function generateMetadata({ params, searchParams }: PageProps) {
-  const resolvedParams = await params;
-  const resolvedSearch = (await searchParams) || {};
-  const { id } = resolvedParams;
-  const { league } = resolvedSearch;
+  if (!params) {
+    notFound();
+  }
+
+  const { id } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const { league } = resolvedSearchParams || {};
 
   const matchup = decodeURIComponent(id);
 
@@ -28,10 +31,13 @@ export async function generateMetadata({ params, searchParams }: PageProps) {
 }
 
 export default async function MatchInsightsPage({ params, searchParams }: PageProps) {
-  const resolvedParams = await params;
-  const resolvedSearch = (await searchParams) || {};
-  const { id } = resolvedParams;
-  const { league = "EPL" } = resolvedSearch;
+  if (!params) {
+    notFound();
+  }
+
+  const { id } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const { league = "EPL" } = resolvedSearchParams || {};
 
   const matchup = decodeURIComponent(id);
 

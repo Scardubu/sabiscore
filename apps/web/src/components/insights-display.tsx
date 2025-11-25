@@ -10,6 +10,7 @@ import { DoughnutChart } from "./charts/DoughnutChart";
 import { apiClient } from "@/lib/api";
 import { safeErrorMessage } from "@/lib/error-utils";
 import { ValueBetCard } from "./ValueBetCard";
+import { GamblingDisclaimer } from "./ui/ResponsibleGamblingTooltip";
 
 interface InsightsDisplayProps {
   insights: InsightsResponse;
@@ -357,6 +358,9 @@ export function InsightsDisplay({ insights }: InsightsDisplayProps) {
           Generated at {new Date(insights.generated_at).toLocaleString()}
         </div>
       </div>
+
+      {/* Responsible Gambling Disclaimer */}
+      <GamblingDisclaimer />
     </div>
   );
 }

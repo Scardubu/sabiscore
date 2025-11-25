@@ -19,7 +19,7 @@ async def enrich_recent_matches(days: int = 30):
     print(f"🔍 Enriching matches from last {days} days...")
     
     db = SessionLocal()
-    redis_client = redis.from_url('redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379', decode_responses=True)
+    redis_client = redis.from_url('redis://default:UgnIjbBTIEutO3Rz8hSFnZchPqiR3Xbx@redis-15727.c8.us-east-1-4.ec2.cloud.redislabs.com:15727', decode_responses=True)
     
     # Query recent matches
     cutoff_date = datetime.utcnow() - timedelta(days=days)
