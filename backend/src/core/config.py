@@ -46,7 +46,12 @@ class Settings(BaseSettings):
     algorithm: str = Field(default="HS256")
     access_token_expire_minutes: int = Field(default=30, ge=5)
     enable_security_headers: bool = Field(default=True)
-    allowed_hosts: List[str] = Field(default_factory=lambda: ["localhost", "127.0.0.1"])
+    # Use raw string to avoid pydantic-settings JSON parsing issues with List[str]
+    allowed_hosts_raw: str = Field(
+        default="localhost,127.0.0.1",
+        alias="ALLOWED_HOSTS",
+        description="Comma-separated list of allowed hosts"
+    )
     espn_api_key: Optional[str] = None
     opta_api_key: Optional[str] = None
     betfair_app_key: Optional[str] = None
@@ -148,12 +153,21 @@ class Settings(BaseSettings):
         # CSV fallback
         return [origin.strip() for origin in s.split(",") if origin.strip()]
 
-    @field_validator("allowed_hosts", mode="before")
-    @classmethod
-    def _split_allowed_hosts(cls, value):
-        if isinstance(value, str):
-            return [host.strip() for host in value.split(",") if host.strip()]
-        return value
+    def _parse_allowed_hosts_raw(self) -> List[str]:
+        """Parse ALLOWED_HOSTS from raw env value (CSV or JSON string)."""
+        s = self.allowed_hosts_raw.strip() if self.allowed_hosts_raw else ""
+        if s == "":
+            return ["localhost", "127.0.0.1"]
+        # Try JSON first if it looks like a JSON array
+        if s.startswith("[") and s.endswith("]"):
+            try:
+                parsed = json.loads(s)
+                if isinstance(parsed, list):
+                    return [str(o).strip() for o in parsed if str(o).strip()]
+            except Exception:
+                pass
+        # CSV fallback
+        return [host.strip() for host in s.split(",") if host.strip()]
 
     @field_validator("models_path", "data_path", mode="before")
     @classmethod
@@ -225,6 +239,11 @@ class Settings(BaseSettings):
         ]
 
     # Backwards-compat properties expected by legacy code paths
+    @property
+    def allowed_hosts(self) -> List[str]:
+        """Parse allowed hosts from raw CSV string."""
+        return self._parse_allowed_hosts_raw()
+
     @property
     def PROJECT_NAME(self) -> str:
         return self.project_name
