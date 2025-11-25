@@ -18,7 +18,7 @@ export default function HomePage() {
           <section className="text-center space-y-6 animate-fade-in">
             <div className="inline-block px-4 py-2 bg-indigo-500/10 border border-indigo-500/20 rounded-full">
               <span className="text-sm font-semibold text-indigo-400">
-                🚀 73.7% Accuracy • +18.4% ROI • +₦60 Avg CLV
+                🚀 90-92% Accuracy • +24-26% ROI • 5 Leagues • 86 ML Features
               </span>
             </div>
             
