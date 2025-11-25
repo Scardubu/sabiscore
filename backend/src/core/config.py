@@ -53,6 +53,11 @@ class Settings(BaseSettings):
     betfair_session_token: Optional[str] = None
     pinnacle_api_key: Optional[str] = None
     fivethirtyeight_api_key: Optional[str] = None
+    football_data_api_key: Optional[str] = Field(
+        default="A5xdvmmrzleh84xfpxs7bwev1g2ri6hfucwsi1um8uaq5dl04ro",
+        alias="FOOTBALL_DATA_API_KEY",
+        description="API key for football-data.co.uk and similar services"
+    )
     
     # App metadata (backwards-compat with legacy settings access in main.py)
     project_name: str = Field(default="SabiScore API", alias="APP_NAME")

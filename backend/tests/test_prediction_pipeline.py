@@ -1,8 +1,18 @@
-"""End-to-end smoke test for prediction pipeline with real data integration."""
+"""End-to-end smoke test for prediction pipeline with real data integration.
+
+NOTE: These are integration tests that require:
+- Trained ML models in the models/ directory
+- Database connectivity
+- Redis cache (optional)
+
+Run with: pytest tests/test_prediction_pipeline.py -v --run-integration
+Skip by default in CI: these tests require external resources.
+"""
 
 import asyncio
 import json
 import logging
+import os
 
 import pytest
 from httpx import AsyncClient
@@ -16,7 +26,14 @@ from src.services.prediction import PredictionService
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Skip all tests in this module unless --run-integration is passed or models exist
+pytestmark = pytest.mark.skipif(
+    not os.environ.get("RUN_INTEGRATION_TESTS") and not settings.models_path.exists(),
+    reason="Integration tests require trained models. Set RUN_INTEGRATION_TESTS=1 or ensure models exist."
+)
 
+
+@pytest.mark.integration
 class TestPredictionPipeline:
     """Comprehensive tests for the entire prediction pipeline."""
 
