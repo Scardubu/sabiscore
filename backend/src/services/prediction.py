@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.cache import cache_manager
 from ..core.config import settings
+from ..data.transformers import FeatureTransformer
 from ..models.edge_detector import EdgeDetector
 from ..models.ensemble import SabiScoreEnsemble
 from ..schemas.prediction import MatchPredictionRequest, PredictionResponse
@@ -31,23 +32,6 @@ class PredictionService:
     _cache_access_times: Dict[str, float] = {}  # Track LRU
     MAX_CACHED_MODELS = 5  # Limit memory footprint
 
-    FEATURE_PREFIX_RANGES: Dict[str, Tuple[float, float]] = {
-        "form_": (-1.0, 1.0),
-        "xg_": (0.0, 3.0),
-        "fatigue_": (0.0, 1.0),
-        "home_adv_": (-0.5, 0.5),
-        "momentum_": (-1.0, 1.0),
-        "market_": (0.0, 5.0),
-        "h2h_": (-1.0, 1.0),
-        "squad_": (0.0, 100.0),
-        "weather_": (0.0, 1.0),
-        "elo_": (1000.0, 2000.0),
-        "tactical_": (0.0, 1.0),
-        "scoring_": (0.0, 3.0),
-        "defensive_": (0.0, 2.0),
-        "setpiece_": (0.0, 1.0),
-    }
-
     def __init__(
         self,
         db_session: Optional[AsyncSession] = None,
@@ -56,6 +40,7 @@ class PredictionService:
     ) -> None:
         self.db = db_session
         self.cache = cache_backend or cache_manager
+        self.transformer = FeatureTransformer()
         self.edge_detector = EdgeDetector(
             min_edge_threshold=0.042,
             kelly_fraction=0.125,
@@ -173,44 +158,44 @@ class PredictionService:
         if not columns:
             raise ValueError("Loaded model does not expose feature columns")
 
-        seed_source = f"{league_slug}:{request.home_team}:{request.away_team}:{match_id}"
-        seed_int = int(hashlib.sha256(seed_source.encode("utf-8")).hexdigest()[:16], 16)
-        rng = random.Random(seed_int)
+        # Construct match data for transformer
+        # In a real scenario, we would fetch historical stats, form, etc. from DB
+        # For now, we use the request data and rely on transformer defaults for missing data
+        match_data = {
+            "odds": request.odds,
+            "schedule": {
+                "home_team": request.home_team,
+                "away_team": request.away_team,
+                "league": request.league,
+                "date": request.kickoff_time
+            },
+            # Empty structures to trigger defaults in transformer
+            "historical_stats": pd.DataFrame(),
+            "current_form": {},
+            "injuries": pd.DataFrame(),
+            "head_to_head": pd.DataFrame(),
+            "team_stats": {}
+        }
+        
+        # Generate features using the transformer
+        # This ensures we get exactly the 86 features expected by the model
+        feature_frame = self.transformer.engineer_features(match_data)
+        
+        # Verify columns match
+        missing = [c for c in columns if c not in feature_frame.columns]
+        if missing:
+            logger.warning(f"Transformer output missing columns expected by model: {missing}")
+            # Fill missing with 0
+            for c in missing:
+                feature_frame[c] = 0.0
+                
+        # Ensure correct order
+        feature_frame = feature_frame[columns]
+        
+        # Convert to dict for return
+        feature_values = feature_frame.iloc[0].to_dict()
 
-        feature_values: Dict[str, float] = {}
-        for column in columns:
-            feature_values[column] = self._sample_feature_value(column, rng, request)
-
-        frame = pd.DataFrame([feature_values])
-        return frame, feature_values
-
-    def _sample_feature_value(
-        self,
-        column: str,
-        rng: random.Random,
-        request: MatchPredictionRequest,
-    ) -> float:
-        lowered = column.lower()
-
-        if "home_win" in lowered and "prob" in lowered:
-            return self._implied_probability(request.odds.get("home_win"))
-        if "draw" in lowered and "prob" in lowered:
-            return self._implied_probability(request.odds.get("draw"))
-        if "away_win" in lowered and "prob" in lowered:
-            return self._implied_probability(request.odds.get("away_win"))
-
-        for prefix, value_range in self.FEATURE_PREFIX_RANGES.items():
-            if lowered.startswith(prefix):
-                return rng.uniform(*value_range)
-
-        if "odds" in lowered:
-            return rng.uniform(1.5, 5.0)
-        if "confidence" in lowered:
-            return rng.uniform(0.4, 0.9)
-        if "edge" in lowered:
-            return rng.uniform(-0.1, 0.1)
-
-        return rng.uniform(-1.0, 1.0)
+        return feature_frame, feature_values
 
     def _detect_value_bets(
         self,

@@ -121,7 +121,11 @@ class Settings(BaseSettings):
     )
 
     # Paths
-    models_path: Path = Field(default_factory=lambda: _PROJECT_ROOT / "models")
+    models_path: Path = Field(
+        default_factory=lambda: _PROJECT_ROOT / "models",
+        alias="MODELS_PATH",
+        description="Path to ML models directory"
+    )
     data_path: Path = Field(default_factory=lambda: (_PROJECT_ROOT / "data" / "processed"))
 
     def _parse_cors_raw(self) -> List[str]:

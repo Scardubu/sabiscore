@@ -1,4 +1,5 @@
 import json
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 import logging
 from .middleware import setup_middleware
@@ -77,94 +78,100 @@ class CustomJSONEncoder(json.JSONEncoder):
             return obj.model_dump()
         return str(obj)  # Fallback to string representation
 
-# Create FastAPI app with custom JSON encoder
+# Global model instance
+model_instance = None
+# Simple flag to avoid concurrent background loads
+model_load_in_progress = False
+
+# Lifespan context manager for modern FastAPI startup/shutdown
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Modern lifespan handler for startup and shutdown events."""
+    global model_instance, model_load_in_progress
+    
+    # === STARTUP ===
+    logger.info("Starting SabiScore API...")
+    
+    # Initialize cache and model state
+    app.state.cache = cache
+    app.state.model_instance = None
+    app.state.model_load_error_message = None
+    
+    # Initialize async database
+    try:
+        await init_db()
+        logger.info("Async database initialized")
+    except Exception:
+        logger.exception("Startup: failed to initialize async database")
+    
+    # Trigger background model load (non-blocking)
+    try:
+        _startup_trigger_model_load_sync()
+        # Schedule async model loading
+        asyncio.create_task(_load_model_background_async())
+    except Exception:
+        logger.exception("Startup: failed to trigger background model load")
+    
+    logger.info("SabiScore API startup complete")
+    
+    yield  # Server is running
+    
+    # === SHUTDOWN ===
+    logger.info("Shutting down SabiScore API...")
+    
+    try:
+        await close_db()
+        logger.info("Async database closed")
+    except Exception:
+        logger.exception("Shutdown: failed to close async database")
+    
+    logger.info("SabiScore API shutdown complete")
+
+def _startup_trigger_model_load_sync():
+    """Synchronous part of model loading - fetches models if needed."""
+    try:
+        # Check SKIP_S3 flag first
+        skip_s3 = os.environ.get('SKIP_S3', 'false').lower() in ('true', '1', 'yes')
+        base = os.environ.get('MODEL_BASE_URL') or None
+        token = os.environ.get('MODEL_FETCH_TOKEN') or None
+        # Use the configured models path to identify repo root so artifact checks are accurate
+        repo_root = str(settings.models_path.parent.resolve())
+        
+        if skip_s3:
+            logger.info('Startup: SKIP_S3=true, skipping remote model fetch')
+            fetched = fetch_models_if_needed(None, repo_root, None)
+            if fetched:
+                logger.info('Startup: local model artifacts verified')
+            else:
+                logger.warning('Startup: no valid local models found')
+        elif base:
+            fetched = fetch_models_if_needed(base, repo_root, token)
+            if fetched:
+                logger.info('Startup: model artifacts fetched/verified')
+            else:
+                logger.warning('Startup: model artifact fetch failed or incomplete')
+        else:
+            fetched = fetch_models_if_needed(None, repo_root, None)
+            if fetched:
+                logger.info('Startup: local model artifacts verified')
+            else:
+                logger.warning('Startup: no MODEL_BASE_URL set and no valid local models')
+    except Exception:
+        logger.exception('Startup: model fetch attempt failed')
+
+# Create FastAPI app with custom JSON encoder and lifespan
 app = FastAPI(
     title="SabiScore API",
     description="AI-Powered Football Betting Intelligence Platform",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan
 )
 
 # Apply custom JSON encoder to the app
 app.json_encoder = CustomJSONEncoder
 
-# Initialize cache and model state
-app.state.cache = cache
-app.state.model_instance = None
-app.state.model_load_error_message = None
-
-# Proactively trigger a background model load at startup (non-blocking)
-def _startup_trigger_model_load():
-    try:
-        # Attempt to fetch models from MODEL_BASE_URL if needed (production/deploy flows)
-        try:
-            # Check SKIP_S3 flag first
-            skip_s3 = os.environ.get('SKIP_S3', 'false').lower() in ('true', '1', 'yes')
-            base = os.environ.get('MODEL_BASE_URL') or None
-            token = os.environ.get('MODEL_FETCH_TOKEN') or None
-            # Use the configured models path to identify repo root so artifact checks are accurate
-            repo_root = str(settings.models_path.parent.resolve())
-            
-            if skip_s3:
-                logger.info('Startup: SKIP_S3=true, skipping remote model fetch')
-                # Just validate local models exist
-                fetched = fetch_models_if_needed(None, repo_root, None)
-                if fetched:
-                    logger.info('Startup: local model artifacts verified')
-                else:
-                    logger.warning('Startup: no valid local models found')
-            elif base:
-                fetched = fetch_models_if_needed(base, repo_root, token)
-                if fetched:
-                    logger.info('Startup: model artifacts fetched/verified')
-                else:
-                    logger.warning('Startup: model artifact fetch failed or incomplete')
-            else:
-                # No base URL and no SKIP_S3, just check local
-                fetched = fetch_models_if_needed(None, repo_root, None)
-                if fetched:
-                    logger.info('Startup: local model artifacts verified')
-                else:
-                    logger.warning('Startup: no MODEL_BASE_URL set and no valid local models')
-        except Exception:
-            logger.exception('Startup: model fetch attempt failed')
-
-        # Do not block startup - start background loader
-        # Prefer asyncio background task so FastAPI/uvicorn lifecycles manage it
-        # and the process won't exit if the thread daemon state changes.
-        loop = None
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = None
-
-        if loop is not None:
-            # schedule async wrapper
-            loop.create_task(_load_model_background_async())
-        else:
-            # fallback to existing threaded loader (kept for legacy/runtime cases)
-            load_model_if_needed(start_background=True)
-    except Exception:
-        logger.exception("Startup: failed to trigger background model load")
-
-app.add_event_handler("startup", _startup_trigger_model_load)
-@app.on_event("startup")
-async def _startup_init_db():
-    """Initialize async DB engine/session factory on app startup."""
-    try:
-        await init_db()
-    except Exception:
-        logger.exception("Startup: failed to initialize async database")
-
-
-@app.on_event("shutdown")
-async def _shutdown_close_db():
-    """Clean up DB connections on shutdown."""
-    try:
-        await close_db()
-    except Exception:
-        logger.exception("Shutdown: failed to close async database")
 # Load models on first request
 def _load_model_background():
     """Background loader for ML models. Sets global model_instance when done."""

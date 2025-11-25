@@ -537,3 +537,391 @@ def scrape_oddsportal(home_team: str, away_team: str) -> Dict[str, float]:
 
 def scrape_transfermarkt_injuries(team: str) -> pd.DataFrame:
     return TransfermarktScraper().scrape_injuries(team)
+
+
+# =============================================================================
+# FootballDataScraper - Historical data from football-data.co.uk
+# =============================================================================
+
+class FootballDataScraper:
+    """
+    Scraper for football-data.co.uk historical data.
+    
+    Implements ethical scraping:
+    - Rate limiting (2s between requests)
+    - Retry with exponential backoff
+    - Caching to minimize requests
+    - User-agent identification
+    
+    This site provides free CSV downloads of historical football data including:
+    - Match results (home/away goals)
+    - Pinnacle odds (best proxy for closing line)
+    - Shot statistics, corners, fouls
+    - Referee data
+    
+    Usage:
+        scraper = FootballDataScraper()
+        df = scraper.download_season_data('E0', '2526')  # EPL 2025/26
+    """
+    
+    # Base URL for football-data.co.uk
+    BASE_URL = "https://www.football-data.co.uk"
+    
+    # League code mapping
+    LEAGUE_CODES = {
+        "EPL": "E0",
+        "Championship": "E1",
+        "La Liga": "SP1",
+        "La_Liga": "SP1",
+        "Bundesliga": "D1",
+        "Serie A": "I1",
+        "Serie_A": "I1",
+        "Ligue 1": "F1",
+        "Ligue_1": "F1",
+        "Eredivisie": "N1",
+        "Portuguese": "P1",
+        "Turkish": "T1",
+        "Greek": "G1",
+    }
+    
+    # Column mapping for standardization
+    COLUMN_MAPPING = {
+        "Date": "date",
+        "HomeTeam": "home_team",
+        "AwayTeam": "away_team",
+        "FTHG": "home_goals",
+        "FTAG": "away_goals",
+        "FTR": "result",  # H/D/A
+        "HTHG": "ht_home_goals",
+        "HTAG": "ht_away_goals",
+        "HTR": "ht_result",
+        "HS": "home_shots",
+        "AS": "away_shots",
+        "HST": "home_shots_target",
+        "AST": "away_shots_target",
+        "HF": "home_fouls",
+        "AF": "away_fouls",
+        "HC": "home_corners",
+        "AC": "away_corners",
+        "HY": "home_yellows",
+        "AY": "away_yellows",
+        "HR": "home_reds",
+        "AR": "away_reds",
+        # Pinnacle odds (our preferred bookmaker)
+        "PSH": "pinnacle_home",
+        "PSD": "pinnacle_draw",
+        "PSA": "pinnacle_away",
+        # Bet365 odds (backup)
+        "B365H": "bet365_home",
+        "B365D": "bet365_draw",
+        "B365A": "bet365_away",
+        # Market average
+        "AvgH": "avg_home",
+        "AvgD": "avg_draw",
+        "AvgA": "avg_away",
+        "MaxH": "max_home",
+        "MaxD": "max_draw",
+        "MaxA": "max_away",
+    }
+    
+    def __init__(self, cache_dir: Optional[Path] = None):
+        """
+        Initialize the football-data.co.uk scraper.
+        
+        Args:
+            cache_dir: Directory for caching downloaded files
+        """
+        self.session = self._create_session()
+        self.cache_dir = cache_dir or settings.data_path / "football_data_cache"
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self.last_request_time = 0.0
+        self.rate_limit_delay = 2.0  # 2 seconds between requests
+        
+        logger.info(f"FootballDataScraper initialized with cache at {self.cache_dir}")
+    
+    def _create_session(self) -> requests.Session:
+        """Create a session with retry logic."""
+        session = requests.Session()
+        
+        retry_strategy = Retry(
+            total=3,
+            backoff_factor=1.0,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["GET"],
+        )
+        
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        
+        # Identify ourselves as SabiScore
+        session.headers.update({
+            "User-Agent": f"SabiScore/1.0 (Research Project; {settings.user_agent})",
+            "Accept": "text/csv,application/csv,text/plain;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+        })
+        
+        return session
+    
+    def _rate_limit(self) -> None:
+        """Enforce rate limiting between requests."""
+        elapsed = time.time() - self.last_request_time
+        if elapsed < self.rate_limit_delay:
+            sleep_time = self.rate_limit_delay - elapsed
+            logger.debug(f"Rate limiting: sleeping {sleep_time:.2f}s")
+            time.sleep(sleep_time)
+        self.last_request_time = time.time()
+    
+    def _get_league_code(self, league: str) -> str:
+        """Convert league name to football-data.co.uk code."""
+        # If already a code, return it
+        if league in ["E0", "E1", "SP1", "D1", "I1", "F1", "N1", "P1", "T1", "G1"]:
+            return league
+        
+        # Look up in mapping
+        return self.LEAGUE_CODES.get(league, league)
+    
+    def _get_season_url(self, league_code: str, season: str) -> str:
+        """
+        Build URL for season CSV download.
+        
+        Args:
+            league_code: League code (e.g., 'E0')
+            season: Season string (e.g., '2526' for 2025/26)
+            
+        Returns:
+            URL for CSV download
+        """
+        # Season format: '2526' -> '25-26' folder
+        if len(season) == 4:
+            folder = f"{season[:2]}{season[2:]}"
+        else:
+            folder = season
+        
+        return f"{self.BASE_URL}/mmz4281/{folder}/{league_code}.csv"
+    
+    def _get_cache_path(self, league_code: str, season: str) -> Path:
+        """Get cache file path for a league/season."""
+        return self.cache_dir / f"{league_code}_{season}.csv"
+    
+    def download_season_data(
+        self,
+        league: str,
+        season: str,
+        use_cache: bool = True
+    ) -> pd.DataFrame:
+        """
+        Download historical match data for a season.
+        
+        Args:
+            league: League name or code (e.g., 'EPL' or 'E0')
+            season: Season code (e.g., '2526' for 2025/26)
+            use_cache: Whether to use cached data if available
+            
+        Returns:
+            DataFrame with standardized column names
+        """
+        import io
+        
+        league_code = self._get_league_code(league)
+        cache_path = self._get_cache_path(league_code, season)
+        
+        # Check cache first
+        if use_cache and cache_path.exists():
+            cache_age_hours = (time.time() - cache_path.stat().st_mtime) / 3600
+            if cache_age_hours < 24:  # Cache valid for 24 hours
+                logger.info(f"Using cached data for {league_code} {season}")
+                df = pd.read_csv(cache_path)
+                return self._standardize_dataframe(df)
+        
+        # Download from website
+        url = self._get_season_url(league_code, season)
+        logger.info(f"Downloading data from {url}")
+        
+        self._rate_limit()
+        
+        try:
+            response = self.session.get(url, timeout=30)
+            response.raise_for_status()
+            
+            # Parse CSV
+            df = pd.read_csv(io.StringIO(response.text))
+            
+            # Cache the raw data
+            df.to_csv(cache_path, index=False)
+            logger.info(f"Cached {len(df)} matches to {cache_path}")
+            
+            return self._standardize_dataframe(df)
+            
+        except requests.HTTPError as e:
+            if e.response.status_code == 404:
+                logger.warning(f"Season data not found: {url}")
+                return pd.DataFrame()
+            raise
+        except Exception as e:
+            logger.error(f"Failed to download {url}: {e}")
+            
+            # Try to use stale cache as fallback
+            if cache_path.exists():
+                logger.warning("Using stale cache as fallback")
+                df = pd.read_csv(cache_path)
+                return self._standardize_dataframe(df)
+            
+            return pd.DataFrame()
+    
+    def _standardize_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Standardize column names and add computed features.
+        
+        Args:
+            df: Raw DataFrame from CSV
+            
+        Returns:
+            Standardized DataFrame
+        """
+        # Rename columns that exist
+        rename_map = {k: v for k, v in self.COLUMN_MAPPING.items() if k in df.columns}
+        df = df.rename(columns=rename_map)
+        
+        # Parse date column
+        if "date" in df.columns:
+            df["date"] = pd.to_datetime(df["date"], dayfirst=True, errors="coerce")
+        elif "Date" in df.columns:
+            df["date"] = pd.to_datetime(df["Date"], dayfirst=True, errors="coerce")
+        
+        # Add computed columns
+        if "home_goals" in df.columns and "away_goals" in df.columns:
+            df["total_goals"] = df["home_goals"] + df["away_goals"]
+            df["goal_diff"] = df["home_goals"] - df["away_goals"]
+        
+        # Add over/under markers
+        if "total_goals" in df.columns:
+            df["over_2.5"] = (df["total_goals"] > 2.5).astype(int)
+            df["over_3.5"] = (df["total_goals"] > 3.5).astype(int)
+            df["btts"] = ((df["home_goals"] > 0) & (df["away_goals"] > 0)).astype(int)
+        
+        # Calculate implied probabilities from Pinnacle odds
+        if all(col in df.columns for col in ["pinnacle_home", "pinnacle_draw", "pinnacle_away"]):
+            df["implied_home_prob"] = 1 / df["pinnacle_home"]
+            df["implied_draw_prob"] = 1 / df["pinnacle_draw"]
+            df["implied_away_prob"] = 1 / df["pinnacle_away"]
+            df["margin"] = df["implied_home_prob"] + df["implied_draw_prob"] + df["implied_away_prob"] - 1
+        
+        # Add metadata
+        df["source"] = "football-data.co.uk"
+        df["downloaded_at"] = datetime.now().isoformat()
+        
+        return df
+    
+    def download_multiple_seasons(
+        self,
+        league: str,
+        seasons: list,
+        use_cache: bool = True
+    ) -> pd.DataFrame:
+        """
+        Download and combine data from multiple seasons.
+        
+        Args:
+            league: League name or code
+            seasons: List of season codes (e.g., ['2425', '2526'])
+            use_cache: Whether to use cached data
+            
+        Returns:
+            Combined DataFrame with season column
+        """
+        all_data = []
+        
+        for season in seasons:
+            df = self.download_season_data(league, season, use_cache)
+            if not df.empty:
+                df["season"] = season
+                all_data.append(df)
+        
+        if not all_data:
+            return pd.DataFrame()
+        
+        combined = pd.concat(all_data, ignore_index=True)
+        combined = combined.sort_values("date", ascending=True)
+        
+        logger.info(f"Combined {len(combined)} matches across {len(seasons)} seasons")
+        
+        return combined
+    
+    def download_all_leagues(
+        self,
+        season: str,
+        leagues: Optional[list] = None,
+        use_cache: bool = True
+    ) -> Dict[str, pd.DataFrame]:
+        """
+        Download data for multiple leagues in a season.
+        
+        Args:
+            season: Season code
+            leagues: List of leagues (defaults to top 5)
+            use_cache: Whether to use cached data
+            
+        Returns:
+            Dict mapping league to DataFrame
+        """
+        if leagues is None:
+            leagues = ["EPL", "La Liga", "Bundesliga", "Serie A", "Ligue 1"]
+        
+        results = {}
+        
+        for league in leagues:
+            df = self.download_season_data(league, season, use_cache)
+            if not df.empty:
+                results[league] = df
+        
+        logger.info(f"Downloaded data for {len(results)} leagues")
+        
+        return results
+    
+    def get_team_history(
+        self,
+        team_name: str,
+        league: str,
+        seasons: list,
+        use_cache: bool = True
+    ) -> pd.DataFrame:
+        """
+        Get all matches for a specific team.
+        
+        Args:
+            team_name: Team name to search for
+            league: League code
+            seasons: Seasons to search
+            use_cache: Whether to use cache
+            
+        Returns:
+            DataFrame of team's matches
+        """
+        all_data = self.download_multiple_seasons(league, seasons, use_cache)
+        
+        if all_data.empty:
+            return pd.DataFrame()
+        
+        # Find matches where team played (home or away)
+        team_lower = team_name.lower()
+        mask = (
+            all_data["home_team"].str.lower().str.contains(team_lower, na=False) |
+            all_data["away_team"].str.lower().str.contains(team_lower, na=False)
+        )
+        
+        team_matches = all_data[mask].copy()
+        logger.info(f"Found {len(team_matches)} matches for {team_name}")
+        
+        return team_matches
+    
+    def clear_cache(self) -> None:
+        """Clear all cached data files."""
+        for cache_file in self.cache_dir.glob("*.csv"):
+            cache_file.unlink()
+            logger.info(f"Deleted cache file: {cache_file}")
+
+
+def scrape_football_data(league: str, season: str) -> pd.DataFrame:
+    """Convenience function to scrape football-data.co.uk."""
+    return FootballDataScraper().download_season_data(league, season)

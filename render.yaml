@@ -80,6 +80,8 @@
         value: https://sabiscore.vercel.app,https://sabiscore-*.vercel.app,http://localhost:3000
       - key: FOOTBALL_DATA_API_KEY
         value: "A5xdvmmrzleh84xfpxs7bwev1g2ri6hfucwsi1um8uaq5dl04ro"
+      - key: MODELS_PATH
+        value: "/opt/render/project/src/models"
 
 databases:
   - name: sabiscore-db
