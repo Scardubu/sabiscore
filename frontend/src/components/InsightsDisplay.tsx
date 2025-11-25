@@ -9,6 +9,8 @@ import {
   Tooltip,
 } from 'chart.js'
 import type { InsightsResponse } from '../lib/api'
+import ConfidenceBadge from './ui/ConfidenceBadge'
+import TooltipUI from './ui/Tooltip'
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale)
 
@@ -102,21 +104,23 @@ const InsightsDisplay = ({ insights, isLoading = false }: InsightsDisplayProps) 
                   <span className="text-2xl font-bold text-indigo-400">
                     Predicted Winner: {prediction.prediction.replace('_', ' ')}
                   </span>
-                  <span className="text-sm bg-indigo-500/20 px-3 py-1 rounded-full">
-                    Confidence: {confidenceDisplay}
-                  </span>
+                  <ConfidenceBadge value={prediction.confidence} size="md" />
                 </div>
               )}
               {xgAnalysis && (
                 <div className="mt-4 flex items-center justify-center space-x-6 text-sm">
-                  <div>
-                    <span className="text-gray-400">{homeTeamName} xG:</span>
-                    <span className="ml-2 text-indigo-400 font-semibold">{xgAnalysis.home_xg.toFixed(2)}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-400">{awayTeamName} xG:</span>
-                    <span className="ml-2 text-green-400 font-semibold">{xgAnalysis.away_xg.toFixed(2)}</span>
-                  </div>
+                  <TooltipUI content="Expected Goals - statistical measure of goal-scoring opportunities quality" position="bottom">
+                    <div className="cursor-help">
+                      <span className="text-gray-400">{homeTeamName} xG:</span>
+                      <span className="ml-2 text-indigo-400 font-semibold">{xgAnalysis.home_xg.toFixed(2)}</span>
+                    </div>
+                  </TooltipUI>
+                  <TooltipUI content="Expected Goals - statistical measure of goal-scoring opportunities quality" position="bottom">
+                    <div className="cursor-help">
+                      <span className="text-gray-400">{awayTeamName} xG:</span>
+                      <span className="ml-2 text-green-400 font-semibold">{xgAnalysis.away_xg.toFixed(2)}</span>
+                    </div>
+                  </TooltipUI>
                 </div>
               )}
             </>

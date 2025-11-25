@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import Logo from './Logo'
+import Tooltip from './ui/Tooltip'
 
 const Header = () => {
   const [isDark, setIsDark] = useState(false)
@@ -23,9 +24,23 @@ const Header = () => {
             </div>
           </div>
 
-          <p className="text-sm md:text-base text-slate-300/90 leading-relaxed text-center md:text-left">
-            Predictive analytics, xG models, and value detection across Europe’s top leagues.
-          </p>
+          <div className="flex flex-col gap-1">
+            <p className="text-sm md:text-base text-slate-300/90 leading-relaxed text-center md:text-left">
+              Predictive analytics, xG models, and value detection across Europe's top leagues.
+            </p>
+            <div className="flex items-center gap-2 justify-center md:justify-start">
+              <Tooltip content="5 league models with 86 ML features" position="bottom">
+                <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 cursor-help">
+                  v3.0 Edge
+                </span>
+              </Tooltip>
+              <Tooltip content="Ensemble ML models trained on historical match data" position="bottom">
+                <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 cursor-help">
+                  90-92% Accuracy
+                </span>
+              </Tooltip>
+            </div>
+          </div>
 
           <div className="flex items-center justify-end gap-3">
             <button
