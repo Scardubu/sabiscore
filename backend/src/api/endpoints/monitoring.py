@@ -78,13 +78,15 @@ def health_check() -> Dict[str, Any]:
     # Check model availability
     try:
         from ...models.ensemble import SabiScoreEnsemble
-        model_path = settings.models_path / "premier_league_ensemble.pkl"
-        model_available = model_path.exists()
+        # Check for any league ensemble model (epl, bundesliga, la_liga, etc.)
+        model_files = list(settings.models_path.glob("*_ensemble.pkl"))
+        model_available = len(model_files) > 0
         
         health_status["components"]["ml_models"] = {
             "status": "healthy" if model_available else "degraded",
-            "message": "Models loaded" if model_available else "Models not found",
-            "models_path": str(settings.models_path)
+            "message": f"Models loaded ({len(model_files)} ensembles)" if model_available else "Models not found",
+            "models_path": str(settings.models_path),
+            "available_models": [f.stem for f in model_files] if model_available else []
         }
         if not model_available:
             degraded = True
