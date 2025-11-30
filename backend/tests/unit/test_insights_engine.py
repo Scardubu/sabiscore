@@ -62,12 +62,13 @@ def mock_model():
 @pytest.fixture(autouse=True)
 def disable_external_calls(monkeypatch):
     """Prevent live HTTP requests and slow sleeps during engine tests."""
-
+    
+    # Patch the fetch_data method to prevent external calls
     monkeypatch.setattr(
-        "src.data.scrapers.BaseScraper._make_request",
-        lambda *args, **kwargs: None,
+        "src.data.scrapers.BaseScraper.fetch_data",
+        lambda *args, **kwargs: {"status": "mock", "data": {}},
     )
-    monkeypatch.setattr("src.data.scrapers.time.sleep", lambda *_: None)
+    monkeypatch.setattr("time.sleep", lambda *_: None)
 
 
 @pytest.fixture

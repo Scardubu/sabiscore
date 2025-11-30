@@ -194,6 +194,16 @@ export function MatchSelector() {
         <p className="text-xs text-slate-500 text-center">
           Powered by ensemble ML models • 73.7% accuracy • +18.4% ROI
         </p>
+        <div className="mt-2 flex items-center justify-center gap-2 text-[10px] text-slate-600">
+          <span className="inline-flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-green-500/60 animate-pulse"></span>
+            Live Data
+          </span>
+          <span>•</span>
+          <span>8 Sources Integrated</span>
+          <span>•</span>
+          <span>Updated Every 5min</span>
+        </div>
       </div>
     </div>
   );

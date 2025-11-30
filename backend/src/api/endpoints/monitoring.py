@@ -219,6 +219,13 @@ def readiness_check(response: Response) -> Dict[str, Any]:
     return payload
 
 
+# Alias /ready at root level for convenience (matches health.py contract)
+@router.get("/ready")
+def ready_alias(response: Response) -> Dict[str, Any]:
+    """Alias for /health/ready for backward compatibility."""
+    return readiness_check(response)
+
+
 @router.get("/metrics")
 def metrics() -> Dict[str, Any]:
     """
@@ -226,6 +233,9 @@ def metrics() -> Dict[str, Any]:
     Returns key application metrics for monitoring.
     """
     try:
+        # Import metrics collector
+        from ...monitoring.metrics import metrics_collector
+        
         # Cache metrics
         cache_metrics = cache.metrics_snapshot()
         
@@ -236,6 +246,9 @@ def metrics() -> Dict[str, Any]:
         # Application metrics
         uptime = int(time.time() - _startup_time)
         
+        # Production metrics from collector
+        production_metrics = metrics_collector.get_summary()
+        
         return {
             "timestamp": datetime.utcnow().isoformat(),
             "uptime_seconds": uptime,
@@ -245,7 +258,8 @@ def metrics() -> Dict[str, Any]:
                 "memory_used_mb": memory.used // (1024 * 1024),
                 "memory_available_mb": memory.available // (1024 * 1024),
                 "cpu_percent": cpu_percent,
-            }
+            },
+            "production": production_metrics
         }
     except Exception as e:
         logger.error(f"Metrics collection failed: {e}")

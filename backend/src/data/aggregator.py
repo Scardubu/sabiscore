@@ -8,10 +8,21 @@ import pandas as pd
 
 from ..core.cache import cache
 from ..core.config import settings
+
+# Import from old scrapers module for backward compatibility
 from .scrapers import (
     FlashscoreScraper,
     OddsPortalScraper,
     TransfermarktScraper,
+)
+
+# Import new enhanced scrapers
+from .scrapers import (
+    FootballDataEnhancedScraper,
+    BetfairExchangeScraper,
+    WhoScoredScraper,
+    SoccerwayScraper,
+    UnderstatScraper,
 )
 
 
@@ -400,3 +411,216 @@ def _deserialize_from_cache(data: Dict[str, Any]) -> Dict[str, Any]:
         else:
             result[key] = value
     return result
+
+
+# ============================================================================
+# Enhanced Data Aggregator with New Scrapers
+# ============================================================================
+
+class EnhancedDataAggregator:
+    """
+    Enhanced aggregator using new scraper infrastructure.
+    
+    Combines data from:
+    - football-data.co.uk (historical matches with Pinnacle odds)
+    - Betfair (exchange odds with back/lay spreads)
+    - WhoScored (player ratings, form)
+    - Soccerway (standings, fixtures)
+    - Understat (xG statistics)
+    - Transfermarkt (market values)
+    - OddsPortal (historical closing lines)
+    - Flashscore (live scores, H2H)
+    """
+    
+    def __init__(self):
+        """Initialize all enhanced scrapers."""
+        self.football_data = FootballDataEnhancedScraper()
+        self.betfair = BetfairExchangeScraper()
+        self.whoscored = WhoScoredScraper()
+        self.soccerway = SoccerwayScraper()
+        self.understat = UnderstatScraper()
+        
+        # Also keep references to old scrapers for compatibility
+        self.flashscore = FlashscoreScraper()
+        self.oddsportal = OddsPortalScraper()
+        self.transfermarkt = TransfermarktScraper()
+        
+        logger.info("EnhancedDataAggregator initialized")
+    
+    def get_comprehensive_features(
+        self,
+        home_team: str,
+        away_team: str,
+        league: str = "EPL"
+    ) -> Dict[str, Any]:
+        """
+        Get comprehensive feature set for ML prediction.
+        
+        Aggregates features from all sources with proper prefixing
+        to avoid name collisions.
+        
+        Args:
+            home_team: Home team name
+            away_team: Away team name  
+            league: League identifier
+            
+        Returns:
+            Dict with all aggregated features
+        """
+        features = {
+            "home_team": home_team,
+            "away_team": away_team,
+            "league": league,
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+        
+        # Collect features from each source
+        features.update(self._get_odds_features(home_team, away_team, league))
+        features.update(self._get_form_features(home_team, away_team))
+        features.update(self._get_position_features(home_team, away_team, league))
+        features.update(self._get_xg_features(home_team, away_team, league))
+        features.update(self._get_value_features(home_team, away_team, league))
+        
+        return features
+    
+    def _get_odds_features(
+        self,
+        home_team: str,
+        away_team: str,
+        league: str
+    ) -> Dict[str, float]:
+        """Get odds from Betfair exchange."""
+        features = {}
+        try:
+            betfair_data = self.betfair.calculate_exchange_features(
+                home_team, away_team, league
+            )
+            for k, v in betfair_data.items():
+                features[f"bf_{k}"] = v
+        except Exception as e:
+            logger.warning(f"Betfair odds error: {e}")
+        return features
+    
+    def _get_form_features(
+        self,
+        home_team: str,
+        away_team: str
+    ) -> Dict[str, float]:
+        """Get form from WhoScored."""
+        features = {}
+        try:
+            ws_data = self.whoscored.calculate_form_features(
+                home_team, away_team
+            )
+            for k, v in ws_data.items():
+                features[f"ws_{k}"] = v
+        except Exception as e:
+            logger.warning(f"WhoScored form error: {e}")
+        return features
+    
+    def _get_position_features(
+        self,
+        home_team: str,
+        away_team: str,
+        league: str
+    ) -> Dict[str, float]:
+        """Get standings from Soccerway."""
+        features = {}
+        try:
+            sw_data = self.soccerway.calculate_position_features(
+                home_team, away_team, league
+            )
+            for k, v in sw_data.items():
+                features[f"sw_{k}"] = v
+        except Exception as e:
+            logger.warning(f"Soccerway position error: {e}")
+        return features
+    
+    def _get_xg_features(
+        self,
+        home_team: str,
+        away_team: str,
+        league: str
+    ) -> Dict[str, float]:
+        """Get xG from Understat."""
+        features = {}
+        try:
+            us_data = self.understat.calculate_xg_features(
+                home_team, away_team, league
+            )
+            for k, v in us_data.items():
+                features[f"us_{k}"] = v
+        except Exception as e:
+            logger.warning(f"Understat xG error: {e}")
+        return features
+    
+    def _get_value_features(
+        self,
+        home_team: str,
+        away_team: str,
+        league: str
+    ) -> Dict[str, float]:
+        """Get market values from Transfermarkt."""
+        features = {}
+        try:
+            tm_data = self.transfermarkt.calculate_value_features(home_team, away_team, league)
+            for k, v in tm_data.items():
+                features[f"tm_{k}"] = v
+        except Exception as e:
+            logger.warning(f"Transfermarkt value error: {e}")
+        return features
+    
+    def get_historical_training_data(
+        self,
+        league: str = "EPL",
+        seasons: list = None
+    ) -> pd.DataFrame:
+        """
+        Get historical data for model training.
+        
+        Uses football-data.co.uk CSVs with Pinnacle odds.
+        """
+        if seasons is None:
+            seasons = ["2324", "2223", "2122", "2021", "1920"]
+        
+        try:
+            data = self.football_data.get_historical_odds(league, seasons)
+            if data:
+                return pd.DataFrame(data)
+        except Exception as e:
+            logger.error(f"Error fetching training data: {e}")
+        
+        return pd.DataFrame()
+
+
+# Singleton instance
+_enhanced_aggregator: Optional[EnhancedDataAggregator] = None
+
+
+def get_enhanced_aggregator() -> EnhancedDataAggregator:
+    """Get singleton EnhancedDataAggregator instance."""
+    global _enhanced_aggregator
+    if _enhanced_aggregator is None:
+        _enhanced_aggregator = EnhancedDataAggregator()
+    return _enhanced_aggregator
+
+
+def get_match_features(
+    home_team: str,
+    away_team: str,
+    league: str = "EPL"
+) -> Dict[str, Any]:
+    """
+    Convenience function to get comprehensive match features.
+    
+    Args:
+        home_team: Home team name
+        away_team: Away team name
+        league: League identifier
+        
+    Returns:
+        Dict with aggregated features from all sources
+    """
+    return get_enhanced_aggregator().get_comprehensive_features(
+        home_team, away_team, league
+    )

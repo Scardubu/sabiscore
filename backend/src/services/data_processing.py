@@ -15,10 +15,8 @@ from sqlalchemy import and_, or_, func
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
-from ..models.match import Match
-from ..models.team import Team
-from ..models.match_odds import MatchOdds
-from ..models.league_standing import LeagueStanding
+# Updated imports to use core.database directly
+from ..core.database import Match, Team, Odds as MatchOdds, LeagueStanding, MatchStats
 
 
 class DataProcessingService:
@@ -31,7 +29,20 @@ class DataProcessingService:
     
     def __init__(self, db: Session, redis_url: str = "redis://default:UgnIjbBTIEutO3Rz8hSFnZchPqiR3Xbx@redis-15727.c8.us-east-1-4.ec2.cloud.redislabs.com:15727"):
         self.db = db
-        self.redis = redis.from_url(redis_url, decode_responses=True)
+        try:
+            self.redis = redis.from_url(redis_url, decode_responses=True)
+            self.redis.ping() # Check connection
+        except redis.ConnectionError:
+            # Fallback to a dummy redis wrapper if connection fails (for dev/test without redis)
+            class DummyRedis:
+                def get(self, key): return None
+                def setex(self, key, time, value): pass
+                def scan_iter(self, match): return []
+                def delete(self, key): pass
+                def info(self, section): return {}
+                def dbsize(self): return 0
+            self.redis = DummyRedis()
+            
         self.executor = ThreadPoolExecutor(max_workers=4)
         
         # Cache TTLs (seconds)
@@ -46,8 +57,8 @@ class DataProcessingService:
     
     async def get_match_features(
         self, 
-        home_team_id: int, 
-        away_team_id: int, 
+        home_team_id: str, 
+        away_team_id: str, 
         league: str,
         match_date: Optional[datetime] = None
     ) -> Dict:
@@ -101,7 +112,7 @@ class DataProcessingService:
         
         return features
     
-    async def _get_team_form(self, team_id: int, as_of_date: datetime) -> Dict:
+    async def _get_team_form(self, team_id: str, as_of_date: datetime) -> Dict:
         """Extract last 5 matches form metrics"""
         cache_key = f"team_form:{team_id}:{as_of_date.date()}"
         cached = self.redis.get(cache_key)
@@ -132,18 +143,31 @@ class DataProcessingService:
         losses = 0
         
         for match in matches:
+            # Fetch xG from MatchStats
+            home_stats = self.db.query(MatchStats).filter(
+                MatchStats.match_id == match.id, 
+                MatchStats.team_id == match.home_team_id
+            ).first()
+            away_stats = self.db.query(MatchStats).filter(
+                MatchStats.match_id == match.id, 
+                MatchStats.team_id == match.away_team_id
+            ).first()
+            
+            match_home_xg = home_stats.expected_goals if home_stats else 0.0
+            match_away_xg = away_stats.expected_goals if away_stats else 0.0
+
             is_home = match.home_team_id == team_id
             
             if is_home:
                 team_score = match.home_score
                 opp_score = match.away_score
-                team_xg = match.home_xg or 0
-                opp_xg = match.away_xg or 0
+                team_xg = match_home_xg
+                opp_xg = match_away_xg
             else:
                 team_score = match.away_score
                 opp_score = match.home_score
-                team_xg = match.away_xg or 0
-                opp_xg = match.home_xg or 0
+                team_xg = match_away_xg
+                opp_xg = match_home_xg
             
             goals_scored += team_score
             goals_conceded += opp_score
@@ -178,7 +202,7 @@ class DataProcessingService:
         self.redis.setex(cache_key, self.CACHE_TTLS['team_form'], json.dumps(form_data))
         return form_data
     
-    async def _get_h2h_history(self, home_team_id: int, away_team_id: int) -> Dict:
+    async def _get_h2h_history(self, home_team_id: str, away_team_id: str) -> Dict:
         """Extract head-to-head historical performance"""
         cache_key = f"h2h:{home_team_id}:{away_team_id}"
         cached = self.redis.get(cache_key)
@@ -241,8 +265,8 @@ class DataProcessingService:
     
     async def _get_league_context(
         self, 
-        home_team_id: int, 
-        away_team_id: int, 
+        home_team_id: str, 
+        away_team_id: str, 
         league: str
     ) -> Dict:
         """Extract league standings and context"""
@@ -278,8 +302,8 @@ class DataProcessingService:
     
     async def _get_xg_stats(
         self, 
-        home_team_id: int, 
-        away_team_id: int, 
+        home_team_id: str, 
+        away_team_id: str, 
         as_of_date: datetime
     ) -> Dict:
         """Extract xG performance metrics"""
@@ -289,85 +313,167 @@ class DataProcessingService:
             return json.loads(cached)
         
         # Home team xG stats (last 10 matches)
+        # We need to join with MatchStats to check for xG existence, or just query matches and then stats
+        # For simplicity and correctness with current schema, we query matches first
         home_matches = self.db.query(Match).filter(
             or_(Match.home_team_id == home_team_id, Match.away_team_id == home_team_id),
             Match.match_date < as_of_date,
-            Match.home_xg.isnot(None)
+            Match.home_score.isnot(None)
         ).order_by(Match.match_date.desc()).limit(10).all()
         
         home_xg_total = 0
         home_xga_total = 0
         home_xg_overperformance = 0
         
+        valid_home_matches = 0
+        
         for match in home_matches:
+            # Fetch xG
+            home_stats = self.db.query(MatchStats).filter(
+                MatchStats.match_id == match.id, 
+                MatchStats.team_id == match.home_team_id
+            ).first()
+            away_stats = self.db.query(MatchStats).filter(
+                MatchStats.match_id == match.id, 
+                MatchStats.team_id == match.away_team_id
+            ).first()
+            
+            if not home_stats: continue # Skip if no stats
+            
+            valid_home_matches += 1
+            match_home_xg = home_stats.expected_goals or 0.0
+            match_away_xg = away_stats.expected_goals if away_stats else 0.0
+
             if match.home_team_id == home_team_id:
-                home_xg_total += match.home_xg
-                home_xga_total += match.away_xg or 0
-                home_xg_overperformance += (match.home_score - match.home_xg)
+                home_xg_total += match_home_xg
+                home_xga_total += match_away_xg
+                home_xg_overperformance += (match.home_score - match_home_xg)
             else:
-                home_xg_total += match.away_xg or 0
-                home_xga_total += match.home_xg
-                home_xg_overperformance += (match.away_score - (match.away_xg or 0))
+                home_xg_total += match_away_xg
+                home_xga_total += match_home_xg
+                home_xg_overperformance += (match.away_score - match_away_xg)
         
         # Away team xG stats
         away_matches = self.db.query(Match).filter(
             or_(Match.home_team_id == away_team_id, Match.away_team_id == away_team_id),
             Match.match_date < as_of_date,
-            Match.home_xg.isnot(None)
+            Match.home_score.isnot(None)
         ).order_by(Match.match_date.desc()).limit(10).all()
         
         away_xg_total = 0
         away_xga_total = 0
         away_xg_overperformance = 0
         
+        valid_away_matches = 0
+        
         for match in away_matches:
+            # Fetch xG
+            home_stats = self.db.query(MatchStats).filter(
+                MatchStats.match_id == match.id, 
+                MatchStats.team_id == match.home_team_id
+            ).first()
+            away_stats = self.db.query(MatchStats).filter(
+                MatchStats.match_id == match.id, 
+                MatchStats.team_id == match.away_team_id
+            ).first()
+            
+            if not away_stats: continue # Skip if no stats (assuming away team stats exist)
+            # Actually we need stats for the 'away_team_id' which could be home or away in the match
+            
+            # Let's be precise:
+            # If away_team_id is home_team in match, we need home_stats
+            # If away_team_id is away_team in match, we need away_stats
+            
+            target_stats = home_stats if match.home_team_id == away_team_id else away_stats
+            opp_stats = away_stats if match.home_team_id == away_team_id else home_stats
+            
+            if not target_stats: continue
+            
+            valid_away_matches += 1
+            
+            match_team_xg = target_stats.expected_goals or 0.0
+            match_opp_xg = opp_stats.expected_goals if opp_stats else 0.0
+            
             if match.home_team_id == away_team_id:
-                away_xg_total += match.home_xg
-                away_xga_total += match.away_xg or 0
-                away_xg_overperformance += (match.home_score - match.home_xg)
+                # They played home
+                away_xg_total += match_team_xg
+                away_xga_total += match_opp_xg
+                away_xg_overperformance += (match.home_score - match_team_xg)
             else:
-                away_xg_total += match.away_xg or 0
-                away_xga_total += match.home_xg
-                away_xg_overperformance += (match.away_score - (match.away_xg or 0))
+                # They played away
+                away_xg_total += match_team_xg
+                away_xga_total += match_opp_xg
+                away_xg_overperformance += (match.away_score - match_team_xg)
         
         xg_data = {
-            'home_xg_per_match': round(home_xg_total / len(home_matches), 2) if home_matches else 1.2,
-            'home_xga_per_match': round(home_xga_total / len(home_matches), 2) if home_matches else 1.2,
-            'home_xg_overperformance': round(home_xg_overperformance / len(home_matches), 2) if home_matches else 0,
-            'away_xg_per_match': round(away_xg_total / len(away_matches), 2) if away_matches else 1.2,
-            'away_xga_per_match': round(away_xga_total / len(away_matches), 2) if away_matches else 1.2,
-            'away_xg_overperformance': round(away_xg_overperformance / len(away_matches), 2) if away_matches else 0,
-            'xg_diff': round((home_xg_total / len(home_matches)) - (away_xg_total / len(away_matches)), 2) if home_matches and away_matches else 0
+            'home_xg_per_match': round(home_xg_total / valid_home_matches, 2) if valid_home_matches else 1.2,
+            'home_xga_per_match': round(home_xga_total / valid_home_matches, 2) if valid_home_matches else 1.2,
+            'home_xg_overperformance': round(home_xg_overperformance / valid_home_matches, 2) if valid_home_matches else 0,
+            'away_xg_per_match': round(away_xg_total / valid_away_matches, 2) if valid_away_matches else 1.2,
+            'away_xga_per_match': round(away_xga_total / valid_away_matches, 2) if valid_away_matches else 1.2,
+            'away_xg_overperformance': round(away_xg_overperformance / valid_away_matches, 2) if valid_away_matches else 0,
+            'xg_diff': round((home_xg_total / valid_home_matches) - (away_xg_total / valid_away_matches), 2) if valid_home_matches and valid_away_matches else 0
         }
         
         self.redis.setex(cache_key, self.CACHE_TTLS['xg_stats'], json.dumps(xg_data))
         return xg_data
     
-    async def _get_tactical_metrics(self, home_team_id: int, away_team_id: int) -> Dict:
+    async def _get_tactical_metrics(self, home_team_id: str, away_team_id: str) -> Dict:
         """Extract tactical style metrics (possession, pressing, etc.)"""
-        # Placeholder for tactical data integration
-        # In production: integrate with Wyscout, StatsBomb, etc.
+        # Get team names
+        home_team = self.db.query(Team).filter(Team.id == home_team_id).first()
+        away_team = self.db.query(Team).filter(Team.id == away_team_id).first()
+        
+        if not home_team or not away_team:
+            return self._default_tactical_metrics()
+
+        # Try to get from Redis (populated by FBrefScoutingScraper)
+        # Key format: fbref_tactical:{team_name}:{season}
+        # Assuming current season is 2024-2025 or similar.
+        season = "2024-2025" # TODO: Make dynamic
+        
+        home_key = f"fbref_tactical:{home_team.name}:{season}"
+        away_key = f"fbref_tactical:{away_team.name}:{season}"
+        
+        home_data = self.redis.get(home_key)
+        away_data = self.redis.get(away_key)
+        
+        if home_data and away_data:
+            h_metrics = json.loads(home_data)
+            a_metrics = json.loads(away_data)
+            return {
+                'home_possession_avg': h_metrics.get('possession_avg', 50.0),
+                'away_possession_avg': a_metrics.get('possession_avg', 50.0),
+                'home_ppda': h_metrics.get('ppda', 10.0),
+                'away_ppda': a_metrics.get('ppda', 10.0),
+                'home_high_press_rate': h_metrics.get('pressure_success_pct', 30.0) / 100.0,
+                'away_high_press_rate': a_metrics.get('pressure_success_pct', 30.0) / 100.0
+            }
+            
+        return self._default_tactical_metrics()
+
+    def _default_tactical_metrics(self) -> Dict:
         return {
             'home_possession_avg': 52.0,
             'away_possession_avg': 48.0,
-            'home_ppda': 9.2,  # Passes allowed per defensive action
+            'home_ppda': 9.2,
             'away_ppda': 10.1,
             'home_high_press_rate': 0.42,
             'away_high_press_rate': 0.38
         }
     
-    async def _get_market_odds(self, home_team_id: int, away_team_id: int) -> Dict:
+    async def _get_market_odds(self, home_team_id: str, away_team_id: str) -> Dict:
         """Get latest market odds from database"""
         cache_key = f"odds:{home_team_id}:{away_team_id}"
         cached = self.redis.get(cache_key)
         if cached:
             return json.loads(cached)
         
-        # Query latest odds
-        latest_odds = self.db.query(MatchOdds).filter(
-            MatchOdds.home_team_id == home_team_id,
-            MatchOdds.away_team_id == away_team_id
-        ).order_by(MatchOdds.updated_at.desc()).first()
+        # Query latest odds by joining with Match
+        latest_odds = self.db.query(MatchOdds).join(Match).filter(
+            Match.home_team_id == home_team_id,
+            Match.away_team_id == away_team_id
+        ).order_by(MatchOdds.timestamp.desc()).first()
         
         if not latest_odds:
             return self._default_odds()
@@ -376,17 +482,17 @@ class DataProcessingService:
             'home_win_odds': latest_odds.home_win,
             'draw_odds': latest_odds.draw,
             'away_win_odds': latest_odds.away_win,
-            'over_2_5_odds': latest_odds.over_2_5 if hasattr(latest_odds, 'over_2_5') else 1.85,
-            'btts_yes_odds': latest_odds.btts_yes if hasattr(latest_odds, 'btts_yes') else 1.75,
-            'market_implied_home_prob': round(1 / latest_odds.home_win, 3),
-            'market_implied_draw_prob': round(1 / latest_odds.draw, 3),
-            'market_implied_away_prob': round(1 / latest_odds.away_win, 3)
+            'over_2_5_odds': latest_odds.over_under if hasattr(latest_odds, 'over_under') else 1.85,
+            'btts_yes_odds': 1.75, # Not in Odds model currently
+            'market_implied_home_prob': round(1 / latest_odds.home_win, 3) if latest_odds.home_win else 0,
+            'market_implied_draw_prob': round(1 / latest_odds.draw, 3) if latest_odds.draw else 0,
+            'market_implied_away_prob': round(1 / latest_odds.away_win, 3) if latest_odds.away_win else 0
         }
         
         self.redis.setex(cache_key, self.CACHE_TTLS['odds'], json.dumps(odds_data))
         return odds_data
     
-    def _calculate_form_trend(self, matches: List[Match], team_id: int) -> float:
+    def _calculate_form_trend(self, matches: List[Match], team_id: str) -> float:
         """Calculate weighted form trend (recent matches weighted more)"""
         if not matches:
             return 0.0
@@ -417,7 +523,7 @@ class DataProcessingService:
         
         return round(weighted_points / total_weight, 2)
     
-    def _default_form_features(self, team_id: int) -> Dict:
+    def _default_form_features(self, team_id: str) -> Dict:
         """Default features when no form data available"""
         return {
             f'team_{team_id}_points_l5': 6,

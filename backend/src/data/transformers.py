@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Callable, Optional
 
 import numpy as np
 import pandas as pd
@@ -88,6 +88,19 @@ FEATURE_DEFAULTS = {
 }
 
 
+def _safe_float(value: Any) -> Optional[float]:
+    try:
+        if value is None:
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _clamp(value: float, min_value: float, max_value: float) -> float:
+    return max(min_value, min(value, max_value))
+
+
 class FeatureTransformer:
     """Feature engineering pipeline with validation and leakage controls.
     
@@ -126,6 +139,7 @@ class FeatureTransformer:
         base = self._add_advanced_team_features(base, team_stats)
         base = self._add_form_trends(base, current_form)
         base = self._add_schedule_features(base, match_data)
+        base = self._apply_enhanced_features(base, match_data)
 
         base = self._ensure_minimum_row(base)
 
@@ -342,6 +356,116 @@ class FeatureTransformer:
         features["referee_home_bias"] = schedule.get("referee_home_bias", FEATURE_DEFAULTS["referee_home_bias"])
         
         return features
+
+    def _apply_enhanced_features(self, features: pd.DataFrame, match_data: Dict[str, Any]) -> pd.DataFrame:
+        if features.empty:
+            return features
+
+        enhanced = match_data.get("enhanced_features") if isinstance(match_data, dict) else None
+        if not enhanced:
+            return features
+
+        overrides: tuple[tuple[str, str, Optional[Callable[[float, Dict[str, Any]], Optional[float]]]], ...] = (
+            ("ws_home_win_rate_5", "home_win_rate_5", lambda v, _: _clamp(v, 0.0, 1.0)),
+            ("ws_away_win_rate_5", "away_win_rate_5", lambda v, _: _clamp(v, 0.0, 1.0)),
+            ("ws_home_avg_possession", "home_possession_style", lambda v, _: _clamp(v / 100.0 if v > 1 else v, 0.0, 1.0)),
+            ("ws_away_avg_possession", "away_possession_style", lambda v, _: _clamp(v / 100.0 if v > 1 else v, 0.0, 1.0)),
+            ("us_home_xg_pg", "home_xg_avg_5", None),
+            ("us_away_xg_pg", "away_xg_avg_5", None),
+            ("us_home_xga_pg", "home_xg_conceded_avg_5", None),
+            ("us_away_xga_pg", "away_xg_conceded_avg_5", None),
+            ("us_home_xg_diff", "home_xg_diff_5", None),
+            ("us_away_xg_diff", "away_xg_diff_5", None),
+            ("tm_value_diff_m", "squad_value_diff", None),
+            ("bf_market_margin_pct", "bookmaker_margin", lambda v, _: v / 100.0 if v > 1 else v),
+        )
+
+        index = features.index[0]
+        for source, target, transform in overrides:
+            raw_value = enhanced.get(source)
+            if raw_value is None:
+                continue
+
+            value = _safe_float(raw_value)
+            if value is None:
+                continue
+
+            if transform is not None:
+                try:
+                    transformed = transform(value, enhanced)
+                except Exception as exc:
+                    logger.debug("Enhanced feature transform failed for %s -> %s: %s", source, target, exc)
+                    continue
+                if transformed is None:
+                    continue
+                value = transformed
+
+            if value is None:
+                continue
+
+            features.at[index, target] = float(value)
+
+        self._apply_enhanced_xg_consistency(features, enhanced, index)
+        self._apply_enhanced_odds(features, enhanced, index)
+        return features
+
+    def _apply_enhanced_xg_consistency(
+        self,
+        features: pd.DataFrame,
+        enhanced: Dict[str, Any],
+        index: Any,
+    ) -> None:
+        home_recent = _safe_float(enhanced.get("us_home_recent_xg"))
+        home_avg = _safe_float(enhanced.get("us_home_xg_pg"))
+        away_recent = _safe_float(enhanced.get("us_away_recent_xg"))
+        away_avg = _safe_float(enhanced.get("us_away_xg_pg"))
+
+        def _consistency(recent: Optional[float], avg: Optional[float]) -> Optional[float]:
+            if recent is None or avg is None or avg == 0:
+                return None
+            variance = abs(recent - avg) / max(abs(avg), 1e-3)
+            return round(_clamp(1.0 - min(variance, 1.0) * 0.5, 0.0, 1.0), 3)
+
+        home_consistency = _consistency(home_recent, home_avg)
+        if home_consistency is not None:
+            features.at[index, "home_xg_consistency"] = home_consistency
+
+        away_consistency = _consistency(away_recent, away_avg)
+        if away_consistency is not None:
+            features.at[index, "away_xg_consistency"] = away_consistency
+
+        # Recompute differential after overrides
+        try:
+            home_diff = float(features.at[index, "home_xg_diff_5"])
+            away_diff = float(features.at[index, "away_xg_diff_5"])
+            features.at[index, "xg_differential"] = home_diff - away_diff
+        except (KeyError, ValueError, TypeError):
+            pass
+
+    def _apply_enhanced_odds(
+        self,
+        features: pd.DataFrame,
+        enhanced: Dict[str, Any],
+        index: Any,
+    ) -> None:
+        home_back = _safe_float(enhanced.get("bf_home_back"))
+        draw_back = _safe_float(enhanced.get("bf_draw_back"))
+        away_back = _safe_float(enhanced.get("bf_away_back"))
+
+        if not all(val and val > 1.0 for val in (home_back, draw_back, away_back)):
+            return
+
+        implied_home = 1.0 / home_back
+        implied_draw = 1.0 / draw_back
+        implied_away = 1.0 / away_back
+        total = implied_home + implied_draw + implied_away
+        if total <= 0:
+            return
+
+        features.at[index, "home_implied_prob"] = implied_home / total
+        margin = (implied_home + implied_draw + implied_away) - 1.0
+        if margin > 0:
+            features.at[index, "bookmaker_margin"] = _clamp(margin, 0.0, 0.3)
 
     def _handle_missing_values(self, features: pd.DataFrame) -> pd.DataFrame:
         if features.empty:

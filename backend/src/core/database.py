@@ -29,11 +29,27 @@ logger = logging.getLogger(__name__)
 
 Base = declarative_base()
 
+
+def _get_sync_database_url(url: str) -> str:
+    """
+    Convert async database URL to sync URL for synchronous engine.
+    Handles aiosqlite -> sqlite, asyncpg -> psycopg2, etc.
+    """
+    if "+aiosqlite" in url:
+        return url.replace("+aiosqlite", "")
+    if "+asyncpg" in url:
+        return url.replace("+asyncpg", "+psycopg2")
+    return url
+
+
+# Get sync-compatible database URL
+_sync_url = _get_sync_database_url(settings.database_url)
+
 # Database engine
-if settings.database_url.startswith("sqlite"):
+if _sync_url.startswith("sqlite"):
     # SQLite-specific configuration
     engine = create_engine(
-        settings.database_url,
+        _sync_url,
         echo=settings.debug,
         poolclass=None,  # Disable connection pooling for SQLite
         connect_args={"check_same_thread": False},  # Allow multi-threading
@@ -41,7 +57,7 @@ if settings.database_url.startswith("sqlite"):
 else:
     # PostgreSQL/MySQL configuration
     engine = create_engine(
-        settings.database_url,
+        _sync_url,
         poolclass=QueuePool,
         pool_size=settings.database_pool_size,
         max_overflow=settings.database_max_overflow,
@@ -59,7 +75,7 @@ try:
 except Exception as exc:
     logger.warning("Initial DB connection test failed: %s", exc)
     # Only auto-fallback in non-production environments
-    if settings.app_env != "production" and not settings.database_url.startswith("sqlite"):
+    if settings.app_env != "production" and not _sync_url.startswith("sqlite"):
         fallback_url = "sqlite:///./sabiscore_fallback.db"
         logger.warning("Falling back to local SQLite database for development: %s", fallback_url)
         engine = create_engine(
@@ -234,6 +250,29 @@ class ValueBet(Base):
 
     match = relationship("Match")
     prediction = relationship("Prediction")
+
+
+class LeagueStanding(Base):
+    __tablename__ = "league_standings"
+    __table_args__ = (
+        Index("ix_league_standings_league_team", "league", "team_id"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    league = Column(String, ForeignKey("leagues.id"))
+    team_id = Column(String, ForeignKey("teams.id"))
+    position = Column(Integer)
+    points = Column(Integer)
+    played = Column(Integer)
+    won = Column(Integer)
+    drawn = Column(Integer)
+    lost = Column(Integer)
+    goals_for = Column(Integer)
+    goals_against = Column(Integer)
+    goal_difference = Column(Integer)
+    updated_at = Column(DateTime)
+    
+    team = relationship("Team")
 
 
 class MatchEvent(Base):
