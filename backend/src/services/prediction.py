@@ -5,6 +5,7 @@ import logging
 import math
 import random
 import threading
+import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -14,9 +15,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.cache import cache_manager
 from ..core.config import settings
+from ..data.aggregator import DataAggregator, get_match_features, get_enhanced_aggregator
 from ..data.transformers import FeatureTransformer
 from ..models.edge_detector import EdgeDetector
 from ..models.ensemble import SabiScoreEnsemble
+from ..monitoring.metrics import metrics_collector, monitor_latency
 from ..schemas.prediction import MatchPredictionRequest, PredictionResponse
 from ..schemas.value_bet import ValueBetResponse
 
@@ -31,6 +34,13 @@ class PredictionService:
     _cache_lock = threading.Lock()
     _cache_access_times: Dict[str, float] = {}  # Track LRU
     MAX_CACHED_MODELS = 5  # Limit memory footprint
+    LEAGUE_DISPLAY_NAMES = {
+        "epl": "EPL",
+        "bundesliga": "Bundesliga",
+        "la_liga": "La Liga",
+        "serie_a": "Serie A",
+        "ligue_1": "Ligue 1",
+    }
 
     def __init__(
         self,
@@ -41,6 +51,9 @@ class PredictionService:
         self.db = db_session
         self.cache = cache_backend or cache_manager
         self.transformer = FeatureTransformer()
+        self.enhanced_aggregator = get_enhanced_aggregator()
+        self._match_context_cache: Dict[str, Dict[str, Any]] = {}
+        self._match_context_ttl = 15 * 60  # seconds
         self.edge_detector = EdgeDetector(
             min_edge_threshold=0.042,
             kelly_fraction=0.125,
@@ -60,22 +73,40 @@ class PredictionService:
         match_id: str,
         request: MatchPredictionRequest,
     ) -> PredictionResponse:
-        start_time = datetime.utcnow()
+        start_time = time.time()
 
         league_slug = self._slugify_league(request.league)
         cache_key = self._build_cache_key(match_id, league_slug)
 
         cached = self._get_cached_prediction(cache_key)
         if cached is not None:
+            metrics_collector.record_prediction(
+                duration_ms=(time.time() - start_time) * 1000,
+                confidence=cached.confidence,
+                cache_hit=True
+            )
             return cached
 
         ensemble = self._get_ensemble_for_league(league_slug)
-        feature_frame, feature_vector = self._build_feature_frame(match_id, request, ensemble, league_slug)
+        feature_frame, feature_vector, feature_context = self._build_feature_frame(
+            match_id,
+            request,
+            ensemble,
+            league_slug,
+        )
 
         try:
+            inference_start = time.time()
             prediction_df = ensemble.predict(feature_frame)
+            inference_ms = (time.time() - inference_start) * 1000
+            metrics_collector.record_timer("model_inference", inference_ms)
         except Exception as exc:
             logger.error("Prediction failed for %s: %s", match_id, exc)
+            metrics_collector.record_error(
+                error_type="PredictionError",
+                message=str(exc),
+                context={"match_id": match_id, "league": league_slug}
+            )
             raise
 
         row = prediction_df.iloc[0]
@@ -88,8 +119,8 @@ class PredictionService:
         bankroll = float(request.bankroll or self._default_bankroll)
         value_bets = self._detect_value_bets(match_id, probabilities, request.odds, bankroll)
         explanations = self._generate_explanations(feature_vector)
-        processing_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
-        metadata = self._build_metadata(league_slug, ensemble, processing_ms)
+        processing_ms = int((time.time() - start_time) * 1000)
+        metadata = self._build_metadata(league_slug, ensemble, processing_ms, feature_context)
         sample_size = int(metadata.get("training_samples") or 500)
         confidence_intervals = self._calculate_confidence_intervals(probabilities, sample_size=sample_size)
 
@@ -109,6 +140,17 @@ class PredictionService:
 
         self._cache_prediction(cache_key, prediction)
         self._update_metrics(prediction)
+        
+        # Record production metrics
+        # ValueBetResponse uses edge_percent (percentage) not edge
+        max_edge_pct = max([vb.edge_percent for vb in value_bets], default=0.0)
+        metrics_collector.record_prediction(
+            duration_ms=processing_ms,
+            confidence=prediction.confidence,
+            value_bets=len(value_bets),
+            edge=max_edge_pct / 100.0 if max_edge_pct > 0 else None,  # Convert to decimal
+            cache_hit=False
+        )
 
         return prediction
 
@@ -153,30 +195,14 @@ class PredictionService:
         request: MatchPredictionRequest,
         ensemble: SabiScoreEnsemble,
         league_slug: str,
-    ) -> Tuple[pd.DataFrame, Dict[str, float]]:
+    ) -> Tuple[pd.DataFrame, Dict[str, float], Dict[str, Any]]:
         columns = ensemble.feature_columns or []
         if not columns:
             raise ValueError("Loaded model does not expose feature columns")
 
-        # Construct match data for transformer
-        # In a real scenario, we would fetch historical stats, form, etc. from DB
-        # For now, we use the request data and rely on transformer defaults for missing data
-        match_data = {
-            "odds": request.odds,
-            "schedule": {
-                "home_team": request.home_team,
-                "away_team": request.away_team,
-                "league": request.league,
-                "date": request.kickoff_time
-            },
-            # Empty structures to trigger defaults in transformer
-            "historical_stats": pd.DataFrame(),
-            "current_form": {},
-            "injuries": pd.DataFrame(),
-            "head_to_head": pd.DataFrame(),
-            "team_stats": {}
-        }
-        
+        league_name = self._resolve_league_name(request.league)
+        match_data, feature_context = self._prepare_match_data(request, league_name)
+
         # Generate features using the transformer
         # This ensures we get exactly the 86 features expected by the model
         feature_frame = self.transformer.engineer_features(match_data)
@@ -195,7 +221,221 @@ class PredictionService:
         # Convert to dict for return
         feature_values = feature_frame.iloc[0].to_dict()
 
-        return feature_frame, feature_values
+        return feature_frame, feature_values, feature_context
+
+    def _prepare_match_data(
+        self,
+        request: MatchPredictionRequest,
+        league_name: str,
+    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        """Use scrapers + aggregators to hydrate feature inputs with caching."""
+
+        context_key = self._build_match_context_key(
+            request.home_team,
+            request.away_team,
+            league_name,
+            request.kickoff_time,
+        )
+
+        cached = self._get_cached_match_context(context_key)
+        if cached:
+            return cached["match_data"], cached["feature_context"]
+
+        base_match_data = self._build_base_match_data(request, league_name)
+        aggregator_payload = self._collect_primary_match_data(request, league_name)
+        if aggregator_payload:
+            match_data = self._hydrate_match_data(base_match_data, aggregator_payload)
+        else:
+            match_data = base_match_data
+
+        enhanced_features = self._collect_enhanced_features(
+            request.home_team,
+            request.away_team,
+            league_name,
+        )
+
+        if enhanced_features:
+            match_data["enhanced_features"] = enhanced_features
+            self._merge_exchange_odds(match_data, enhanced_features)
+
+        feature_context = {
+            "league": league_name,
+            "schedule": match_data.get("schedule"),
+            "metadata": (aggregator_payload or {}).get("metadata", {}),
+            "enhanced_features": enhanced_features,
+            "odds_source": (aggregator_payload or {}).get("odds"),
+        }
+
+        self._set_cached_match_context(context_key, match_data, feature_context)
+        return match_data, feature_context
+
+    def _merge_exchange_odds(
+        self,
+        match_data: Dict[str, Any],
+        enhanced_features: Dict[str, Any],
+    ) -> None:
+        """Use Betfair exchange odds as fallback when explicit odds are missing."""
+
+        exchange_keys = {
+            "home_win": "bf_home_back",
+            "draw": "bf_draw_back",
+            "away_win": "bf_away_back",
+        }
+
+        updated = dict(match_data.get("odds") or {})
+        applied = False
+        for market, source_key in exchange_keys.items():
+            raw_value = enhanced_features.get(source_key)
+            if raw_value is None:
+                continue
+            try:
+                value = float(raw_value)
+            except (TypeError, ValueError):
+                continue
+
+            if value <= 1.0:
+                continue
+            if market in updated and updated[market]:
+                continue
+            updated[market] = value
+            applied = True
+
+        if applied:
+            match_data["odds"] = updated
+
+    def _build_base_match_data(
+        self,
+        request: MatchPredictionRequest,
+        league_name: str,
+    ) -> Dict[str, Any]:
+        return {
+            "odds": request.odds or {},
+            "schedule": {
+                "home_team": request.home_team,
+                "away_team": request.away_team,
+                "league": league_name,
+                "date": request.kickoff_time,
+            },
+            "historical_stats": pd.DataFrame(),
+            "current_form": {},
+            "injuries": pd.DataFrame(),
+            "head_to_head": pd.DataFrame(),
+            "team_stats": {},
+        }
+
+    def _collect_primary_match_data(
+        self,
+        request: MatchPredictionRequest,
+        league_name: str,
+    ) -> Optional[Dict[str, Any]]:
+        matchup = f"{request.home_team} vs {request.away_team}"
+        try:
+            aggregator = DataAggregator(matchup, league_name)
+            return aggregator.fetch_match_data()
+        except Exception as exc:
+            logger.warning("Primary aggregator failed for %s: %s", matchup, exc)
+            return None
+
+    def _collect_enhanced_features(
+        self,
+        home_team: str,
+        away_team: str,
+        league_name: str,
+    ) -> Dict[str, Any]:
+        try:
+            return self.enhanced_aggregator.get_comprehensive_features(
+                home_team,
+                away_team,
+                league_name,
+            )
+        except Exception as exc:
+            logger.warning(
+                "Enhanced aggregator failed for %s vs %s: %s",
+                home_team,
+                away_team,
+                exc,
+            )
+            return {}
+
+    def _hydrate_match_data(
+        self,
+        base_data: Dict[str, Any],
+        aggregator_payload: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        hydrated = dict(base_data)
+        for key in (
+            "historical_stats",
+            "current_form",
+            "odds",
+            "injuries",
+            "head_to_head",
+            "team_stats",
+        ):
+            value = aggregator_payload.get(key)
+            if value is None:
+                continue
+            if isinstance(value, pd.DataFrame):
+                hydrated[key] = value.copy()
+            else:
+                hydrated[key] = value
+
+        # Preserve request odds if provided explicitly
+        base_odds = base_data.get("odds") or {}
+        agg_odds = aggregator_payload.get("odds") or {}
+        if base_odds and agg_odds:
+            combined = dict(agg_odds)
+            combined.update(base_odds)
+            hydrated["odds"] = combined
+        elif base_odds:
+            hydrated["odds"] = base_odds
+        elif agg_odds:
+            hydrated["odds"] = agg_odds
+
+        return hydrated
+
+    def _build_match_context_key(
+        self,
+        home_team: str,
+        away_team: str,
+        league_name: str,
+        kickoff_time: Optional[Union[str, datetime]],
+    ) -> str:
+        kickoff = "unknown"
+        if isinstance(kickoff_time, datetime):
+            kickoff = kickoff_time.isoformat()
+        elif kickoff_time:
+            kickoff = str(kickoff_time)
+        return f"{home_team}|{away_team}|{league_name}|{kickoff}".lower()
+
+    def _get_cached_match_context(
+        self,
+        cache_key: str,
+    ) -> Optional[Dict[str, Any]]:
+        cached = self._match_context_cache.get(cache_key)
+        if not cached:
+            return None
+        if cached.get("expires_at", 0) < datetime.utcnow().timestamp():
+            self._match_context_cache.pop(cache_key, None)
+            return None
+        return cached
+
+    def _set_cached_match_context(
+        self,
+        cache_key: str,
+        match_data: Dict[str, Any],
+        feature_context: Dict[str, Any],
+    ) -> None:
+        self._match_context_cache[cache_key] = {
+            "match_data": match_data,
+            "feature_context": feature_context,
+            "expires_at": datetime.utcnow().timestamp() + self._match_context_ttl,
+        }
+
+    def _resolve_league_name(self, league: Optional[str]) -> str:
+        if not league:
+            return "EPL"
+        slug = self._slugify_league(league)
+        return self.LEAGUE_DISPLAY_NAMES.get(slug, league)
 
     def _detect_value_bets(
         self,
@@ -302,8 +542,18 @@ class PredictionService:
         league_slug: str,
         ensemble: SabiScoreEnsemble,
         processing_ms: int,
+        feature_context: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         meta = self._metadata_cache.get(league_slug, {})
+        context = feature_context or {}
+        enhanced = context.get("enhanced_features") or {}
+        data_sources = {
+            "league": context.get("league"),
+            "schedule": context.get("schedule"),
+            "aggregator_metadata": context.get("metadata"),
+            "enhanced_feature_count": len(enhanced),
+            "odds_source": context.get("odds_source"),
+        }
         return {
             "model_key": f"{league_slug}_ensemble",
             "model_version": meta.get("model_version") or meta.get("dataset_signature", "unknown"),
@@ -315,6 +565,7 @@ class PredictionService:
             "feature_count": len(ensemble.feature_columns or []),
             "processing_time_ms": processing_ms,
             "training_samples": meta.get("training_samples"),
+            "data_sources": data_sources,
         }
 
     def _update_metrics(self, prediction: PredictionResponse) -> None:

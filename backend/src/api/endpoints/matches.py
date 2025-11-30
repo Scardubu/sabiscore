@@ -17,6 +17,7 @@ from ...schemas.match import (
     MatchListResponse,
     MatchDetailResponse
 )
+from ...schemas.responses import MatchSearchResponse
 from ...core.cache import cache_manager
 from ...utils.mock_data import mock_generator
 
@@ -149,6 +150,84 @@ async def get_upcoming_matches(
     except Exception as e:
         logger.error(f"Error fetching upcoming matches: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch upcoming matches")
+
+
+@router.get("/search", response_model=List[MatchSearchResponse])
+async def search_matches(
+    q: str = Query(..., description="Search query for teams or matches", min_length=2),
+    league: Optional[str] = Query(None, description="Filter by league"),
+    limit: int = Query(10, ge=1, le=50, description="Maximum results to return"),
+    db: AsyncSession = Depends(get_async_session),
+):
+    """
+    Search for matches with filtering and caching.
+    
+    Searches team names for matches containing the query string.
+    """
+    query_text = q.strip()
+    if not query_text:
+        raise HTTPException(status_code=400, detail="Query must not be empty")
+
+    cache_key = f"matches:search:{query_text.lower()}:{league or '*'}:{limit}"
+    cached_results = cache_manager.get(cache_key)
+    if cached_results is not None:
+        return [MatchSearchResponse(**item) for item in cached_results]
+
+    try:
+        like_pattern = f"%{query_text}%"
+        
+        # Build query with async SQLAlchemy
+        query = (
+            select(Match)
+            .options(
+                selectinload(Match.home_team),
+                selectinload(Match.away_team),
+            )
+        )
+        
+        # Can't use OR easily with relationships in async, so fetch all and filter
+        result = await db.execute(query.limit(500))
+        all_matches = result.scalars().all()
+        
+        results = []
+        for match in all_matches:
+            home_name = match.home_team.name if match.home_team else match.home_team_id or ""
+            away_name = match.away_team.name if match.away_team else match.away_team_id or ""
+            match_league = match.league_id or ""
+            
+            # Filter by team name
+            if query_text.lower() not in home_name.lower() and query_text.lower() not in away_name.lower():
+                continue
+            
+            # Filter by league if specified
+            if league and match_league.lower() != league.lower():
+                continue
+                
+            results.append(
+                MatchSearchResponse(
+                    id=str(match.id),
+                    home_team=home_name,
+                    away_team=away_name,
+                    league=match_league,
+                    match_date=match.match_date.isoformat() if match.match_date else "",
+                    venue=match.venue or "",
+                )
+            )
+            
+            if len(results) >= limit:
+                break
+
+        # Cache for 5 minutes
+        payload = [r.model_dump() for r in results]
+        cache_manager.set(cache_key, payload, ttl=300)
+        
+        logger.info(f"Search '{query_text}' returned {len(results)} matches")
+        return results
+
+    except Exception as exc:
+        logger.exception("Match search failed", extra={"query": query_text, "league": league})
+        # Return empty list on errors to keep UX responsive
+        return []
 
 
 @router.get("/{match_id}", response_model=MatchDetailResponse)
