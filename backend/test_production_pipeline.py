@@ -141,8 +141,7 @@ class PipelineValidator:
             features = aggregator.get_comprehensive_features(
                 home_team="Arsenal",
                 away_team="Chelsea",
-                league="EPL",
-                use_cache=True
+                league="EPL"
             )
             
             if features:
