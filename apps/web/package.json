@@ -7,8 +7,11 @@
     "build": "next build",
     "build:prod": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint src --ext .ts,.tsx --max-warnings 0",
+    "lint:fix": "eslint src --ext .ts,.tsx --fix",
     "typecheck": "tsc --noEmit",
+    "test": "node ./scripts/validate-assets.js",
+    "test:assets": "node ./scripts/validate-assets.js",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "clean": "rm -rf .next .turbo node_modules"
   },
