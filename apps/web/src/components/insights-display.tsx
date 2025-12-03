@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import type { InsightsResponse } from "@/lib/api";
@@ -11,6 +11,17 @@ import { apiClient } from "@/lib/api";
 import { safeErrorMessage } from "@/lib/error-utils";
 import { ValueBetCard } from "./ValueBetCard";
 import { GamblingDisclaimer } from "./ui/ResponsibleGamblingTooltip";
+import { TeamVsDisplay } from "./team-display";
+import {
+  hashMatchup,
+  loadStoredPoll,
+  loadSwipeChoices,
+  INTERSTITIAL_SWIPE_QUESTIONS,
+  type InterstitialPollState,
+  type InterstitialSwipeChoices,
+} from "@/lib/interstitial-storage";
+import { FeatureFlag, useFeatureFlag } from "@/lib/feature-flags";
+import { cn } from "@/lib/utils";
 
 interface InsightsDisplayProps {
   insights: InsightsResponse;
@@ -23,6 +34,11 @@ export function InsightsDisplay({ insights }: InsightsDisplayProps) {
 
   const [refreshing, setRefreshing] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const premiumVisualsEnabled = useFeatureFlag(FeatureFlag.PREMIUM_VISUAL_HIERARCHY);
+  const [fanPulse, setFanPulse] = useState<{
+    poll?: InterstitialPollState;
+    swipes?: InterstitialSwipeChoices | null;
+  } | null>(null);
 
   useEffect(() => {
     setIsClient(true);
@@ -41,6 +57,24 @@ export function InsightsDisplay({ insights }: InsightsDisplayProps) {
   useEffect(() => {
     if (data) setCurrent(data);
   }, [data]);
+
+  useEffect(() => {
+    const homeTeam = current.metadata?.home_team;
+    const awayTeam = current.metadata?.away_team;
+    if (!homeTeam || !awayTeam) {
+      setFanPulse(null);
+      return;
+    }
+
+    const matchupKey = hashMatchup(homeTeam, awayTeam);
+    const poll = loadStoredPoll(matchupKey) ?? undefined;
+    const swipes = loadSwipeChoices(matchupKey) ?? undefined;
+    if (poll || swipes) {
+      setFanPulse({ poll, swipes });
+    } else {
+      setFanPulse(null);
+    }
+  }, [current.metadata?.home_team, current.metadata?.away_team]);
 
   const handleRefetch = useCallback(async () => {
     setRefreshing(true);
@@ -77,7 +111,8 @@ export function InsightsDisplay({ insights }: InsightsDisplayProps) {
     // No cleanup required; width will be overwritten on subsequent updates.
   }, [current]);
 
-  const chartData = {
+  // Memoize chart data to prevent unnecessary re-renders
+  const chartData = useMemo(() => ({
     labels: ["Home Win", "Draw", "Away Win"],
     datasets: [
       {
@@ -99,9 +134,10 @@ export function InsightsDisplay({ insights }: InsightsDisplayProps) {
         borderWidth: 2,
       },
     ],
-  };
+  }), [predictions.home_win_prob, predictions.draw_prob, predictions.away_win_prob]);
 
-  const chartOptions: ChartOptions<"doughnut"> = {
+  // Memoize chart options - these are static and don't need to change
+  const chartOptions: ChartOptions<"doughnut"> = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -125,47 +161,206 @@ export function InsightsDisplay({ insights }: InsightsDisplayProps) {
         },
       },
     },
-  };
+  }), []);
 
-  const bestBet = value_analysis.best_bet ? normalizeValueBet(value_analysis.best_bet) : null;
+  // Memoize normalized best bet to prevent recalculation on each render
+  const bestBet = useMemo(() => 
+    value_analysis.best_bet ? normalizeValueBet(value_analysis.best_bet) : null,
+    [value_analysis.best_bet]
+  );
+
+  // Memoize outcome key helper
+  const modelOutcomeKey = useCallback((value: string | undefined | null) => {
+    if (!value) return null;
+    if (value.startsWith("home")) return "home";
+    if (value.startsWith("away")) return "away";
+    if (value.includes("draw")) return "draw";
+    return null;
+  }, []);
+
+  // Memoize poll calculations for performance
+  const pollData = useMemo(() => {
+    const totals = fanPulse?.poll
+      ? Object.values(fanPulse.poll.votes ?? {}).reduce((acc, vote) => acc + vote, 0)
+      : 0;
+    const choiceKey = fanPulse?.poll?.choice ?? null;
+    const votes = fanPulse?.poll?.votes ?? null;
+    const share = choiceKey && totals > 0 && votes
+      ? (votes[choiceKey] ?? 0) / totals
+      : null;
+    const teamLabel = choiceKey === "home"
+      ? current.metadata.home_team
+      : choiceKey === "away"
+      ? current.metadata.away_team
+      : choiceKey === "draw"
+      ? "Draw"
+      : null;
+    const recordedAt = fanPulse?.poll?.timestamp
+      ? new Date(fanPulse.poll.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      : null;
+    return { totals, choiceKey, votes, share, teamLabel, recordedAt };
+  }, [fanPulse?.poll, current.metadata.home_team, current.metadata.away_team]);
+
+  const { choiceKey: pollChoiceKey, share: pollShare, teamLabel: pollTeamLabel, recordedAt: pollRecordedAt } = pollData;
+  // Memoize model alignment check
+  const modelAlignment = useMemo(() => {
+    const modelKey = modelOutcomeKey(predictions?.prediction);
+    if (!modelKey || !pollChoiceKey) return null;
+    return modelKey === pollChoiceKey;
+  }, [modelOutcomeKey, predictions?.prediction, pollChoiceKey]);
+
+  const swipeSummaries = useMemo(() => {
+    if (!fanPulse?.swipes) return [] as Array<{ id: string; question: string; answer: string }>;
+    return INTERSTITIAL_SWIPE_QUESTIONS.map((q) => {
+      const direction = fanPulse.swipes?.[q.id];
+      if (!direction) return null;
+      const answer = direction === "left" ? q.left : direction === "right" ? q.right : ("center" in q ? q.center : "Draw");
+      return { id: q.id, question: q.question, answer };
+    }).filter(Boolean) as Array<{ id: string; question: string; answer: string }>;
+  }, [fanPulse?.swipes]);
+
+  const hasFanPulse = Boolean((fanPulse?.poll && pollTeamLabel) || swipeSummaries.length);
 
   return (
     <div className="space-y-8">
       {/* Match Header */}
-      <div className="glass-card p-8 text-center space-y-4">
-        <h1 className="text-4xl font-bold text-slate-100">{insights.matchup}</h1>
-        <p className="text-slate-400 text-lg">{insights.league}</p>
+      <div className={cn(
+        "glass-card relative overflow-hidden p-8 text-center space-y-4",
+        premiumVisualsEnabled && "border-white/10 bg-slate-950/70 shadow-[0_15px_45px_rgba(8,14,35,0.55)]"
+      )}>
+        {premiumVisualsEnabled && (
+          <div
+            className="pointer-events-none absolute inset-0 opacity-40"
+            style={{
+              background:
+                "radial-gradient(circle at top, rgba(0,212,255,0.2), transparent 50%), radial-gradient(circle at 20% 80%, rgba(123,47,247,0.12), transparent 40%)",
+            }}
+            aria-hidden="true"
+          />
+        )}
+        <div className="relative">
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              {premiumVisualsEnabled && (
+                <span className="rounded-full border border-white/10 bg-slate-900/60 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-slate-300">
+                  Premium insights
+                </span>
+              )}
+              <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300">
+                Live data
+              </span>
+            </div>
+            <TeamVsDisplay 
+              homeTeam={insights.metadata.home_team}
+              awayTeam={insights.metadata.away_team}
+              league={insights.league}
+              size="xl"
+              showCountryFlags={false}
+            />
+          </div>
+        </div>
         
-        <div className="flex items-center justify-center gap-6 pt-4">
+        <div className="relative flex items-center justify-center gap-6 pt-4">
           <div>
             <button
               onClick={handleRefetch}
               disabled={refreshing}
-              className="mr-2 rounded-md border border-slate-700/50 bg-slate-800/60 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800/70"
+              className={cn(
+                "mr-2 rounded-xl border px-4 py-2 text-sm font-medium transition-all",
+                premiumVisualsEnabled
+                  ? "border-white/10 bg-slate-900/60 text-slate-200 hover:border-cyan-400/30 hover:bg-cyan-400/10 disabled:opacity-50"
+                  : "border-slate-700/50 bg-slate-800/60 text-slate-200 hover:bg-slate-800/70 disabled:opacity-50"
+              )}
             >
-              {refreshing ? "Refreshing…" : "Refresh insights"}
+              {refreshing ? (
+                <span className="flex items-center gap-2">
+                  <div className="h-3 w-3 animate-spin rounded-full border-2 border-slate-400/30 border-t-slate-200"></div>
+                  Refreshing…
+                </span>
+              ) : (
+                "Refresh insights"
+              )}
             </button>
           </div>
-          <div className="px-4 py-2 bg-indigo-500/10 border border-indigo-500/20 rounded-lg">
+          <div className={cn(
+            "px-4 py-2 rounded-xl border",
+            premiumVisualsEnabled
+              ? "bg-cyan-500/10 border-cyan-500/20"
+              : "bg-indigo-500/10 border-indigo-500/20"
+          )}>
             <p className="text-sm text-slate-400">Prediction</p>
-            <p className="text-2xl font-bold text-indigo-400 capitalize">
+            <p className={cn(
+              "text-2xl font-bold capitalize",
+              premiumVisualsEnabled ? "text-cyan-400" : "text-indigo-400"
+            )}>
               {predictions.prediction.replace(/_/g, " ")}
             </p>
           </div>
           
-          <div className="px-4 py-2 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+          <div className="px-4 py-2 bg-purple-500/10 border border-purple-500/20 rounded-xl">
             <p className="text-sm text-slate-400">Confidence</p>
             <p className="text-2xl font-bold text-purple-400">
               {(predictions.confidence * 100).toFixed(1)}%
             </p>
           </div>
         </div>
+
+        {hasFanPulse && (
+          <div className="mt-6 rounded-xl border border-slate-800/60 bg-slate-900/40 p-4 text-left">
+            <div className="flex items-center justify-between text-[10px] uppercase tracking-wide text-slate-500">
+              <span>Saved Fan Pulse</span>
+              {pollRecordedAt && <span>Last vote · {pollRecordedAt}</span>}
+            </div>
+
+            {fanPulse?.poll && pollTeamLabel && (
+              <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+                <div>
+                  <p className="text-slate-400">You picked</p>
+                  <p className="text-base font-semibold text-slate-100">{pollTeamLabel}</p>
+                </div>
+                {pollShare !== null && (
+                  <div className="rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-xs text-indigo-300">
+                    {Math.round(pollShare * 100)}% of quick poll
+                  </div>
+                )}
+                {typeof modelAlignment === "boolean" && (
+                  <div
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                      modelAlignment
+                        ? "border-green-500/40 bg-green-500/10 text-green-300"
+                        : "border-amber-500/40 bg-amber-500/10 text-amber-300"
+                    }`}
+                  >
+                    {modelAlignment ? "Model agrees" : "Model sees another edge"}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {swipeSummaries.length > 0 && (
+              <div className="mt-4 grid gap-2 text-xs text-slate-400">
+                {swipeSummaries.map((entry) => (
+                  <div key={entry.id} className="flex items-center justify-between rounded-lg border border-slate-800/70 bg-slate-900/50 px-3 py-2">
+                    <span className="pr-4 text-slate-500">{entry.question}</span>
+                    <span className="font-semibold text-slate-100">{entry.answer}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Probability Chart */}
-        <div className="glass-card p-8 space-y-6">
-          <h2 className="text-2xl font-bold text-slate-100">Match Probabilities</h2>
+        <div className={cn(
+          "glass-card p-8 space-y-6",
+          premiumVisualsEnabled && "border-white/10 bg-slate-950/70 shadow-[0_15px_45px_rgba(8,14,35,0.55)]"
+        )}>
+          <h2 className={cn(
+            "text-2xl font-bold",
+            premiumVisualsEnabled ? "text-cyan-400" : "text-slate-100"
+          )}>Match Probabilities</h2>
           <div className="h-80">
             <DoughnutChart data={chartData} options={chartOptions} />
           </div>
@@ -193,8 +388,14 @@ export function InsightsDisplay({ insights }: InsightsDisplayProps) {
         </div>
 
         {/* Expected Goals */}
-        <div className="glass-card p-8 space-y-6">
-          <h2 className="text-2xl font-bold text-slate-100">Expected Goals (xG)</h2>
+        <div className={cn(
+          "glass-card p-8 space-y-6",
+          premiumVisualsEnabled && "border-white/10 bg-slate-950/70 shadow-[0_15px_45px_rgba(8,14,35,0.55)]"
+        )}>
+          <h2 className={cn(
+            "text-2xl font-bold",
+            premiumVisualsEnabled ? "text-cyan-400" : "text-slate-100"
+          )}>Expected Goals (xG)</h2>
           
           <div className="space-y-4">
             <div className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg">
@@ -235,7 +436,12 @@ export function InsightsDisplay({ insights }: InsightsDisplayProps) {
 
       {/* Value Bets */}
       {bestBet && (
-        <div className="glass-card p-8 space-y-6 border-2 border-green-500/20">
+        <div className={cn(
+          "glass-card p-8 space-y-6 border-2",
+          premiumVisualsEnabled
+            ? "border-emerald-500/30 bg-slate-950/70 shadow-[0_15px_45px_rgba(16,185,129,0.25)]"
+            : "border-green-500/20"
+        )}>
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-slate-100">
               💰 Best Value Bet

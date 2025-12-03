@@ -1,28 +1,71 @@
-export default function MatchInsightsLoading() {
+"use client";
+
+import { Suspense } from "react";
+import { useParams, useSearchParams } from "next/navigation";
+import { MatchLoadingInterstitial, MatchLoadingInterstitialSkeleton } from "@/components/match-loading-interstitial";
+import { MatchLoadingExperience, MatchLoadingExperienceSkeleton } from "@/components/loading/match-loading-experience";
+import { FeatureFlag, useFeatureFlag } from "@/lib/feature-flags";
+import { hashMatchup } from "@/lib/interstitial-storage";
+
+function MatchLoadingContent() {
+  const params = useParams();
+  const searchParams = useSearchParams();
+  const league = searchParams.get("league") || "EPL";
+  const interstitialV2Enabled = useFeatureFlag(FeatureFlag.PREDICTION_INTERSTITIAL_V2);
+  
+  // Try to extract team names from the URL path
+  // The path is /match/[encoded matchup] where matchup is "Team A vs Team B"
+  let homeTeam = "Home Team";
+  let awayTeam = "Away Team";
+  
+  if (params?.id) {
+    try {
+      const matchup = decodeURIComponent(params.id as string);
+      const teams = matchup.split(" vs ");
+      if (teams.length === 2) {
+        homeTeam = teams[0].trim();
+        awayTeam = teams[1].trim();
+      }
+    } catch {
+      // Use defaults
+    }
+  }
+
+  const matchupId = hashMatchup(homeTeam, awayTeam);
+
+  if (interstitialV2Enabled) {
+    return (
+      <MatchLoadingExperience
+        homeTeam={homeTeam}
+        awayTeam={awayTeam}
+        league={league}
+        matchupId={matchupId}
+      />
+    );
+  }
+
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <div className="glass-card animate-pulse space-y-4 p-6">
-        <div className="h-6 w-40 rounded bg-slate-700/60" />
-        <div className="h-10 w-3/4 rounded bg-slate-800/60" />
-        <div className="grid gap-4 md:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, idx) => (
-            <div key={idx} className="space-y-3 rounded-xl border border-slate-800/40 bg-slate-900/40 p-4">
-              <div className="h-4 w-24 rounded bg-slate-800/80" />
-              <div className="h-8 w-32 rounded bg-slate-700/70" />
-              <div className="h-3 w-full rounded bg-slate-800/80" />
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="glass-card animate-pulse space-y-4 p-6">
-        <div className="h-5 w-48 rounded bg-slate-800/60" />
-        <div className="h-32 rounded-xl bg-slate-900/40" />
-        <div className="grid gap-4 md:grid-cols-2">
-          {Array.from({ length: 4 }).map((_, idx) => (
-            <div key={idx} className="h-20 rounded-lg bg-slate-900/40" />
-          ))}
-        </div>
-      </div>
-    </div>
+    <MatchLoadingInterstitial
+      homeTeam={homeTeam}
+      awayTeam={awayTeam}
+      league={league}
+    />
+  );
+}
+
+export default function MatchInsightsLoading() {
+  const LoadingFallback = () => {
+    const interstitialV2Enabled = useFeatureFlag(FeatureFlag.PREDICTION_INTERSTITIAL_V2);
+    return interstitialV2Enabled ? (
+      <MatchLoadingExperienceSkeleton />
+    ) : (
+      <MatchLoadingInterstitialSkeleton />
+    );
+  };
+
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <MatchLoadingContent />
+    </Suspense>
   );
 }

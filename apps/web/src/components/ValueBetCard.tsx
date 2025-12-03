@@ -7,6 +7,9 @@ import type { ValueBet } from '@/types/value-bet';
 import { formatCurrency } from '../lib/format';
 import { safeMessage } from '../lib/error-utils';
 import { KellyTooltip, EdgeTooltip } from './ui/ResponsibleGamblingTooltip';
+import { TeamVsDisplay } from './team-display';
+import { FeatureFlag, useFeatureFlag } from '@/lib/feature-flags';
+import { cn } from '@/lib/utils';
 
 interface ValueBetContext {
   matchId: string;
@@ -48,6 +51,7 @@ interface ValueBetCardProps {
 export function ValueBetCard({ bet, context, bankroll = 1000 }: ValueBetCardProps) {
   const [copied, setCopied] = useState(false);
   const bookmakerName = context.bookmaker ?? 'Preferred Book';
+  const premiumVisualsEnabled = useFeatureFlag(FeatureFlag.PREMIUM_VISUAL_HIERARCHY);
   
   // Apply safe defaults to prevent undefined/null errors
   const safe = getValueBetDefaults(bet);
@@ -121,7 +125,12 @@ ${context.clvExpected ? `Expected CLV: ${context.clvExpected.toFixed(1)}¢` : ''
   };
 
   return (
-    <div className="group relative overflow-hidden rounded-xl border border-slate-700/50 bg-gradient-to-br from-slate-800/50 to-slate-900/50 p-6 backdrop-blur-sm transition-all hover:border-green-500/50 hover:shadow-lg hover:shadow-green-500/20">
+    <div className={cn(
+      "group relative overflow-hidden rounded-xl border p-6 backdrop-blur-sm transition-all",
+      premiumVisualsEnabled
+        ? "border-white/10 bg-gradient-to-br from-slate-950/80 to-slate-900/60 hover:border-cyan-400/40 hover:shadow-[0_15px_45px_rgba(0,212,255,0.25)]"
+        : "border-slate-700/50 bg-gradient-to-br from-slate-800/50 to-slate-900/50 hover:border-green-500/50 hover:shadow-lg hover:shadow-green-500/20"
+    )}>
       {/* Quality Badge */}
       <div className="absolute right-4 top-4">
         <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${getQualityColor(qualityTier)}`}>
@@ -131,9 +140,15 @@ ${context.clvExpected ? `Expected CLV: ${context.clvExpected.toFixed(1)}¢` : ''
 
       {/* Match Info */}
       <div className="mb-4">
-        <h3 className="text-lg font-bold text-white">
-          {context.homeTeam} vs {context.awayTeam}
-        </h3>
+        <div className="mb-1">
+          <TeamVsDisplay 
+            homeTeam={context.homeTeam}
+            awayTeam={context.awayTeam}
+            size="sm"
+            showCountryFlags={false}
+            className="justify-start"
+          />
+        </div>
         <p className="text-sm text-slate-400">
           {getMarketLabel()} @ {bookmakerName}
         </p>
@@ -210,7 +225,12 @@ ${context.clvExpected ? `Expected CLV: ${context.clvExpected.toFixed(1)}¢` : ''
       <div className="grid grid-cols-2 gap-3">
         <button
           onClick={copyBetDetails}
-          className="flex items-center justify-center gap-2 rounded-lg border border-slate-600 bg-slate-700/50 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-slate-700 active:scale-95"
+          className={cn(
+            "flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all active:scale-95",
+            premiumVisualsEnabled
+              ? "border-white/10 bg-slate-900/60 text-slate-200 hover:border-cyan-400/30 hover:bg-cyan-400/10"
+              : "border-slate-600 bg-slate-700/50 text-white hover:bg-slate-700"
+          )}
         >
           {copied ? (
             <>
@@ -227,7 +247,12 @@ ${context.clvExpected ? `Expected CLV: ${context.clvExpected.toFixed(1)}¢` : ''
 
         <button
           onClick={openBookmaker}
-          className="flex items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-green-700 active:scale-95"
+          className={cn(
+            "flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all active:scale-95",
+            premiumVisualsEnabled
+              ? "bg-gradient-to-r from-cyan-500 to-indigo-600 text-white shadow-[0_8px_20px_rgba(0,212,255,0.3)] hover:scale-[1.02]"
+              : "bg-green-600 text-white hover:bg-green-700"
+          )}
         >
           <ExternalLink className="h-4 w-4" />
           Place Bet

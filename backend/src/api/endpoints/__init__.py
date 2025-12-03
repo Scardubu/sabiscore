@@ -6,12 +6,14 @@ from typing import List
 router = APIRouter()
 
 # Import sub-routers (these live in the same directory)
+from .auth import router as auth_router  # noqa: E402
 from .matches import router as matches_router  # noqa: E402
 from .predictions import router as predictions_router  # noqa: E402
 from .odds import router as odds_router  # noqa: E402
 
 # Include sub-routers without adding additional prefixes here. The application
 # will apply the API version prefix (e.g. /api/v1) at the app level.
+router.include_router(auth_router)
 router.include_router(matches_router)
 router.include_router(predictions_router)
 router.include_router(odds_router)

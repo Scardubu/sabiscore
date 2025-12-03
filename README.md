@@ -7,9 +7,10 @@
 SabiScore Edge v3.2 is the production build of our football intelligence platform. It blends a hardened Next.js 15 frontend, a FastAPI ensemble backend, an **8-source ethical scraping infrastructure**, and a curated ML pipeline to surface value bets in near real time.
 
 ### Live Status
-- 🌐 Frontend: https://sabiscore.vercel.app (auto-deploys from `feat/edge-v3`)
+- 🌐 Frontend: https://sabiscore.vercel.app (auto-deploys from `main`)
 - ⚙️ Backend API: https://sabiscore-api.onrender.com (FastAPI on Render)
-- 📦 Branch: `feat/edge-v3` @ `6b4ec3c52` (docs: update status with successful smoke tests)
+- 📦 Branch: `main` @ production-ready (all tests passing)
+- ✅ Test Coverage: 56.02% (97 tests passed, 5 skipped)
 - 📊 Deployment log: [`DEPLOYMENT_STATUS_LIVE.md`](./DEPLOYMENT_STATUS_LIVE.md)
 
 ---

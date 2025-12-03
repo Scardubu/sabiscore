@@ -2,15 +2,17 @@
 Data Ingestion Service
 Orchestrates real-time data collection from multiple sources and persists to PostgreSQL
 
-Integrates 8 ethical scrapers:
+Integrates 7 ethical scrapers:
 - FootballDataEnhancedScraper: Historical matches with Pinnacle odds (CLV benchmark)
 - BetfairExchangeScraper: Exchange odds with back/lay spreads
-- WhoScoredScraper: Player ratings and team form
-- SoccerwayScraper: Standings and fixtures
+- SoccerwayScraper: Standings, fixtures, and form data
 - TransfermarktScraper: Market values and injuries
 - OddsPortalScraper: Historical closing lines
 - UnderstatScraper: xG statistics
 - FlashscoreScraper: Live scores and H2H
+
+Note: WhoScored scraper removed due to persistent 403 blocks.
+Form features now reconstructed from Soccerway results + Understat xG trends.
 """
 
 import asyncio
@@ -27,11 +29,10 @@ from ..db.session import get_db_session
 from ..db.models import Match, Odds, Team, MatchStats
 from ..monitoring.metrics import metrics_collector
 
-# Import all 8 ethical scrapers
+# Import all 7 ethical scrapers (WhoScored removed due to 403 blocks)
 from ..data.scrapers import (
     FootballDataEnhancedScraper,
     BetfairExchangeScraper,
-    WhoScoredScraper,
     SoccerwayScraper,
     TransfermarktScraper,
     OddsPortalScraper,
@@ -44,7 +45,7 @@ logger = logging.getLogger(__name__)
 
 class DataIngestionService:
     """
-    Coordinates data collection from all 8 ethical scrapers and persists to database.
+    Coordinates data collection from all 7 ethical scrapers and persists to database.
     
     Data sources and polling intervals:
     - FlashscoreScraper: Live scores (5s polling)
@@ -52,16 +53,16 @@ class DataIngestionService:
     - OddsPortalScraper: Closing lines (60s polling)
     - UnderstatScraper: xG data enrichment (300s - 5 min)
     - FootballDataEnhancedScraper: Historical Pinnacle odds (daily)
-    - WhoScoredScraper: Player ratings (daily)
-    - SoccerwayScraper: Standings (daily)
+    - SoccerwayScraper: Standings and form (daily)
     - TransfermarktScraper: Market values, injuries (daily)
+    
+    Note: WhoScored removed; form features rebuilt from Soccerway + Understat.
     """
 
     def __init__(self):
-        # Initialize all 8 ethical scrapers
+        # Initialize all 7 ethical scrapers (WhoScored removed)
         self.football_data = FootballDataEnhancedScraper()
         self.betfair = BetfairExchangeScraper()
-        self.whoscored = WhoScoredScraper()
         self.soccerway = SoccerwayScraper()
         self.transfermarkt = TransfermarktScraper()
         self.oddsportal = OddsPortalScraper()
@@ -71,7 +72,7 @@ class DataIngestionService:
         self._running = False
         self._tasks: List[asyncio.Task] = []
         
-        logger.info("DataIngestionService initialized with 8 ethical scrapers")
+        logger.info("DataIngestionService initialized with 7 ethical scrapers")
 
     async def start(self):
         """Start all data ingestion loops"""
@@ -258,8 +259,8 @@ class DataIngestionService:
             await asyncio.sleep(300)
 
     async def _enrich_daily_data(self):
-        """Daily enrichment: standings, form, injuries, market values"""
-        logger.info("Starting daily data enrichment (WhoScored, Soccerway, Transfermarkt)")
+        """Daily enrichment: standings, form (Understat), injuries, market values"""
+        logger.info("Starting daily data enrichment (Soccerway, Understat, Transfermarkt)")
 
         while self._running:
             try:
@@ -278,8 +279,8 @@ class DataIngestionService:
                             # Fetch standings from Soccerway
                             standings = await self._fetch_soccerway_standings(league_id)
                             
-                            # Fetch team form from WhoScored
-                            form_data = await self._fetch_whoscored_form(league_id)
+                            # Fetch team form from Understat xG trends (replaces WhoScored)
+                            form_data = await self._fetch_understat_form(league_id)
                             
                             # Persist daily enrichment
                             if standings or form_data:
@@ -467,16 +468,16 @@ class DataIngestionService:
             logger.debug(f"Soccerway fetch error: {e}")
             return None
 
-    async def _fetch_whoscored_form(self, league_id) -> Optional[Dict]:
-        """Fetch team form data from WhoScored"""
+    async def _fetch_understat_form(self, league_id) -> Optional[Dict]:
+        """Fetch team form data from Understat xG trends (replaces WhoScored)"""
         try:
-            form_data = self.whoscored.fetch_data(
+            form_data = self.understat.fetch_data(
                 league=self._get_league_name(league_id),
                 use_cache=True
             )
             return form_data
         except Exception as e:
-            logger.debug(f"WhoScored fetch error: {e}")
+            logger.debug(f"Understat form fetch error: {e}")
             return None
 
     # ==========================================================================

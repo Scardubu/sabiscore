@@ -93,6 +93,23 @@ class Settings(BaseSettings):
     rate_limit_requests: int = Field(default=60, ge=1)
     rate_limit_window_seconds: int = Field(default=60, ge=1)
 
+    # Feature Flags
+    use_enhanced_models: bool = Field(
+        default=True,
+        alias="USE_ENHANCED_MODELS",
+        description="Enable enhanced stacking ensemble with isotonic calibration"
+    )
+    brier_threshold: float = Field(
+        default=0.13,
+        alias="BRIER_THRESHOLD",
+        description="Alert threshold for Brier score (lower is better)"
+    )
+    accuracy_threshold: float = Field(
+        default=0.90,
+        alias="ACCURACY_THRESHOLD",
+        description="Minimum accuracy threshold for model health"
+    )
+
     # Scraper networking
     scraper_ssl_verify: bool | str = Field(default=True, alias="SCRAPER_SSL_VERIFY")
     scraper_allow_insecure_fallback: bool = Field(
@@ -132,6 +149,12 @@ class Settings(BaseSettings):
         description="Path to ML models directory"
     )
     data_path: Path = Field(default_factory=lambda: (_PROJECT_ROOT / "data" / "processed"))
+    data_retention_days: int = Field(
+        default=365,
+        ge=0,
+        alias="DATA_RETENTION_DAYS",
+        description="Number of days to retain scraped match records before pruning",
+    )
 
     def _parse_cors_raw(self) -> List[str]:
         """Parse CORS_ORIGINS from raw env value (CSV or JSON string)."""

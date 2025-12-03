@@ -1,6 +1,12 @@
+"use client";
+
 import Link from 'next/link';
+import { FeatureFlag, useFeatureFlag } from '@/lib/feature-flags';
+import { cn } from '@/lib/utils';
 
 export default function DocsPage() {
+  const premiumVisualsEnabled = useFeatureFlag(FeatureFlag.PREMIUM_VISUAL_HIERARCHY);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 to-slate-900 text-white">
       <div className="container mx-auto px-4 py-16">
@@ -8,13 +14,28 @@ export default function DocsPage() {
         <div className="mb-12">
           <Link
             href="/"
-            className="inline-flex items-center text-indigo-400 hover:text-indigo-300 mb-8"
+            className={cn(
+              "inline-flex items-center mb-8 transition-colors",
+              premiumVisualsEnabled
+                ? "text-cyan-400 hover:text-cyan-300"
+                : "text-indigo-400 hover:text-indigo-300"
+            )}
           >
             ← Back to Home
           </Link>
-          <h1 className="text-5xl font-bold mb-4">
-            Documentation
-          </h1>
+          <div className="flex items-center gap-4">
+            <h1 className={cn(
+              "text-5xl font-bold mb-4",
+              premiumVisualsEnabled && "bg-gradient-to-r from-cyan-400 to-indigo-400 bg-clip-text text-transparent"
+            )}>
+              Documentation
+            </h1>
+            {premiumVisualsEnabled && (
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold uppercase text-slate-300">
+                Premium Docs
+              </span>
+            )}
+          </div>
           <p className="text-xl text-slate-400">
             Learn how to use Sabiscore to maximize your betting edge
           </p>
@@ -23,8 +44,16 @@ export default function DocsPage() {
         {/* Content Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Getting Started */}
-          <div className="bg-slate-800/50 rounded-xl p-8 border border-slate-700/50">
-            <h2 className="text-2xl font-bold mb-4 text-indigo-400">
+          <div className={cn(
+            "rounded-xl p-8 border",
+            premiumVisualsEnabled
+              ? "glass-card border-white/10 bg-slate-950/70 shadow-[0_15px_45px_rgba(8,14,35,0.55)]"
+              : "bg-slate-800/50 border-slate-700/50"
+          )}>
+            <h2 className={cn(
+              "text-2xl font-bold mb-4",
+              premiumVisualsEnabled ? "text-cyan-400" : "text-indigo-400"
+            )}>
               Getting Started
             </h2>
             <ul className="space-y-3 text-slate-300">
@@ -36,8 +65,16 @@ export default function DocsPage() {
           </div>
 
           {/* Key Metrics */}
-          <div className="bg-slate-800/50 rounded-xl p-8 border border-slate-700/50">
-            <h2 className="text-2xl font-bold mb-4 text-indigo-400">
+          <div className={cn(
+            "rounded-xl p-8 border",
+            premiumVisualsEnabled
+              ? "glass-card border-white/10 bg-slate-950/70 shadow-[0_15px_45px_rgba(8,14,35,0.55)]"
+              : "bg-slate-800/50 border-slate-700/50"
+          )}>
+            <h2 className={cn(
+              "text-2xl font-bold mb-4",
+              premiumVisualsEnabled ? "text-cyan-400" : "text-indigo-400"
+            )}>
               Key Metrics
             </h2>
             <ul className="space-y-3 text-slate-300">
@@ -49,8 +86,16 @@ export default function DocsPage() {
           </div>
 
           {/* Model Performance */}
-          <div className="bg-slate-800/50 rounded-xl p-8 border border-slate-700/50">
-            <h2 className="text-2xl font-bold mb-4 text-indigo-400">
+          <div className={cn(
+            "rounded-xl p-8 border",
+            premiumVisualsEnabled
+              ? "glass-card border-white/10 bg-slate-950/70 shadow-[0_15px_45px_rgba(8,14,35,0.55)]"
+              : "bg-slate-800/50 border-slate-700/50"
+          )}>
+            <h2 className={cn(
+              "text-2xl font-bold mb-4",
+              premiumVisualsEnabled ? "text-cyan-400" : "text-indigo-400"
+            )}>
               Model Performance
             </h2>
             <ul className="space-y-3 text-slate-300">
@@ -62,8 +107,16 @@ export default function DocsPage() {
           </div>
 
           {/* Technical Stack */}
-          <div className="bg-slate-800/50 rounded-xl p-8 border border-slate-700/50">
-            <h2 className="text-2xl font-bold mb-4 text-indigo-400">
+          <div className={cn(
+            "rounded-xl p-8 border",
+            premiumVisualsEnabled
+              ? "glass-card border-white/10 bg-slate-950/70 shadow-[0_15px_45px_rgba(8,14,35,0.55)]"
+              : "bg-slate-800/50 border-slate-700/50"
+          )}>
+            <h2 className={cn(
+              "text-2xl font-bold mb-4",
+              premiumVisualsEnabled ? "text-cyan-400" : "text-indigo-400"
+            )}>
               Technical Stack
             </h2>
             <ul className="space-y-3 text-slate-300">
@@ -75,8 +128,16 @@ export default function DocsPage() {
           </div>
 
           {/* API Access */}
-          <div className="bg-slate-800/50 rounded-xl p-8 border border-slate-700/50 md:col-span-2">
-            <h2 className="text-2xl font-bold mb-4 text-indigo-400">
+          <div className={cn(
+            "rounded-xl p-8 border md:col-span-2",
+            premiumVisualsEnabled
+              ? "glass-card border-white/10 bg-slate-950/70 shadow-[0_15px_45px_rgba(8,14,35,0.55)]"
+              : "bg-slate-800/50 border-slate-700/50"
+          )}>
+            <h2 className={cn(
+              "text-2xl font-bold mb-4",
+              premiumVisualsEnabled ? "text-cyan-400" : "text-indigo-400"
+            )}>
               API Documentation
             </h2>
             <div className="space-y-4 text-slate-300">
@@ -98,8 +159,16 @@ export default function DocsPage() {
           </div>
 
           {/* Support */}
-          <div className="bg-slate-800/50 rounded-xl p-8 border border-slate-700/50 md:col-span-2">
-            <h2 className="text-2xl font-bold mb-4 text-indigo-400">
+          <div className={cn(
+            "rounded-xl p-8 border md:col-span-2",
+            premiumVisualsEnabled
+              ? "glass-card border-white/10 bg-slate-950/70 shadow-[0_15px_45px_rgba(8,14,35,0.55)]"
+              : "bg-slate-800/50 border-slate-700/50"
+          )}>
+            <h2 className={cn(
+              "text-2xl font-bold mb-4",
+              premiumVisualsEnabled ? "text-cyan-400" : "text-indigo-400"
+            )}>
               Support & Resources
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -129,7 +198,12 @@ export default function DocsPage() {
         <div className="mt-12 text-center">
           <Link
             href="/match"
-            className="inline-block px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:scale-105"
+            className={cn(
+              "inline-block px-8 py-4 font-semibold rounded-xl transition-all duration-200 hover:scale-105",
+              premiumVisualsEnabled
+                ? "bg-gradient-to-r from-cyan-400 to-indigo-500 text-slate-950 shadow-[0_10px_30px_rgba(0,212,255,0.35)] hover:shadow-[0_15px_40px_rgba(0,212,255,0.5)]"
+                : "bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40"
+            )}
           >
             Start Using Sabiscore
           </Link>

@@ -18,6 +18,7 @@ from ..core.database import (  # noqa: F401
     PlayerValuation,
     Prediction,
     Team,
+    UserAccount,
     ValueBet,
 )
 
@@ -34,5 +35,6 @@ __all__ = [
     "PlayerValuation",
     "Prediction",
     "Team",
+    "UserAccount",
     "ValueBet",
 ]

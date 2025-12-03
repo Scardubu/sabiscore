@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useId } from "react";
+import { TeamDisplay } from "./team-display";
 
 interface TeamAutocompleteProps {
   label: string;
@@ -148,7 +149,7 @@ export function TeamAutocomplete({
           disabled={disabled}
           role="combobox"
           aria-autocomplete="list"
-          aria-expanded={isOpen ? 'true' : 'false'}
+          aria-expanded={isOpen ? "true" : "false"}
           aria-haspopup="listbox"
           aria-controls={isOpen ? `team-listbox-${uid}` : undefined}
           aria-activedescendant={isOpen && highlightedIndex >= 0 ? `team-option-${uid}-${highlightedIndex}` : undefined}
@@ -165,7 +166,8 @@ export function TeamAutocomplete({
                 key={team}
                 id={`team-option-${uid}-${index}`}
                 role="option"
-                aria-selected={highlightedIndex === index}
+                aria-selected={highlightedIndex === index ? "true" : "false"}
+                title={team}
                 className={`cursor-pointer px-4 py-2 text-sm transition-colors ${
                   highlightedIndex === index
                     ? "bg-indigo-600 text-white"
@@ -175,7 +177,12 @@ export function TeamAutocomplete({
                 onClick={() => handleSelect(team)}
                 onMouseEnter={() => setHighlightedIndex(index)}
               >
-                {team}
+                <TeamDisplay 
+                  teamName={team} 
+                  size="sm" 
+                  variant="compact" 
+                  className={highlightedIndex === index ? "text-white" : ""}
+                />
               </li>
             ))}
           </ul>

@@ -11,8 +11,7 @@ This module provides scrapers for:
 - Transfermarkt: Player values and injury data
 - Understat: xG/xA advanced statistics
 - Betfair: Exchange odds for sharp line comparison
-- WhoScored: Player ratings and tactical analysis
-- Soccerway: League standings and fixtures
+- Soccerway: League standings, fixtures, and form data
 
 All scrapers implement ethical practices:
 - Rate limiting (2-8s delays)
@@ -20,12 +19,14 @@ All scrapers implement ethical practices:
 - robots.txt compliance
 - Local data fallback
 - Circuit breaker patterns
+
+Note: WhoScored scraper removed due to persistent 403 blocks.
+Form features now rebuilt using Soccerway + Understat.
 """
 
 from .base_scraper import BaseScraper, USER_AGENTS, DATA_DIR, CACHE_DIR, PROCESSED_DIR
 from .football_data_scraper import FootballDataEnhancedScraper
 from .betfair_scraper import BetfairExchangeScraper
-from .whoscored_scraper import WhoScoredScraper, get_whoscored_stats
 from .soccerway_scraper import SoccerwayScraper, get_standings, get_fixtures
 from .transfermarkt_scraper import TransfermarktScraper, get_team_value
 from .oddsportal_scraper import OddsPortalScraper, get_historical_odds
@@ -42,14 +43,12 @@ __all__ = [
     # Scrapers
     "FootballDataEnhancedScraper",
     "BetfairExchangeScraper",
-    "WhoScoredScraper",
     "SoccerwayScraper",
     "TransfermarktScraper",
     "OddsPortalScraper",
     "UnderstatScraper",
     "FlashscoreScraper",
     # Convenience functions
-    "get_whoscored_stats",
     "get_standings",
     "get_fixtures",
     "get_team_value",

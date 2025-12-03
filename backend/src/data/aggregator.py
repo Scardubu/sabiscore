@@ -1,6 +1,8 @@
+import asyncio
+import concurrent.futures
 import json
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional, TypeVar
 from datetime import datetime
 
 import numpy as np
@@ -20,7 +22,6 @@ from .scrapers import (
 from .scrapers import (
     FootballDataEnhancedScraper,
     BetfairExchangeScraper,
-    WhoScoredScraper,
     SoccerwayScraper,
     UnderstatScraper,
 )
@@ -424,8 +425,7 @@ class EnhancedDataAggregator:
     Combines data from:
     - football-data.co.uk (historical matches with Pinnacle odds)
     - Betfair (exchange odds with back/lay spreads)
-    - WhoScored (player ratings, form)
-    - Soccerway (standings, fixtures)
+    - Soccerway (standings, fixtures, recent form)
     - Understat (xG statistics)
     - Transfermarkt (market values)
     - OddsPortal (historical closing lines)
@@ -436,7 +436,6 @@ class EnhancedDataAggregator:
         """Initialize all enhanced scrapers."""
         self.football_data = FootballDataEnhancedScraper()
         self.betfair = BetfairExchangeScraper()
-        self.whoscored = WhoScoredScraper()
         self.soccerway = SoccerwayScraper()
         self.understat = UnderstatScraper()
         
@@ -476,7 +475,7 @@ class EnhancedDataAggregator:
         
         # Collect features from each source
         features.update(self._get_odds_features(home_team, away_team, league))
-        features.update(self._get_form_features(home_team, away_team))
+        features.update(self._get_form_features(home_team, away_team, league))
         features.update(self._get_position_features(home_team, away_team, league))
         features.update(self._get_xg_features(home_team, away_team, league))
         features.update(self._get_value_features(home_team, away_team, league))
@@ -504,18 +503,16 @@ class EnhancedDataAggregator:
     def _get_form_features(
         self,
         home_team: str,
-        away_team: str
+        away_team: str,
+        league: str
     ) -> Dict[str, float]:
-        """Get form from WhoScored."""
+        """Build recent form metrics from Soccerway and Understat."""
         features = {}
         try:
-            ws_data = self.whoscored.calculate_form_features(
-                home_team, away_team
-            )
-            for k, v in ws_data.items():
-                features[f"ws_{k}"] = v
+            form_snapshot = self._build_form_snapshot(home_team, away_team, league)
+            features.update(form_snapshot)
         except Exception as e:
-            logger.warning(f"WhoScored form error: {e}")
+            logger.warning(f"Form snapshot error: {e}")
         return features
     
     def _get_position_features(
@@ -569,7 +566,229 @@ class EnhancedDataAggregator:
         except Exception as e:
             logger.warning(f"Transfermarkt value error: {e}")
         return features
-    
+
+    def _build_form_snapshot(
+        self,
+        home_team: str,
+        away_team: str,
+        league: str
+    ) -> Dict[str, float]:
+        """Compose numeric form metrics for both clubs."""
+        try:
+            results_payload = self.soccerway.get_results(league) or {}
+            all_results = results_payload.get("results", [])
+        except Exception as exc:
+            logger.warning(f"Soccerway form fetch error: {exc}")
+            all_results = []
+
+        snapshot: Dict[str, float] = {}
+        for label, team in (("home", home_team), ("away", away_team)):
+            team_form = self._extract_team_form(team, all_results)
+            team_form.update(self._extract_understat_form(team, league))
+            for key, value in team_form.items():
+                snapshot[f"form_{label}_{key}"] = value
+        return snapshot
+
+    def _extract_team_form(
+        self,
+        team: str,
+        all_results: List[Dict[str, Any]]
+    ) -> Dict[str, float]:
+        """Summarize last five results for a given team."""
+        normalized_team = team.lower()
+        relevant_matches = [
+            match for match in all_results
+            if normalized_team in match.get("home_team", "").lower()
+            or normalized_team in match.get("away_team", "").lower()
+        ]
+
+        recent_matches = sorted(
+            relevant_matches,
+            key=lambda m: m.get("date", ""),
+            reverse=True,
+        )[:5]
+
+        if not recent_matches:
+            return {
+                "matches_sampled": 0.0,
+                "points_last5": 0.0,
+                "wins_last5": 0.0,
+                "draws_last5": 0.0,
+                "losses_last5": 0.0,
+                "avg_goals_for": 0.0,
+                "avg_goals_against": 0.0,
+                "goal_diff_last5": 0.0,
+                "clean_sheets_last5": 0.0,
+                "points_per_match": 0.0,
+                "win_rate_last5": 0.0,
+            }
+
+        wins = draws = losses = points = 0
+        goals_for = goals_against = clean_sheets = 0
+
+        def _safe_int(value: Any) -> int:
+            try:
+                if value is None:
+                    return 0
+                if isinstance(value, (int, float)):
+                    return int(value)
+                return int(float(value))
+            except (TypeError, ValueError):
+                return 0
+
+        for match in recent_matches:
+            home_name = match.get("home_team", "")
+            away_name = match.get("away_team", "")
+            is_home = normalized_team in home_name.lower()
+            team_goals = _safe_int(match.get("home_goals")) if is_home else _safe_int(match.get("away_goals"))
+            opp_goals = _safe_int(match.get("away_goals")) if is_home else _safe_int(match.get("home_goals"))
+
+            goals_for += team_goals
+            goals_against += opp_goals
+            if team_goals > opp_goals:
+                wins += 1
+                points += 3
+            elif team_goals == opp_goals:
+                draws += 1
+                points += 1
+            else:
+                losses += 1
+            if opp_goals == 0:
+                clean_sheets += 1
+
+        sample_size = len(recent_matches)
+        return {
+            "matches_sampled": float(sample_size),
+            "points_last5": float(points),
+            "wins_last5": float(wins),
+            "draws_last5": float(draws),
+            "losses_last5": float(losses),
+            "avg_goals_for": round(goals_for / sample_size, 2),
+            "avg_goals_against": round(goals_against / sample_size, 2),
+            "goal_diff_last5": float(goals_for - goals_against),
+            "clean_sheets_last5": float(clean_sheets),
+            "points_per_match": round(points / sample_size, 2),
+            "win_rate_last5": round(wins / sample_size, 2),
+        }
+
+    def _extract_understat_form(self, team: str, league: str) -> Dict[str, float]:
+        """Merge Understat xG trend information into form metrics."""
+        try:
+            xg_payload = self.understat.get_team_xg(team, league)
+        except Exception as exc:
+            logger.warning(f"Understat form fetch error: {exc}")
+            xg_payload = None
+
+        if not xg_payload:
+            return {
+                "xg_recent_avg": 0.0,
+                "xga_recent_avg": 0.0,
+                "xg_trend_score": 0.0,
+                "xga_trend_score": 0.0,
+            }
+
+        recent = xg_payload.get("recent_form", {})
+        return {
+            "xg_recent_avg": float(recent.get("last_5_xg_avg", 0.0)),
+            "xga_recent_avg": float(recent.get("last_5_xga_avg", 0.0)),
+            "xg_trend_score": float(self._trend_to_score(recent.get("xg_trend"))),
+            "xga_trend_score": float(self._trend_to_score(recent.get("xga_trend"))),
+        }
+
+    @staticmethod
+    def _trend_to_score(trend: Optional[str]) -> int:
+        """Map qualitative trend labels to numeric scores."""
+        mapping = {
+            "improving": 1,
+            "declining": -1,
+            "stable": 0,
+            "insufficient_data": 0,
+            None: 0,
+        }
+        return mapping.get(trend, 0)
+
+    # ------------------------------------------------------------------
+    # Parallel feature gathering
+    # ------------------------------------------------------------------
+
+    def get_comprehensive_features_parallel(
+        self,
+        home_team: str,
+        away_team: str,
+        league: str = "EPL",
+    ) -> Dict[str, Any]:
+        """
+        Gather all feature sources in parallel using ThreadPoolExecutor.
+
+        Falls back gracefully if any single source times out or fails.
+        """
+        features: Dict[str, Any] = {
+            "home_team": home_team,
+            "away_team": away_team,
+            "league": league,
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
+        tasks: List[Callable[[], Dict[str, float]]] = [
+            lambda: self._get_odds_features(home_team, away_team, league),
+            lambda: self._get_form_features(home_team, away_team, league),
+            lambda: self._get_position_features(home_team, away_team, league),
+            lambda: self._get_xg_features(home_team, away_team, league),
+            lambda: self._get_value_features(home_team, away_team, league),
+        ]
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [executor.submit(task) for task in tasks]
+            for future in concurrent.futures.as_completed(futures, timeout=20):
+                try:
+                    result = future.result(timeout=10)
+                    features.update(result)
+                except Exception as exc:
+                    logger.warning(f"Parallel feature fetch failed: {exc}")
+
+        return features
+
+    async def get_comprehensive_features_async(
+        self,
+        home_team: str,
+        away_team: str,
+        league: str = "EPL",
+    ) -> Dict[str, Any]:
+        """
+        Async version that runs scraper calls concurrently.
+
+        Usage:
+            features = await aggregator.get_comprehensive_features_async(...)
+        """
+        features: Dict[str, Any] = {
+            "home_team": home_team,
+            "away_team": away_team,
+            "league": league,
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
+        loop = asyncio.get_running_loop()
+
+        async def _run_in_thread(func: Callable[[], Dict[str, float]]) -> Dict[str, float]:
+            return await loop.run_in_executor(None, func)
+
+        results = await asyncio.gather(
+            _run_in_thread(lambda: self._get_odds_features(home_team, away_team, league)),
+            _run_in_thread(lambda: self._get_form_features(home_team, away_team, league)),
+            _run_in_thread(lambda: self._get_position_features(home_team, away_team, league)),
+            _run_in_thread(lambda: self._get_xg_features(home_team, away_team, league)),
+            _run_in_thread(lambda: self._get_value_features(home_team, away_team, league)),
+            return_exceptions=True,
+        )
+
+        for res in results:
+            if isinstance(res, dict):
+                features.update(res)
+            elif isinstance(res, Exception):
+                logger.warning(f"Async feature fetch error: {res}")
+
+        return features
+
     def get_historical_training_data(
         self,
         league: str = "EPL",

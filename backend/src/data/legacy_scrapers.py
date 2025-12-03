@@ -254,6 +254,36 @@ def _extract_ft_score(match: Dict[str, any]) -> Optional[Tuple[int, int]]:
     return None
 
 
+def _apply_data_retention(df: pd.DataFrame, date_column: str = "date") -> pd.DataFrame:
+    """Drop records older than the configured data retention window."""
+    retention_days = getattr(settings, "data_retention_days", None)
+    if df.empty or date_column not in df.columns:
+        return df
+    if not retention_days or retention_days <= 0:
+        return df
+
+    dates = pd.to_datetime(df[date_column], errors="coerce")
+    cutoff = datetime.utcnow() - timedelta(days=retention_days)
+    mask = dates >= cutoff
+
+    if mask.all():
+        df = df.copy()
+        df[date_column] = dates
+        return df
+
+    filtered = df.loc[mask].copy()
+    filtered[date_column] = dates.loc[mask]
+    dropped = len(df) - len(filtered)
+    if dropped > 0:
+        logger.info(
+            "Data retention dropped %d %s records older than %d days",
+            dropped,
+            date_column,
+            retention_days,
+        )
+    return filtered
+
+
 class FlashscoreScraper(BaseScraper):
     BASE_URL = "https://www.flashscore.com"
     _team_path_cache: Dict[str, str] = {}
@@ -310,6 +340,7 @@ class FlashscoreScraper(BaseScraper):
                 df["home_score"] = pd.to_numeric(df["home_score"], errors="coerce")
                 df["away_score"] = pd.to_numeric(df["away_score"], errors="coerce")
                 df = df.dropna(subset=["home_score", "away_score"])
+                df = _apply_data_retention(df, date_column="date")
                 logger.info("Loaded %d fallback matches for %s from %s", len(df), team, filename)
             return df
 
@@ -386,7 +417,7 @@ class FlashscoreScraper(BaseScraper):
             logger.warning("No valid scores scraped for %s, using fallback data", team)
             return self._load_fallback_data(team, league)
 
-        return result
+        return _apply_data_retention(result, date_column="date")
 
 
 class OddsPortalScraper(BaseScraper):
@@ -811,7 +842,7 @@ class FootballDataScraper:
         df["source"] = "football-data.co.uk"
         df["downloaded_at"] = datetime.now().isoformat()
         
-        return df
+        return _apply_data_retention(df, date_column="date")
     
     def download_multiple_seasons(
         self,

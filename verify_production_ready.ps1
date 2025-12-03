@@ -1,8 +1,7 @@
 # SabiScore Production Readiness - Quick Verification
 # Run this script to validate all systems are ready for deployment
 
-Write-Host @"
-
+Write-Host "
   ███████╗ █████╗ ██████╗ ██╗███████╗ ██████╗ ██████╗ ██████╗ ███████╗
   ██╔════╝██╔══██╗██╔══██╗██║██╔════╝██╔════╝██╔═══██╗██╔══██╗██╔════╝
   ███████╗███████║██████╔╝██║███████╗██║     ██║   ██║██████╔╝█████╗  
@@ -11,8 +10,7 @@ Write-Host @"
   ╚══════╝╚═╝  ╚═╝╚═════╝ ╚═╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝
   
   Production Readiness Verification v3.0
-  
-"@ -ForegroundColor Cyan
+  " -ForegroundColor Cyan
 
 $results = @{
     Passed = @()

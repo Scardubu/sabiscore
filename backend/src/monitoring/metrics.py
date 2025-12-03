@@ -35,6 +35,12 @@ class MetricsCollector:
         # Value bet tracking
         self._value_bets_found = 0
         self._edge_values: List[float] = []
+        
+        # Model accuracy tracking (per audit: Brier <0.13, accuracy >90%)
+        self._brier_scores: List[float] = []
+        self._accuracy_scores: List[float] = []
+        self._model_versions: Dict[str, str] = {}  # league -> version
+        self._calibration_drift_alerts: List[Dict[str, Any]] = []
 
     def increment(self, metric: str, value: int = 1) -> None:
         """Increment a counter metric."""
@@ -121,6 +127,56 @@ class MetricsCollector:
             self._prediction_latencies = self._prediction_latencies[-1000:]
         if len(self._edge_values) > 500:
             self._edge_values = self._edge_values[-500:]
+
+    def record_model_accuracy(
+        self,
+        brier_score: float,
+        accuracy: float,
+        league: str,
+        model_version: str,
+    ) -> None:
+        """
+        Track model accuracy metrics per audit requirements.
+        
+        Targets:
+        - Brier score < 0.13
+        - Accuracy > 90%
+        
+        Emits calibration drift alert if thresholds exceeded.
+        """
+        self._brier_scores.append(brier_score)
+        self._accuracy_scores.append(accuracy)
+        self._model_versions[league] = model_version
+        
+        # Limit tracking
+        if len(self._brier_scores) > 500:
+            self._brier_scores = self._brier_scores[-500:]
+        if len(self._accuracy_scores) > 500:
+            self._accuracy_scores = self._accuracy_scores[-500:]
+        
+        # Check calibration drift thresholds
+        BRIER_THRESHOLD = 0.13
+        ACCURACY_THRESHOLD = 0.90
+        
+        if brier_score > BRIER_THRESHOLD or accuracy < ACCURACY_THRESHOLD:
+            alert = {
+                "timestamp": datetime.utcnow().isoformat(),
+                "league": league,
+                "model_version": model_version,
+                "brier_score": brier_score,
+                "accuracy": accuracy,
+                "brier_exceeded": brier_score > BRIER_THRESHOLD,
+                "accuracy_below": accuracy < ACCURACY_THRESHOLD,
+            }
+            self._calibration_drift_alerts.append(alert)
+            logger.warning(
+                f"Calibration drift alert: {league} model v{model_version} "
+                f"Brier={brier_score:.4f} Accuracy={accuracy:.2%}"
+            )
+            
+            # Keep only last 50 alerts
+            if len(self._calibration_drift_alerts) > 50:
+                self._calibration_drift_alerts = self._calibration_drift_alerts[-50:]
 
     def get_summary(self) -> Dict[str, Any]:
         """Generate summary statistics for monitoring dashboard."""
@@ -212,6 +268,46 @@ class MetricsCollector:
                     sum(self._edge_values) / len(self._edge_values)
                 )
         
+        # Model accuracy metrics (per audit requirements)
+        if self._brier_scores or self._accuracy_scores:
+            model_metrics: Dict[str, Any] = {
+                "model_versions": dict(self._model_versions),
+                "calibration_alerts": len(self._calibration_drift_alerts),
+                "recent_alerts": self._calibration_drift_alerts[-5:],
+            }
+            
+            if self._brier_scores:
+                sorted_brier = sorted(self._brier_scores)
+                model_metrics["brier"] = {
+                    "count": len(self._brier_scores),
+                    "mean": sum(self._brier_scores) / len(self._brier_scores),
+                    "min": min(self._brier_scores),
+                    "max": max(self._brier_scores),
+                    "p50": sorted_brier[len(sorted_brier) // 2],
+                    "threshold": 0.13,
+                    "below_threshold_pct": (
+                        sum(1 for b in self._brier_scores if b < 0.13) 
+                        / len(self._brier_scores)
+                    ),
+                }
+            
+            if self._accuracy_scores:
+                sorted_acc = sorted(self._accuracy_scores)
+                model_metrics["accuracy"] = {
+                    "count": len(self._accuracy_scores),
+                    "mean": sum(self._accuracy_scores) / len(self._accuracy_scores),
+                    "min": min(self._accuracy_scores),
+                    "max": max(self._accuracy_scores),
+                    "p50": sorted_acc[len(sorted_acc) // 2],
+                    "threshold": 0.90,
+                    "above_threshold_pct": (
+                        sum(1 for a in self._accuracy_scores if a >= 0.90) 
+                        / len(self._accuracy_scores)
+                    ),
+                }
+            
+            summary["model_accuracy"] = model_metrics
+        
         return summary
 
     def reset(self) -> None:
@@ -229,6 +325,10 @@ class MetricsCollector:
         self._cache_misses = 0
         self._value_bets_found = 0
         self._edge_values.clear()
+        self._brier_scores.clear()
+        self._accuracy_scores.clear()
+        self._model_versions.clear()
+        self._calibration_drift_alerts.clear()
         self._last_reset = datetime.utcnow()
         logger.info("Metrics collector reset")
 

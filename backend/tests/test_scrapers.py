@@ -15,7 +15,6 @@ from src.data.scrapers import (
     BaseScraper,
     FootballDataEnhancedScraper,
     BetfairExchangeScraper,
-    WhoScoredScraper,
     SoccerwayScraper,
     TransfermarktScraper,
     OddsPortalScraper,
@@ -130,30 +129,7 @@ class TestBetfairScraper:
         assert features["home_lay"] >= features["home_back"]
 
 
-class TestWhoScoredScraper:
-    """Tests for WhoScored player ratings scraper."""
-    
-    def test_match_stats_structure(self):
-        """Test match statistics response structure."""
-        scraper = WhoScoredScraper()
-        
-        stats = scraper.get_match_stats("Arsenal", "Chelsea")
-        
-        assert stats is not None
-        assert "stats" in stats
-        assert "home" in stats["stats"]
-        assert "away" in stats["stats"]
-        assert "possession" in stats["stats"]["home"]
-    
-    def test_form_features(self):
-        """Test form-based feature calculation."""
-        scraper = WhoScoredScraper()
-        
-        features = scraper.calculate_form_features("Arsenal", "Chelsea")
-        
-        assert "home_avg_rating" in features
-        assert "away_avg_rating" in features
-        assert 5.0 <= features["home_avg_rating"] <= 10.0
+# NOTE: WhoScored scraper removed due to bot blocking - form features now sourced from Understat
 
 
 class TestSoccerwayScraper:

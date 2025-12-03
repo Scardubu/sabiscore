@@ -134,7 +134,7 @@ class ScraperAdapter(DataSourceAdapter):
         
         # Optional scrapers - initialize if available
         self._football_data = None
-        self._whoscored = None
+        # Note: WhoScored removed due to 403 blocks; form features rebuilt from Soccerway + Understat
         
         # Initialize cache connection
         self._cache = None

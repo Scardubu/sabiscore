@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TeamVsDisplay } from "./team-display";
 import { TrendingUp, Target, AlertTriangle, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { FeatureFlag, useFeatureFlag } from "@/lib/feature-flags";
 
 interface PredictionData {
   homeWinProb: number;
@@ -176,13 +177,20 @@ export function PredictionCard({
   isLoading = false,
   error,
 }: PredictionCardProps) {
+  const premiumVisualsEnabled = useFeatureFlag(FeatureFlag.PREMIUM_VISUAL_HIERARCHY);
+
   if (isLoading) {
     return <PredictionCardSkeleton />;
   }
 
   if (error) {
     return (
-      <div className="overflow-hidden rounded-xl border border-red-500/30 bg-gradient-to-br from-slate-800/50 to-slate-900/50 p-6 backdrop-blur-sm">
+      <div className={cn(
+        "overflow-hidden rounded-xl border p-6 backdrop-blur-sm",
+        premiumVisualsEnabled
+          ? "border-red-500/20 bg-gradient-to-br from-slate-950/90 to-slate-900/70"
+          : "border-red-500/30 bg-gradient-to-br from-slate-800/50 to-slate-900/50"
+      )}>
         <div className="flex items-center gap-3 text-red-400">
           <AlertTriangle className="h-5 w-5" />
           <span className="font-medium">Prediction Error</span>
@@ -210,17 +218,31 @@ export function PredictionCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="overflow-hidden rounded-xl border border-slate-700/50 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm transition-all hover:border-indigo-500/30 hover:shadow-lg hover:shadow-indigo-500/10"
+      className={cn(
+        "overflow-hidden rounded-xl border backdrop-blur-sm transition-all",
+        premiumVisualsEnabled
+          ? "border-white/10 bg-gradient-to-br from-slate-950/90 to-slate-900/70 hover:border-cyan-400/30 hover:shadow-[0_15px_45px_rgba(0,212,255,0.12)]"
+          : "border-slate-700/50 bg-gradient-to-br from-slate-800/50 to-slate-900/50 hover:border-indigo-500/30 hover:shadow-lg hover:shadow-indigo-500/10"
+      )}
     >
       {/* Header */}
-      <div className="border-b border-slate-700/50 bg-slate-800/30 px-6 py-4">
+      <div className={cn(
+        "border-b px-6 py-4",
+        premiumVisualsEnabled
+          ? "border-white/10 bg-slate-900/60"
+          : "border-slate-700/50 bg-slate-800/30"
+      )}>
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-slate-400">{league}</span>
           <span
             className={cn(
               "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold",
               prediction.edge && prediction.edge > 0.05
-                ? "bg-green-500/20 text-green-400"
+                ? premiumVisualsEnabled
+                  ? "border border-green-400/30 bg-green-500/10 text-green-400"
+                  : "bg-green-500/20 text-green-400"
+                : premiumVisualsEnabled
+                ? "border border-white/10 bg-slate-800/60 text-slate-300"
                 : "bg-slate-700/50 text-slate-300"
             )}
           >
@@ -279,7 +301,10 @@ export function PredictionCard({
         </div>
 
         {/* Confidence meter */}
-        <div className="flex items-center justify-between border-t border-slate-700/50 pt-4">
+        <div className={cn(
+          "flex items-center justify-between border-t pt-4",
+          premiumVisualsEnabled ? "border-white/10" : "border-slate-700/50"
+        )}>
           <span className="text-sm text-slate-400">Model Confidence</span>
           <div className="flex items-center gap-2">
             <div className="relative h-10 w-10">
@@ -323,7 +348,12 @@ export function PredictionCard({
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
-            className="mt-4 rounded-lg bg-green-500/10 p-3"
+            className={cn(
+              "mt-4 rounded-lg p-3",
+              premiumVisualsEnabled
+                ? "border border-green-400/20 bg-green-500/10"
+                : "bg-green-500/10"
+            )}
           >
             <div className="flex items-center justify-between">
               <span className="text-sm text-green-400">Edge Detected</span>

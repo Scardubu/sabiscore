@@ -4,6 +4,7 @@ Base Scraper Infrastructure for SabiScore
 
 Streamlined abstract base class for all scrapers with:
 - Ethical rate limiting and delays
+- robots.txt compliance checking
 - User-agent rotation
 - Local data fallback (raw/processed merge)
 - Retry logic with exponential backoff
@@ -20,8 +21,11 @@ import random
 import time
 from abc import ABC, abstractmethod
 from datetime import datetime
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
+from urllib.parse import urlparse
+from urllib.robotparser import RobotFileParser
 
 import pandas as pd
 import requests
@@ -53,6 +57,25 @@ CACHE_DIR = DATA_DIR / 'cache'
 # Ensure directories exist
 for dir_path in [PROCESSED_DIR, CACHE_DIR]:
     dir_path.mkdir(parents=True, exist_ok=True)
+
+
+# ---------------------------------------------------------------------------
+# Robots.txt helper
+# ---------------------------------------------------------------------------
+
+@lru_cache(maxsize=64)
+def _fetch_robots_parser(base_url: str, user_agent: str) -> Optional[RobotFileParser]:
+    """Retrieve and cache robots.txt parser for a given origin."""
+    try:
+        parsed = urlparse(base_url)
+        robots_url = f"{parsed.scheme}://{parsed.netloc}/robots.txt"
+        rp = RobotFileParser()
+        rp.set_url(robots_url)
+        rp.read()
+        return rp
+    except Exception as exc:  # pragma: no cover
+        logging.getLogger(__name__).debug(f"Could not fetch robots.txt for {base_url}: {exc}")
+        return None
 
 
 class CircuitBreaker:
@@ -137,12 +160,14 @@ class BaseScraper(ABC):
         base_url: str,
         rate_limit_delay: float = 2.0,
         max_retries: int = 3,
-        timeout: int = 30
+        timeout: int = 30,
+        respect_robots: bool = True,
     ):
         self.base_url = base_url
         self.rate_limit_delay = rate_limit_delay
         self.max_retries = max_retries
         self.timeout = timeout
+        self.respect_robots = respect_robots
         
         # Local data paths (subclasses override)
         self.local_raw_path: Optional[Path] = None
@@ -160,6 +185,7 @@ class BaseScraper(ABC):
             "requests_total": 0,
             "requests_success": 0,
             "requests_failed": 0,
+            "requests_blocked_robots": 0,
             "cache_hits": 0,
             "retries_total": 0,
         }
@@ -201,6 +227,21 @@ class BaseScraper(ABC):
         """Return a randomized desktop user agent."""
         return random.choice(USER_AGENTS)
     
+    # ------------------------------------------------------------------
+    # Robots.txt compliance
+    # ------------------------------------------------------------------
+
+    def _is_allowed_by_robots(self, url: str) -> bool:
+        """Return True if the URL is allowed per robots.txt (or if disabled)."""
+        if not self.respect_robots:
+            return True
+        user_agent = self.session.headers.get("User-Agent", "*")
+        rp = _fetch_robots_parser(self.base_url, user_agent)
+        if rp is None:
+            # If we couldn't fetch robots.txt, assume allowed
+            return True
+        return rp.can_fetch(user_agent, url)
+
     def _rate_limit(self) -> None:
         """Enforce ethical rate limiting between requests."""
         elapsed = time.time() - self.last_request_time
@@ -224,9 +265,15 @@ class BaseScraper(ABC):
         method: str = "GET",
         **kwargs
     ) -> Optional[str]:
-        """Utility to fetch a page respecting rate limits and circuit breaker."""
+        """Utility to fetch a page respecting rate limits, circuit breaker, and robots.txt."""
         if not self.circuit_breaker.can_attempt():
             logger.warning("Circuit breaker OPEN - skipping remote request")
+            return None
+
+        # Robots.txt check
+        if not self._is_allowed_by_robots(url):
+            logger.info(f"Blocked by robots.txt: {url}")
+            self.metrics["requests_blocked_robots"] += 1
             return None
 
         headers = kwargs.pop("headers", self._get_headers())

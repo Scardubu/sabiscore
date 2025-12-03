@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { ToastProvider } from "./toast-provider";
+import { ConsentProvider } from "../components/consent-banner";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 
@@ -66,7 +67,9 @@ export default function RootLayout({
       <body className={`${inter.className} bg-slate-950 text-slate-100 antialiased min-h-screen`}>
         <Providers>
           <ToastProvider />
-          {children}
+          <ConsentProvider requireConsent={true}>
+            {children}
+          </ConsentProvider>
         </Providers>
       </body>
     </html>
