@@ -149,7 +149,7 @@ export function TeamAutocomplete({
           disabled={disabled}
           role="combobox"
           aria-autocomplete="list"
-          aria-expanded={isOpen ? "true" : "false"}
+          aria-expanded={isOpen}
           aria-haspopup="listbox"
           aria-controls={isOpen ? `team-listbox-${uid}` : undefined}
           aria-activedescendant={isOpen && highlightedIndex >= 0 ? `team-option-${uid}-${highlightedIndex}` : undefined}
@@ -166,7 +166,7 @@ export function TeamAutocomplete({
                 key={team}
                 id={`team-option-${uid}-${index}`}
                 role="option"
-                aria-selected={highlightedIndex === index ? "true" : "false"}
+                aria-selected={highlightedIndex === index}
                 title={team}
                 className={`cursor-pointer px-4 py-2 text-sm transition-colors ${
                   highlightedIndex === index

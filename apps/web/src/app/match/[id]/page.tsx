@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { InsightsDisplayWrapper } from "@/components/insights-display-wrapper";
-import { getMatchInsights } from "@/lib/api";
+import { getMatchInsights, APIError } from "@/lib/api";
 
 // Edge runtime disabled to prevent styled-jsx SSR errors during build
 // export const runtime = "edge";
@@ -51,6 +51,16 @@ export default async function MatchInsightsPage({ params, searchParams }: PagePr
     );
   } catch (error) {
     console.error("Failed to fetch insights:", error);
-    notFound();
+    
+    // Only show notFound for genuine 404 errors (match not found/invalid)
+    // Re-throw other errors to trigger error.tsx boundary with retry option
+    if (error instanceof APIError) {
+      if (error.status === 404 || error.code === "INVALID_MATCHUP" || error.code === "INVALID_MATCHUP_FORMAT") {
+        notFound();
+      }
+    }
+    
+    // For server errors, timeouts, or network issues, throw to error boundary
+    throw error;
   }
 }

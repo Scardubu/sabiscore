@@ -250,11 +250,10 @@ export function ConsentBanner({ onConsentGiven }: ConsentBannerProps) {
                 <p className="font-medium text-slate-200">Analytics</p>
                 <p className="text-xs text-slate-500">Help us improve by tracking usage patterns</p>
               </div>
-              {/* eslint-disable-next-line jsx-a11y/role-supports-aria-props */}
               <button
                 onClick={() => setPreferences(p => ({ ...p, analytics: !p.analytics }))}
                 aria-label={`Toggle analytics cookies: currently ${preferences.analytics ? 'enabled' : 'disabled'}`}
-                aria-checked={preferences.analytics ? "true" : "false"}
+                aria-checked={preferences.analytics}
                 role="switch"
                 className={`relative h-6 w-11 rounded-full transition ${
                   preferences.analytics ? "bg-emerald-500" : "bg-slate-600"
@@ -274,11 +273,10 @@ export function ConsentBanner({ onConsentGiven }: ConsentBannerProps) {
                 <p className="font-medium text-slate-200">Marketing</p>
                 <p className="text-xs text-slate-500">Allow personalized advertisements</p>
               </div>
-              {/* eslint-disable-next-line jsx-a11y/role-supports-aria-props */}
               <button
                 onClick={() => setPreferences(p => ({ ...p, marketing: !p.marketing }))}
                 aria-label={`Toggle marketing cookies: currently ${preferences.marketing ? 'enabled' : 'disabled'}`}
-                aria-checked={preferences.marketing ? "true" : "false"}
+                aria-checked={preferences.marketing}
                 role="switch"
                 className={`relative h-6 w-11 rounded-full transition ${
                   preferences.marketing ? "bg-emerald-500" : "bg-slate-600"
@@ -298,11 +296,10 @@ export function ConsentBanner({ onConsentGiven }: ConsentBannerProps) {
                 <p className="font-medium text-slate-200">Personalization</p>
                 <p className="text-xs text-slate-500">Remember your preferences and settings</p>
               </div>
-              {/* eslint-disable-next-line jsx-a11y/role-supports-aria-props */}
               <button
                 onClick={() => setPreferences(p => ({ ...p, personalization: !p.personalization }))}
                 aria-label={`Toggle personalization cookies: currently ${preferences.personalization ? 'enabled' : 'disabled'}`}
-                aria-checked={preferences.personalization ? "true" : "false"}
+                aria-checked={preferences.personalization}
                 role="switch"
                 className={`relative h-6 w-11 rounded-full transition ${
                   preferences.personalization ? "bg-emerald-500" : "bg-slate-600"

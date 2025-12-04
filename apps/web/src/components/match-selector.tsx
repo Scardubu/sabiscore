@@ -193,7 +193,7 @@ export function MatchSelector() {
                   key={l.id}
                   type="button"
                   onClick={() => handleLeagueSelect(l.id)}
-                  aria-pressed={league === l.id}
+                  aria-pressed={league === l.id ? true : undefined}
                   className={cn(
                     "rounded-xl border-2 p-3 transition-all",
                     premiumVisualsEnabled

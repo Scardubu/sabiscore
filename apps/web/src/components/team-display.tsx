@@ -36,18 +36,18 @@ export interface LeagueConfig {
 
 const LEAGUE_CONFIG: Record<string, LeagueConfig> = {
   // ═══════════════════════════════════════════════════════════════════════════
-  // ENGLAND 🏴󠁧󠁢󠁥󠁮󠁧󠁿
+  // ENGLAND 🇬🇧 (using UK flag for universal rendering support)
   // ═══════════════════════════════════════════════════════════════════════════
-  EPL: { flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", country: "England", fullName: "Premier League", color: "bg-purple-600" },
-  "Premier League": { flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", country: "England", fullName: "Premier League", color: "bg-purple-600" },
-  "English Premier League": { flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", country: "England", fullName: "Premier League", color: "bg-purple-600" },
-  "Championship": { flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", country: "England", fullName: "EFL Championship", color: "bg-orange-600" },
-  "EFL Championship": { flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", country: "England", fullName: "EFL Championship", color: "bg-orange-600" },
-  "League One": { flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", country: "England", fullName: "EFL League One", color: "bg-red-600" },
-  "League Two": { flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", country: "England", fullName: "EFL League Two", color: "bg-blue-600" },
-  "FA Cup": { flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", country: "England", fullName: "FA Cup", color: "bg-red-700" },
-  "EFL Cup": { flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", country: "England", fullName: "EFL Cup", color: "bg-green-600" },
-  "Carabao Cup": { flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", country: "England", fullName: "EFL Cup", color: "bg-green-600" },
+  EPL: { flag: "🇬🇧", country: "England", fullName: "Premier League", color: "bg-purple-600" },
+  "Premier League": { flag: "🇬🇧", country: "England", fullName: "Premier League", color: "bg-purple-600" },
+  "English Premier League": { flag: "🇬🇧", country: "England", fullName: "Premier League", color: "bg-purple-600" },
+  "Championship": { flag: "🇬🇧", country: "England", fullName: "EFL Championship", color: "bg-orange-600" },
+  "EFL Championship": { flag: "🇬🇧", country: "England", fullName: "EFL Championship", color: "bg-orange-600" },
+  "League One": { flag: "🇬🇧", country: "England", fullName: "EFL League One", color: "bg-red-600" },
+  "League Two": { flag: "🇬🇧", country: "England", fullName: "EFL League Two", color: "bg-blue-600" },
+  "FA Cup": { flag: "🇬🇧", country: "England", fullName: "FA Cup", color: "bg-red-700" },
+  "EFL Cup": { flag: "🇬🇧", country: "England", fullName: "EFL Cup", color: "bg-green-600" },
+  "Carabao Cup": { flag: "🇬🇧", country: "England", fullName: "EFL Cup", color: "bg-green-600" },
   
   // ═══════════════════════════════════════════════════════════════════════════
   // SPAIN 🇪🇸
@@ -109,9 +109,9 @@ const LEAGUE_CONFIG: Record<string, LeagueConfig> = {
   "Liga Portugal": { flag: "🇵🇹", country: "Portugal", fullName: "Liga Portugal", color: "bg-green-700" },
   "Liga Portugal Betclic": { flag: "🇵🇹", country: "Portugal", fullName: "Liga Portugal", color: "bg-green-700" },
   
-  // Scotland
-  "Scottish Premiership": { flag: "🏴󠁧󠁢󠁳󠁣󠁴󠁿", country: "Scotland", fullName: "Scottish Premiership", color: "bg-blue-600" },
-  "SPFL": { flag: "🏴󠁧󠁢󠁳󠁣󠁴󠁿", country: "Scotland", fullName: "Scottish Premiership", color: "bg-blue-600" },
+  // Scotland (using UK flag for universal rendering support)
+  "Scottish Premiership": { flag: "🇬🇧", country: "Scotland", fullName: "Scottish Premiership", color: "bg-blue-600" },
+  "SPFL": { flag: "🇬🇧", country: "Scotland", fullName: "Scottish Premiership", color: "bg-blue-600" },
   
   // Belgium
   "Belgian Pro League": { flag: "🇧🇪", country: "Belgium", fullName: "Belgian Pro League", color: "bg-red-700" },
@@ -178,99 +178,99 @@ interface TeamData {
 
 const TEAM_DATA: Record<string, TeamData> = {
   // ═══════════════════════════════════════════════════════════════════════════
-  // PREMIER LEAGUE (England 🏴󠁧󠁢󠁥󠁮󠁧󠁿) - All 20 teams 2024/25
+  // PREMIER LEAGUE (England 🇬🇧) - All 20 teams 2024/25
   // ═══════════════════════════════════════════════════════════════════════════
   "Arsenal": { 
-    flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", colors: "🔴⚪", bgColor: "bg-red-600",
+    flag: "🇬🇧", colors: "🔴⚪", bgColor: "bg-red-600",
     altNames: ["AFC", "The Gunners", "Gunners"]
   },
   "Aston Villa": { 
-    flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", colors: "🟣🔵", bgColor: "bg-purple-800",
+    flag: "🇬🇧", colors: "🟣🔵", bgColor: "bg-purple-800",
     altNames: ["Villa", "AVFC"]
   },
   "Bournemouth": { 
-    flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", colors: "🍒⚫", bgColor: "bg-red-700",
+    flag: "🇬🇧", colors: "🍒⚫", bgColor: "bg-red-700",
     altNames: ["AFC Bournemouth", "The Cherries"]
   },
   "Brentford": { 
-    flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", colors: "🔴⚪", bgColor: "bg-red-600",
+    flag: "🇬🇧", colors: "🔴⚪", bgColor: "bg-red-600",
     altNames: ["The Bees", "BFC"]
   },
   "Brighton": { 
-    flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", colors: "🔵⚪", bgColor: "bg-blue-500",
+    flag: "🇬🇧", colors: "🔵⚪", bgColor: "bg-blue-500",
     altNames: ["Brighton & Hove Albion", "Seagulls", "BHAFC"]
   },
   "Chelsea": { 
-    flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", colors: "🔵⚪", bgColor: "bg-blue-700",
+    flag: "🇬🇧", colors: "🔵⚪", bgColor: "bg-blue-700",
     altNames: ["CFC", "The Blues"]
   },
   "Crystal Palace": { 
-    flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", colors: "🔴🔵", bgColor: "bg-blue-700",
+    flag: "🇬🇧", colors: "🔴🔵", bgColor: "bg-blue-700",
     altNames: ["Palace", "CPFC", "Eagles"]
   },
   "Everton": { 
-    flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", colors: "🔵⚪", bgColor: "bg-blue-600",
+    flag: "🇬🇧", colors: "🔵⚪", bgColor: "bg-blue-600",
     altNames: ["EFC", "The Toffees", "Toffees"]
   },
   "Fulham": { 
-    flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", colors: "⚪⚫", bgColor: "bg-slate-100",
+    flag: "🇬🇧", colors: "⚪⚫", bgColor: "bg-slate-100",
     altNames: ["FFC", "Cottagers"]
   },
   "Ipswich Town": { 
-    flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", colors: "🔵⚪", bgColor: "bg-blue-600",
+    flag: "🇬🇧", colors: "🔵⚪", bgColor: "bg-blue-600",
     altNames: ["Ipswich", "ITFC", "Tractor Boys"]
   },
   "Leicester City": { 
-    flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", colors: "🔵⚪", bgColor: "bg-blue-600",
+    flag: "🇬🇧", colors: "🔵⚪", bgColor: "bg-blue-600",
     altNames: ["Leicester", "LCFC", "Foxes"]
   },
   "Liverpool": { 
-    flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", colors: "🔴⚪", bgColor: "bg-red-600",
+    flag: "🇬🇧", colors: "🔴⚪", bgColor: "bg-red-600",
     altNames: ["LFC", "The Reds", "Reds"]
   },
   "Manchester City": { 
-    flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", colors: "🔵⚪", bgColor: "bg-sky-500",
+    flag: "🇬🇧", colors: "🔵⚪", bgColor: "bg-sky-500",
     altNames: ["Man City", "City", "MCFC", "Citizens"]
   },
   "Manchester United": { 
-    flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", colors: "🔴⚪", bgColor: "bg-red-700",
+    flag: "🇬🇧", colors: "🔴⚪", bgColor: "bg-red-700",
     altNames: ["Man United", "Man Utd", "United", "MUFC", "Red Devils"]
   },
   "Newcastle United": { 
-    flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", colors: "⚫⚪", bgColor: "bg-slate-900",
+    flag: "🇬🇧", colors: "⚫⚪", bgColor: "bg-slate-900",
     altNames: ["Newcastle", "NUFC", "Magpies", "Toon"]
   },
   "Nottingham Forest": { 
-    flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", colors: "🔴⚪", bgColor: "bg-red-700",
+    flag: "🇬🇧", colors: "🔴⚪", bgColor: "bg-red-700",
     altNames: ["Forest", "NFFC", "Nott'm Forest"]
   },
   "Southampton": { 
-    flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", colors: "🔴⚪", bgColor: "bg-red-600",
+    flag: "🇬🇧", colors: "🔴⚪", bgColor: "bg-red-600",
     altNames: ["Saints", "SFC"]
   },
   "Tottenham Hotspur": { 
-    flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", colors: "⚪🔵", bgColor: "bg-slate-100",
+    flag: "🇬🇧", colors: "⚪🔵", bgColor: "bg-slate-100",
     altNames: ["Tottenham", "Spurs", "THFC"]
   },
   "West Ham United": { 
-    flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", colors: "🍷🔵", bgColor: "bg-purple-900",
+    flag: "🇬🇧", colors: "🍷🔵", bgColor: "bg-purple-900",
     altNames: ["West Ham", "Hammers", "WHUFC", "Irons"]
   },
   "Wolverhampton": { 
-    flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", colors: "🟠⚫", bgColor: "bg-amber-500",
+    flag: "🇬🇧", colors: "🟠⚫", bgColor: "bg-amber-500",
     altNames: ["Wolves", "Wolverhampton Wanderers", "WWFC"]
   },
   // Additional EPL teams (promoted/relegated)
   "Burnley": { 
-    flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", colors: "🍷🔵", bgColor: "bg-purple-900",
+    flag: "🇬🇧", colors: "🍷🔵", bgColor: "bg-purple-900",
     altNames: ["BFC", "Clarets"]
   },
   "Luton Town": { 
-    flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", colors: "🟠⚪", bgColor: "bg-orange-500",
+    flag: "🇬🇧", colors: "🟠⚪", bgColor: "bg-orange-500",
     altNames: ["Luton", "LTFC", "Hatters"]
   },
   "Sheffield United": { 
-    flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", colors: "🔴⚪", bgColor: "bg-red-600",
+    flag: "🇬🇧", colors: "🔴⚪", bgColor: "bg-red-600",
     altNames: ["Sheffield", "Blades", "SUFC"]
   },
 
