@@ -2,6 +2,7 @@
 
 from .user import User, UserCreate, UserInDB, UserUpdate, UserResponse
 from .token import Token, TokenPayload
+from .auth import LoginRequest, LoginResponse
 from .team import TeamResponse
 from .league import LeagueResponse
 from .match import (
@@ -30,6 +31,8 @@ __all__ = [
     # Authentication schemas
     "Token",
     "TokenPayload",
+    "LoginRequest",
+    "LoginResponse",
     
     # Team schemas
     "TeamResponse",
