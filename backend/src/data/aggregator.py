@@ -10,6 +10,7 @@ import pandas as pd
 
 from ..core.cache import cache
 from ..core.config import settings
+from .team_database import get_team_stats
 
 # Import from old scrapers module for backward compatibility
 from .scrapers import (
@@ -150,21 +151,30 @@ class DataAggregator:
         return data
 
     def _create_mock_team_stats(self) -> Dict[str, Any]:
-        """Create mock team statistics when scraping fails"""
+        """Create mock team statistics when scraping fails.
+        
+        Uses team database to return differentiated stats for each team.
+        """
+        home_team = self.teams.get("home", "")
+        away_team = self.teams.get("away", "")
+        
+        home_stats = get_team_stats(home_team, is_home=True)
+        away_stats = get_team_stats(away_team, is_home=False)
+        
         return {
             "home": {
-                "attacking_strength": 0.8,
-                "defensive_strength": 0.7,
-                "win_rate": 0.6,
-                "goals_per_game": 1.8,
-                "clean_sheet_rate": 0.3
+                "attacking_strength": home_stats["attacking_strength"],
+                "defensive_strength": home_stats["defensive_strength"],
+                "win_rate": home_stats["win_rate"],
+                "goals_per_game": home_stats["goals_per_game"],
+                "clean_sheet_rate": home_stats["clean_sheet_rate"]
             },
             "away": {
-                "attacking_strength": 0.7,
-                "defensive_strength": 0.8,
-                "win_rate": 0.5,
-                "goals_per_game": 1.5,
-                "clean_sheet_rate": 0.25
+                "attacking_strength": away_stats["attacking_strength"],
+                "defensive_strength": away_stats["defensive_strength"],
+                "win_rate": away_stats["win_rate"],
+                "goals_per_game": away_stats["goals_per_game"],
+                "clean_sheet_rate": away_stats["clean_sheet_rate"]
             }
         }
 

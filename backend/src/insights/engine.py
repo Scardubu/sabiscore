@@ -6,6 +6,7 @@ import logging
 
 from ..models.ensemble import SabiScoreEnsemble
 from ..data.aggregator import DataAggregator
+from ..data.team_database import get_team_stats, get_matchup_features, get_team_elo, get_team_squad_value
 # Avoid importing heavy transformer (sklearn/great_expectations) at module import time
 # We'll lazily import FeatureTransformer in __init__ and fall back to a minimal implementation
 from ..models.explainer import ModelExplainer
@@ -205,13 +206,43 @@ class InsightsEngine:
         return result
     
     def _enrich_from_match_data(self, aligned: Dict[str, float], match_data: Dict[str, Any]) -> None:
-        """Enrich aligned features dict with data from match_data where available."""
+        """Enrich aligned features dict with data from match_data where available.
+        
+        Also uses team database to ensure team-specific values are applied.
+        """
         if not isinstance(match_data, dict):
             return  # Safety check
         try:
+            # Get team names from metadata for team database lookup
+            metadata = match_data.get('metadata', {})
+            if isinstance(metadata, dict):
+                home_team = metadata.get('home_team', '')
+                away_team = metadata.get('away_team', '')
+            else:
+                home_team = ''
+                away_team = ''
+            
+            # If we have team names, get team-specific features from database
+            if home_team and away_team:
+                team_features = get_matchup_features(home_team, away_team)
+                # Apply team-specific features (these will override defaults)
+                for key, value in team_features.items():
+                    if key in aligned:
+                        aligned[key] = float(value)
+            
+            # Extract ELO data if available in match_data (from mock or scraper)
+            elo_data = match_data.get('elo', {})
+            if isinstance(elo_data, dict) and elo_data:
+                if 'home' in elo_data:
+                    aligned['home_elo'] = float(elo_data['home'])
+                if 'away' in elo_data:
+                    aligned['away_elo'] = float(elo_data['away'])
+                if 'difference' in elo_data:
+                    aligned['elo_difference'] = float(elo_data['difference'])
+            
             # Extract odds if available
             odds = match_data.get('odds', {})
-            if odds:
+            if isinstance(odds, dict) and odds:
                 if 'home_win' in odds:
                     aligned['home_win_odds'] = float(odds['home_win'])
                     aligned['home_implied_prob'] = 1.0 / float(odds['home_win'])
@@ -220,36 +251,48 @@ class InsightsEngine:
                 if 'away_win' in odds:
                     pass  # away_win_odds not in model features
                     
-            # Extract team stats
+            # Extract team stats (may override team database values with live data)
             team_stats = match_data.get('team_stats', {})
-            home_stats = team_stats.get('home', {})
-            away_stats = team_stats.get('away', {})
+            if isinstance(team_stats, dict):
+                home_stats = team_stats.get('home', {})
+                away_stats = team_stats.get('away', {})
+            else:
+                home_stats = {}
+                away_stats = {}
             
-            if home_stats:
+            if isinstance(home_stats, dict) and home_stats:
                 if 'win_rate' in home_stats:
                     aligned['home_form_5'] = float(home_stats['win_rate'])
-                    aligned['home_form_10'] = float(home_stats['win_rate'])
-                    aligned['home_form_20'] = float(home_stats['win_rate'])
+                    aligned['home_form_10'] = float(home_stats['win_rate']) * 0.98
+                    aligned['home_form_20'] = float(home_stats['win_rate']) * 0.96
                     aligned['home_win_rate_5'] = float(home_stats['win_rate'])
                 if 'goals_per_game' in home_stats:
                     gpg = float(home_stats['goals_per_game'])
                     aligned['home_goals_per_match_5'] = gpg
-                    aligned['home_xg_avg_5'] = gpg * 0.95  # xG slightly under actual
+                    aligned['home_xg_avg_5'] = home_stats.get('xg_avg', gpg * 0.95)
+                if 'squad_value' in home_stats:
+                    aligned['home_squad_value'] = float(home_stats['squad_value'])
+                if 'xg_avg' in home_stats:
+                    aligned['home_xg_avg_5'] = float(home_stats['xg_avg'])
                     
-            if away_stats:
+            if isinstance(away_stats, dict) and away_stats:
                 if 'win_rate' in away_stats:
                     aligned['away_form_5'] = float(away_stats['win_rate'])
-                    aligned['away_form_10'] = float(away_stats['win_rate'])
-                    aligned['away_form_20'] = float(away_stats['win_rate'])
+                    aligned['away_form_10'] = float(away_stats['win_rate']) * 0.98
+                    aligned['away_form_20'] = float(away_stats['win_rate']) * 0.96
                     aligned['away_win_rate_5'] = float(away_stats['win_rate'])
                 if 'goals_per_game' in away_stats:
                     gpg = float(away_stats['goals_per_game'])
                     aligned['away_goals_per_match_5'] = gpg
-                    aligned['away_xg_avg_5'] = gpg * 0.95
+                    aligned['away_xg_avg_5'] = away_stats.get('xg_avg', gpg * 0.95)
+                if 'squad_value' in away_stats:
+                    aligned['away_squad_value'] = float(away_stats['squad_value'])
+                if 'xg_avg' in away_stats:
+                    aligned['away_xg_avg_5'] = float(away_stats['xg_avg'])
                     
             # H2H data
             h2h = match_data.get('head_to_head', {})
-            if h2h:
+            if isinstance(h2h, dict) and h2h:
                 aligned['h2h_home_wins'] = float(h2h.get('home_wins', 4))
                 aligned['h2h_away_wins'] = float(h2h.get('away_wins', 3))
                 aligned['h2h_draws'] = float(h2h.get('draws', 3))
@@ -282,9 +325,9 @@ class InsightsEngine:
             # Use simplified mock data if aggregator fails
             if not match_data:
                 try:
-                    if self.data_aggregator is None:
-                        self.data_aggregator = DataAggregator(matchup, league)
-                    match_data = self.data_aggregator.fetch_match_data()
+                    # Always create a new aggregator for each matchup to avoid using cached data from previous calls
+                    aggregator = DataAggregator(matchup, league)
+                    match_data = aggregator.fetch_match_data()
                 except Exception as e:
                     logger.warning(f"Data aggregation failed, using mock data: {e}")
                     match_data = self._create_mock_match_data(home_team, away_team, league)
@@ -481,7 +524,33 @@ class InsightsEngine:
         }
 
     def _create_mock_match_data(self, home_team: str, away_team: str, league: str) -> Dict[str, Any]:
-        """Create mock match data when aggregation fails"""
+        """Create mock match data when aggregation fails.
+        
+        Uses team database to get differentiated stats for each team,
+        ensuring different matchups produce different predictions.
+        """
+        # Get team-specific statistics from database
+        home_stats = get_team_stats(home_team, is_home=True)
+        away_stats = get_team_stats(away_team, is_home=False)
+        
+        home_elo = get_team_elo(home_team)
+        away_elo = get_team_elo(away_team)
+        
+        # Calculate odds based on ELO difference
+        elo_diff = home_elo - away_elo
+        # Home advantage + ELO-based probability
+        home_prob = 0.45 + (elo_diff / 1000) + 0.05  # Base 45% + ELO diff + 5% home advantage
+        home_prob = max(0.15, min(0.75, home_prob))  # Clamp to reasonable range
+        draw_prob = 0.28 - abs(elo_diff) / 3000  # Closer teams = more draws
+        draw_prob = max(0.20, min(0.35, draw_prob))
+        away_prob = 1.0 - home_prob - draw_prob
+        
+        # Convert probabilities to decimal odds (with 5% margin)
+        margin = 1.05
+        home_odds = margin / home_prob if home_prob > 0 else 5.0
+        draw_odds = margin / draw_prob if draw_prob > 0 else 4.0
+        away_odds = margin / away_prob if away_prob > 0 else 3.0
+        
         return {
             "metadata": {
                 "matchup": f"{home_team} vs {away_team}",
@@ -489,25 +558,37 @@ class InsightsEngine:
                 "home_team": home_team,
                 "away_team": away_team,
                 "generated_at": datetime.utcnow().isoformat(),
+                "data_source": "team_database_fallback",
             },
             "team_stats": {
                 "home": {
-                    "attacking_strength": 0.8,
-                    "defensive_strength": 0.7,
-                    "win_rate": 0.6,
-                    "goals_per_game": 1.8
+                    "attacking_strength": home_stats["attacking_strength"],
+                    "defensive_strength": home_stats["defensive_strength"],
+                    "win_rate": home_stats["win_rate"],
+                    "goals_per_game": home_stats["goals_per_game"],
+                    "clean_sheet_rate": home_stats["clean_sheet_rate"],
+                    "xg_avg": home_stats["xg_avg"],
+                    "squad_value": home_stats["squad_value"],
                 },
                 "away": {
-                    "attacking_strength": 0.7,
-                    "defensive_strength": 0.8,
-                    "win_rate": 0.5,
-                    "goals_per_game": 1.5
+                    "attacking_strength": away_stats["attacking_strength"],
+                    "defensive_strength": away_stats["defensive_strength"],
+                    "win_rate": away_stats["win_rate"],
+                    "goals_per_game": away_stats["goals_per_game"],
+                    "clean_sheet_rate": away_stats["clean_sheet_rate"],
+                    "xg_avg": away_stats["xg_avg"],
+                    "squad_value": away_stats["squad_value"],
                 }
             },
             "odds": {
-                "home_win": 2.0,
-                "draw": 3.2,
-                "away_win": 3.8
+                "home_win": round(home_odds, 2),
+                "draw": round(draw_odds, 2),
+                "away_win": round(away_odds, 2)
+            },
+            "elo": {
+                "home": home_elo,
+                "away": away_elo,
+                "difference": elo_diff
             },
             "head_to_head": {},
             "current_form": {}
