@@ -157,7 +157,7 @@ export function MatchSelector() {
                   awayTeam={awayTeam}
                   league={league}
                   size="lg"
-                  showCountryFlags={false}
+                  showCountryFlags={true}
                   className="justify-between"
                 />
                 <div className="mt-4 flex flex-wrap gap-3 text-[11px] text-slate-300">

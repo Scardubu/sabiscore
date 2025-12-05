@@ -251,7 +251,7 @@ export function InsightsDisplay({ insights }: InsightsDisplayProps) {
               awayTeam={insights.metadata.away_team}
               league={insights.league}
               size="xl"
-              showCountryFlags={false}
+              showCountryFlags={true}
             />
           </div>
         </div>

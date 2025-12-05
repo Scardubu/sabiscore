@@ -145,7 +145,7 @@ ${context.clvExpected ? `Expected CLV: ${context.clvExpected.toFixed(1)}¢` : ''
             homeTeam={context.homeTeam}
             awayTeam={context.awayTeam}
             size="sm"
-            showCountryFlags={false}
+            showCountryFlags={true}
             className="justify-start"
           />
         </div>

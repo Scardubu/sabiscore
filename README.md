@@ -81,7 +81,14 @@ For deeper diagrams, see [`ARCHITECTURE_V3.md`](./ARCHITECTURE_V3.md) and [`EDGE
 ### Frontend Experience
 - Instant matchup search, degradations handled with React error boundaries + toast alerts.
 - Chart.js confidence meter with Brier overlays; dark/light theming via design tokens.
-- Edge rendering (Vercel) with partial prerendering and streaming data for sub-150 ms TTFB.
+- Edge rendering (Vercel) with partial prerendering and streaming data for sub-150 ms TTFB.
+- **Team Logo System (v3.4)**: Tiered logo resolution with lazy loading and fallback chains:
+  - Primary: API-Football logos (`media.api-sports.io/football/teams/{id}.png`)
+  - Secondary: TheSportsDB badges (unlimited, free JSON API)
+  - Tertiary: FlagCDN country flags (SVG/PNG, unlimited)
+  - Final: Emoji placeholders with gradient backgrounds
+  - 100+ team/league IDs mapped across EPL, La Liga, Serie A, Bundesliga, Ligue 1
+  - In-memory caching with 24h TTL, smooth loading transitions, accessibility support
 
 ### Backend & Ops
 - FastAPI routers hardened with strict schemas and Redis caching (Upstash-compatible URL).

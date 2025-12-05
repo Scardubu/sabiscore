@@ -261,7 +261,7 @@ export function PredictionCard({
       <div className="p-6">
         {/* Teams */}
         <div className="mb-6">
-          <TeamVsDisplay homeTeam={homeTeam} awayTeam={awayTeam} size="lg" />
+          <TeamVsDisplay homeTeam={homeTeam} awayTeam={awayTeam} league={league} size="lg" showCountryFlags={true} />
         </div>
 
         {/* Prediction indicator */}

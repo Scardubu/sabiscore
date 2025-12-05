@@ -1,6 +1,8 @@
 "use client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { TeamLogo } from "@/components/ui/cached-logo";
+import { resolveTeamLogo, TEAM_IDS } from "@/lib/assets/logo-resolver";
 import { cn } from "@/lib/utils";
 
 /**
@@ -743,15 +745,26 @@ function getTeamAbbreviation(teamName: string): string {
 }
 
 /**
- * Get team logo URL from a CDN or placeholder
- * In production, replace with your actual team logo CDN
+ * Get team logo metadata using the logo resolver
+ * Returns URLs from API-Sports, TheSportsDB, or FlagCDN with fallbacks
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function getTeamLogoUrl(_teamName: string): string | null {
-  // Using football-data.org style logo URLs (example CDN)
-  // In production, replace with your actual team logo CDN
-  // return `https://crests.football-data.org/${getTeamId(teamName)}.svg`;
-  return null;
+function getTeamLogoMeta(teamName: string) {
+  return resolveTeamLogo(teamName);
+}
+
+/**
+ * Get team logo URL from the resolver (primary URL)
+ */
+function getTeamLogoUrl(teamName: string): string | null {
+  const meta = resolveTeamLogo(teamName);
+  return meta.url || null;
+}
+
+/**
+ * Check if team has API-based logo available
+ */
+function hasRealLogo(teamName: string): boolean {
+  return TEAM_IDS[teamName]?.apiSportsId !== undefined || TEAM_IDS[teamName]?.sportsDbId !== undefined;
 }
 
 /**
@@ -871,6 +884,10 @@ export function TeamDisplay({
     );
   }
 
+  // Get logo metadata for the team
+  const logoMeta = getTeamLogoMeta(canonicalName);
+  const avatarSizePixels = size === 'xs' ? 20 : size === 'sm' ? 24 : size === 'md' ? 32 : size === 'lg' ? 40 : 48;
+
   // Default variant
   return (
     <div
@@ -883,21 +900,34 @@ export function TeamDisplay({
       {showFlag && (
         <span className={cn(sizes.flag, "flex-shrink-0")} title={`${canonicalName}`}>{displayFlag}</span>
       )}
-      <Avatar className={cn(sizes.avatar, "flex-shrink-0")}>
-        {logoUrl ? (
-          <AvatarImage src={logoUrl} alt={teamName} />
-        ) : null}
-        <AvatarFallback
-          className={cn(
-            "text-[0.6rem] font-bold",
-            color,
-            "text-white"
-          )}
-          aria-label={`${canonicalName} badge`}
-        >
-          {getTeamAbbreviation(teamName)}
-        </AvatarFallback>
-      </Avatar>
+      {/* Use TeamLogo with real API logos when available, fallback to Avatar */}
+      {hasRealLogo(canonicalName) ? (
+        <TeamLogo
+          teamName={canonicalName}
+          logoUrl={logoMeta.url}
+          fallbackUrls={logoMeta.fallbackUrls}
+          placeholder={logoMeta.placeholder}
+          colors={logoMeta.colors}
+          size={avatarSizePixels}
+          className="flex-shrink-0"
+        />
+      ) : (
+        <Avatar className={cn(sizes.avatar, "flex-shrink-0")}>
+          {logoUrl ? (
+            <AvatarImage src={logoUrl} alt={teamName} />
+          ) : null}
+          <AvatarFallback
+            className={cn(
+              "text-[0.6rem] font-bold",
+              color,
+              "text-white"
+            )}
+            aria-label={`${canonicalName} badge`}
+          >
+            {getTeamAbbreviation(teamName)}
+          </AvatarFallback>
+        </Avatar>
+      )}
       <span className={cn("font-medium text-slate-200", sizes.text)}>
         {teamName}
       </span>
