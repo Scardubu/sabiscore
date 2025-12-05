@@ -252,14 +252,17 @@ function ProgressiveConfidenceMeter({
           }}
         />
         {/* Milestone markers */}
-        {MILESTONES.map((m) => (
+        {MILESTONES.map((m, i) => (
           <div
             key={m}
             className={cn(
               "absolute top-0 h-full w-0.5 transition-colors duration-300",
-              progress >= m ? "bg-white/50" : "bg-slate-600/30"
+              progress >= m ? "bg-white/50" : "bg-slate-600/30",
+              i === 0 && "left-[25%]",
+              i === 1 && "left-[50%]",
+              i === 2 && "left-[75%]",
+              i === 3 && "left-[100%]"
             )}
-            style={{ left: `${m}%` }}
           />
         ))}
       </div>

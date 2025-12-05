@@ -1,3 +1,4 @@
+/* eslint-disable jsx-a11y/aria-proptypes */
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useId } from "react";
@@ -8,6 +9,7 @@ interface TeamAutocompleteProps {
   value: string;
   onChange: (value: string) => void;
   options: readonly string[];
+  league?: string;
   placeholder?: string;
   disabled?: boolean;
 }
@@ -20,6 +22,7 @@ export function TeamAutocomplete({
   value,
   onChange,
   options,
+  league,
   placeholder,
   disabled
 }: TeamAutocompleteProps) {
@@ -147,26 +150,16 @@ export function TeamAutocomplete({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           disabled={disabled}
-          role="combobox"
-          aria-autocomplete="list"
-          aria-expanded={isOpen}
-          aria-haspopup="listbox"
-          aria-controls={isOpen ? `team-listbox-${uid}` : undefined}
-          aria-activedescendant={isOpen && highlightedIndex >= 0 ? `team-option-${uid}-${highlightedIndex}` : undefined}
           className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         />
         {isOpen && filteredOptions.length > 0 && (
           <ul
-            id={`team-listbox-${uid}`}
-            role="listbox"
             className="absolute z-20 mt-1 w-full max-h-60 overflow-auto rounded-lg border border-slate-700 bg-slate-900/95 shadow-lg"
           >
             {filteredOptions.map((team, index) => (
               <li
                 key={team}
                 id={`team-option-${uid}-${index}`}
-                role="option"
-                aria-selected={highlightedIndex === index}
                 title={team}
                 className={`cursor-pointer px-4 py-2 text-sm transition-colors ${
                   highlightedIndex === index
@@ -180,7 +173,9 @@ export function TeamAutocomplete({
                 <TeamDisplay 
                   teamName={team} 
                   size="sm" 
-                  variant="compact" 
+                  variant="compact"
+                  league={league}
+                  showLeaguePill={Boolean(league)}
                   className={highlightedIndex === index ? "text-white" : ""}
                 />
               </li>

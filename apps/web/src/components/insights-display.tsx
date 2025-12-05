@@ -230,11 +230,7 @@ export function InsightsDisplay({ insights }: InsightsDisplayProps) {
       )}>
         {premiumVisualsEnabled && (
           <div
-            className="pointer-events-none absolute inset-0 opacity-40"
-            style={{
-              background:
-                "radial-gradient(circle at top, rgba(0,212,255,0.2), transparent 50%), radial-gradient(circle at 20% 80%, rgba(123,47,247,0.12), transparent 40%)",
-            }}
+            className="pointer-events-none absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_top,rgba(0,212,255,0.2),transparent_50%),radial-gradient(circle_at_20%_80%,rgba(123,47,247,0.12),transparent_40%)]"
             aria-hidden="true"
           />
         )}

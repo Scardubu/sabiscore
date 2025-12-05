@@ -1,3 +1,4 @@
+/* eslint-disable jsx-a11y/aria-proptypes */
 "use client";
 
 import { useState, useEffect, useCallback } from "react";

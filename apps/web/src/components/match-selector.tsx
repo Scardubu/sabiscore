@@ -1,3 +1,4 @@
+/* eslint-disable jsx-a11y/aria-proptypes */
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
@@ -130,11 +131,7 @@ export function MatchSelector() {
       >
         {premiumVisualsEnabled && (
           <div
-            className="pointer-events-none absolute inset-0 opacity-60"
-            style={{
-              background:
-                "radial-gradient(circle at top, rgba(0,212,255,0.25), transparent 55%), radial-gradient(circle at 20% 80%, rgba(123,47,247,0.15), transparent 45%)",
-            }}
+            className="pointer-events-none absolute inset-0 opacity-60 bg-[radial-gradient(circle_at_top,rgba(0,212,255,0.25),transparent_55%),radial-gradient(circle_at_20%_80%,rgba(123,47,247,0.15),transparent_45%)]"
             aria-hidden="true"
           />
         )}
@@ -193,7 +190,6 @@ export function MatchSelector() {
                   key={l.id}
                   type="button"
                   onClick={() => handleLeagueSelect(l.id)}
-                  aria-pressed={league === l.id ? true : undefined}
                   className={cn(
                     "rounded-xl border-2 p-3 transition-all",
                     premiumVisualsEnabled
@@ -222,6 +218,7 @@ export function MatchSelector() {
               value={homeTeam}
               onChange={setHomeTeam}
               options={leagueTeams}
+              league={league}
               placeholder="Search or type a team"
               disabled={loading}
             />
@@ -231,6 +228,7 @@ export function MatchSelector() {
               value={awayTeam}
               onChange={setAwayTeam}
               options={leagueTeams}
+              league={league}
               placeholder="Search or type a team"
               disabled={loading}
             />

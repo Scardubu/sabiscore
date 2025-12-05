@@ -688,6 +688,7 @@ interface TeamDisplayProps {
   showFlag?: boolean;      // Show country flag (true) or team colors (false)
   showTeamColors?: boolean; // Show team color indicator
   showColor?: boolean;     // Legacy: show background color
+  showLeaguePill?: boolean; // Show a league badge/abbr beside the team
   size?: "xs" | "sm" | "md" | "lg" | "xl";
   variant?: "default" | "compact" | "full";
   className?: string;
@@ -754,6 +755,26 @@ function getTeamLogoUrl(_teamName: string): string | null {
 }
 
 /**
+ * League abbreviation helper (ensures EPL/UEL/UCL etc.)
+ */
+function getLeagueAbbreviation(league?: string): string | undefined {
+  if (!league) return undefined;
+  const normalized = league.toLowerCase();
+  if (normalized.includes("premier")) return "EPL";
+  if (normalized.includes("championship") && normalized.includes("efl")) return "EFL";
+  if (normalized.includes("la liga")) return "LL";
+  if (normalized.includes("bundesliga")) return "BUN";
+  if (normalized.includes("ligue 1")) return "L1";
+  if (normalized.includes("serie a")) return "SA";
+  if (normalized.includes("champions league") || normalized === "ucl") return "UCL";
+  if (normalized.includes("europa league") || normalized === "uel") return "UEL";
+  if (normalized.includes("conference")) return "UECL";
+  if (normalized.includes("mls")) return "MLS";
+  if (normalized.includes("libertadores")) return "LIB";
+  return league.slice(0, 3).toUpperCase();
+}
+
+/**
  * TeamDisplay Component
  * 
  * Renders team name with proper country flag and brand color indicator.
@@ -771,16 +792,20 @@ export function TeamDisplay({
   showFlag = true,
   showTeamColors = false,
   showColor = false,
+  showLeaguePill = false,
   size = "md",
   variant = "default",
   className,
 }: TeamDisplayProps) {
   const teamData = getTeamData(teamName);
-  const displayFlag = showTeamColors ? teamData.colors : teamData.flag;
+  const leagueConfig = league ? LEAGUE_CONFIG[league] : undefined;
+  const flagFromLeague = leagueConfig?.flag;
+  const displayFlag = showTeamColors ? teamData.colors : (flagFromLeague ?? teamData.flag);
   const color = teamData.bgColor;
   const sizes = sizeClasses[size];
   const logoUrl = getTeamLogoUrl(teamName);
   const canonicalName = resolveTeamName(teamName);
+  const leagueAbbr = getLeagueAbbreviation(league);
 
   if (variant === "compact") {
     return (
@@ -868,6 +893,7 @@ export function TeamDisplay({
             color,
             "text-white"
           )}
+          aria-label={`${canonicalName} badge`}
         >
           {getTeamAbbreviation(teamName)}
         </AvatarFallback>
@@ -875,6 +901,18 @@ export function TeamDisplay({
       <span className={cn("font-medium text-slate-200", sizes.text)}>
         {teamName}
       </span>
+      {showLeaguePill && leagueConfig && leagueAbbr && (
+        <span
+          className={cn(
+            "rounded px-1.5 py-0.5 text-[0.65rem] font-semibold text-white shadow-sm",
+            leagueConfig.color,
+            "bg-opacity-90"
+          )}
+          title={leagueConfig.fullName}
+        >
+          {leagueAbbr}
+        </span>
+      )}
     </div>
   );
 }
@@ -916,6 +954,7 @@ export function TeamVsDisplay({
         league={league}
         size={size} 
         showTeamColors={!showCountryFlags}
+        showLeaguePill={Boolean(league)}
       />
       <span
         className={cn(
@@ -930,6 +969,7 @@ export function TeamVsDisplay({
         league={league}
         size={size} 
         showTeamColors={!showCountryFlags}
+        showLeaguePill={Boolean(league)}
       />
     </div>
   );
