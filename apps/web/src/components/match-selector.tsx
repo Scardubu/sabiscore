@@ -13,6 +13,7 @@ import { MatchLoadingExperience } from "@/components/loading/match-loading-exper
 import { FeatureFlag, useFeatureFlag } from "@/lib/feature-flags";
 import { hashMatchup } from "@/lib/interstitial-storage";
 import { cn } from "@/lib/utils";
+import { CountryFlag } from "@/components/ui/cached-logo";
 
 const LEAGUES = [
   { id: "EPL", name: "Premier League" },
@@ -99,6 +100,13 @@ export function MatchSelector() {
       // Navigate to match insights page
       const encodedMatchup = encodeURIComponent(matchup);
       router.push(`/match/${encodedMatchup}?league=${league}`);
+      
+      // Clear persisted state after successful navigation to avoid stale team selections
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch {
+        // ignore storage errors
+      }
     } catch (error) {
       setShowInterstitial(false);
       setPendingMatchup(null);
@@ -201,7 +209,17 @@ export function MatchSelector() {
                       : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600"
                   )}
                 >
-                  <div className="mb-1 text-2xl">{LEAGUE_CONFIG[l.id]?.flag || "⚽"}</div>
+                  <div className="mb-1 flex justify-center">
+                    {LEAGUE_CONFIG[l.id]?.countryCode ? (
+                      <CountryFlag 
+                        countryCode={LEAGUE_CONFIG[l.id].countryCode} 
+                        size={32}
+                        className="rounded-sm"
+                      />
+                    ) : (
+                      <span className="text-2xl">⚽</span>
+                    )}
+                  </div>
                   <div className="text-xs font-medium">{l.name}</div>
                   {premiumVisualsEnabled && LEAGUE_CONFIG[l.id]?.country && (
                     <p className="text-[10px] text-slate-500">{LEAGUE_CONFIG[l.id]?.country}</p>

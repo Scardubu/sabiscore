@@ -1,7 +1,7 @@
 "use client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { TeamLogo } from "@/components/ui/cached-logo";
+import { TeamLogo, CountryFlag } from "@/components/ui/cached-logo";
 import { resolveTeamLogo, TEAM_IDS } from "@/lib/assets/logo-resolver";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils";
  */
 export interface LeagueConfig {
   flag: string;
+  countryCode: string;     // ISO 3166-1 alpha-2 country code for FlagCDN
   country: string;
   fullName: string;
   color: string;           // Primary Tailwind bg class
@@ -40,120 +41,120 @@ const LEAGUE_CONFIG: Record<string, LeagueConfig> = {
   // ═══════════════════════════════════════════════════════════════════════════
   // ENGLAND 🇬🇧 (using UK flag for universal rendering support)
   // ═══════════════════════════════════════════════════════════════════════════
-  EPL: { flag: "🇬🇧", country: "England", fullName: "Premier League", color: "bg-purple-600" },
-  "Premier League": { flag: "🇬🇧", country: "England", fullName: "Premier League", color: "bg-purple-600" },
-  "English Premier League": { flag: "🇬🇧", country: "England", fullName: "Premier League", color: "bg-purple-600" },
-  "Championship": { flag: "🇬🇧", country: "England", fullName: "EFL Championship", color: "bg-orange-600" },
-  "EFL Championship": { flag: "🇬🇧", country: "England", fullName: "EFL Championship", color: "bg-orange-600" },
-  "League One": { flag: "🇬🇧", country: "England", fullName: "EFL League One", color: "bg-red-600" },
-  "League Two": { flag: "🇬🇧", country: "England", fullName: "EFL League Two", color: "bg-blue-600" },
-  "FA Cup": { flag: "🇬🇧", country: "England", fullName: "FA Cup", color: "bg-red-700" },
-  "EFL Cup": { flag: "🇬🇧", country: "England", fullName: "EFL Cup", color: "bg-green-600" },
-  "Carabao Cup": { flag: "🇬🇧", country: "England", fullName: "EFL Cup", color: "bg-green-600" },
+  EPL: { flag: "🇬🇧", countryCode: "gb", country: "England", fullName: "Premier League", color: "bg-purple-600" },
+  "Premier League": { flag: "🇬🇧", countryCode: "gb", country: "England", fullName: "Premier League", color: "bg-purple-600" },
+  "English Premier League": { flag: "🇬🇧", countryCode: "gb", country: "England", fullName: "Premier League", color: "bg-purple-600" },
+  "Championship": { flag: "🇬🇧", countryCode: "gb", country: "England", fullName: "EFL Championship", color: "bg-orange-600" },
+  "EFL Championship": { flag: "🇬🇧", countryCode: "gb", country: "England", fullName: "EFL Championship", color: "bg-orange-600" },
+  "League One": { flag: "🇬🇧", countryCode: "gb", country: "England", fullName: "EFL League One", color: "bg-red-600" },
+  "League Two": { flag: "🇬🇧", countryCode: "gb", country: "England", fullName: "EFL League Two", color: "bg-blue-600" },
+  "FA Cup": { flag: "🇬🇧", countryCode: "gb", country: "England", fullName: "FA Cup", color: "bg-red-700" },
+  "EFL Cup": { flag: "🇬🇧", countryCode: "gb", country: "England", fullName: "EFL Cup", color: "bg-green-600" },
+  "Carabao Cup": { flag: "🇬🇧", countryCode: "gb", country: "England", fullName: "EFL Cup", color: "bg-green-600" },
   
   // ═══════════════════════════════════════════════════════════════════════════
   // SPAIN 🇪🇸
   // ═══════════════════════════════════════════════════════════════════════════
-  "La Liga": { flag: "🇪🇸", country: "Spain", fullName: "La Liga", color: "bg-orange-600" },
-  LaLiga: { flag: "🇪🇸", country: "Spain", fullName: "La Liga", color: "bg-orange-600" },
-  "La Liga Santander": { flag: "🇪🇸", country: "Spain", fullName: "La Liga", color: "bg-orange-600" },
-  "La Liga EA Sports": { flag: "🇪🇸", country: "Spain", fullName: "La Liga", color: "bg-orange-600" },
-  "Segunda Division": { flag: "🇪🇸", country: "Spain", fullName: "Segunda División", color: "bg-green-600" },
-  "Copa del Rey": { flag: "🇪🇸", country: "Spain", fullName: "Copa del Rey", color: "bg-red-700" },
+  "La Liga": { flag: "🇪🇸", countryCode: "es", country: "Spain", fullName: "La Liga", color: "bg-orange-600" },
+  LaLiga: { flag: "🇪🇸", countryCode: "es", country: "Spain", fullName: "La Liga", color: "bg-orange-600" },
+  "La Liga Santander": { flag: "🇪🇸", countryCode: "es", country: "Spain", fullName: "La Liga", color: "bg-orange-600" },
+  "La Liga EA Sports": { flag: "🇪🇸", countryCode: "es", country: "Spain", fullName: "La Liga", color: "bg-orange-600" },
+  "Segunda Division": { flag: "🇪🇸", countryCode: "es", country: "Spain", fullName: "Segunda División", color: "bg-green-600" },
+  "Copa del Rey": { flag: "🇪🇸", countryCode: "es", country: "Spain", fullName: "Copa del Rey", color: "bg-red-700" },
   
   // ═══════════════════════════════════════════════════════════════════════════
   // ITALY 🇮🇹
   // ═══════════════════════════════════════════════════════════════════════════
-  "Serie A": { flag: "🇮🇹", country: "Italy", fullName: "Serie A", color: "bg-blue-700" },
-  SerieA: { flag: "🇮🇹", country: "Italy", fullName: "Serie A", color: "bg-blue-700" },
-  "Serie B": { flag: "🇮🇹", country: "Italy", fullName: "Serie B", color: "bg-green-700" },
-  "Coppa Italia": { flag: "🇮🇹", country: "Italy", fullName: "Coppa Italia", color: "bg-emerald-700" },
+  "Serie A": { flag: "🇮🇹", countryCode: "it", country: "Italy", fullName: "Serie A", color: "bg-blue-700" },
+  SerieA: { flag: "🇮🇹", countryCode: "it", country: "Italy", fullName: "Serie A", color: "bg-blue-700" },
+  "Serie B": { flag: "🇮🇹", countryCode: "it", country: "Italy", fullName: "Serie B", color: "bg-green-700" },
+  "Coppa Italia": { flag: "🇮🇹", countryCode: "it", country: "Italy", fullName: "Coppa Italia", color: "bg-emerald-700" },
   
   // ═══════════════════════════════════════════════════════════════════════════
   // GERMANY 🇩🇪
   // ═══════════════════════════════════════════════════════════════════════════
-  Bundesliga: { flag: "🇩🇪", country: "Germany", fullName: "Bundesliga", color: "bg-red-600" },
-  "Bundesliga 1": { flag: "🇩🇪", country: "Germany", fullName: "Bundesliga", color: "bg-red-600" },
-  "2. Bundesliga": { flag: "🇩🇪", country: "Germany", fullName: "2. Bundesliga", color: "bg-red-700" },
-  "Bundesliga 2": { flag: "🇩🇪", country: "Germany", fullName: "2. Bundesliga", color: "bg-red-700" },
-  "DFB Pokal": { flag: "🇩🇪", country: "Germany", fullName: "DFB-Pokal", color: "bg-yellow-600" },
+  Bundesliga: { flag: "🇩🇪", countryCode: "de", country: "Germany", fullName: "Bundesliga", color: "bg-red-600" },
+  "Bundesliga 1": { flag: "🇩🇪", countryCode: "de", country: "Germany", fullName: "Bundesliga", color: "bg-red-600" },
+  "2. Bundesliga": { flag: "🇩🇪", countryCode: "de", country: "Germany", fullName: "2. Bundesliga", color: "bg-red-700" },
+  "Bundesliga 2": { flag: "🇩🇪", countryCode: "de", country: "Germany", fullName: "2. Bundesliga", color: "bg-red-700" },
+  "DFB Pokal": { flag: "🇩🇪", countryCode: "de", country: "Germany", fullName: "DFB-Pokal", color: "bg-yellow-600" },
   
   // ═══════════════════════════════════════════════════════════════════════════
   // FRANCE 🇫🇷
   // ═══════════════════════════════════════════════════════════════════════════
-  "Ligue 1": { flag: "🇫🇷", country: "France", fullName: "Ligue 1", color: "bg-blue-700" },
-  Ligue1: { flag: "🇫🇷", country: "France", fullName: "Ligue 1", color: "bg-blue-700" },
-  "Ligue 2": { flag: "🇫🇷", country: "France", fullName: "Ligue 2", color: "bg-emerald-700" },
-  "Coupe de France": { flag: "🇫🇷", country: "France", fullName: "Coupe de France", color: "bg-red-700" },
+  "Ligue 1": { flag: "🇫🇷", countryCode: "fr", country: "France", fullName: "Ligue 1", color: "bg-blue-700" },
+  Ligue1: { flag: "🇫🇷", countryCode: "fr", country: "France", fullName: "Ligue 1", color: "bg-blue-700" },
+  "Ligue 2": { flag: "🇫🇷", countryCode: "fr", country: "France", fullName: "Ligue 2", color: "bg-emerald-700" },
+  "Coupe de France": { flag: "🇫🇷", countryCode: "fr", country: "France", fullName: "Coupe de France", color: "bg-red-700" },
   
   // ═══════════════════════════════════════════════════════════════════════════
   // EUROPEAN COMPETITIONS 🇪🇺
   // ═══════════════════════════════════════════════════════════════════════════
-  "Champions League": { flag: "🇪🇺", country: "Europe", fullName: "UEFA Champions League", color: "bg-blue-800" },
-  UCL: { flag: "🇪🇺", country: "Europe", fullName: "UEFA Champions League", color: "bg-blue-800" },
-  "UEFA Champions League": { flag: "🇪🇺", country: "Europe", fullName: "UEFA Champions League", color: "bg-blue-800" },
-  "Europa League": { flag: "🇪🇺", country: "Europe", fullName: "UEFA Europa League", color: "bg-orange-600" },
-  UEL: { flag: "🇪🇺", country: "Europe", fullName: "UEFA Europa League", color: "bg-orange-600" },
-  "UEFA Europa League": { flag: "🇪🇺", country: "Europe", fullName: "UEFA Europa League", color: "bg-orange-600" },
-  "Conference League": { flag: "🇪🇺", country: "Europe", fullName: "UEFA Conference League", color: "bg-green-600" },
-  UECL: { flag: "🇪🇺", country: "Europe", fullName: "UEFA Conference League", color: "bg-green-600" },
-  "UEFA Conference League": { flag: "🇪🇺", country: "Europe", fullName: "UEFA Conference League", color: "bg-green-600" },
-  "UEFA Super Cup": { flag: "🇪🇺", country: "Europe", fullName: "UEFA Super Cup", color: "bg-purple-700" },
+  "Champions League": { flag: "🇪🇺", countryCode: "eu", country: "Europe", fullName: "UEFA Champions League", color: "bg-blue-800" },
+  UCL: { flag: "🇪🇺", countryCode: "eu", country: "Europe", fullName: "UEFA Champions League", color: "bg-blue-800" },
+  "UEFA Champions League": { flag: "🇪🇺", countryCode: "eu", country: "Europe", fullName: "UEFA Champions League", color: "bg-blue-800" },
+  "Europa League": { flag: "🇪🇺", countryCode: "eu", country: "Europe", fullName: "UEFA Europa League", color: "bg-orange-600" },
+  UEL: { flag: "🇪🇺", countryCode: "eu", country: "Europe", fullName: "UEFA Europa League", color: "bg-orange-600" },
+  "UEFA Europa League": { flag: "🇪🇺", countryCode: "eu", country: "Europe", fullName: "UEFA Europa League", color: "bg-orange-600" },
+  "Conference League": { flag: "🇪🇺", countryCode: "eu", country: "Europe", fullName: "UEFA Conference League", color: "bg-green-600" },
+  UECL: { flag: "🇪🇺", countryCode: "eu", country: "Europe", fullName: "UEFA Conference League", color: "bg-green-600" },
+  "UEFA Conference League": { flag: "🇪🇺", countryCode: "eu", country: "Europe", fullName: "UEFA Conference League", color: "bg-green-600" },
+  "UEFA Super Cup": { flag: "🇪🇺", countryCode: "eu", country: "Europe", fullName: "UEFA Super Cup", color: "bg-purple-700" },
   
   // ═══════════════════════════════════════════════════════════════════════════
   // OTHER EUROPEAN LEAGUES
   // ═══════════════════════════════════════════════════════════════════════════
   // Netherlands
-  "Eredivisie": { flag: "🇳🇱", country: "Netherlands", fullName: "Eredivisie", color: "bg-orange-600" },
+  "Eredivisie": { flag: "🇳🇱", countryCode: "nl", country: "Netherlands", fullName: "Eredivisie", color: "bg-orange-600" },
   
   // Portugal
-  "Primeira Liga": { flag: "🇵🇹", country: "Portugal", fullName: "Primeira Liga", color: "bg-green-700" },
-  "Liga Portugal": { flag: "🇵🇹", country: "Portugal", fullName: "Liga Portugal", color: "bg-green-700" },
-  "Liga Portugal Betclic": { flag: "🇵🇹", country: "Portugal", fullName: "Liga Portugal", color: "bg-green-700" },
+  "Primeira Liga": { flag: "🇵🇹", countryCode: "pt", country: "Portugal", fullName: "Primeira Liga", color: "bg-green-700" },
+  "Liga Portugal": { flag: "🇵🇹", countryCode: "pt", country: "Portugal", fullName: "Liga Portugal", color: "bg-green-700" },
+  "Liga Portugal Betclic": { flag: "🇵🇹", countryCode: "pt", country: "Portugal", fullName: "Liga Portugal", color: "bg-green-700" },
   
   // Scotland (using UK flag for universal rendering support)
-  "Scottish Premiership": { flag: "🇬🇧", country: "Scotland", fullName: "Scottish Premiership", color: "bg-blue-600" },
-  "SPFL": { flag: "🇬🇧", country: "Scotland", fullName: "Scottish Premiership", color: "bg-blue-600" },
+  "Scottish Premiership": { flag: "🇬🇧", countryCode: "gb", country: "Scotland", fullName: "Scottish Premiership", color: "bg-blue-600" },
+  "SPFL": { flag: "🇬🇧", countryCode: "gb", country: "Scotland", fullName: "Scottish Premiership", color: "bg-blue-600" },
   
   // Belgium
-  "Belgian Pro League": { flag: "🇧🇪", country: "Belgium", fullName: "Belgian Pro League", color: "bg-red-700" },
-  "Jupiler Pro League": { flag: "🇧🇪", country: "Belgium", fullName: "Belgian Pro League", color: "bg-red-700" },
+  "Belgian Pro League": { flag: "🇧🇪", countryCode: "be", country: "Belgium", fullName: "Belgian Pro League", color: "bg-red-700" },
+  "Jupiler Pro League": { flag: "🇧🇪", countryCode: "be", country: "Belgium", fullName: "Belgian Pro League", color: "bg-red-700" },
   
   // Turkey
-  "Super Lig": { flag: "🇹🇷", country: "Turkey", fullName: "Süper Lig", color: "bg-red-600" },
-  "Süper Lig": { flag: "🇹🇷", country: "Turkey", fullName: "Süper Lig", color: "bg-red-600" },
+  "Super Lig": { flag: "🇹🇷", countryCode: "tr", country: "Turkey", fullName: "Süper Lig", color: "bg-red-600" },
+  "Süper Lig": { flag: "🇹🇷", countryCode: "tr", country: "Turkey", fullName: "Süper Lig", color: "bg-red-600" },
   
   // Austria
-  "Austrian Bundesliga": { flag: "🇦🇹", country: "Austria", fullName: "Austrian Bundesliga", color: "bg-red-600" },
+  "Austrian Bundesliga": { flag: "🇦🇹", countryCode: "at", country: "Austria", fullName: "Austrian Bundesliga", color: "bg-red-600" },
   
   // Switzerland
-  "Swiss Super League": { flag: "🇨🇭", country: "Switzerland", fullName: "Swiss Super League", color: "bg-red-600" },
+  "Swiss Super League": { flag: "🇨🇭", countryCode: "ch", country: "Switzerland", fullName: "Swiss Super League", color: "bg-red-600" },
   
   // Greece
-  "Greek Super League": { flag: "🇬🇷", country: "Greece", fullName: "Greek Super League", color: "bg-blue-700" },
+  "Greek Super League": { flag: "🇬🇷", countryCode: "gr", country: "Greece", fullName: "Greek Super League", color: "bg-blue-700" },
   
   // ═══════════════════════════════════════════════════════════════════════════
   // NORTH/SOUTH AMERICA
   // ═══════════════════════════════════════════════════════════════════════════
-  "MLS": { flag: "🇺🇸", country: "USA", fullName: "Major League Soccer", color: "bg-blue-600" },
-  "Major League Soccer": { flag: "🇺🇸", country: "USA", fullName: "Major League Soccer", color: "bg-blue-600" },
-  "Liga MX": { flag: "🇲🇽", country: "Mexico", fullName: "Liga MX", color: "bg-green-700" },
-  "Brasileirao": { flag: "🇧🇷", country: "Brazil", fullName: "Brasileirão Série A", color: "bg-yellow-600" },
-  "Brasileirão": { flag: "🇧🇷", country: "Brazil", fullName: "Brasileirão Série A", color: "bg-yellow-600" },
-  "Argentine Primera": { flag: "🇦🇷", country: "Argentina", fullName: "Argentine Primera División", color: "bg-sky-600" },
-  "Copa Libertadores": { flag: "🌎", country: "South America", fullName: "Copa Libertadores", color: "bg-amber-600" },
+  "MLS": { flag: "🇺🇸", countryCode: "us", country: "USA", fullName: "Major League Soccer", color: "bg-blue-600" },
+  "Major League Soccer": { flag: "🇺🇸", countryCode: "us", country: "USA", fullName: "Major League Soccer", color: "bg-blue-600" },
+  "Liga MX": { flag: "🇲🇽", countryCode: "mx", country: "Mexico", fullName: "Liga MX", color: "bg-green-700" },
+  "Brasileirao": { flag: "🇧🇷", countryCode: "br", country: "Brazil", fullName: "Brasileirão Série A", color: "bg-yellow-600" },
+  "Brasileirão": { flag: "🇧🇷", countryCode: "br", country: "Brazil", fullName: "Brasileirão Série A", color: "bg-yellow-600" },
+  "Argentine Primera": { flag: "🇦🇷", countryCode: "ar", country: "Argentina", fullName: "Argentine Primera División", color: "bg-sky-600" },
+  "Copa Libertadores": { flag: "🌎", countryCode: "un", country: "South America", fullName: "Copa Libertadores", color: "bg-amber-600" },
   
   // ═══════════════════════════════════════════════════════════════════════════
   // INTERNATIONAL
   // ═══════════════════════════════════════════════════════════════════════════
-  "World Cup": { flag: "🌍", country: "World", fullName: "FIFA World Cup", color: "bg-emerald-700" },
-  "European Championship": { flag: "🇪🇺", country: "Europe", fullName: "UEFA Euro", color: "bg-blue-700" },
-  "Euro": { flag: "🇪🇺", country: "Europe", fullName: "UEFA Euro", color: "bg-blue-700" },
-  "Euro 2024": { flag: "🇪🇺", country: "Europe", fullName: "UEFA Euro 2024", color: "bg-blue-700" },
-  "Nations League": { flag: "🇪🇺", country: "Europe", fullName: "UEFA Nations League", color: "bg-indigo-700" },
-  "UEFA Nations League": { flag: "🇪🇺", country: "Europe", fullName: "UEFA Nations League", color: "bg-indigo-700" },
-  "Friendlies": { flag: "⚽", country: "International", fullName: "International Friendlies", color: "bg-slate-600" },
-  "World Cup Qualifiers": { flag: "🌍", country: "World", fullName: "World Cup Qualifiers", color: "bg-emerald-700" },
+  "World Cup": { flag: "🌍", countryCode: "un", country: "World", fullName: "FIFA World Cup", color: "bg-emerald-700" },
+  "European Championship": { flag: "🇪🇺", countryCode: "eu", country: "Europe", fullName: "UEFA Euro", color: "bg-blue-700" },
+  "Euro": { flag: "🇪🇺", countryCode: "eu", country: "Europe", fullName: "UEFA Euro", color: "bg-blue-700" },
+  "Euro 2024": { flag: "🇪🇺", countryCode: "eu", country: "Europe", fullName: "UEFA Euro 2024", color: "bg-blue-700" },
+  "Nations League": { flag: "🇪🇺", countryCode: "eu", country: "Europe", fullName: "UEFA Nations League", color: "bg-indigo-700" },
+  "UEFA Nations League": { flag: "🇪🇺", countryCode: "eu", country: "Europe", fullName: "UEFA Nations League", color: "bg-indigo-700" },
+  "Friendlies": { flag: "⚽", countryCode: "un", country: "International", fullName: "International Friendlies", color: "bg-slate-600" },
+  "World Cup Qualifiers": { flag: "🌍", countryCode: "un", country: "World", fullName: "World Cup Qualifiers", color: "bg-emerald-700" },
 };
 
 // Legacy export for backward compatibility
@@ -173,6 +174,7 @@ const LEAGUE_FLAGS: Record<string, string> = Object.fromEntries(
  */
 interface TeamData {
   flag: string;      // Country flag where club is based
+  countryCode?: string; // ISO 3166-1 alpha-2 country code for FlagCDN (optional - derived from flag if not set)
   colors: string;    // Team color emojis
   bgColor: string;   // Tailwind bg class
   altNames?: string[]; // Alternative names for matching
@@ -183,19 +185,19 @@ const TEAM_DATA: Record<string, TeamData> = {
   // PREMIER LEAGUE (England 🇬🇧) - All 20 teams 2024/25
   // ═══════════════════════════════════════════════════════════════════════════
   "Arsenal": { 
-    flag: "🇬🇧", colors: "🔴⚪", bgColor: "bg-red-600",
+    flag: "🇬🇧", countryCode: "gb", colors: "🔴⚪", bgColor: "bg-red-600",
     altNames: ["AFC", "The Gunners", "Gunners"]
   },
   "Aston Villa": { 
-    flag: "🇬🇧", colors: "🟣🔵", bgColor: "bg-purple-800",
+    flag: "🇬🇧", countryCode: "gb", colors: "🟣🔵", bgColor: "bg-purple-800",
     altNames: ["Villa", "AVFC"]
   },
   "Bournemouth": { 
-    flag: "🇬🇧", colors: "🍒⚫", bgColor: "bg-red-700",
+    flag: "🇬🇧", countryCode: "gb", colors: "🍒⚫", bgColor: "bg-red-700",
     altNames: ["AFC Bournemouth", "The Cherries"]
   },
   "Brentford": { 
-    flag: "🇬🇧", colors: "🔴⚪", bgColor: "bg-red-600",
+    flag: "🇬🇧", countryCode: "gb", colors: "🔴⚪", bgColor: "bg-red-600",
     altNames: ["The Bees", "BFC"]
   },
   "Brighton": { 
@@ -657,12 +659,50 @@ function resolveTeamName(input: string): string {
 }
 
 /**
+ * Map emoji flag to ISO 3166-1 alpha-2 country code
+ */
+function emojiToCountryCode(flag: string): string {
+  const flagMap: Record<string, string> = {
+    "🇬🇧": "gb",
+    "🇪🇸": "es",
+    "🇮🇹": "it",
+    "🇩🇪": "de",
+    "🇫🇷": "fr",
+    "🇵🇹": "pt",
+    "🇳🇱": "nl",
+    "🇧🇪": "be",
+    "🇹🇷": "tr",
+    "🇦🇹": "at",
+    "🇨🇭": "ch",
+    "🇬🇷": "gr",
+    "🇺🇸": "us",
+    "🇲🇽": "mx",
+    "🇧🇷": "br",
+    "🇦🇷": "ar",
+    "🇲🇨": "mc", // Monaco
+    "🇪🇺": "eu",
+    "🌍": "un",
+    "🌎": "un",
+    "⚽": "un",
+  };
+  return flagMap[flag] || "un";
+}
+
+/**
  * Get team data with fallback for unknown teams
  */
-function getTeamData(teamName: string): TeamData {
+function getTeamData(teamName: string): TeamData & { countryCode: string } {
   const canonical = resolveTeamName(teamName);
-  return TEAM_DATA[canonical] ?? {
+  const data = TEAM_DATA[canonical];
+  if (data) {
+    return {
+      ...data,
+      countryCode: data.countryCode || emojiToCountryCode(data.flag)
+    };
+  }
+  return {
     flag: "⚽",
+    countryCode: "un",
     colors: "⚪⚫",
     bgColor: "bg-slate-600"
   };
@@ -821,6 +861,10 @@ export function TeamDisplay({
   const leagueAbbr = getLeagueAbbreviation(league);
 
   if (variant === "compact") {
+    // Determine which country code to show - from league or team
+    const displayCountryCode = leagueConfig?.countryCode || teamData.countryCode;
+    const flagSize = size === 'xs' ? 14 : size === 'sm' ? 16 : size === 'md' ? 20 : 24;
+    
     return (
       <span
         className={cn(
@@ -829,7 +873,13 @@ export function TeamDisplay({
           className
         )}
       >
-        {showFlag && <span className={sizes.flag} title={`${canonicalName} (${teamData.flag})`}>{displayFlag}</span>}
+        {showFlag && displayCountryCode && (
+          <CountryFlag 
+            countryCode={displayCountryCode} 
+            size={flagSize}
+            className="rounded-sm flex-shrink-0"
+          />
+        )}
         <span className={cn("font-medium text-slate-200", sizes.text)}>
           {teamName}
         </span>
@@ -867,15 +917,16 @@ export function TeamDisplay({
             {teamName}
           </span>
           <div className="flex items-center gap-1">
-            {showFlag && (
-              <span className="text-xs" title={`Country: ${teamData.flag}`}>{teamData.flag}</span>
+            {showFlag && teamData.countryCode && (
+              <CountryFlag countryCode={teamData.countryCode} size={14} className="rounded-sm" />
             )}
             {showTeamColors && (
               <span className="text-xs text-slate-400">{teamData.colors}</span>
             )}
             {league && LEAGUE_CONFIG[league] && (
-              <span className="text-xs text-slate-500">
-                {LEAGUE_CONFIG[league].flag} {LEAGUE_CONFIG[league].fullName}
+              <span className="text-xs text-slate-500 flex items-center gap-1">
+                <CountryFlag countryCode={LEAGUE_CONFIG[league].countryCode} size={12} className="rounded-sm" />
+                {LEAGUE_CONFIG[league].fullName}
               </span>
             )}
           </div>
@@ -887,6 +938,10 @@ export function TeamDisplay({
   // Get logo metadata for the team
   const logoMeta = getTeamLogoMeta(canonicalName);
   const avatarSizePixels = size === 'xs' ? 20 : size === 'sm' ? 24 : size === 'md' ? 32 : size === 'lg' ? 40 : 48;
+  const flagSize = size === 'xs' ? 14 : size === 'sm' ? 16 : size === 'md' ? 20 : size === 'lg' ? 24 : 28;
+  
+  // Determine country code for flag display
+  const displayCountryCode = leagueConfig?.countryCode || teamData.countryCode;
 
   // Default variant
   return (
@@ -897,8 +952,15 @@ export function TeamDisplay({
         className
       )}
     >
-      {showFlag && (
-        <span className={cn(sizes.flag, "flex-shrink-0")} title={`${canonicalName}`}>{displayFlag}</span>
+      {showFlag && !showTeamColors && displayCountryCode && (
+        <CountryFlag 
+          countryCode={displayCountryCode} 
+          size={flagSize}
+          className="rounded-sm flex-shrink-0"
+        />
+      )}
+      {showFlag && showTeamColors && (
+        <span className={cn(sizes.flag, "flex-shrink-0")} title={`${canonicalName}`}>{teamData.colors}</span>
       )}
       {/* Use TeamLogo with real API logos when available, fallback to Avatar */}
       {hasRealLogo(canonicalName) ? (
@@ -1025,6 +1087,7 @@ export function LeagueDisplay({
 }: LeagueDisplayProps) {
   const config = LEAGUE_CONFIG[league];
   const sizes = sizeClasses[size];
+  const flagSize = size === 'xs' ? 14 : size === 'sm' ? 16 : size === 'md' ? 20 : 24;
   
   if (!config) {
     return (
@@ -1042,7 +1105,11 @@ export function LeagueDisplay({
         className
       )}
     >
-      <span className={sizes.flag} title={config.country}>{config.flag}</span>
+      {config.countryCode ? (
+        <CountryFlag countryCode={config.countryCode} size={flagSize} className="rounded-sm" />
+      ) : (
+        <span className={sizes.flag} title={config.country}>{config.flag}</span>
+      )}
       <span className={cn("font-medium text-slate-300", sizes.text)}>
         {showFullName ? config.fullName : league}
       </span>
@@ -1076,7 +1143,11 @@ export function TeamWithLeague({
       <TeamDisplay teamName={teamName} size={size} showTeamColors />
       {leagueConfig && (
         <span className={cn("text-slate-500 flex items-center gap-1", sizes.text === "text-base" ? "text-xs" : "text-[0.65rem]")}>
-          <span>{leagueConfig.flag}</span>
+          {leagueConfig.countryCode ? (
+            <CountryFlag countryCode={leagueConfig.countryCode} size={12} className="rounded-sm" />
+          ) : (
+            <span>{leagueConfig.flag}</span>
+          )}
           <span>{leagueConfig.fullName}</span>
         </span>
       )}
