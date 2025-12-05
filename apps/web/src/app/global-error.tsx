@@ -1,3 +1,6 @@
+/* eslint-disable react/forbid-dom-props */
+// Note: Global error boundary intentionally uses inline styles
+// because external CSS may not be available during critical errors
 'use client';
 
 import { useEffect } from 'react';

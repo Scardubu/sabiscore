@@ -254,7 +254,7 @@ export function ConsentBanner({ onConsentGiven }: ConsentBannerProps) {
               <button
                 onClick={() => setPreferences(p => ({ ...p, analytics: !p.analytics }))}
                 aria-label={`Toggle analytics cookies: currently ${preferences.analytics ? 'enabled' : 'disabled'}`}
-                aria-checked={preferences.analytics}
+                aria-checked={preferences.analytics ? "true" : "false"}
                 role="switch"
                 className={`relative h-6 w-11 rounded-full transition ${
                   preferences.analytics ? "bg-emerald-500" : "bg-slate-600"
@@ -277,7 +277,7 @@ export function ConsentBanner({ onConsentGiven }: ConsentBannerProps) {
               <button
                 onClick={() => setPreferences(p => ({ ...p, marketing: !p.marketing }))}
                 aria-label={`Toggle marketing cookies: currently ${preferences.marketing ? 'enabled' : 'disabled'}`}
-                aria-checked={preferences.marketing}
+                aria-checked={preferences.marketing ? "true" : "false"}
                 role="switch"
                 className={`relative h-6 w-11 rounded-full transition ${
                   preferences.marketing ? "bg-emerald-500" : "bg-slate-600"
@@ -300,7 +300,7 @@ export function ConsentBanner({ onConsentGiven }: ConsentBannerProps) {
               <button
                 onClick={() => setPreferences(p => ({ ...p, personalization: !p.personalization }))}
                 aria-label={`Toggle personalization cookies: currently ${preferences.personalization ? 'enabled' : 'disabled'}`}
-                aria-checked={preferences.personalization}
+                aria-checked={preferences.personalization ? "true" : "false"}
                 role="switch"
                 className={`relative h-6 w-11 rounded-full transition ${
                   preferences.personalization ? "bg-emerald-500" : "bg-slate-600"

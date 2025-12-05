@@ -1,3 +1,5 @@
+/* eslint-disable react/forbid-dom-props */
+// Note: Dynamic positioning requires inline styles for top/left coordinates
 import React, { useState, useRef, useEffect } from 'react';
 
 interface TooltipProps {

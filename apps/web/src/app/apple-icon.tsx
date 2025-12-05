@@ -1,4 +1,6 @@
-﻿import '@/lib/patch-path-url-join';
+﻿/* eslint-disable react/forbid-dom-props */
+// Note: ImageResponse API requires inline styles - external CSS not supported
+import '@/lib/patch-path-url-join';
 import { ImageResponse } from 'next/og';
 
 export const runtime = 'nodejs';
