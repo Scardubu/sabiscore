@@ -481,8 +481,24 @@ class FeatureTransformer:
         return features
 
     def _scale_features(self, features: pd.DataFrame) -> pd.DataFrame:
+        """Scale features for model input.
+        
+        IMPORTANT: StandardScaler.fit_transform on a single row will output zeros
+        because (value - mean) / std = 0/0 for single values.
+        
+        For single-row predictions, we skip scaling since:
+        1. The model was trained on raw features
+        2. Or if scaling was used during training, we'd need the stored scaler
+        
+        In production, the ensemble model handles its own preprocessing if needed.
+        """
         if features.empty:
             return features
+        
+        # Skip scaling for single rows - it would zero everything out
+        if len(features) <= 1:
+            return features
+            
         num_cols = features.select_dtypes(include=[np.number]).columns
         if num_cols.any():
             features[num_cols] = self.scaler.fit_transform(features[num_cols])

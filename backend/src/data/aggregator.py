@@ -154,27 +154,82 @@ class DataAggregator:
         """Create mock team statistics when scraping fails.
         
         Uses team database to return differentiated stats for each team.
+        Returns all fields expected by FeatureTransformer including:
+        - squad_value, elo, missing_value (for _add_team_stats_features)
+        - xG features (for _add_advanced_team_features)
+        - Form/momentum features (for other methods)
         """
+        from .team_database import get_team_elo, get_team_squad_value
+        
         home_team = self.teams.get("home", "")
         away_team = self.teams.get("away", "")
         
         home_stats = get_team_stats(home_team, is_home=True)
         away_stats = get_team_stats(away_team, is_home=False)
         
+        home_elo = get_team_elo(home_team)
+        away_elo = get_team_elo(away_team)
+        home_value = get_team_squad_value(home_team)
+        away_value = get_team_squad_value(away_team)
+        
         return {
             "home": {
+                # Required by _add_team_stats_features
+                "squad_value": home_value,
+                "elo": home_elo,
+                "missing_value": home_value * 0.05,  # Assume 5% of squad injured
+                
+                # Required by _add_advanced_team_features (xG)
+                "xg_avg_5": home_stats["xg_avg"],
+                "xg_conceded_avg_5": home_stats["xg_conceded_avg"],
+                "xg_diff_5": home_stats["xg_avg"] - home_stats["xg_conceded_avg"],
+                "xg_overperformance": 0.05 + (home_elo - 1500) / 5000,
+                "xg_consistency": home_stats["scoring_consistency"],
+                
+                # Required by _add_advanced_team_features (tactical)
+                "possession_style": 0.50 + (home_elo - 1500) / 3000,
+                "pressing_intensity": 0.50 + (home_elo - 1500) / 2500,
+                "first_half_goals_rate": 0.42 + (home_elo - 1500) / 5000,
+                "defensive_solidity": home_stats["defensive_strength"],
+                "setpiece_goals_rate": 0.22 + (home_elo - 1500) / 8000,
+                "gd_trend": 0.05 if home_elo > 1600 else -0.02,
+                "scoring_consistency": home_stats["scoring_consistency"],
+                
+                # Legacy fields for compatibility
                 "attacking_strength": home_stats["attacking_strength"],
                 "defensive_strength": home_stats["defensive_strength"],
                 "win_rate": home_stats["win_rate"],
                 "goals_per_game": home_stats["goals_per_game"],
-                "clean_sheet_rate": home_stats["clean_sheet_rate"]
+                "clean_sheet_rate": home_stats["clean_sheet_rate"],
             },
             "away": {
+                # Required by _add_team_stats_features
+                "squad_value": away_value,
+                "elo": away_elo,
+                "missing_value": away_value * 0.05,  # Assume 5% of squad injured
+                
+                # Required by _add_advanced_team_features (xG)
+                "xg_avg_5": away_stats["xg_avg"],
+                "xg_conceded_avg_5": away_stats["xg_conceded_avg"],
+                "xg_diff_5": away_stats["xg_avg"] - away_stats["xg_conceded_avg"],
+                "xg_overperformance": 0.05 + (away_elo - 1500) / 5000,
+                "xg_consistency": away_stats["scoring_consistency"],
+                
+                # Required by _add_advanced_team_features (tactical)
+                "possession_style": 0.48 + (away_elo - 1500) / 3000,
+                "pressing_intensity": 0.48 + (away_elo - 1500) / 2500,
+                "first_half_goals_rate": 0.40 + (away_elo - 1500) / 5000,
+                "defensive_solidity": away_stats["defensive_strength"],
+                "setpiece_goals_rate": 0.20 + (away_elo - 1500) / 8000,
+                "gd_trend": 0.05 if away_elo > 1600 else -0.02,
+                "scoring_consistency": away_stats["scoring_consistency"],
+                
+                # Legacy fields for compatibility
                 "attacking_strength": away_stats["attacking_strength"],
                 "defensive_strength": away_stats["defensive_strength"],
                 "win_rate": away_stats["win_rate"],
                 "goals_per_game": away_stats["goals_per_game"],
-                "clean_sheet_rate": away_stats["clean_sheet_rate"]
+                "clean_sheet_rate": away_stats["clean_sheet_rate"],
             }
         }
 
@@ -297,26 +352,45 @@ class DataAggregator:
             return pd.DataFrame()
 
     def fetch_team_stats(self) -> Dict[str, Dict[str, Any]]:
+        """Fetch team statistics from Transfermarkt and enrich with team database values."""
+        from .team_database import get_team_elo, get_team_squad_value
+        
+        # Start with mock stats as base (has all required fields)
+        base_stats = self._create_mock_team_stats()
+        
         try:
             player_values_home = self.transfermarkt.scrape_player_values(self.teams["home"])
             player_values_away = self.transfermarkt.scrape_player_values(self.teams["away"])
 
-            def summarize(values: pd.DataFrame) -> Dict[str, Any]:
-                avg_value = values["value"].str.replace("€", "").str.replace("m", "").astype(float, errors="ignore")
-                avg_value = pd.to_numeric(avg_value, errors="coerce")
-                return {
-                    "average_age": float(values["age"].mean()) if "age" in values else None,
-                    "squad_value_mean": float(avg_value.mean()) if not avg_value.empty else None,
-                    "squad_size": int(len(values)),
-                }
+            def enrich_with_scraped(team: str, values: pd.DataFrame, base: Dict[str, Any]) -> Dict[str, Any]:
+                """Merge scraped data into base stats."""
+                result = dict(base)  # Start with all base fields
+                
+                if not values.empty:
+                    try:
+                        avg_value = values["value"].str.replace("€", "").str.replace("m", "").astype(float, errors="ignore")
+                        avg_value = pd.to_numeric(avg_value, errors="coerce")
+                        
+                        if not avg_value.empty and avg_value.mean() > 0:
+                            # Override with real scraped value
+                            result["squad_value"] = float(avg_value.sum())  # Total squad value
+                            
+                        if "age" in values:
+                            result["average_age"] = float(values["age"].mean())
+                            
+                        result["squad_size"] = int(len(values))
+                    except Exception as e:
+                        logger.debug(f"Error processing scraped values for {team}: {e}")
+                
+                return result
 
             return {
-                "home": summarize(player_values_home),
-                "away": summarize(player_values_away),
+                "home": enrich_with_scraped(self.teams["home"], player_values_home, base_stats["home"]),
+                "away": enrich_with_scraped(self.teams["away"], player_values_away, base_stats["away"]),
             }
         except Exception as e:
             logger.warning(f"Failed to fetch team stats for {self.matchup}: {e}")
-            return self._create_mock_team_stats()
+            return base_stats
 
 
     def _load_local_history(self) -> pd.DataFrame:
