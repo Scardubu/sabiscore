@@ -99,6 +99,11 @@ class Settings(BaseSettings):
         alias="USE_ENHANCED_MODELS",
         description="Enable enhanced stacking ensemble with isotonic calibration"
     )
+    use_enhanced_models_v7: bool = Field(
+        default=False,
+        alias="ENHANCED_MODELS_V7",
+        description="Load v7 enhanced ensemble artifacts when available; falls back to legacy models"
+    )
     brier_threshold: float = Field(
         default=0.13,
         alias="BRIER_THRESHOLD",

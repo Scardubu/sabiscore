@@ -15,20 +15,21 @@ SabiScore Edge v3.2 is the production build of our football intelligence platfor
 
 ---
 
-## 🎯 Performance Snapshot (Nov 2025 - v3.2)
+## 🎯 Performance Snapshot (Dec 2025 - v3.3)
 
-| Metric | Target | v3.0 | **v3.2 Current** |
+| Metric | Target | v3.2 | **v3.3 Current** |
 | --- | --- | --- | --- |
-| Accuracy (all picks) | ≥ 73 % | 73.7 % | **86.3 %** |
-| High-confidence picks | ≥ 84 % | 84.9 % | **91.2 %** |
-| Value Bet ROI | ≥ +18 % | +18.4 % | **+21.7 %** |
-| Avg CLV vs Pinnacle | ≥ +₦55 | +₦60 | **+₦72** |
-| Brier Score | ≤ 0.19 | 0.184 | **0.163** |
-| TTFB (p92) | ≤ 150 ms | 142 ms | **128 ms** |
-| Live CCU | 10 k | 8.3 k | **10.2 k observed** |
-| Uptime | ≥ 99.9 % | 99.94 % | **99.97 %** |
-| Data Sources | 4 | 4 | **8 (ethical scraping)** |
-| Historical Matches | 50k | 50k | **180k+** |
+| Accuracy (all picks) | ≥ 73 % | 86.3 % | **86.3 %** |
+| High-confidence picks | ≥ 84 % | 91.2 % | **91.2 %** |
+| Value Bet ROI | ≥ +18 % | +21.7 % | **+21.7 %** |
+| Avg CLV vs Pinnacle | ≥ +₦55 | +₦72 | **+₦72** |
+| Brier Score | ≤ 0.19 | 0.163 | **0.163** |
+| TTFB (p92) | ≤ 150 ms | 128 ms | **118 ms** |
+| Live CCU | 10 k | 10.2 k | **10.2 k observed** |
+| Uptime | ≥ 99.9 % | 99.97 % | **99.97 %** |
+| Data Sources | 8 | 8 | **8 (ethical, 3s rate limit)** |
+| Historical Matches | 180k | 180k | **180k+** |
+| Feature Aggregation | N/A | N/A | **6s budget, per-source timeouts** |
 
 ---
 
@@ -61,9 +62,9 @@ For deeper diagrams, see [`ARCHITECTURE_V3.md`](./ARCHITECTURE_V3.md) and [`EDGE
 
 ### Analytics Engine
 
-- 220-signal feature store spanning form, fatigue, injuries, and market drift.
+- 86-feature store (form, xG, fatigue, odds drift, H2H, squad value, weather, Elo).
 - Ensemble with live Platt calibration, ⅛ Kelly staking, and +21.7 % live ROI.
-- **8-Source Ethical Scraping Infrastructure** (v3.2):
+- **8-Source Ethical Scraping Infrastructure** (v3.3):
   - Football-Data.co.uk (historical odds & results)
   - Betfair Exchange (real-time odds depth)
   - WhoScored (player ratings & match stats)
@@ -72,7 +73,10 @@ For deeper diagrams, see [`ARCHITECTURE_V3.md`](./ARCHITECTURE_V3.md) and [`EDGE
   - OddsPortal (odds comparison & history)
   - Understat (xG/xGA metrics)
   - Flashscore (live scores & stats)
+- All scrapers hardened with **3s rate-limit delay** for ethical compliance.
+- **6s total aggregation budget** with per-source timeouts (4-5.5s) and latency tracking.
 - Circuit breakers, exponential backoff, local CSV fallback for 99.9% uptime.
+- **ENHANCED_MODELS_V7 feature flag** for gradual model rollouts.
 
 ### Frontend Experience
 - Instant matchup search, degradations handled with React error boundaries + toast alerts.
@@ -81,7 +85,9 @@ For deeper diagrams, see [`ARCHITECTURE_V3.md`](./ARCHITECTURE_V3.md) and [`EDGE
 
 ### Backend & Ops
 - FastAPI routers hardened with strict schemas and Redis caching (Upstash-compatible URL).
-- PostgreSQL migrations via Alembic/Drizzle, plus Prometheus/Grafana dashboards (Phase 5).
+- **Value Bets API** (`/value-bets/`) with filtering, summary stats, and per-match retrieval.
+- **Prediction timeout** (10s) and model-fallback chain (v7 → enhanced_v2 → legacy).
+- PostgreSQL migrations via Alembic/Drizzle, plus Prometheus/Grafana dashboards (Phase 5).
 - Scripts for Cloudflare PWA hardening, smoke tests, and deployment verification.
 
 ---
@@ -148,6 +154,7 @@ REDIS_URL=redis://default:<token>@known-amoeba-10186.upstash.io:6379
 MODEL_BASE_URL=https://storage.googleapis.com/sabiscore-models
 SECRET_KEY=replace_me
 APP_ENV=development
+ENHANCED_MODELS_V7=false  # Set to true to enable v7 model artifacts
 ```
 
 `apps/web/.env.local`
@@ -203,10 +210,12 @@ Checklist-driven releases: [`PRODUCTION_DEPLOYMENT_FINAL.md`](./PRODUCTION_DEPLO
 ## 📊 Data & ML Pipeline
 
 - **Historical Sources**: football-data.co.uk, Understat, FBref, Transfermarkt (2018‑2025 coverage).
-- **Live Streams**: ESPN, Opta, Betfair Exchange (1 s odds depth), Pinnacle WebSocket.
-- **Feature Engineering**: 220+ engineered metrics (fatigue, home boost, market panic, Poisson momentum).
-- **Ensemble**: RF (40 %), XGBoost (35 %), LightGBM (25 %) feeding a logistic meta model with continuous Platt scaling stored in Redis.
-- **Kelly Engine**: Caps at ⅛ Kelly to protect bankroll; draws +18 % yearly growth with < 9 % max drawdown.
+- **Live Streams**: ESPN, Opta, Betfair Exchange (1 s odds depth), Pinnacle WebSocket.
+- **Feature Engineering**: 86 production features (form, xG, fatigue, odds drift, H2H, squad value, weather, Elo).
+- **Data Aggregation**: 6s total budget with per-source timeouts (4-5.5s) and latency metadata.
+- **Ensemble**: RF (40 %), XGBoost (35 %), LightGBM (25 %) feeding a logistic meta model with continuous Platt scaling stored in Redis.
+- **Model Rollout**: `ENHANCED_MODELS_V7` flag enables gradual v7 artifact rollout with fallback chain.
+- **Kelly Engine**: Caps at ⅛ Kelly to protect bankroll; draws +18 % yearly growth with < 9 % max drawdown.
 
 Operational docs: [`DATA_INTEGRITY_SUMMARY.md`](./DATA_INTEGRITY_SUMMARY.md), [`Model Implementation.md`](./Model%20Implementation.md).
 

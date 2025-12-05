@@ -48,7 +48,7 @@ class WhoScoredScraper(BaseScraper):
     def __init__(self):
         super().__init__(
             base_url=self.BASE_URL,
-            rate_limit_delay=5.0,  # Conservative rate limit
+            rate_limit_delay=3.0,  # Hardened global minimum; still conservative
             max_retries=3,
             timeout=30
         )

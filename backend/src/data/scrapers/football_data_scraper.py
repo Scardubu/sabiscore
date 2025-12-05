@@ -37,7 +37,7 @@ class FootballDataEnhancedScraper(BaseScraper):
     Enhanced scraper for football-data.co.uk historical data.
     
     Implements ethical scraping with:
-    - Rate limiting (2s between requests)
+    - Rate limiting (3s between requests)
     - Retry with exponential backoff
     - 24-hour caching to minimize requests
     - Local fallback for offline operation
@@ -127,7 +127,7 @@ class FootballDataEnhancedScraper(BaseScraper):
     def __init__(self, cache_ttl_hours: int = 24):
         super().__init__(
             base_url=self.BASE_URL,
-            rate_limit_delay=2.0,  # 2s delay - very polite
+            rate_limit_delay=3.0,  # Hardened to 3s to align with global policy
             max_retries=3,
             timeout=30
         )

@@ -14,7 +14,7 @@ Understat provides some of the best free xG data available.
 
 Ethical Note:
 - Uses local data fallback when available
-- Respects rate limits (2 seconds between requests)
+- Respects rate limits (3 seconds between requests)
 - Only scrapes publicly available statistics
 """
 
@@ -59,7 +59,7 @@ class UnderstatScraper(BaseScraper):
     def __init__(self):
         super().__init__(
             base_url=self.BASE_URL,
-            rate_limit_delay=2.0,
+            rate_limit_delay=3.0,
             max_retries=3,
             timeout=20
         )

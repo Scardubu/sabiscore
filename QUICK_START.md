@@ -117,11 +117,13 @@ powershell -ExecutionPolicy Bypass -File scripts/smoke-test-backend.ps1
 
 **Tests:**
 - Health Check (`/health`)
+- Readiness Probe (`/ready`)
 - OpenAPI Schema (`/docs`, `/openapi.json`)
 - Upcoming Matches (`/matches/upcoming`)
 - Value Bets Today (`/predictions/value-bets/today`)
-- Create Prediction (POST `/predictions/predict`)
-- Predict by Alias (`/predictions/predict/alias/...`)
+- Value Bets API (`/value-bets/`, `/value-bets/summary`)
+- Create Prediction (POST `/predictions/`)
+- Predict by Alias (`/predictions/predict`)
 
 ### Frontend Build
 ```powershell

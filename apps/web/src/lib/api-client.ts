@@ -43,17 +43,36 @@ export interface Prediction {
 
 export interface ValueBet {
   match_id: string;
-  home_team: string;
-  away_team: string;
-  league: string;
-  bet_type: string;
-  recommended_odds: number;
-  market_odds: number;
-  edge_ngn: number;
+  market: string;
+  odds: number;
+  fair_probability: number;
+  implied_probability: number;
   edge_percent: number;
+  edge_ngn: number;
   kelly_stake_ngn: number;
+  kelly_fraction: number;
+  clv_ngn: number;
   confidence: number;
+  expected_roi: number;
+  created_at?: string;
+  pinnacle_close?: number;
+  // Legacy aliases for backward compatibility
+  home_team?: string;
+  away_team?: string;
+  league?: string;
+  bet_type?: string;
+  recommended_odds?: number;
+  market_odds?: number;
   match_date?: string;
+}
+
+export interface ValueBetSummary {
+  total_bets: number;
+  avg_edge: number;
+  avg_confidence: number;
+  total_potential_edge_ngn: number;
+  by_league: Record<string, number>;
+  by_market: Record<string, number>;
 }
 
 export interface PredictionRequest {
@@ -198,7 +217,7 @@ class SabiscoreAPIClient {
   }
 
   /**
-   * Get today's value bets
+   * Get today's value bets (via /predictions/value-bets/today)
    */
   async getTodaysValueBets(params?: {
     min_edge?: number;
@@ -230,6 +249,90 @@ class SabiscoreAPIClient {
       return await response.json();
     } catch (error) {
       console.error('Error fetching value bets:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * List value bets with filters (via /value-bets/)
+   */
+  async listValueBets(params?: {
+    league?: string;
+    min_edge?: number;
+    min_confidence?: number;
+    max_results?: number;
+  }): Promise<ValueBet[]> {
+    const queryParams = new URLSearchParams();
+    if (params?.league) queryParams.append('league', params.league);
+    if (params?.min_edge) queryParams.append('min_edge', params.min_edge.toString());
+    if (params?.min_confidence) queryParams.append('min_confidence', params.min_confidence.toString());
+    if (params?.max_results) queryParams.append('max_results', params.max_results.toString());
+
+    const url = `${this.apiV1Base}/value-bets/?${queryParams.toString()}`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to list value bets: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error listing value bets:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get value bet summary statistics
+   */
+  async getValueBetSummary(): Promise<ValueBetSummary> {
+    const url = `${this.apiV1Base}/value-bets/summary`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to get value bet summary: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting value bet summary:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get value bets for a specific match
+   */
+  async getMatchValueBets(matchId: string): Promise<ValueBet[]> {
+    const url = `${this.apiV1Base}/value-bets/${matchId}`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('MATCH_NOT_FOUND');
+        }
+        throw new Error(`Failed to get match value bets: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting match value bets:', error);
       throw error;
     }
   }

@@ -158,7 +158,7 @@ class BaseScraper(ABC):
     def __init__(
         self,
         base_url: str,
-        rate_limit_delay: float = 2.0,
+        rate_limit_delay: float = 3.0,
         max_retries: int = 3,
         timeout: int = 30,
         respect_robots: bool = True,
@@ -238,9 +238,14 @@ class BaseScraper(ABC):
         user_agent = self.session.headers.get("User-Agent", "*")
         rp = _fetch_robots_parser(self.base_url, user_agent)
         if rp is None:
-            # If we couldn't fetch robots.txt, assume allowed
-            return True
-        return rp.can_fetch(user_agent, url)
+            # Hardened: fail closed when robots.txt cannot be fetched
+            logger.warning("robots.txt unavailable for %s; blocking %s", self.base_url, url)
+            self.metrics["requests_blocked_robots"] += 1
+            return False
+        allowed = rp.can_fetch(user_agent, url)
+        if not allowed:
+            self.metrics["requests_blocked_robots"] += 1
+        return allowed
 
     def _rate_limit(self) -> None:
         """Enforce ethical rate limiting between requests."""

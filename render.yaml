@@ -6,7 +6,7 @@
     plan: free
     branch: main
     rootDir: backend
-    buildCommand: "pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt && echo '=== Build dir ===' && pwd && ls -la ../ && mkdir -p models && cp -rv ../models/*.pkl models/ && cp -rv ../models/*.json models/ && echo '=== Models copied ===' && ls -la models/"
+    buildCommand: "pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt && echo '=== Build dir ===' && pwd && ls -la ../ && TARGET_MODELS_DIR=/opt/render/project/src/models && mkdir -p \"$TARGET_MODELS_DIR\" && mkdir -p models && cp -a ../models/. \"$TARGET_MODELS_DIR\" 2>/dev/null || true && cp -a ../models/. models/ 2>/dev/null || true && echo '=== Models copied to $TARGET_MODELS_DIR and backend/models ===' && ls -la \"$TARGET_MODELS_DIR\" && ls -la models"
     startCommand: uvicorn src.api.main:app --host 0.0.0.0 --port $PORT --workers 1 --limit-max-requests 500 --timeout-keep-alive 30 --log-level info
     # Use readiness probe which validates DB/cache/models before marking instance healthy
     healthCheckPath: /health/ready
@@ -65,6 +65,8 @@
       - key: SKIP_S3
         value: "true"
       - key: MODEL_FETCH_STRICT
+        value: "false"
+      - key: ENHANCED_MODELS_V7
         value: "false"
       - key: USE_MOCK_DATA
         value: "false"

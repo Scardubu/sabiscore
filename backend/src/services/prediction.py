@@ -170,9 +170,18 @@ class PredictionService:
                 self._cache_access_times[league_slug] = datetime.utcnow().timestamp()
                 return cached
 
-        model_path = settings.models_path / f"{league_slug}_ensemble.pkl"
-        if not model_path.exists():
-            raise FileNotFoundError(f"Model artifact missing for league '{league_slug}' at {model_path}")
+        candidate_paths = []
+        if settings.use_enhanced_models_v7:
+            candidate_paths.append(settings.models_path / f"{league_slug}_ensemble_v7.pkl")
+            candidate_paths.append(settings.models_path / f"{league_slug}_enhanced_v2.pkl")
+
+        candidate_paths.append(settings.models_path / f"{league_slug}_ensemble.pkl")
+
+        model_path = next((p for p in candidate_paths if p.exists()), None)
+        if model_path is None:
+            raise FileNotFoundError(
+                f"Model artifact missing for league '{league_slug}'. Tried: {', '.join(str(p) for p in candidate_paths)}"
+            )
 
         model = SabiScoreEnsemble.load_model(str(model_path))
         with self._cache_lock:

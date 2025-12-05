@@ -82,6 +82,7 @@ services:
       - ENABLE_SECURITY_HEADERS=True
       - SENTRY_DSN=${SENTRY_DSN:-}
       - ENABLE_PROMETHEUS=True
+      - ENHANCED_MODELS_V7=${ENHANCED_MODELS_V7:-false}
     ports:
       - "8000:8000"
     depends_on:

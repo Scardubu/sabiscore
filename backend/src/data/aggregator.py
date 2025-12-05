@@ -2,7 +2,8 @@ import asyncio
 import concurrent.futures
 import json
 import logging
-from typing import Any, Callable, Dict, List, Optional, TypeVar
+import time
+from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
 from datetime import datetime
 
 import numpy as np
@@ -522,6 +523,23 @@ class EnhancedDataAggregator:
         self.betfair = BetfairExchangeScraper()
         self.soccerway = SoccerwayScraper()
         self.understat = UnderstatScraper()
+
+        # Per-source latency budgets and weights to keep total < 6 seconds
+        self.source_timeouts = {
+            "odds": 4.0,
+            "form": 5.0,
+            "position": 4.0,
+            "xg": 5.5,
+            "value": 4.0,
+        }
+        self.source_weights = {
+            "odds": 0.35,
+            "form": 0.20,
+            "position": 0.15,
+            "xg": 0.20,
+            "value": 0.10,
+        }
+        self.total_timeout_s = 6.0
         
         # Also keep references to old scrapers for compatibility
         self.flashscore = FlashscoreScraper()
@@ -550,21 +568,7 @@ class EnhancedDataAggregator:
         Returns:
             Dict with all aggregated features
         """
-        features = {
-            "home_team": home_team,
-            "away_team": away_team,
-            "league": league,
-            "timestamp": datetime.utcnow().isoformat(),
-        }
-        
-        # Collect features from each source
-        features.update(self._get_odds_features(home_team, away_team, league))
-        features.update(self._get_form_features(home_team, away_team, league))
-        features.update(self._get_position_features(home_team, away_team, league))
-        features.update(self._get_xg_features(home_team, away_team, league))
-        features.update(self._get_value_features(home_team, away_team, league))
-        
-        return features
+        return self._collect_features_with_budget(home_team, away_team, league, parallel=True)
     
     def _get_odds_features(
         self,
@@ -806,31 +810,7 @@ class EnhancedDataAggregator:
 
         Falls back gracefully if any single source times out or fails.
         """
-        features: Dict[str, Any] = {
-            "home_team": home_team,
-            "away_team": away_team,
-            "league": league,
-            "timestamp": datetime.utcnow().isoformat(),
-        }
-
-        tasks: List[Callable[[], Dict[str, float]]] = [
-            lambda: self._get_odds_features(home_team, away_team, league),
-            lambda: self._get_form_features(home_team, away_team, league),
-            lambda: self._get_position_features(home_team, away_team, league),
-            lambda: self._get_xg_features(home_team, away_team, league),
-            lambda: self._get_value_features(home_team, away_team, league),
-        ]
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-            futures = [executor.submit(task) for task in tasks]
-            for future in concurrent.futures.as_completed(futures, timeout=20):
-                try:
-                    result = future.result(timeout=10)
-                    features.update(result)
-                except Exception as exc:
-                    logger.warning(f"Parallel feature fetch failed: {exc}")
-
-        return features
+        return self._collect_features_with_budget(home_team, away_team, league, parallel=True)
 
     async def get_comprehensive_features_async(
         self,
@@ -871,6 +851,78 @@ class EnhancedDataAggregator:
             elif isinstance(res, Exception):
                 logger.warning(f"Async feature fetch error: {res}")
 
+        return features
+
+    def _collect_features_with_budget(
+        self,
+        home_team: str,
+        away_team: str,
+        league: str,
+        parallel: bool = True,
+        total_timeout: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """Gather features with per-source timeouts and weights, enforcing a total budget."""
+
+        budget = total_timeout if total_timeout is not None else self.total_timeout_s
+        features: Dict[str, Any] = {
+            "home_team": home_team,
+            "away_team": away_team,
+            "league": league,
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
+        tasks: List[Tuple[str, Callable[[], Dict[str, float]]]] = [
+            ("odds", lambda: self._get_odds_features(home_team, away_team, league)),
+            ("form", lambda: self._get_form_features(home_team, away_team, league)),
+            ("position", lambda: self._get_position_features(home_team, away_team, league)),
+            ("xg", lambda: self._get_xg_features(home_team, away_team, league)),
+            ("value", lambda: self._get_value_features(home_team, away_team, league)),
+        ]
+
+        latencies_ms: Dict[str, float] = {}
+
+        def _timed_call(fn: Callable[[], Dict[str, float]]) -> tuple[Dict[str, float], int]:
+            started = time.time()
+            result = fn() or {}
+            return result, int((time.time() - started) * 1000)
+
+        if not parallel:
+            for name, fn in tasks:
+                start = time.time()
+                try:
+                    result = fn() or {}
+                    features.update(result)
+                except Exception as exc:
+                    logger.warning(f"{name} feature fetch failed: {exc}")
+                latencies_ms[f"{name}_ms"] = int((time.time() - start) * 1000)
+        else:
+            start = time.time()
+            with concurrent.futures.ThreadPoolExecutor(max_workers=len(tasks)) as executor:
+                future_map = {}
+                for name, fn in tasks:
+                    future = executor.submit(_timed_call, fn)
+                    future_map[future] = (name, self.source_timeouts.get(name, budget))
+
+                try:
+                    for future in concurrent.futures.as_completed(future_map, timeout=budget):
+                        name, source_timeout = future_map[future]
+                        remaining = max(0.1, budget - (time.time() - start))
+                        try:
+                            result, duration_ms = future.result(timeout=min(source_timeout, remaining))
+                            features.update(result)
+                            latencies_ms[f"{name}_ms"] = duration_ms
+                        except concurrent.futures.TimeoutError:
+                            latencies_ms[f"{name}_ms"] = int((budget - (time.time() - start)) * 1000)
+                            logger.warning("%s feature fetch timed out after %.1fs", name, min(source_timeout, remaining))
+                        except Exception as exc:
+                            latencies_ms[f"{name}_ms"] = int((time.time() - start) * 1000)
+                            logger.warning("%s feature fetch failed: %s", name, exc)
+                except concurrent.futures.TimeoutError:
+                    logger.warning("Feature gathering exceeded total budget of %.1fs", budget)
+
+        # Add metadata so downstream can reason about source quality/latency
+        features["meta_source_latency_ms"] = latencies_ms
+        features["meta_source_weights"] = self.source_weights
         return features
 
     def get_historical_training_data(
