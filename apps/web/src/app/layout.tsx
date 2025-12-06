@@ -4,6 +4,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { ToastProvider } from "./toast-provider";
 import { ConsentProvider } from "../components/consent-banner";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 

@@ -394,15 +394,16 @@ export function getCachedLogo(cacheKey: string): string | undefined {
   if (!cached) return undefined;
   
   // Check if it's the new format with timestamp
-  if ('timestamp' in cached && 'url' in cached) {
-    if (Date.now() - cached.timestamp < CACHE_TTL) {
-      return cached.url;
+  if (typeof cached === 'object' && cached !== null && 'timestamp' in cached && 'url' in cached) {
+    const entry = cached as { url: string; timestamp: number };
+    if (Date.now() - entry.timestamp < CACHE_TTL) {
+      return entry.url;
     }
     return undefined;
   }
   
   // Old format - just return the LogoMeta
-  return cached.url;
+  return (cached as { url?: string }).url;
 }
 
 /**

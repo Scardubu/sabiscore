@@ -39,6 +39,11 @@ const LOADING_FACTS = [
   { icon: Activity, text: "Processing live odds movements..." },
 ];
 
+const FLAG_SIZE_HEADER = 16;
+const FLAG_SIZE_TEAM = 14;
+const FLAG_CLASS_HEADER = "rounded-sm h-4 w-4 flex-shrink-0";
+const FLAG_CLASS_TEAM = "rounded-sm h-3.5 w-3.5 flex-shrink-0";
+
 /**
  * Head-to-head fun facts generator
  */
@@ -203,7 +208,7 @@ export function MatchLoadingInterstitial({
           className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2"
         >
           {leagueConfig.countryCode ? (
-            <CountryFlag countryCode={leagueConfig.countryCode} size={16} className="rounded-sm flex-shrink-0" />
+                <CountryFlag countryCode={leagueConfig.countryCode} size={FLAG_SIZE_HEADER} className={FLAG_CLASS_HEADER} />
           ) : (
             <span className="text-2xl">{leagueConfig.flag}</span>
           )}
@@ -259,7 +264,7 @@ export function MatchLoadingInterstitial({
             </motion.span>
             <span className="text-xs text-slate-500 flex items-center gap-1">
               {homeCountryCode ? (
-                <CountryFlag countryCode={homeCountryCode} size={14} className="rounded-sm flex-shrink-0" />
+                <CountryFlag countryCode={homeCountryCode} size={FLAG_SIZE_TEAM} className={FLAG_CLASS_TEAM} />
               ) : (
                 <span>{homeTeamData.flag}</span>
               )}
@@ -329,7 +334,7 @@ export function MatchLoadingInterstitial({
             </motion.span>
             <span className="text-xs text-slate-500 flex items-center gap-1">
               {awayCountryCode ? (
-                <CountryFlag countryCode={awayCountryCode} size={14} className="rounded-sm flex-shrink-0" />
+                <CountryFlag countryCode={awayCountryCode} size={FLAG_SIZE_TEAM} className={FLAG_CLASS_TEAM} />
               ) : (
                 <span>{awayTeamData.flag}</span>
               )}

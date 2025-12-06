@@ -80,6 +80,13 @@ const LOADING_FACTS = [
 
 const SWIPE_QUESTIONS = INTERSTITIAL_SWIPE_QUESTIONS;
 
+const FLAG_SIZE_HEADER = 16;
+const FLAG_SIZE_COMPACT = 14;
+const FLAG_SIZE_TINY = 12;
+const FLAG_CLASS_HEADER = "rounded-sm h-4 w-4 flex-shrink-0";
+const FLAG_CLASS_COMPACT = "rounded-sm h-3.5 w-3.5 flex-shrink-0";
+const FLAG_CLASS_TINY = "rounded-sm h-3 w-3 flex-shrink-0";
+
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
@@ -189,7 +196,7 @@ function TeamStatsMini({
     >
       <div className={cn("mb-2 flex items-center gap-2", align === "right" && "flex-row-reverse")}>
         {flagCode ? (
-          <CountryFlag countryCode={flagCode} size={14} className="rounded-sm flex-shrink-0" />
+          <CountryFlag countryCode={flagCode} size={FLAG_SIZE_COMPACT} className={FLAG_CLASS_COMPACT} />
         ) : (
           <span className="text-lg">{teamData.flag}</span>
         )}
@@ -691,7 +698,7 @@ export function MatchLoadingExperience({
             {leagueConfig ? (
               <span className="flex items-center gap-1.5 text-sm font-medium text-slate-400">
                 {leagueConfig.countryCode ? (
-                  <CountryFlag countryCode={leagueConfig.countryCode} size={16} className="rounded-sm flex-shrink-0" />
+                  <CountryFlag countryCode={leagueConfig.countryCode} size={FLAG_SIZE_HEADER} className={FLAG_CLASS_HEADER} />
                 ) : (
                   <span>{leagueConfig.flag}</span>
                 )}
@@ -738,7 +745,7 @@ export function MatchLoadingExperience({
               <span className="mt-2 max-w-20 truncate text-sm font-bold text-white">{homeTeam}</span>
               <span className="flex items-center gap-1 text-[10px] text-slate-500">
                 {homeCountryCode ? (
-                  <CountryFlag countryCode={homeCountryCode} size={12} className="rounded-sm flex-shrink-0" />
+                  <CountryFlag countryCode={homeCountryCode} size={FLAG_SIZE_TINY} className={FLAG_CLASS_TINY} />
                 ) : (
                   <span>{homeTeamData.flag}</span>
                 )}
@@ -790,7 +797,7 @@ export function MatchLoadingExperience({
               <span className="mt-2 max-w-20 truncate text-sm font-bold text-white">{awayTeam}</span>
               <span className="flex items-center gap-1 text-[10px] text-slate-500">
                 {awayCountryCode ? (
-                  <CountryFlag countryCode={awayCountryCode} size={12} className="rounded-sm flex-shrink-0" />
+                  <CountryFlag countryCode={awayCountryCode} size={FLAG_SIZE_TINY} className={FLAG_CLASS_TINY} />
                 ) : (
                   <span>{awayTeamData.flag}</span>
                 )}

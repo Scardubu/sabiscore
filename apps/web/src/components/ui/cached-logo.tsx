@@ -235,7 +235,7 @@ export const CachedLogo = memo(function CachedLogo({
         decoding="async"
         onLoad={handleLoad}
         onError={handleError}
-        fetchpriority={priority ? "high" : "low"}
+        fetchPriority={priority ? "high" : "low"}
         crossOrigin="anonymous"
         className={cn(
           "h-full w-full object-contain transition-opacity duration-300",
