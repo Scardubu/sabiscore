@@ -804,7 +804,7 @@ function getTeamLogoUrl(teamName: string): string | null {
  * Check if team has API-based logo available
  */
 function hasRealLogo(teamName: string): boolean {
-  return TEAM_IDS[teamName]?.apiSportsId !== undefined || TEAM_IDS[teamName]?.sportsDbId !== undefined;
+  return TEAM_IDS[teamName]?.apiSportsId !== undefined;
 }
 
 /**
