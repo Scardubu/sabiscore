@@ -140,9 +140,15 @@ export const CachedLogo = memo(function CachedLogo({
 
   // Size classes for common sizes (avoid inline styles)
   const sizeClasses: Record<number, string> = {
+    12: "h-3 w-3",
+    14: "h-3.5 w-3.5",
+    16: "h-4 w-4",
+    18: "h-[18px] w-[18px]",
     20: "h-5 w-5",
     24: "h-6 w-6",
+    28: "h-7 w-7",
     32: "h-8 w-8",
+    36: "h-9 w-9",
     40: "h-10 w-10",
     48: "h-12 w-12",
     56: "h-14 w-14",
@@ -150,8 +156,13 @@ export const CachedLogo = memo(function CachedLogo({
   };
   
   const fontSizeClasses: Record<number, string> = {
+    12: "text-[0.5rem]",
+    14: "text-[0.55rem]",
+    16: "text-[0.625rem]",
+    18: "text-[0.7rem]",
     20: "text-[0.625rem]",
     24: "text-xs",
+    28: "text-xs",
     32: "text-sm",
     40: "text-base",
     48: "text-lg",
@@ -160,8 +171,11 @@ export const CachedLogo = memo(function CachedLogo({
   };
   
   // Get closest size class or use inline style as fallback
-  const getSizeClass = (s: number) => sizeClasses[s] || `h-[${s}px] w-[${s}px]`;
-  const getFontClass = (s: number) => fontSizeClasses[s] || fontSizeClasses[Math.min(...Object.keys(fontSizeClasses).map(Number).filter(k => k >= s))] || "text-base";
+  const sizeClass = sizeClasses[size];
+  const fontClass = fontSizeClasses[size] || fontSizeClasses[Math.min(...Object.keys(fontSizeClasses).map(Number).filter(k => k >= size))] || "text-base";
+  
+  // If no predefined class exists, we need to use inline styles
+  const inlineStyle = sizeClass ? undefined : { width: size, height: size };
   
   const gradientBg = getGradientFromColors(colors);
 
@@ -170,16 +184,17 @@ export const CachedLogo = memo(function CachedLogo({
     return (
       <div
         className={cn(
-          "flex items-center justify-center rounded-full ring-1 ring-white/10",
+          "flex items-center justify-center rounded-full ring-1 ring-white/10 flex-shrink-0",
           gradientBg,
-          getSizeClass(size),
+          sizeClass,
           className
         )}
+        style={inlineStyle}
         role="img"
         aria-label={alt}
       >
         <span 
-          className={cn("text-center leading-none", getFontClass(size))}
+          className={cn("text-center leading-none", fontClass)}
         >
           {placeholder}
         </span>
@@ -190,11 +205,12 @@ export const CachedLogo = memo(function CachedLogo({
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-full ring-1 ring-white/10",
+        "relative overflow-hidden rounded-full ring-1 ring-white/10 flex-shrink-0",
         isLoading && gradientBg,
-        getSizeClass(size),
+        sizeClass,
         className
       )}
+      style={inlineStyle}
     >
       {/* Loading shimmer */}
       {isLoading && (
