@@ -381,10 +381,9 @@ export function getTeamCountryFlag(teamName: string): string | undefined {
 }
 
 // ---------------------------------------------------------------------------
-// Caching Utilities
+// Caching Utilities (uses LOGO_CACHE defined at top of file)
 // ---------------------------------------------------------------------------
 
-const LOGO_CACHE = new Map<string, { url: string; timestamp: number }>();
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 /**
@@ -392,17 +391,25 @@ const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
  */
 export function getCachedLogo(cacheKey: string): string | undefined {
   const cached = LOGO_CACHE.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return cached.url;
+  if (!cached) return undefined;
+  
+  // Check if it's the new format with timestamp
+  if ('timestamp' in cached && 'url' in cached) {
+    if (Date.now() - cached.timestamp < CACHE_TTL) {
+      return cached.url;
+    }
+    return undefined;
   }
-  return undefined;
+  
+  // Old format - just return the LogoMeta
+  return cached.url;
 }
 
 /**
- * Cache a logo URL
+ * Cache a logo URL with timestamp
  */
 export function setCachedLogo(cacheKey: string, url: string): void {
-  LOGO_CACHE.set(cacheKey, { url, timestamp: Date.now() });
+  LOGO_CACHE.set(cacheKey, { url, timestamp: Date.now() } as any);
 }
 
 /**

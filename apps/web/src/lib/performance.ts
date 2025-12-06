@@ -5,6 +5,8 @@
  * Production-ready performance tracking and optimization helpers
  */
 
+import React from 'react';
+
 export interface PerformanceMetric {
   name: string;
   duration: number;
@@ -43,6 +45,7 @@ class PerformanceMonitor {
 
     // Log to console in development, send to analytics in production
     if (process.env.NODE_ENV === 'development') {
+      // eslint-disable-next-line no-console
       console.log(`[Performance] ${name}: ${duration.toFixed(2)}ms`);
     } else {
       // TODO: Send to analytics service (PostHog, Google Analytics, etc.)
@@ -67,19 +70,20 @@ class PerformanceMonitor {
   /**
    * Report metric to analytics (override in production)
    */
-  private reportMetric(metric: PerformanceMetric): void {
+  private reportMetric(_metric: PerformanceMetric): void {
     // Placeholder for analytics integration
-    // Example: analytics.track('performance_metric', metric);
+    // Example: analytics.track('performance_metric', _metric);
   }
 
   /**
    * Get Web Vitals for monitoring
    */
-  reportWebVitals(metric: any): void {
+  reportWebVitals(metric: { name: string; value: number; rating?: string }): void {
     if (!this.enabled) return;
 
     // Core Web Vitals
     if (['FCP', 'LCP', 'CLS', 'FID', 'TTFB'].includes(metric.name)) {
+      // eslint-disable-next-line no-console
       console.log(`[Web Vital] ${metric.name}:`, metric.value);
       
       // TODO: Send to analytics
@@ -99,12 +103,12 @@ export const performanceMonitor = new PerformanceMonitor();
  * React hook for tracking component render performance
  */
 export function usePerformanceTracking(componentName: string) {
-  if (typeof window === 'undefined') return;
-
   const trackingId = `render:${componentName}`;
   
   // Track mount time
   React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
     performanceMonitor.start(trackingId);
     return () => {
       performanceMonitor.end(trackingId);
@@ -115,6 +119,7 @@ export function usePerformanceTracking(componentName: string) {
 /**
  * Debounce function for performance optimization
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function debounce<T extends (...args: any[]) => any>(
   func: T,
   wait: number
@@ -135,6 +140,7 @@ export function debounce<T extends (...args: any[]) => any>(
 /**
  * Throttle function for performance optimization
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function throttle<T extends (...args: any[]) => any>(
   func: T,
   limit: number
@@ -169,22 +175,20 @@ export const cancelIdleCallback =
 /**
  * Lazy load component when it enters viewport
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function lazyLoadOnIntersection<T extends React.ComponentType<any>>(
   loader: () => Promise<{ default: T }>,
-  options: IntersectionObserverInit = {}
-): T {
+  _options: IntersectionObserverInit = {}
+): React.LazyExoticComponent<T> {
   let Component: T | null = null;
 
   const LazyComponent = React.lazy(async () => {
     if (!Component) {
-      const module = await loader();
-      Component = module.default;
+      const loadedModule = await loader();
+      Component = loadedModule.default;
     }
     return { default: Component };
   });
 
-  return LazyComponent as T;
+  return LazyComponent;
 }
-
-// Fix React import
-import React from 'react';

@@ -5,13 +5,13 @@
  * WCAG 2.1 AA compliant accessibility helpers
  */
 
+import React from 'react';
+
 /**
  * Screen reader only text (visually hidden but accessible)
  */
-export function srOnly(text: string): React.ReactElement {
-  return (
-    <span className="sr-only">{text}</span>
-  );
+export function srOnly(text: string): JSX.Element {
+  return React.createElement('span', { className: 'sr-only' }, text);
 }
 
 /**
@@ -179,6 +179,3 @@ export function useKeyboardNavigation(handlers: {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [handlers]);
 }
-
-// Fix React import
-import React from 'react';
