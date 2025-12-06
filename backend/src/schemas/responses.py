@@ -95,6 +95,59 @@ class Metadata(BaseModel):
     home_team: str = Field(..., json_schema_extra={"example": "Manchester City"})
     away_team: str = Field(..., json_schema_extra={"example": "Liverpool"})
 
+
+class TransformationStep(BaseModel):
+    step: str = Field(..., json_schema_extra={"example": "feature_engineering"})
+    function: str = Field(..., json_schema_extra={"example": "FeatureTransformer.engineer_features"})
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
+class DataProvenance(BaseModel):
+    """Traceability metadata for insights responses."""
+
+    source: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Details about the primary origin (e.g., ml_model, cache, database)",
+        json_schema_extra={
+            "example": {
+                "type": "ml_model",
+                "origin": "ensemble_v7",
+                "retrieved_at": datetime.utcnow().isoformat(),
+                "version": "7.0.0",
+            }
+        },
+    )
+    computed_from: List[str] = Field(
+        default_factory=list,
+        description="Identifiers of upstream records used to compute this response",
+        json_schema_extra={"example": ["match:ARS-BOU", "team_stats:arsenal", "team_stats:bournemouth"]},
+    )
+    transformations: List[TransformationStep] = Field(
+        default_factory=list,
+        description="Ordered pipeline steps applied to produce the response",
+    )
+    real_time_adjusted: bool = Field(
+        default=False,
+        description="Indicates whether live market odds or last-mile adjustments were applied",
+    )
+    drift_detected: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Drift detection status and metrics",
+        json_schema_extra={
+            "example": {
+                "flag": False,
+                "baseline_value": 0.71,
+                "current_value": 0.73,
+                "threshold_exceeded": False,
+            }
+        },
+    )
+    validation_status: str = Field(
+        default="pending",
+        description="Validation state of the response (pending | passed | failed)",
+        json_schema_extra={"example": "pending"},
+    )
+
 class InsightsResponse(BaseModel):
     model_config = ConfigDict(json_encoders={datetime: lambda v: v.isoformat()})
 
@@ -111,6 +164,10 @@ class InsightsResponse(BaseModel):
     narrative: str = Field(..., description="Human-readable analysis summary")
     generated_at: datetime = Field(default_factory=datetime.utcnow)
     confidence_level: float = Field(..., ge=0, le=1, json_schema_extra={"example": 0.78})
+    provenance: Optional[DataProvenance] = Field(
+        default=None,
+        description="Traceability metadata describing source, transformations, and validation state",
+    )
 
 class ErrorResponse(BaseModel):
     model_config = ConfigDict(json_encoders={datetime: lambda v: v.isoformat()})

@@ -419,8 +419,22 @@ class InsightsEngine:
                 'explanation': explanation,
                 'risk_assessment': risk_assessment,
                 'narrative': narrative,
-                'generated_at': datetime.utcnow().isoformat(),
-                'confidence_level': self._calculate_overall_confidence(predictions, explanation)
+                # Use datetime object so Pydantic encodes consistently
+                'generated_at': datetime.utcnow(),
+                'confidence_level': self._calculate_overall_confidence(predictions, explanation),
+                'provenance': {
+                    'source': {
+                        'type': 'ml_model',
+                        'origin': getattr(self.model, 'name', 'ensemble'),
+                        'retrieved_at': datetime.utcnow().isoformat(),
+                        'version': getattr(self.model, 'version', None),
+                    },
+                    'computed_from': [f"league:{league.lower()}", f"matchup:{matchup.lower()}"],
+                    'transformations': [],
+                    'real_time_adjusted': bool(realtime_data),
+                    'drift_detected': None,
+                    'validation_status': 'pending',
+                },
             }
 
             logger.info(f"Insights generated successfully for {matchup}")

@@ -853,7 +853,8 @@ export function TeamDisplay({
   const teamData = getTeamData(teamName);
   const leagueConfig = league ? LEAGUE_CONFIG[league] : undefined;
   const flagFromLeague = leagueConfig?.flag;
-  const displayFlag = showTeamColors ? teamData.colors : (flagFromLeague ?? teamData.flag);
+  // Computed but not yet used in UI - kept for future color-coded variant
+  const _displayFlag = showTeamColors ? teamData.colors : (flagFromLeague ?? teamData.flag);
   const color = teamData.bgColor;
   const sizes = sizeClasses[size];
   const logoUrl = getTeamLogoUrl(teamName);

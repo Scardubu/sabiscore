@@ -31,6 +31,11 @@ function InsightsDisplayInner({ insights }: InsightsDisplayProps) {
   // Use local state to allow client-side refetch/refresh without navigating
   const [current, setCurrent] = useState<InsightsResponse>(insights);
   const { predictions, xg_analysis, value_analysis, risk_assessment } = current;
+  const provenance = current.provenance;
+  const source = (provenance?.source as { origin?: string; type?: string; version?: string; retrieved_at?: string }) || {};
+  const computedFrom = provenance?.computed_from || [];
+  const drift = provenance?.drift_detected as { flag?: boolean; threshold_exceeded?: boolean; baseline_value?: number; current_value?: number } | null;
+  const driftActive = Boolean(drift && (drift.flag || drift.threshold_exceeded));
 
   const [refreshing, setRefreshing] = useState(false);
   const [isClient, setIsClient] = useState(false);
@@ -244,8 +249,13 @@ function InsightsDisplayInner({ insights }: InsightsDisplayProps) {
                   Premium insights
                 </span>
               )}
-              <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300">
-                Live data
+              <span className={cn(
+                "rounded-full border px-3 py-1 text-xs font-semibold",
+                provenance?.real_time_adjusted
+                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                  : "border-slate-600/50 bg-slate-800/60 text-slate-300"
+              )}>
+                {provenance?.real_time_adjusted ? "Live data" : "Model snapshot"}
               </span>
             </div>
             <TeamVsDisplay 
@@ -430,6 +440,66 @@ function InsightsDisplayInner({ insights }: InsightsDisplayProps) {
             </div>
           </div>
         </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-6 text-left text-sm">
+          <div className="rounded-lg border border-slate-800/50 bg-slate-900/50 p-3">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Source</p>
+            <p className="text-slate-100 font-semibold">{source.origin || source.type || "Model"}</p>
+            {source.version && (
+              <p className="text-xs text-slate-500">v{source.version}</p>
+            )}
+            {computedFrom.length ? (
+              <p
+                className="text-xs text-slate-500"
+                title={computedFrom.join(", ")}
+              >
+                Inputs: {computedFrom.length}
+              </p>
+            ) : null}
+          </div>
+          <div className="rounded-lg border border-slate-800/50 bg-slate-900/50 p-3">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Generated</p>
+            <p className="text-slate-100 font-semibold">
+              {current.generated_at ? new Date(current.generated_at).toLocaleString() : "--"}
+            </p>
+            {source.retrieved_at && (
+              <p className="text-xs text-slate-500">Fetched {new Date(source.retrieved_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
+            )}
+          </div>
+          <div className="rounded-lg border border-slate-800/50 bg-slate-900/50 p-3 flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-500">Validation</p>
+              <p className="text-slate-100 font-semibold capitalize">{provenance?.validation_status || "pending"}</p>
+            </div>
+            <span className={cn(
+              "rounded-full px-3 py-1 text-xs font-semibold",
+              provenance?.validation_status === "passed"
+                ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-300"
+                : provenance?.validation_status === "failed"
+                ? "bg-amber-500/10 border border-amber-500/30 text-amber-300"
+                : "bg-slate-800/70 border border-slate-700 text-slate-300"
+            )}>
+              {provenance?.validation_status || "Pending"}
+            </span>
+          </div>
+          <div className="rounded-lg border border-slate-800/50 bg-slate-900/50 p-3 flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-500">Drift</p>
+              <p className="text-slate-100 font-semibold">{driftActive ? "Detected" : "Normal"}</p>
+            </div>
+            <span
+              className={cn(
+                "rounded-full px-3 py-1 text-xs font-semibold",
+                driftActive
+                  ? "bg-rose-500/10 border border-rose-500/30 text-rose-300"
+                  : "bg-emerald-500/10 border border-emerald-500/30 text-emerald-300"
+              )}
+              title={driftActive && drift ? `Baseline ${drift.baseline_value ?? "?"} → Current ${drift.current_value ?? "?"}` : undefined}
+            >
+              {driftActive ? "Action" : "Healthy"}
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Value Bets */}
@@ -517,7 +587,25 @@ function InsightsDisplayInner({ insights }: InsightsDisplayProps) {
 
       {/* Risk Assessment */}
       <div className="glass-card p-8 space-y-6">
-        <h2 className="text-2xl font-bold text-slate-100">Risk Assessment</h2>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-2xl font-bold text-slate-100">Risk Assessment</h2>
+          <span
+            className={cn(
+              "rounded-full px-3 py-1 text-xs font-semibold",
+              driftActive
+                ? "bg-rose-500/10 border border-rose-500/30 text-rose-300"
+                : "bg-emerald-500/10 border border-emerald-500/30 text-emerald-300"
+            )}
+            title={
+              driftActive && drift
+                ? `Drift detected: baseline ${drift.baseline_value ?? "?"} → current ${drift.current_value ?? "?"}`
+                : "Drift monitor healthy"
+            }
+          >
+            Drift: {driftActive ? "Action" : "Healthy"}
+          </span>
+        </div>
+        <p className="text-xs text-slate-500">Drift badge tracks live model drift status; &quot;Action&quot; means review inputs/calibration.</p>
         
         <div className="flex items-center gap-4">
           <div className={`px-4 py-2 rounded-lg font-semibold ${

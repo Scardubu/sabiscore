@@ -3,7 +3,6 @@
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import type { InsightsResponse } from "@/lib/api";
-import { Suspense } from "react";
 
 // Dynamically import InsightsDisplay with client-only rendering
 const InsightsDisplay = dynamic(
@@ -29,7 +28,8 @@ interface InsightsDisplayWrapperProps {
   insights: InsightsResponse;
 }
 
-function ErrorFallback({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) {
+// Intentionally prefixed with underscore - used only for error boundaries
+function _ErrorFallback({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) {
   return (
     <div className="glass-card p-8 text-center space-y-4">
       <div className="text-red-400 text-4xl">⚠️</div>

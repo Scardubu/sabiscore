@@ -80,6 +80,21 @@ export interface Metadata {
   away_team: string;
 }
 
+export interface TransformationStep {
+  step: string;
+  function: string;
+  timestamp: string;
+}
+
+export interface DataProvenance {
+  source: Record<string, unknown>;
+  computed_from: string[];
+  transformations: TransformationStep[];
+  real_time_adjusted: boolean;
+  drift_detected?: Record<string, unknown> | null;
+  validation_status: string;
+}
+
 export interface InsightsResponse {
   matchup: string;
   league: string;
@@ -99,6 +114,7 @@ export interface InsightsResponse {
   narrative: string;
   generated_at: string;
   confidence_level: number;
+  provenance?: DataProvenance | null;
 }
 
 class APIError extends Error {

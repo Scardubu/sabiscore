@@ -10,10 +10,13 @@
  * @version 1.2.0 - Removed TheSportsDB (unreliable URL patterns)
  */
 
+type LogoCacheEntry = LogoMeta | { url: string; timestamp: number };
+
 // In-memory cache for resolved logos (reduces lookup overhead)
-const LOGO_CACHE = new Map<string, LogoMeta>();
-const CACHE_MAX_SIZE = 200;
-const CACHE_KEYS: string[] = [];
+const LOGO_CACHE = new Map<string, LogoCacheEntry>();
+// Reserved for future LRU eviction
+const _CACHE_MAX_SIZE = 200;
+const _CACHE_KEYS: string[] = [];
 
 // ---------------------------------------------------------------------------
 // Type Definitions
@@ -22,6 +25,8 @@ const CACHE_KEYS: string[] = [];
 export interface LogoMeta {
   /** Primary URL to fetch (may be undefined if all sources unavailable) */
   url?: string;
+  /** Optional cache timestamp for TTL handling */
+  timestamp?: number;
   /** Fallback URLs in priority order */
   fallbackUrls: string[];
   /** Emoji placeholder for error states */
@@ -388,7 +393,7 @@ export function getCachedLogo(cacheKey: string): string | undefined {
  * Cache a logo URL with timestamp
  */
 export function setCachedLogo(cacheKey: string, url: string): void {
-  LOGO_CACHE.set(cacheKey, { url, timestamp: Date.now() } as any);
+  LOGO_CACHE.set(cacheKey, { url, timestamp: Date.now() });
 }
 
 /**
