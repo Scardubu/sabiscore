@@ -86,6 +86,11 @@ export function MatchSelector() {
       return;
     }
 
+    if (homeTeam.trim().toLowerCase() === awayTeam.trim().toLowerCase()) {
+      toast.error("Please select different teams");
+      return;
+    }
+
     const normalizedHome = homeTeam.trim();
     const normalizedAway = awayTeam.trim();
     const matchup = `${normalizedHome} vs ${normalizedAway}`;
@@ -198,6 +203,14 @@ export function MatchSelector() {
                   key={l.id}
                   type="button"
                   onClick={() => handleLeagueSelect(l.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleLeagueSelect(l.id);
+                    }
+                  }}
+                  aria-pressed={league === l.id}
+                  aria-label={`Select ${l.name}`}
                   className={cn(
                     "rounded-xl border-2 p-3 transition-all",
                     premiumVisualsEnabled

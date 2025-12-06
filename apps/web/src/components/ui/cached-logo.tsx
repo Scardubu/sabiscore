@@ -126,10 +126,17 @@ export const CachedLogo = memo(function CachedLogo({
   const handleLoad = useCallback(() => {
     if (currentUrl) {
       IMAGE_CACHE.set(currentUrl, true);
+      // Preload hint for next potential fallback
+      if (priority && fallbackIndex === 0 && fallbackUrls.length > 0) {
+        const link = document.createElement('link');
+        link.rel = 'prefetch';
+        link.href = fallbackUrls[0];
+        document.head.appendChild(link);
+      }
     }
     setIsLoading(false);
     onLoad?.();
-  }, [currentUrl, onLoad]);
+  }, [currentUrl, onLoad, priority, fallbackIndex, fallbackUrls]);
 
   // Check cache on mount
   useEffect(() => {
@@ -228,6 +235,8 @@ export const CachedLogo = memo(function CachedLogo({
         decoding="async"
         onLoad={handleLoad}
         onError={handleError}
+        fetchpriority={priority ? "high" : "low"}
+        crossOrigin="anonymous"
         className={cn(
           "h-full w-full object-contain transition-opacity duration-300",
           isLoading ? "opacity-0" : "opacity-100"

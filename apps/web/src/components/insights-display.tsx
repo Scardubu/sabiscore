@@ -8,7 +8,7 @@ import type { ChartOptions } from "@/types/chart";
 import { normalizeValueBet } from "@/types/value-bet";
 import { DoughnutChart } from "./charts/DoughnutChart";
 import { apiClient } from "@/lib/api";
-import { safeErrorMessage } from "@/lib/error-utils";
+import { safeErrorMessage, trackPerformance } from "@/lib/error-utils";
 import { ValueBetCard } from "./ValueBetCard";
 import { GamblingDisclaimer } from "./ui/ResponsibleGamblingTooltip";
 import { TeamVsDisplay } from "./team-display";
@@ -27,7 +27,7 @@ interface InsightsDisplayProps {
   insights: InsightsResponse;
 }
 
-export function InsightsDisplay({ insights }: InsightsDisplayProps) {
+function InsightsDisplayInner({ insights }: InsightsDisplayProps) {
   // Use local state to allow client-side refetch/refresh without navigating
   const [current, setCurrent] = useState<InsightsResponse>(insights);
   const { predictions, xg_analysis, value_analysis, risk_assessment } = current;
@@ -77,6 +77,7 @@ export function InsightsDisplay({ insights }: InsightsDisplayProps) {
   }, [current.metadata?.home_team, current.metadata?.away_team]);
 
   const handleRefetch = useCallback(async () => {
+    const endTracking = trackPerformance('Insights Refetch');
     setRefreshing(true);
     try {
       const res = await refetch();
@@ -92,6 +93,7 @@ export function InsightsDisplay({ insights }: InsightsDisplayProps) {
       toast.error(`Failed to refresh: ${message}`);
     } finally {
       setRefreshing(false);
+      endTracking();
     }
   }, [refetch]);
 
@@ -566,3 +568,6 @@ export function InsightsDisplay({ insights }: InsightsDisplayProps) {
     </div>
   );
 }
+
+// Export memoized version for performance
+export const InsightsDisplay = InsightsDisplayInner;

@@ -65,12 +65,14 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable}>
       <body className={`${inter.className} bg-slate-950 text-slate-100 antialiased min-h-screen`}>
-        <Providers>
-          <ToastProvider />
-          <ConsentProvider requireConsent={true}>
-            {children}
-          </ConsentProvider>
-        </Providers>
+        <ErrorBoundary>
+          <Providers>
+            <ToastProvider />
+            <ConsentProvider requireConsent={true}>
+              {children}
+            </ConsentProvider>
+          </Providers>
+        </ErrorBoundary>
       </body>
     </html>
   );

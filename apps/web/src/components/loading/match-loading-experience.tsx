@@ -3,7 +3,9 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { motion, AnimatePresence, PanInfo, useMotionValue, useTransform } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getTeamData, LEAGUE_CONFIG } from "@/components/team-display";
+import { getTeamData, LEAGUE_CONFIG, resolveTeamName } from "@/components/team-display";
+import { CountryFlag, TeamLogo } from "@/components/ui/cached-logo";
+import { resolveTeamLogo } from "@/lib/assets/logo-resolver";
 import { cn } from "@/lib/utils";
 import {
   hashMatchup,
@@ -173,6 +175,8 @@ function TeamStatsMini({
   align: "left" | "right";
   teamData: ReturnType<typeof getTeamData>;
 }) {
+  const flagCode = teamData.countryCode;
+
   return (
     <motion.div
       initial={{ opacity: 0, x: align === "left" ? -20 : 20 }}
@@ -184,7 +188,11 @@ function TeamStatsMini({
       )}
     >
       <div className={cn("mb-2 flex items-center gap-2", align === "right" && "flex-row-reverse")}>
-        <span className="text-lg">{teamData.flag}</span>
+        {flagCode ? (
+          <CountryFlag countryCode={flagCode} size={14} className="rounded-sm flex-shrink-0" />
+        ) : (
+          <span className="text-lg">{teamData.flag}</span>
+        )}
         <span className="text-xs font-medium text-slate-400 truncate">{teamName}</span>
       </div>
       
@@ -623,9 +631,15 @@ export function MatchLoadingExperience({
   
   const homeTeamData = useMemo(() => getTeamData(homeTeam), [homeTeam]);
   const awayTeamData = useMemo(() => getTeamData(awayTeam), [awayTeam]);
+  const homeCanonical = useMemo(() => resolveTeamName(homeTeam), [homeTeam]);
+  const awayCanonical = useMemo(() => resolveTeamName(awayTeam), [awayTeam]);
+  const homeLogoMeta = useMemo(() => resolveTeamLogo(homeCanonical), [homeCanonical]);
+  const awayLogoMeta = useMemo(() => resolveTeamLogo(awayCanonical), [awayCanonical]);
   const leagueConfig = useMemo(() => LEAGUE_CONFIG[league], [league]);
   const homeStats = useMemo(() => generateMockStats(homeTeam), [homeTeam]);
   const awayStats = useMemo(() => generateMockStats(awayTeam), [awayTeam]);
+  const homeCountryCode = homeTeamData.countryCode || leagueConfig?.countryCode;
+  const awayCountryCode = awayTeamData.countryCode || leagueConfig?.countryCode;
 
   // Simulate progress (in production, this would be driven by actual loading state)
   useEffect(() => {
@@ -676,7 +690,11 @@ export function MatchLoadingExperience({
           <div className="flex items-center justify-between">
             {leagueConfig ? (
               <span className="flex items-center gap-1.5 text-sm font-medium text-slate-400">
-                <span>{leagueConfig.flag}</span>
+                {leagueConfig.countryCode ? (
+                  <CountryFlag countryCode={leagueConfig.countryCode} size={16} className="rounded-sm flex-shrink-0" />
+                ) : (
+                  <span>{leagueConfig.flag}</span>
+                )}
                 {leagueConfig.fullName}
               </span>
             ) : (
@@ -702,15 +720,29 @@ export function MatchLoadingExperience({
                 animate={{ scale: [1, 1.05, 1] }}
                 transition={{ duration: 2, repeat: Infinity }}
                 className={cn(
-                  "flex h-14 w-14 items-center justify-center rounded-full shadow-lg",
+                  "flex h-14 w-14 items-center justify-center rounded-full shadow-lg ring-1 ring-white/10 bg-slate-800/60 overflow-hidden",
                   homeTeamData.bgColor
                 )}
               >
-                <span className="text-2xl">{homeTeamData.colors}</span>
+                <TeamLogo
+                  teamName={homeCanonical}
+                  logoUrl={homeLogoMeta.url}
+                  fallbackUrls={homeLogoMeta.fallbackUrls}
+                  placeholder={homeLogoMeta.placeholder}
+                  colors={homeLogoMeta.colors || homeTeamData.colors}
+                  size={72}
+                  className="h-full w-full"
+                  priority
+                />
               </motion.div>
               <span className="mt-2 max-w-20 truncate text-sm font-bold text-white">{homeTeam}</span>
               <span className="flex items-center gap-1 text-[10px] text-slate-500">
-                <span>{homeTeamData.flag}</span> HOME
+                {homeCountryCode ? (
+                  <CountryFlag countryCode={homeCountryCode} size={12} className="rounded-sm flex-shrink-0" />
+                ) : (
+                  <span>{homeTeamData.flag}</span>
+                )}
+                HOME
               </span>
             </motion.div>
 
@@ -740,15 +772,29 @@ export function MatchLoadingExperience({
                 animate={{ scale: [1, 1.05, 1] }}
                 transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
                 className={cn(
-                  "flex h-14 w-14 items-center justify-center rounded-full shadow-lg",
+                  "flex h-14 w-14 items-center justify-center rounded-full shadow-lg ring-1 ring-white/10 bg-slate-800/60 overflow-hidden",
                   awayTeamData.bgColor
                 )}
               >
-                <span className="text-2xl">{awayTeamData.colors}</span>
+                <TeamLogo
+                  teamName={awayCanonical}
+                  logoUrl={awayLogoMeta.url}
+                  fallbackUrls={awayLogoMeta.fallbackUrls}
+                  placeholder={awayLogoMeta.placeholder}
+                  colors={awayLogoMeta.colors || awayTeamData.colors}
+                  size={72}
+                  className="h-full w-full"
+                  priority
+                />
               </motion.div>
               <span className="mt-2 max-w-20 truncate text-sm font-bold text-white">{awayTeam}</span>
               <span className="flex items-center gap-1 text-[10px] text-slate-500">
-                <span>{awayTeamData.flag}</span> AWAY
+                {awayCountryCode ? (
+                  <CountryFlag countryCode={awayCountryCode} size={12} className="rounded-sm flex-shrink-0" />
+                ) : (
+                  <span>{awayTeamData.flag}</span>
+                )}
+                AWAY
               </span>
             </motion.div>
           </div>

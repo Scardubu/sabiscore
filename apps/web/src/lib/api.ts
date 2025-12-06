@@ -151,11 +151,40 @@ async function fetchWithTimeout(
   }
 }
 
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit = {},
+  timeout = 10000,
+  maxRetries = 2
+): Promise<Response> {
+  let lastError: Error | undefined;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fetchWithTimeout(url, options, timeout);
+    } catch (error) {
+      lastError = error as Error;
+      
+      // Don't retry on client errors (4xx)
+      if (error instanceof APIError && error.status && error.status >= 400 && error.status < 500) {
+        throw error;
+      }
+      
+      // Exponential backoff: 1s, 2s, 4s
+      if (attempt < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+      }
+    }
+  }
+  
+  throw lastError || new APIError("Max retries exceeded", 503, "MAX_RETRIES_EXCEEDED");
+}
+
 export async function healthCheck(): Promise<HealthResponse> {
   try {
-    const response = await fetchWithTimeout(`${API_ORIGIN}/health`, {
+    const response = await fetchWithRetry(`${API_ORIGIN}/health`, {
       next: { revalidate: 60 }, // Cache for 60 seconds
-    });
+    }, 5000, 1); // 5s timeout, 1 retry
 
     if (!response.ok) {
       throw new APIError(
@@ -177,7 +206,7 @@ export async function getMatchInsights(
   league: string = "EPL"
 ): Promise<InsightsResponse> {
   try {
-    const response = await fetchWithTimeout(
+    const response = await fetchWithRetry(
       `${API_V1_BASE}/insights`,
       {
         method: "POST",
@@ -188,7 +217,8 @@ export async function getMatchInsights(
         // Force fresh data for insights (no cache)
         cache: "no-store",
       },
-      60000 // 60 second timeout for insights generation (handles Render cold starts)
+      60000, // 60 second timeout for insights generation (handles Render cold starts)
+      1 // 1 retry for insights (POST requests)
     );
 
     if (!response.ok) {

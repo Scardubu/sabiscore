@@ -69,6 +69,7 @@ export function formatError(error: unknown, fallback = 'Something went wrong'): 
 
 /**
  * Log error with structured context for monitoring
+ * Only logs in development mode or when explicitly enabled
  */
 export function logError(
   error: unknown,
@@ -87,15 +88,36 @@ export function logError(
     ...context,
   };
 
-  console.error('[SabiScore Error]', errorInfo);
+  // Only log in development or with explicit flag
+  const isDev = process.env.NODE_ENV === 'development';
+  const loggingEnabled = typeof window !== 'undefined' && 
+    (window as typeof window & { __SABISCORE_DEBUG__?: boolean }).__SABISCORE_DEBUG__;
 
-  // Send to monitoring service if available
+  if (isDev || loggingEnabled) {
+    console.error('[SabiScore Error]', errorInfo);
+  }
+
+  // Always send to monitoring service if available (production)
   if (typeof window !== 'undefined') {
     const rollbarWindow = window as RollbarWindow;
     if (rollbarWindow.rollbar) {
       rollbarWindow.rollbar.error(error, errorInfo);
     }
   }
+}
+
+/**
+ * Performance tracking utility for measuring operation duration
+ */
+export function trackPerformance(label: string): () => void {
+  const start = performance.now();
+  return () => {
+    const duration = performance.now() - start;
+    const isDev = process.env.NODE_ENV === 'development';
+    if (isDev && duration > 100) {
+      console.warn(`[Performance] ${label} took ${duration.toFixed(2)}ms`);
+    }
+  };
 }
 
 /**

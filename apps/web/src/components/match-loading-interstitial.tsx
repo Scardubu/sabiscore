@@ -17,7 +17,10 @@ import { cn } from "@/lib/utils";
 import {
   getTeamData,
   LEAGUE_CONFIG,
+  resolveTeamName,
 } from "@/components/team-display";
+import { CountryFlag, TeamLogo } from "@/components/ui/cached-logo";
+import { resolveTeamLogo } from "@/lib/assets/logo-resolver";
 import { useScrollLock } from "@/hooks/use-scroll-lock";
 
 /**
@@ -96,8 +99,14 @@ export function MatchLoadingInterstitial({
 
   const homeTeamData = useMemo(() => getTeamData(homeTeam), [homeTeam]);
   const awayTeamData = useMemo(() => getTeamData(awayTeam), [awayTeam]);
+  const homeCanonical = useMemo(() => resolveTeamName(homeTeam), [homeTeam]);
+  const awayCanonical = useMemo(() => resolveTeamName(awayTeam), [awayTeam]);
+  const homeLogoMeta = useMemo(() => resolveTeamLogo(homeCanonical), [homeCanonical]);
+  const awayLogoMeta = useMemo(() => resolveTeamLogo(awayCanonical), [awayCanonical]);
   const leagueConfig = useMemo(() => LEAGUE_CONFIG[league], [league]);
   const h2hFact = useMemo(() => generateH2HFact(homeTeam, awayTeam), [homeTeam, awayTeam]);
+  const homeCountryCode = homeTeamData.countryCode || leagueConfig?.countryCode;
+  const awayCountryCode = awayTeamData.countryCode || leagueConfig?.countryCode;
 
   useScrollLock(isLoading);
 
@@ -193,7 +202,11 @@ export function MatchLoadingInterstitial({
           transition={{ delay: 0.1 }}
           className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2"
         >
-          <span className="text-2xl">{leagueConfig.flag}</span>
+          {leagueConfig.countryCode ? (
+            <CountryFlag countryCode={leagueConfig.countryCode} size={16} className="rounded-sm flex-shrink-0" />
+          ) : (
+            <span className="text-2xl">{leagueConfig.flag}</span>
+          )}
           <span className="text-sm font-medium text-slate-400">
             {leagueConfig.fullName}
           </span>
@@ -222,11 +235,19 @@ export function MatchLoadingInterstitial({
               }}
               className={cn(
                 "w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center",
-                "bg-gradient-to-br shadow-lg shadow-slate-900/50",
-                homeTeamData.bgColor
+                "bg-slate-800/60 ring-1 ring-white/10 shadow-lg shadow-slate-900/50 overflow-hidden"
               )}
             >
-              <span className="text-3xl md:text-4xl">{homeTeamData.colors}</span>
+              <TeamLogo
+                teamName={homeCanonical}
+                logoUrl={homeLogoMeta.url}
+                fallbackUrls={homeLogoMeta.fallbackUrls}
+                placeholder={homeLogoMeta.placeholder}
+                colors={homeLogoMeta.colors || homeTeamData.colors}
+                size={80}
+                className="h-full w-full"
+                priority
+              />
             </motion.div>
             <motion.span
               initial={{ opacity: 0 }}
@@ -237,7 +258,11 @@ export function MatchLoadingInterstitial({
               {homeTeam}
             </motion.span>
             <span className="text-xs text-slate-500 flex items-center gap-1">
-              <span>{homeTeamData.flag}</span>
+              {homeCountryCode ? (
+                <CountryFlag countryCode={homeCountryCode} size={14} className="rounded-sm flex-shrink-0" />
+              ) : (
+                <span>{homeTeamData.flag}</span>
+              )}
               <span>HOME</span>
             </span>
           </motion.div>
@@ -280,11 +305,19 @@ export function MatchLoadingInterstitial({
               }}
               className={cn(
                 "w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center",
-                "bg-gradient-to-br shadow-lg shadow-slate-900/50",
-                awayTeamData.bgColor
+                "bg-slate-800/60 ring-1 ring-white/10 shadow-lg shadow-slate-900/50 overflow-hidden"
               )}
             >
-              <span className="text-3xl md:text-4xl">{awayTeamData.colors}</span>
+              <TeamLogo
+                teamName={awayCanonical}
+                logoUrl={awayLogoMeta.url}
+                fallbackUrls={awayLogoMeta.fallbackUrls}
+                placeholder={awayLogoMeta.placeholder}
+                colors={awayLogoMeta.colors || awayTeamData.colors}
+                size={80}
+                className="h-full w-full"
+                priority
+              />
             </motion.div>
             <motion.span
               initial={{ opacity: 0 }}
@@ -295,7 +328,11 @@ export function MatchLoadingInterstitial({
               {awayTeam}
             </motion.span>
             <span className="text-xs text-slate-500 flex items-center gap-1">
-              <span>{awayTeamData.flag}</span>
+              {awayCountryCode ? (
+                <CountryFlag countryCode={awayCountryCode} size={14} className="rounded-sm flex-shrink-0" />
+              ) : (
+                <span>{awayTeamData.flag}</span>
+              )}
               <span>AWAY</span>
             </span>
           </motion.div>

@@ -3,7 +3,11 @@ import { API_ORIGIN, API_V1_BASE } from './api-base';
 /**
  * Frontend API client for Sabiscore predictions
  * Handles all communication with the FastAPI backend
+ * Includes request deduplication and retry logic
  */
+
+// In-flight request cache to prevent duplicate API calls
+const IN_FLIGHT_REQUESTS = new Map<string, Promise<unknown>>();
 
 export type ConfidenceIntervalMap = Record<string, [number, number]>;
 export type ExplanationMap = Record<string, unknown>;
@@ -91,10 +95,41 @@ export interface PredictionRequest {
 class SabiscoreAPIClient {
   private origin: string;
   private apiV1Base: string;
+  private maxRetries = 2;
+  private retryDelay = 1000;
 
   constructor(origin: string = API_ORIGIN, apiV1Base: string = API_V1_BASE) {
     this.origin = origin.replace(/\/+$/, '');
     this.apiV1Base = apiV1Base.replace(/\/+$/, '');
+  }
+
+  /**
+   * Retry helper for transient network failures
+   */
+  private async withRetry<T>(
+    fn: () => Promise<T>,
+    retries = this.maxRetries
+  ): Promise<T> {
+    try {
+      return await fn();
+    } catch (error) {
+      if (retries > 0 && this.isRetryableError(error)) {
+        await new Promise(resolve => setTimeout(resolve, this.retryDelay));
+        return this.withRetry(fn, retries - 1);
+      }
+      throw error;
+    }
+  }
+
+  private isRetryableError(error: unknown): boolean {
+    if (error instanceof Error) {
+      const message = error.message.toLowerCase();
+      return message.includes('network') || 
+             message.includes('timeout') || 
+             message.includes('503') ||
+             message.includes('504');
+    }
+    return false;
   }
 
   /**
@@ -158,12 +193,30 @@ class SabiscoreAPIClient {
   }
 
   /**
+   * Deduplicate concurrent requests for the same resource
+   */
+  private async deduplicate<T>(key: string, fn: () => Promise<T>): Promise<T> {
+    const existing = IN_FLIGHT_REQUESTS.get(key);
+    if (existing) {
+      return existing as Promise<T>;
+    }
+
+    const promise = fn().finally(() => {
+      IN_FLIGHT_REQUESTS.delete(key);
+    });
+
+    IN_FLIGHT_REQUESTS.set(key, promise);
+    return promise;
+  }
+
+  /**
    * Create a new prediction
    */
   async createPrediction(request: PredictionRequest): Promise<Prediction> {
     const url = `${this.apiV1Base}/predictions/`;
+    const dedupeKey = `pred:${request.home_team}:${request.away_team}:${request.league}`;
     
-    try {
+    return this.deduplicate(dedupeKey, () => this.withRetry(async () => {
       const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -179,10 +232,7 @@ class SabiscoreAPIClient {
       }
 
       return await response.json();
-    } catch (error) {
-      console.error('Error creating prediction:', error);
-      throw error;
-    }
+    }));
   }
 
   /**

@@ -8,8 +8,13 @@
  * 3. FlagCDN country flags (SVG, unlimited)
  * 4. Emoji fallback (guaranteed render)
  * 
- * @version 1.0.0
+ * @version 1.1.0 - Added in-memory caching for performance
  */
+
+// In-memory cache for resolved logos (reduces lookup overhead)
+const LOGO_CACHE = new Map<string, LogoMeta>();
+const CACHE_MAX_SIZE = 200;
+const CACHE_KEYS: string[] = [];
 
 // ---------------------------------------------------------------------------
 // Type Definitions
