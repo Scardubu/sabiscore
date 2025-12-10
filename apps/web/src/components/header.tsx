@@ -6,6 +6,7 @@ import { FeatureFlag, useFeatureFlag } from "@/lib/feature-flags";
 
 const premiumNavLinks = [
   { href: "/match", label: "Match Insights", detail: "Live ML edge" },
+  { href: "/monitoring", label: "Monitoring", detail: "Model health" },
   { href: "/docs", label: "Docs", detail: "Playbooks + API" },
   { href: "/docs#api", label: "API", detail: "REST access" },
 ];
@@ -50,6 +51,12 @@ export function Header() {
                 className="text-sm font-medium text-slate-300 hover:text-slate-100 transition-colors"
               >
                 Matches
+              </Link>
+              <Link
+                href="/monitoring"
+                className="text-sm font-medium text-slate-300 hover:text-slate-100 transition-colors"
+              >
+                Monitoring
               </Link>
               <Link
                 href="/docs"

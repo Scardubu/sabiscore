@@ -6,7 +6,13 @@ import { ToastProvider } from "./toast-provider";
 import { ConsentProvider } from "../components/consent-banner";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
+const inter = Inter({ 
+  subsets: ["latin"], 
+  variable: "--font-inter", 
+  display: "swap",
+  fallback: ["system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "sans-serif"],
+  adjustFontFallback: true,
+});
 
 export const metadata: Metadata = {
   title: {
@@ -64,7 +70,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
+      <head>
+        {/* Preconnect to external resources */}
+        <link rel="preconnect" href="https://api.football-data.org" />
+        <link rel="preconnect" href="https://raw.githubusercontent.com" />
+        <link rel="dns-prefetch" href="https://api.football-data.org" />
+        <link rel="dns-prefetch" href="https://raw.githubusercontent.com" />
+      </head>
       <body className={`${inter.className} bg-slate-950 text-slate-100 antialiased min-h-screen`}>
         <ErrorBoundary>
           <Providers>

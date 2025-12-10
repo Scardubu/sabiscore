@@ -3,6 +3,8 @@
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import type { InsightsResponse } from "@/lib/api";
+import { ErrorBoundary, PredictionErrorFallback } from "./error-boundary";
+import { freeMonitoring } from "@/lib/monitoring/free-analytics";
 
 // Dynamically import InsightsDisplay with client-only rendering
 const InsightsDisplay = dynamic(
@@ -28,31 +30,26 @@ interface InsightsDisplayWrapperProps {
   insights: InsightsResponse;
 }
 
-// Intentionally prefixed with underscore - used only for error boundaries
-function _ErrorFallback({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) {
-  return (
-    <div className="glass-card p-8 text-center space-y-4">
-      <div className="text-red-400 text-4xl">⚠️</div>
-      <h2 className="text-xl font-bold text-slate-100">Failed to Load Insights</h2>
-      <p className="text-slate-400">{error.message || "An unexpected error occurred"}</p>
-      <button
-        onClick={resetErrorBoundary}
-        className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors"
-      >
-        Try Again
-      </button>
-    </div>
-  );
-}
-
 export function InsightsDisplayWrapper({ insights }: InsightsDisplayWrapperProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: "easeOut" }}
+    <ErrorBoundary
+      fallback={(error, reset) => <PredictionErrorFallback error={error} reset={reset} />}
+      onError={(error, errorInfo) => {
+        // Track error in monitoring system
+        freeMonitoring.trackError({
+          type: "insights_display",
+          message: `${error.message} - Component: ${errorInfo.componentStack?.slice(0, 100)}`,
+          timestamp: Date.now(),
+        });
+      }}
     >
-      <InsightsDisplay insights={insights} />
-    </motion.div>
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+      >
+        <InsightsDisplay insights={insights} />
+      </motion.div>
+    </ErrorBoundary>
   );
 }

@@ -3,6 +3,11 @@
 
 import { API_ORIGIN, API_V1_BASE } from "./api-base";
 
+// Tunables for slow upstreams (Render free tier can stall)
+const INSIGHTS_TIMEOUT_MS = Number(process.env.INSIGHTS_TIMEOUT_MS ?? process.env.NEXT_PUBLIC_INSIGHTS_TIMEOUT_MS ?? 12000);
+const INSIGHTS_MAX_RETRIES = Number(process.env.INSIGHTS_MAX_RETRIES ?? process.env.NEXT_PUBLIC_INSIGHTS_MAX_RETRIES ?? 0);
+const INSIGHTS_OFFLINE = (process.env.INSIGHTS_OFFLINE ?? process.env.NEXT_PUBLIC_INSIGHTS_OFFLINE) === "true";
+
 export interface HealthResponse {
   status: "healthy" | "degraded" | "unhealthy";
   database: boolean;
@@ -221,6 +226,26 @@ export async function getMatchInsights(
   matchup: string,
   league: string = "EPL"
 ): Promise<InsightsResponse> {
+  // Allow skipping upstream calls during local dev when the API is cold or unreachable
+  if (INSIGHTS_OFFLINE) {
+    return {
+      matchup,
+      league,
+      metadata: { matchup, league, home_team: matchup.split(" vs ")[0] || "Home", away_team: matchup.split(" vs ")[1] || "Away" },
+      predictions: { home_win_prob: 0.33, draw_prob: 0.33, away_win_prob: 0.34, prediction: "away", confidence: 0.51 },
+      xg_analysis: { home_xg: 1.2, away_xg: 1.3, total_xg: 2.5, xg_difference: -0.1 },
+      value_analysis: { bets: [], edges: {}, best_bet: null, summary: "Offline fallback mode" },
+      monte_carlo: { simulations: 0, distribution: {}, confidence_intervals: {} },
+      scenarios: [],
+      explanation: {},
+      risk_assessment: { risk_level: "unknown", confidence_score: 0, value_available: false, distribution: {}, recommendation: "offline" },
+      narrative: "Insights unavailable (offline mode)",
+      generated_at: new Date().toISOString(),
+      confidence_level: 0,
+      provenance: null,
+    };
+  }
+
   try {
     const response = await fetchWithRetry(
       `${API_V1_BASE}/insights`,
@@ -233,8 +258,8 @@ export async function getMatchInsights(
         // Force fresh data for insights (no cache)
         cache: "no-store",
       },
-      60000, // 60 second timeout for insights generation (handles Render cold starts)
-      1 // 1 retry for insights (POST requests)
+      INSIGHTS_TIMEOUT_MS,
+      INSIGHTS_MAX_RETRIES
     );
 
     if (!response.ok) {

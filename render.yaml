@@ -11,6 +11,7 @@
     # Use readiness probe which validates DB/cache/models before marking instance healthy
     healthCheckPath: /health/ready
     autoDeploy: true
+    pullRequestPreviewsEnabled: false
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
