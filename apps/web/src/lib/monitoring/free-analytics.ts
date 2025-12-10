@@ -50,14 +50,17 @@ export interface RollingMetrics {
   };
 }
 
+export type HealthStatus = 'healthy' | 'degraded' | 'critical' | 'initializing';
+
 export interface HealthMetrics {
   accuracy: number;
   brierScore: number;
   roi: number;
-  status: 'healthy' | 'degraded' | 'critical';
+  status: HealthStatus;
   lastUpdate: number;
   predictionCount: number;
   issues: string[];
+  hasSufficientData: boolean;
 }
 
 export interface DriftReport {
@@ -76,6 +79,8 @@ export interface DriftReport {
 // ============================================================================
 // Free Monitoring System
 // ============================================================================
+
+const MIN_HEALTH_SAMPLE = 50;
 
 export class FreeMonitoring {
   private predictions: Map<string, PredictionRecord> = new Map();
@@ -109,10 +114,13 @@ export class FreeMonitoring {
   
   /**
    * Update a prediction with actual outcome
+   * Optionally updates bet outcome and profit as well
    */
   async updateOutcome(
     predictionId: string,
-    actual: 'home' | 'draw' | 'away'
+    actual: 'home' | 'draw' | 'away',
+    betOutcome?: 'win' | 'loss' | 'void',
+    betProfit?: number
   ): Promise<void> {
     const prediction = this.predictions.get(predictionId);
     if (!prediction) {
@@ -128,6 +136,14 @@ export class FreeMonitoring {
     
     // Calculate Brier score
     prediction.brierScore = this.calculateBrierScore(prediction.prediction, actual);
+    
+    // Update bet outcome if provided
+    if (betOutcome !== undefined) {
+      prediction.betOutcome = betOutcome;
+    }
+    if (betProfit !== undefined) {
+      prediction.betProfit = betProfit;
+    }
     
     this.predictions.set(predictionId, prediction);
     
@@ -281,32 +297,31 @@ export class FreeMonitoring {
     const metrics = await this.getMetrics();
     
     const issues: string[] = [];
-    let status: 'healthy' | 'degraded' | 'critical' = 'healthy';
-    
-    // Check accuracy
-    if (metrics.accuracy < 0.50) {
-      issues.push('Accuracy below 50% (worse than random)');
-      status = 'critical';
-    } else if (metrics.accuracy < 0.65) {
-      issues.push('Accuracy below target (65%)');
-      status = 'degraded';
+    const hasSufficientData = metrics.totalPredictions >= MIN_HEALTH_SAMPLE;
+    let status: HealthStatus = hasSufficientData ? 'healthy' : 'initializing';
+
+    if (!hasSufficientData) {
+      issues.push(`Insufficient data (< ${MIN_HEALTH_SAMPLE} predictions)`);
     }
-    
-    // Check Brier score
-    if (metrics.brierScore > 0.25) {
-      issues.push('Brier score above 0.25 (poor calibration)');
-      status = status === 'critical' ? 'critical' : 'degraded';
-    }
-    
-    // Check ROI
-    if (metrics.roi < -5 && metrics.totalBets > 20) {
-      issues.push('Negative ROI over 20+ bets');
-      status = 'critical';
-    }
-    
-    // Check sample size
-    if (metrics.totalPredictions < 50) {
-      issues.push('Insufficient data (< 50 predictions)');
+
+    if (hasSufficientData) {
+      if (metrics.accuracy < 0.50) {
+        issues.push('Accuracy below 50% (worse than random)');
+        status = 'critical';
+      } else if (metrics.accuracy < 0.65) {
+        issues.push('Accuracy below target (65%)');
+        status = 'degraded';
+      }
+      
+      if (metrics.brierScore > 0.25) {
+        issues.push('Brier score above 0.25 (poor calibration)');
+        status = status === 'critical' ? 'critical' : 'degraded';
+      }
+      
+      if (metrics.roi < -5 && metrics.totalBets > 20) {
+        issues.push('Negative ROI over 20+ bets');
+        status = 'critical';
+      }
     }
     
     return {
@@ -317,6 +332,7 @@ export class FreeMonitoring {
       lastUpdate: metrics.updatedAt,
       predictionCount: metrics.totalPredictions,
       issues,
+      hasSufficientData,
     };
   }
   

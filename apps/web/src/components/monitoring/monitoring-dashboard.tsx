@@ -8,7 +8,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Activity, TrendingUp, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { Activity, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import type { HealthMetrics, RollingMetrics, DriftReport } from '@/lib/monitoring/free-analytics';
 
 export function MonitoringDashboard() {
@@ -106,6 +106,15 @@ export function MonitoringDashboard() {
                   </span>
                 </div>
               ))}
+            </div>
+          )}
+
+          {!health.hasSufficientData && (
+            <div className="mt-4 flex items-start gap-2 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+              <Activity className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5" />
+              <div className="text-sm text-blue-700 dark:text-blue-300">
+                Collecting baseline metrics. Need at least 50 labelled predictions; currently tracking {health.predictionCount}.
+              </div>
             </div>
           )}
           
@@ -249,7 +258,7 @@ export function MonitoringDashboard() {
   );
 }
 
-function StatusBadge({ status }: { status: 'healthy' | 'degraded' | 'critical' }) {
+function StatusBadge({ status }: { status: 'healthy' | 'degraded' | 'critical' | 'initializing' }) {
   const config = {
     healthy: {
       icon: CheckCircle,
@@ -265,6 +274,11 @@ function StatusBadge({ status }: { status: 'healthy' | 'degraded' | 'critical' }
       icon: XCircle,
       className: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',
       label: 'Critical',
+    },
+    initializing: {
+      icon: Activity,
+      className: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
+      label: 'Initializing',
     },
   };
   

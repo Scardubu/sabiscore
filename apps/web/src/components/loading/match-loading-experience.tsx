@@ -683,7 +683,7 @@ export function MatchLoadingExperience({
   }, []);
 
   return (
-    <div className="mx-auto min-h-[480px] max-w-lg space-y-4 p-4">
+    <div className="mx-auto max-h-[calc(100vh-4rem)] max-w-lg space-y-4 overflow-y-auto overscroll-contain p-4 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-700">
       {/* Main card with team matchup */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -890,7 +890,7 @@ export function MatchLoadingExperience({
  */
 export function MatchLoadingExperienceSkeleton() {
   return (
-    <div className="mx-auto min-h-[480px] max-w-lg space-y-4 p-4">
+    <div className="mx-auto max-h-[calc(100vh-4rem)] max-w-lg space-y-4 overflow-y-auto p-4">
       <div className="rounded-2xl border border-slate-700/50 bg-slate-900/50 p-4">
         {/* Header skeleton */}
         <div className="mb-4 flex justify-between">

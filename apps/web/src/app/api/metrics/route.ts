@@ -39,6 +39,7 @@ export async function GET() {
         predictionCount: health.predictionCount,
         issues: health.issues,
         lastUpdate: health.lastUpdate,
+        hasSufficientData: health.hasSufficientData,
       },
       drift: {
         driftDetected: drift.driftDetected,

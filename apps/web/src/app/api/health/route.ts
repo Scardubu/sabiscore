@@ -13,6 +13,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const health = await freeMonitoring.getHealthCheck();
+    const statusCode = health.status === 'critical' ? 503 : 200;
     
     return NextResponse.json({
       status: health.status,
@@ -23,10 +24,11 @@ export async function GET() {
         predictionCount: health.predictionCount,
       },
       issues: health.issues,
+      hasSufficientData: health.hasSufficientData,
       lastUpdate: new Date(health.lastUpdate).toISOString(),
       timestamp: new Date().toISOString(),
     }, {
-      status: health.status === 'healthy' ? 200 : health.status === 'degraded' ? 207 : 503,
+      status: statusCode,
     });
   } catch (error) {
     console.error('Health check failed:', error);

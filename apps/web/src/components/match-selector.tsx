@@ -209,8 +209,8 @@ export function MatchSelector() {
                       handleLeagueSelect(l.id);
                     }
                   }}
-                  aria-pressed={league === l.id}
-                  aria-label={`Select ${l.name}`}
+                  data-selected={league === l.id}
+                  aria-label={`Select ${l.name}${league === l.id ? ' (selected)' : ''}`}
                   className={cn(
                     "rounded-xl border-2 p-3 transition-all",
                     premiumVisualsEnabled
@@ -325,14 +325,14 @@ export function MatchSelector() {
 
       {interstitialV2Enabled && showInterstitial && pendingMatchup && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 px-4 py-8 backdrop-blur"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 px-4 py-safe-area-inset-top backdrop-blur overflow-hidden"
           role="dialog"
           aria-modal="true"
           aria-labelledby="match-loading-title"
           aria-describedby="match-loading-desc"
         >
           <div className="absolute inset-0" aria-hidden="true" />
-          <div className="relative w-full max-w-xl">
+          <div className="relative w-full max-w-xl max-h-[calc(100vh-2rem)] overflow-y-auto">
             <MatchLoadingExperience
               homeTeam={pendingMatchup.home}
               awayTeam={pendingMatchup.away}

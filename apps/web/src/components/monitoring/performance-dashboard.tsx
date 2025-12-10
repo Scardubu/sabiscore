@@ -52,10 +52,10 @@ export function PerformanceDashboard() {
 
   if (loading && !health) {
     return (
-      <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-8">
+      <div className="rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-8 shadow-sm">
         <div className="flex items-center justify-center gap-3">
-          <Activity className="w-5 h-5 animate-pulse" />
-          <span className="text-sm text-muted-foreground">Loading dashboard...</span>
+          <Activity className="w-5 h-5 animate-pulse text-indigo-500" />
+          <span className="text-sm font-medium text-neutral-600 dark:text-neutral-300">Loading dashboard...</span>
         </div>
       </div>
     );
@@ -78,10 +78,10 @@ export function PerformanceDashboard() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6"
+        className="rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-6 shadow-sm"
       >
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold">System Health</h3>
+          <h3 className="text-lg font-bold text-neutral-900 dark:text-white">System Health</h3>
           <StatusBadge status={health?.status || 'unknown'} />
         </div>
 
@@ -115,6 +115,20 @@ export function PerformanceDashboard() {
           </div>
         )}
 
+        {health && !health.hasSufficientData && (
+          <div className="mt-4 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800">
+            <div className="flex items-start gap-3">
+              <Activity className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-blue-900 dark:text-blue-100">Collecting baseline metrics</p>
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  Need more labelled predictions to evaluate health. Currently tracking {health.predictionCount}.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {health?.issues && health.issues.length > 0 && (
           <div className="mt-4 p-4 rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800">
             <div className="flex items-start gap-3">
@@ -138,10 +152,10 @@ export function PerformanceDashboard() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6"
+          className="rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-6 shadow-sm"
         >
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold">Model Drift Detection</h3>
+            <h3 className="text-lg font-bold text-neutral-900 dark:text-white">Model Drift Detection</h3>
             <DriftBadge severity={drift.severity} />
           </div>
 
@@ -179,16 +193,16 @@ export function PerformanceDashboard() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6"
+        className="rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-6 shadow-sm"
       >
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">Prediction Statistics</h3>
+          <h3 className="text-lg font-bold text-neutral-900 dark:text-white">Prediction Statistics</h3>
           <ExportButton predictionCount={health?.predictionCount || 0} />
         </div>
         {health && (
-          <div className="text-sm text-muted-foreground">
-            <p>Total Predictions: <span className="font-medium text-foreground">{health.predictionCount}</span></p>
-            <p className="mt-2 text-xs">Last Updated: {new Date(health.lastUpdate).toLocaleString()}</p>
+          <div className="text-sm">
+            <p className="text-neutral-700 dark:text-neutral-300">Total Predictions: <span className="font-bold text-neutral-900 dark:text-white">{health.predictionCount}</span></p>
+            <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Last Updated: {new Date(health.lastUpdate).toLocaleString()}</p>
           </div>
         )}
       </motion.div>
@@ -212,6 +226,11 @@ function StatusBadge({ status }: { status: string }) {
       bg: 'bg-red-100 dark:bg-red-900/20',
       text: 'text-red-700 dark:text-red-400',
       icon: XCircle,
+    },
+    initializing: {
+      bg: 'bg-blue-100 dark:bg-blue-900/20',
+      text: 'text-blue-700 dark:text-blue-400',
+      icon: Activity,
     },
     unknown: {
       bg: 'bg-gray-100 dark:bg-gray-900/20',
@@ -269,20 +288,27 @@ function MetricCard({ label, value, target, current, icon: Icon, color, inverse 
     red: 'text-red-600 dark:text-red-400',
   };
 
+  const bgClasses = {
+    blue: 'bg-blue-50 dark:bg-blue-900/20',
+    purple: 'bg-purple-50 dark:bg-purple-900/20',
+    green: 'bg-green-50 dark:bg-green-900/20',
+    red: 'bg-red-50 dark:bg-red-900/20',
+  };
+
   return (
-    <div className="p-4 rounded-lg border border-neutral-200 dark:border-neutral-800">
+    <div className={`p-4 rounded-lg border border-neutral-300 dark:border-neutral-700 ${bgClasses[color as keyof typeof bgClasses] || 'bg-neutral-50 dark:bg-neutral-800/50'}`}>
       <div className="flex items-center gap-2 mb-2">
         <Icon className={`w-4 h-4 ${colorClasses[color as keyof typeof colorClasses]}`} />
-        <span className="text-sm text-muted-foreground">{label}</span>
+        <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">{label}</span>
       </div>
-      <p className="text-2xl font-bold">{value}</p>
+      <p className="text-2xl font-bold text-neutral-900 dark:text-white">{value}</p>
       <div className="mt-2 flex items-center gap-2">
         {isGood ? (
           <CheckCircle className="w-3 h-3 text-green-600 dark:text-green-400" />
         ) : (
           <AlertTriangle className="w-3 h-3 text-amber-600 dark:text-amber-400" />
         )}
-        <span className="text-xs text-muted-foreground">
+        <span className="text-xs font-medium text-neutral-600 dark:text-neutral-400">
           Target: {inverse ? '≤' : '≥'} {target}{label === 'Accuracy' ? '%' : ''}
         </span>
       </div>
@@ -297,9 +323,15 @@ function DriftMetric({ label, value, severity }: { label: string; value: string;
     high: 'text-red-600 dark:text-red-400',
   };
 
+  const bgColors = {
+    low: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
+    medium: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800',
+    high: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
+  };
+
   return (
-    <div className="text-center">
-      <p className="text-sm text-muted-foreground mb-1">{label}</p>
+    <div className={`text-center p-3 rounded-lg border ${bgColors[severity as keyof typeof bgColors] || bgColors.low}`}>
+      <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{label}</p>
       <p className={`text-xl font-bold ${colors[severity as keyof typeof colors] || colors.low}`}>
         {value}
       </p>
@@ -373,8 +405,8 @@ function ExportButton({ predictionCount }: { predictionCount: number }) {
               >
                 <FileJson className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                 <div>
-                  <div className="font-medium">JSON</div>
-                  <div className="text-xs text-muted-foreground">Full data export</div>
+                  <div className="font-medium text-neutral-900 dark:text-neutral-100">JSON</div>
+                  <div className="text-xs text-neutral-600 dark:text-neutral-400">Full data export</div>
                 </div>
               </button>
               <button
@@ -383,8 +415,8 @@ function ExportButton({ predictionCount }: { predictionCount: number }) {
               >
                 <FileSpreadsheet className="w-4 h-4 text-green-600 dark:text-green-400" />
                 <div>
-                  <div className="font-medium">CSV</div>
-                  <div className="text-xs text-muted-foreground">Spreadsheet format</div>
+                  <div className="font-medium text-neutral-900 dark:text-neutral-100">CSV</div>
+                  <div className="text-xs text-neutral-600 dark:text-neutral-400">Spreadsheet format</div>
                 </div>
               </button>
             </div>
