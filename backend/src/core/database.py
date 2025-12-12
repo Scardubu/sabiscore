@@ -69,26 +69,27 @@ else:
     )
 
 # Quick connection test and safe fallback for local development
+_db_available = True
 try:
     # Try a lightweight connection to validate DB reachability
     with engine.connect() as conn:
         conn.execute(text("SELECT 1"))
+    logger.info("Database connection successful")
 except Exception as exc:
     logger.warning("Initial DB connection test failed: %s", exc)
-    # Only auto-fallback in non-production environments
-    if settings.app_env != "production" and not _sync_url.startswith("sqlite"):
+    _db_available = False
+    # Fallback to SQLite in all environments when primary DB is unavailable
+    # This allows the service to start and serve predictions even without Postgres
+    if not _sync_url.startswith("sqlite"):
         fallback_url = "sqlite:///./sabiscore_fallback.db"
-        logger.warning("Falling back to local SQLite database for development: %s", fallback_url)
+        logger.warning("Falling back to local SQLite database: %s", fallback_url)
         engine = create_engine(
             fallback_url,
             echo=settings.debug,
             poolclass=None,
             connect_args={"check_same_thread": False},
         )
-    else:
-        # Re-raise for production so deployments fail loudly
-        logger.exception("Database unreachable and cannot auto-fallback in production")
-        raise
+        _db_available = True  # SQLite fallback is available
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
