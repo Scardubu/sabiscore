@@ -1,5 +1,5 @@
 # Backend (deployed separately)
-backend/
+/backend/
 **/backend/
 
 # Python
@@ -14,11 +14,11 @@ build/
 venv/
 .env
 
-# Data directories
-data/
-models/
-monitoring/
-dags/
+# Data directories (exclude only repo-root copies, not app source)
+/data/
+/models/
+/monitoring/
+/dags/
 
 # Logs
 *.log

@@ -1,6 +1,9 @@
 # Vercel
 .vercel
 
+# Turborepo
+.turbo/
+
 # Dependencies
 node_modules/
 backend/venv/
