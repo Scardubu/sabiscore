@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from sqlalchemy.pool import NullPool
 
 from ..core.config import settings
-from ..core.database import Base, SessionLocal as SyncSessionLocal
+from ..core.database import Base, SessionLocal as SyncSessionLocal, is_using_fallback
 
 logger = logging.getLogger(__name__)
 
@@ -20,69 +20,112 @@ SessionLocal = SyncSessionLocal
 async_engine: Optional[AsyncEngine] = None
 AsyncSessionLocal: Optional[async_sessionmaker[AsyncSession]] = None
 
+# SQLite fallback URL for async operations
+SQLITE_FALLBACK_URL = "sqlite+aiosqlite:///./sabiscore_fallback.db"
+
+
+def _get_async_database_url(raw_url: str) -> str:
+    """Convert database URL to async-compatible format."""
+    if raw_url.startswith("postgresql+asyncpg://"):
+        return raw_url
+    elif raw_url.startswith("postgres://"):
+        return raw_url.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif raw_url.startswith("postgresql://"):
+        return raw_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    elif raw_url.startswith("sqlite+aiosqlite://"):
+        return raw_url
+    elif raw_url.startswith("sqlite:///"):
+        return raw_url.replace("sqlite:///", "sqlite+aiosqlite:///", 1)
+    elif raw_url.startswith("sqlite://"):
+        return raw_url.replace("sqlite://", "sqlite+aiosqlite://", 1)
+    return raw_url
+
+
+async def _try_create_async_engine(database_url: str, engine_kwargs: Dict[str, Any]) -> AsyncEngine:
+    """Create async engine and test connection."""
+    eng = create_async_engine(database_url, **engine_kwargs)
+    # Test the connection
+    async with eng.begin() as conn:
+        await conn.execute(text("SELECT 1"))
+    return eng
+
 
 async def init_db() -> None:
     """
     Initialize database engine and create tables.
     Called during application startup.
+    Uses SQLite fallback if PostgreSQL is unavailable (matching sync engine behavior).
     """
     global async_engine, AsyncSessionLocal
 
-    try:
-        # Create async engine
-        raw_url = settings.database_url
+    # Check if sync engine is already using fallback
+    using_fallback = is_using_fallback()
+    
+    if using_fallback:
+        # Sync engine already fell back to SQLite, use same for async
+        logger.info("Sync engine using SQLite fallback, initializing async engine with SQLite")
+        database_url = SQLITE_FALLBACK_URL
+    else:
+        database_url = _get_async_database_url(settings.database_url)
 
-        if raw_url.startswith("postgresql+asyncpg://"):
-            database_url = raw_url
-        elif raw_url.startswith("postgres://"):
-            database_url = raw_url.replace("postgres://", "postgresql+asyncpg://", 1)
-        elif raw_url.startswith("postgresql://"):
-            database_url = raw_url.replace("postgresql://", "postgresql+asyncpg://", 1)
-        elif raw_url.startswith("sqlite+aiosqlite://"):
-            database_url = raw_url
-        elif raw_url.startswith("sqlite:///"):
-            database_url = raw_url.replace("sqlite:///", "sqlite+aiosqlite:///", 1)
-        elif raw_url.startswith("sqlite://"):
-            database_url = raw_url.replace("sqlite://", "sqlite+aiosqlite://", 1)
-        else:
-            database_url = raw_url
+    use_null_pool = settings.app_env == "test" or database_url.startswith("sqlite")
 
-        use_null_pool = settings.app_env == "test" or database_url.startswith("sqlite")
+    engine_kwargs: Dict[str, Any] = {
+        "echo": settings.debug,
+    }
 
-        engine_kwargs: Dict[str, Any] = {
-            "echo": settings.debug,
-            "pool_pre_ping": True,
-        }
-
-        if use_null_pool:
-            engine_kwargs["poolclass"] = NullPool
-        else:
-            engine_kwargs.update(
-                pool_size=settings.database_pool_size,
-                max_overflow=settings.database_max_overflow,
-                pool_timeout=settings.database_pool_timeout,
-                pool_recycle=settings.database_pool_recycle,
-            )
-
-        async_engine = create_async_engine(database_url, **engine_kwargs)
-
-        # Create session factory
-        AsyncSessionLocal = async_sessionmaker(
-            async_engine,
-            class_=AsyncSession,
-            expire_on_commit=False,
-            autocommit=False,
-            autoflush=False,
+    if use_null_pool or database_url.startswith("sqlite"):
+        engine_kwargs["poolclass"] = NullPool
+    else:
+        engine_kwargs["pool_pre_ping"] = True
+        engine_kwargs.update(
+            pool_size=settings.database_pool_size,
+            max_overflow=settings.database_max_overflow,
+            pool_timeout=settings.database_pool_timeout,
+            pool_recycle=settings.database_pool_recycle,
         )
-        
-        # Create tables
+
+    try:
+        async_engine = await _try_create_async_engine(database_url, engine_kwargs)
+        logger.info(f"Async database engine created successfully ({'SQLite' if 'sqlite' in database_url else 'PostgreSQL'})")
+    except Exception as e:
+        if not database_url.startswith("sqlite"):
+            # PostgreSQL failed, try SQLite fallback
+            logger.warning(f"PostgreSQL async connection failed ({e}), falling back to SQLite")
+            engine_kwargs["poolclass"] = NullPool
+            engine_kwargs.pop("pool_pre_ping", None)
+            engine_kwargs.pop("pool_size", None)
+            engine_kwargs.pop("max_overflow", None)
+            engine_kwargs.pop("pool_timeout", None)
+            engine_kwargs.pop("pool_recycle", None)
+            
+            try:
+                async_engine = await _try_create_async_engine(SQLITE_FALLBACK_URL, engine_kwargs)
+                database_url = SQLITE_FALLBACK_URL
+                logger.info("Async SQLite fallback database initialized")
+            except Exception as fallback_error:
+                logger.error(f"Both PostgreSQL and SQLite async fallback failed: {fallback_error}")
+                raise
+        else:
+            logger.error(f"Failed to initialize SQLite async database: {e}", exc_info=True)
+            raise
+
+    # Create session factory
+    AsyncSessionLocal = async_sessionmaker(
+        async_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autocommit=False,
+        autoflush=False,
+    )
+    
+    # Create tables
+    try:
         async with async_engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
-        
-        logger.info("Database initialized successfully")
-        
+        logger.info("Database tables created/verified successfully")
     except Exception as e:
-        logger.error(f"Failed to initialize database: {e}", exc_info=True)
+        logger.error(f"Failed to create database tables: {e}", exc_info=True)
         raise
 
 
