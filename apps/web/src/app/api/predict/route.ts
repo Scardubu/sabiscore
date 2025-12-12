@@ -9,6 +9,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { TFJSEnsembleEngine } from '@/lib/ml/tfjs-ensemble-engine';
 import { TrainingAdapter } from '@/lib/ml/training-adapter';
 import { freeMonitoring } from '@/lib/monitoring/free-analytics';
+import {
+  getCachedPrediction,
+  setCachedPrediction,
+  generateMatchId,
+} from '@/lib/cache/prediction-cache';
 
 // Use Node.js runtime for TensorFlow.js compatibility
 export const runtime = 'nodejs';
@@ -38,6 +43,28 @@ export async function POST(request: NextRequest) {
         error: 'Missing features',
         message: 'Request must include match features',
       }, { status: 400 });
+    }
+    
+    // Generate match ID for caching
+    const matchId = matchup ? generateMatchId(
+      matchup.homeTeam,
+      matchup.awayTeam,
+      matchup.league
+    ) : `unknown-${Date.now()}`;
+    
+    // Check cache first
+    const cached = await getCachedPrediction(matchId);
+    if (cached) {
+      console.log(`✅ Cache hit for ${matchId}`);
+      return NextResponse.json({
+        ...cached,
+        performance: {
+          inferenceTime: 0,
+          totalTime: Date.now() - startTime,
+          fromCache: true,
+        },
+        timestamp: new Date().toISOString(),
+      });
     }
     
     // Get engine instance with timeout
@@ -76,16 +103,24 @@ export async function POST(request: NextRequest) {
     
     const totalTime = Date.now() - startTime;
     
-    return NextResponse.json({
+    // Cache the prediction result
+    const responseData = {
       prediction,
       performance: {
         inferenceTime,
         totalTime,
+        fromCache: false,
       },
       metadata: {
         ensembleAgreement: prediction.ensembleAgreement,
         calibratedBrier: prediction.calibratedBrier,
       },
+    };
+    
+    await setCachedPrediction(matchId, responseData);
+    
+    return NextResponse.json({
+      ...responseData,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

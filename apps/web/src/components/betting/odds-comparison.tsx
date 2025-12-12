@@ -8,7 +8,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown, Clock, AlertCircle } from 'lucide-react';
+import { TrendingUp, Clock, AlertCircle } from 'lucide-react';
 import type { AggregatedOdds, CLVMetrics } from '@/lib/betting/free-odds-aggregator';
 
 interface OddsComparisonProps {

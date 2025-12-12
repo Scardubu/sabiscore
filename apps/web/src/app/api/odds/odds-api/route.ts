@@ -42,18 +42,29 @@ export async function GET(request: NextRequest) {
       throw new Error(`Odds API returned ${response.status}`);
     }
     
-    const data = await response.json();
+    const data = await response.json() as Array<{
+      home_team: string;
+      away_team: string;
+      commence_time: string;
+      bookmakers?: Array<{
+        key: string;
+        markets?: Array<{
+          key: string;
+          outcomes?: Array<{ name: string; price: number }>;
+        }>;
+      }>;
+    }>;
     
     // Transform to standard format
-    const odds = data.map((match: any) => ({
+    const odds = data.map((match) => ({
       homeTeam: match.home_team,
       awayTeam: match.away_team,
       commence: match.commence_time,
-      bookmakers: match.bookmakers?.map((bm: any) => ({
+      bookmakers: match.bookmakers?.map((bm) => ({
         name: bm.key,
-        markets: bm.markets?.map((market: any) => ({
+        markets: bm.markets?.map((market) => ({
           type: market.key,
-          outcomes: market.outcomes?.map((outcome: any) => ({
+          outcomes: market.outcomes?.map((outcome) => ({
             name: outcome.name,
             price: outcome.price,
           })),

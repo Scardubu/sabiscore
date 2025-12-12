@@ -139,7 +139,7 @@ export class FreeMonitoring {
     
     // Update bet outcome if provided
     if (betOutcome !== undefined) {
-      prediction.betOutcome = betOutcome;
+      prediction.betOutcome = betOutcome === 'void' ? 'pending' : betOutcome;
     }
     if (betProfit !== undefined) {
       prediction.betProfit = betProfit;

@@ -21,7 +21,6 @@ interface KellyStakeCardProps {
 export function KellyStakeCard({
   recommendation,
   monteCarlo,
-  currency = 'NGN',
   currencySymbol = '₦',
 }: KellyStakeCardProps) {
   const { recommendation: shouldBet, stake, edge, expectedValue, riskLevel } = recommendation;

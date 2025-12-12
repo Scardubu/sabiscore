@@ -8,14 +8,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { TrendingUp, Activity, Target, AlertCircle } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { AlertCircle, Activity } from 'lucide-react';
 import { PredictionErrorBoundary } from '@/components/prediction-error-boundary';
 import { PredictionLoading } from '@/components/prediction-loading';
 import { KellyStakeCard } from '@/components/betting/kelly-stake-card';
 import { OddsComparison } from '@/components/betting/odds-comparison';
 import type { PredictionOutput } from '@/lib/ml/tfjs-ensemble-engine';
-import type { BettingRecommendation, Odds } from '@/lib/betting/kelly-optimizer';
+import type { BettingRecommendation } from '@/lib/betting/kelly-optimizer';
 import type { AggregatedOdds } from '@/lib/betting/free-odds-aggregator';
 
 interface LivePredictionFlowProps {
@@ -43,6 +43,7 @@ export function LivePredictionFlow({
 
   useEffect(() => {
     loadPredictionFlow();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [homeTeam, awayTeam, league]);
 
   async function loadPredictionFlow() {

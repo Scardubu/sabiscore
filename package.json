@@ -1,6 +1,7 @@
 {
   "name": "sabiscore-monorepo",
   "version": "3.0.0",
+  "packageManager": "npm@10.8.2",
   "private": true,
   "description": "Edge-first Next.js 15 + FastAPI monorepo powering Sabiscore - Sub-150ms TTFB, 10k CCU, +18% ROI",
   "license": "MIT",
@@ -20,6 +21,7 @@
     "build:local": "node ./scripts/build-local.js",
     "build:web": "turbo run build --filter=@sabiscore/web",
     "typecheck": "turbo run typecheck",
+    "type-check": "npm run typecheck",
     "lint": "turbo run lint",
     "test": "turbo run test",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
@@ -40,6 +42,7 @@
     "tailwindcss-animate": "^1.0.7",
     "tsup": "^8.3.5",
     "turbo": "^2.6.1",
+    "turbo-windows-64": "^2.6.1",
     "typescript": "^5.6.3"
   },
   "dependencies": {

@@ -7,6 +7,13 @@
  * @module lib/betting/kelly-optimizer
  */
 
+import {
+  calculateEnsembleDisagreement,
+  getBettingRecommendation,
+  type DisagreementAnalysis,
+  type EnsembleVotes,
+} from './ensemble-filter';
+
 export interface Odds {
   home: number;
   draw: number;
@@ -21,6 +28,8 @@ export interface CalibratedPrediction {
   awayWin: number;
   confidence: number;
   brierScore?: number;
+  ensembleVotes?: EnsembleVotes;
+  disagreementAnalysis?: DisagreementAnalysis;
 }
 
 export interface MonteCarloResult {
@@ -46,6 +55,13 @@ export interface BettingRecommendation {
   reasoning: string;
   confidenceLevel: 'high' | 'medium' | 'low';
   riskLevel: 'conservative' | 'moderate' | 'aggressive';
+  disagreementAnalysis?: DisagreementAnalysis;
+  stakeAdjustment?: {
+    original: number;
+    adjusted: number;
+    multiplier: number;
+    reason: string;
+  };
 }
 
 export type RiskProfile = 'conservative' | 'moderate' | 'aggressive';
@@ -84,6 +100,35 @@ export class KellyOptimizer {
       if (edge > bestEdge) {
         bestEdge = edge;
         bestMarket = market;
+      }
+    }
+    
+    // Check ensemble disagreement FIRST (most important filter)
+    if (prediction.ensembleVotes) {
+      const outcomeMap = { home: 'homeWin' as const, draw: 'draw' as const, away: 'awayWin' as const };
+      const disagreementAnalysis = calculateEnsembleDisagreement(
+        prediction.ensembleVotes,
+        outcomeMap[bestMarket.name]
+      );
+      
+      const bettingRec = getBettingRecommendation(
+        disagreementAnalysis
+      );
+      
+      if (!bettingRec.shouldBet) {
+        return {
+          recommendation: 'skip',
+          stake: 0,
+          market: bestMarket.name,
+          edge: bestEdge * 100,
+          expectedValue: 0,
+          kellyFraction: 0,
+          monteCarlo: this.getEmptyMonteCarloResult(),
+          reasoning: bettingRec.warning || disagreementAnalysis.reason,
+          confidenceLevel: 'low',
+          riskLevel: riskProfile,
+          disagreementAnalysis,
+        };
       }
     }
     
@@ -134,11 +179,38 @@ export class KellyOptimizer {
     const adjustedKelly = Math.max(0, fullKelly * kellyFraction);
     
     // Position sizing with safety caps
-    const stake = Math.min(
+    let stake = Math.min(
       adjustedKelly * bankroll,
       bankroll * this.MAX_STAKE_PERCENT,
       bankroll * 0.1 // Absolute max 10%
     );
+    
+    // Apply disagreement-based stake adjustment
+    let stakeAdjustment: BettingRecommendation['stakeAdjustment'] | undefined;
+    let disagreementAnalysis: DisagreementAnalysis | undefined;
+    
+    if (prediction.ensembleVotes) {
+      const outcomeMap = { home: 'homeWin' as const, draw: 'draw' as const, away: 'awayWin' as const };
+      disagreementAnalysis = calculateEnsembleDisagreement(
+        prediction.ensembleVotes,
+        outcomeMap[bestMarket.name]
+      );
+      
+      const bettingRec = getBettingRecommendation(
+        disagreementAnalysis
+      );
+      
+      if (bettingRec.stakeMultiplier < 1.0) {
+        const originalStake = stake;
+        stake = stake * bettingRec.stakeMultiplier;
+        stakeAdjustment = {
+          original: originalStake,
+          adjusted: stake,
+          multiplier: bettingRec.stakeMultiplier,
+          reason: bettingRec.warning || 'Stake reduced due to model disagreement',
+        };
+      }
+    }
     
     // Run Monte Carlo simulation
     const monteCarlo = await this.runMonteCarlo(
@@ -178,6 +250,8 @@ export class KellyOptimizer {
       reasoning,
       confidenceLevel,
       riskLevel: riskProfile,
+      disagreementAnalysis,
+      stakeAdjustment,
     };
   }
   

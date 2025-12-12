@@ -19,8 +19,10 @@ import { TrainingAdapter } from '@/lib/ml/training-adapter';
 import { kellyOptimizer } from '@/lib/betting/kelly-optimizer';
 import { freeOddsAggregator } from '@/lib/betting/free-odds-aggregator';
 import { freeMonitoring } from '@/lib/monitoring/free-analytics';
-import type { EnsembleMatchFeatures } from '@/lib/ml/tfjs-ensemble-engine';
 import type { ModelFeatures } from '@/lib/data/statsbomb-pipeline';
+import type { PredictionOutput } from '@/lib/ml/tfjs-ensemble-engine';
+import type { AggregatedOdds } from '@/lib/betting/free-odds-aggregator';
+import type { BettingRecommendation, MonteCarloResult } from '@/lib/betting/kelly-optimizer';
 
 interface CompletePredictionFlowProps {
   matchId: string;
@@ -41,15 +43,16 @@ export function CompletePredictionFlow({
   bankroll = 10000, // ₦10,000 default
   riskProfile = 'conservative',
 }: CompletePredictionFlowProps) {
-  const [prediction, setPrediction] = useState<any>(null);
-  const [odds, setOdds] = useState<any>(null);
-  const [recommendation, setRecommendation] = useState<any>(null);
-  const [monteCarlo, setMonteCarlo] = useState<any>(null);
+  const [prediction, setPrediction] = useState<PredictionOutput | null>(null);
+  const [odds, setOdds] = useState<AggregatedOdds | null>(null);
+  const [recommendation, setRecommendation] = useState<BettingRecommendation | null>(null);
+  const [monteCarlo, setMonteCarlo] = useState<MonteCarloResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
     runCompletePredictionFlow();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matchId]);
   
   async function runCompletePredictionFlow() {
@@ -91,24 +94,27 @@ export function CompletePredictionFlow({
         bankroll,
         riskProfile
       );
-      setRecommendation(kellyResult);
       
-      // Step 6: Run Monte Carlo simulation (if betting recommended)
-      if (kellyResult.recommendation === 'bet') {
-        const predictedOutcome = getPredictedOutcome(predictionResult);
-        const winProbability = predictionResult[
-          predictedOutcome === 'home' ? 'homeWin' :
-          predictedOutcome === 'draw' ? 'draw' : 'awayWin'
-        ];
-        const oddsForOutcome = bestOdds[
-          predictedOutcome === 'home' ? 'home' :
-          predictedOutcome === 'draw' ? 'draw' : 'away'
-        ];
-        
-        if (oddsForOutcome) {
-          // Use Monte Carlo output from recommendation for display consistency
-          setMonteCarlo(kellyResult.monteCarlo);
-        }
+      // Map to full BettingRecommendation interface
+      const fullRecommendation: BettingRecommendation = {
+        recommendation: kellyResult.recommendation,
+        stake: kellyResult.stake,
+        market: kellyResult.market,
+        edge: kellyResult.edge,
+        expectedValue: kellyResult.expectedValue,
+        kellyFraction: kellyResult.kellyFraction,
+        monteCarlo: kellyResult.monteCarlo,
+        reasoning: kellyResult.reasoning,
+        confidenceLevel: kellyResult.confidenceLevel,
+        riskLevel: kellyResult.riskLevel,
+        disagreementAnalysis: kellyResult.disagreementAnalysis,
+        stakeAdjustment: kellyResult.stakeAdjustment,
+      };
+      setRecommendation(fullRecommendation);
+      
+      // Step 6: Set Monte Carlo result from Kelly optimizer
+      if (kellyResult.monteCarlo) {
+        setMonteCarlo(kellyResult.monteCarlo);
       }
       
       // Step 7: Track prediction for monitoring
@@ -137,7 +143,7 @@ export function CompletePredictionFlow({
     }
   }
   
-  function getPredictedOutcome(prediction: any): 'home' | 'draw' | 'away' {
+  function getPredictedOutcome(prediction: PredictionOutput): 'home' | 'draw' | 'away' {
     const max = Math.max(prediction.homeWin, prediction.draw, prediction.awayWin);
     if (max === prediction.homeWin) return 'home';
     if (max === prediction.draw) return 'draw';
@@ -212,7 +218,7 @@ export function CompletePredictionFlow({
       )}
       
       {/* Kelly Stake Recommendation */}
-      {recommendation && (
+      {recommendation && monteCarlo && (
         <KellyStakeCard
           recommendation={recommendation}
           monteCarlo={monteCarlo}

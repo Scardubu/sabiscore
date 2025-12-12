@@ -5,6 +5,7 @@ import { Providers } from "./providers";
 import { ToastProvider } from "./toast-provider";
 import { ConsentProvider } from "../components/consent-banner";
 import { ErrorBoundary } from "../components/ErrorBoundary";
+import { ModelWarmup } from "../components/model-warmup";
 
 const inter = Inter({ 
   subsets: ["latin"], 
@@ -81,6 +82,7 @@ export default function RootLayout({
       <body className={`${inter.className} bg-slate-950 text-slate-100 antialiased min-h-screen`}>
         <ErrorBoundary>
           <Providers>
+            <ModelWarmup />
             <ToastProvider />
             <ConsentProvider requireConsent={true}>
               {children}

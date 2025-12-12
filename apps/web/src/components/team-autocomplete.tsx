@@ -294,6 +294,7 @@ export function TeamAutocomplete({
           <input
             ref={inputRef}
             type="text"
+            role="combobox"
             id={`team-combobox-${uid}`}
             value={internalValue}
             onChange={handleInputChange}

@@ -15,7 +15,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Brain, 
   Play, 
-  Pause, 
   RotateCcw, 
   CheckCircle2, 
   XCircle, 

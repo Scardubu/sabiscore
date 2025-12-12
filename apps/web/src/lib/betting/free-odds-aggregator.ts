@@ -235,7 +235,7 @@ export class FreeOddsAggregator {
     homeTeam: string,
     awayTeam: string,
     league?: string,
-    historicalWindow: number = 24 * 60 * 60 * 1000 // 24 hours
+    _historicalWindow: number = 24 * 60 * 60 * 1000 // 24 hours
   ): Promise<Record<'home' | 'draw' | 'away', OddsMovement>> {
     // In production, this would query a time-series database
     // For now, return mock data based on current odds
