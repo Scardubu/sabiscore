@@ -46,19 +46,15 @@ def _get_sync_database_url(url: str) -> str:
 # Get sync-compatible database URL
 _sync_url = _get_sync_database_url(settings.database_url)
 
-# Database engine
-if _sync_url.startswith("sqlite"):
-    # SQLite-specific configuration
-    engine = create_engine(
-        _sync_url,
-        echo=settings.debug,
-        poolclass=None,  # Disable connection pooling for SQLite
-        connect_args={"check_same_thread": False},  # Allow multi-threading
-    )
-else:
-    # PostgreSQL/MySQL configuration
-    engine = create_engine(
-        _sync_url,
+# Flag to track database availability
+_db_available = True
+_using_fallback = False
+
+
+def _create_postgres_engine(url: str):
+    """Create PostgreSQL engine with connection pooling."""
+    return create_engine(
+        url,
         poolclass=QueuePool,
         pool_size=settings.database_pool_size,
         max_overflow=settings.database_max_overflow,
@@ -68,30 +64,74 @@ else:
         pool_pre_ping=True,
     )
 
-# Quick connection test and safe fallback for local development
-_db_available = True
-try:
-    # Try a lightweight connection to validate DB reachability
-    with engine.connect() as conn:
-        conn.execute(text("SELECT 1"))
-    logger.info("Database connection successful")
-except Exception as exc:
-    logger.warning("Initial DB connection test failed: %s", exc)
-    _db_available = False
-    # Fallback to SQLite in all environments when primary DB is unavailable
-    # This allows the service to start and serve predictions even without Postgres
-    if not _sync_url.startswith("sqlite"):
+
+def _create_sqlite_engine(url: str):
+    """Create SQLite engine for fallback."""
+    return create_engine(
+        url,
+        echo=settings.debug,
+        poolclass=None,  # Disable connection pooling for SQLite
+        connect_args={"check_same_thread": False},  # Allow multi-threading
+    )
+
+
+def _test_connection(eng) -> bool:
+    """Test if engine can connect to database."""
+    try:
+        with eng.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return True
+    except Exception as e:
+        logger.warning("Connection test failed: %s", e)
+        return False
+
+
+# Initialize database engine with fallback
+if _sync_url.startswith("sqlite"):
+    # SQLite-specific configuration
+    engine = _create_sqlite_engine(_sync_url)
+    _db_available = _test_connection(engine)
+else:
+    # Try PostgreSQL first
+    try:
+        engine = _create_postgres_engine(_sync_url)
+        if _test_connection(engine):
+            logger.info("PostgreSQL connection successful")
+        else:
+            raise Exception("PostgreSQL connection test failed")
+    except Exception as exc:
+        logger.warning("PostgreSQL unavailable (%s), falling back to SQLite", exc)
+        _using_fallback = True
         fallback_url = "sqlite:///./sabiscore_fallback.db"
-        logger.warning("Falling back to local SQLite database: %s", fallback_url)
-        engine = create_engine(
-            fallback_url,
-            echo=settings.debug,
-            poolclass=None,
-            connect_args={"check_same_thread": False},
-        )
-        _db_available = True  # SQLite fallback is available
+        engine = _create_sqlite_engine(fallback_url)
+        _db_available = _test_connection(engine)
+        if _db_available:
+            logger.info("SQLite fallback database initialized")
+        else:
+            logger.error("Both PostgreSQL and SQLite fallback failed!")
+            _db_available = False
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+def is_db_available() -> bool:
+    """Check if database is available."""
+    return _db_available
+
+
+def is_using_fallback() -> bool:
+    """Check if using SQLite fallback instead of primary database."""
+    return _using_fallback
+
+
+def get_db_status() -> dict:
+    """Get database status information."""
+    return {
+        "available": _db_available,
+        "using_fallback": _using_fallback,
+        "url_type": "sqlite" if _sync_url.startswith("sqlite") or _using_fallback else "postgresql",
+    }
+
 
 # Database models
 class UserAccount(Base):

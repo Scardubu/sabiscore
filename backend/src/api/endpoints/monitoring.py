@@ -10,7 +10,7 @@ import time
 from sqlalchemy import text
 
 from ...core.cache import cache
-from ...core.database import engine
+from ...core.database import engine, get_db_status
 from ...core.config import settings
 from ...db.session import check_db_connection
 
@@ -30,6 +30,8 @@ def health_check() -> Dict[str, Any]:
         200: All systems operational
         503: Degraded state (some dependencies unavailable)
     """
+    db_status = get_db_status()
+    
     health_status = {
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
@@ -45,14 +47,18 @@ def health_check() -> Dict[str, Any]:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
         health_status["components"]["database"] = {
-            "status": "healthy",
-            "message": "Connected"
+            "status": "healthy" if not db_status["using_fallback"] else "degraded",
+            "message": "Connected" if not db_status["using_fallback"] else "Using SQLite fallback",
+            "type": db_status["url_type"]
         }
+        if db_status["using_fallback"]:
+            degraded = True
     except Exception as e:
         logger.error(f"Database health check failed: {e}")
         health_status["components"]["database"] = {
             "status": "unhealthy",
-            "message": str(e)
+            "message": str(e),
+            "type": db_status["url_type"]
         }
         degraded = True
     
