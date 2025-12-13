@@ -20,6 +20,7 @@ interface ConsentPreferences {
 }
 
 const CONSENT_STORAGE_KEY = "sabiscore_consent_v1";
+const AGE_GATE_STORAGE_KEY = "sabiscore_age_gate_accepted_v1";
 const CONSENT_VERSION = "1.0.0";
 
 // ---------------------------------------------------------------------------
@@ -58,6 +59,7 @@ export function useConsent() {
 
   const clearConsent = useCallback(() => {
     localStorage.removeItem(CONSENT_STORAGE_KEY);
+    localStorage.removeItem(AGE_GATE_STORAGE_KEY);
     setConsent(null);
   }, []);
 
@@ -83,6 +85,15 @@ export function ConsentBanner({ onConsentGiven }: ConsentBannerProps) {
     marketing: false,
     personalization: true,
   });
+
+  useEffect(() => {
+    try {
+      const accepted = localStorage.getItem(AGE_GATE_STORAGE_KEY) === "true";
+      if (accepted) setShowAgeGate(false);
+    } catch {
+      // ignore storage errors (e.g., privacy mode)
+    }
+  }, []);
 
   // Don't render if already consented or still loading
   if (isLoading || hasConsented) {
@@ -157,7 +168,14 @@ export function ConsentBanner({ onConsentGiven }: ConsentBannerProps) {
             {/* Actions */}
             <div className="flex flex-col gap-3">
               <button
-                onClick={() => setShowAgeGate(false)}
+                onClick={() => {
+                  try {
+                    localStorage.setItem(AGE_GATE_STORAGE_KEY, "true");
+                  } catch {
+                    // ignore storage errors
+                  }
+                  setShowAgeGate(false);
+                }}
                 className="w-full rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-500 px-6 py-3 font-semibold text-white shadow-lg transition hover:from-emerald-500 hover:to-emerald-400"
               >
                 I am 18+ and accept responsible gambling guidelines
@@ -251,21 +269,25 @@ export function ConsentBanner({ onConsentGiven }: ConsentBannerProps) {
                 <p className="font-medium text-slate-200">Analytics</p>
                 <p className="text-xs text-slate-500">Help us improve by tracking usage patterns</p>
               </div>
-              <button
-                onClick={() => setPreferences(p => ({ ...p, analytics: !p.analytics }))}
-                aria-label={`Toggle analytics cookies: currently ${preferences.analytics ? 'enabled' : 'disabled'}`}
-                aria-checked={preferences.analytics ? "true" : "false"}
-                role="switch"
-                className={`relative h-6 w-11 rounded-full transition ${
-                  preferences.analytics ? "bg-emerald-500" : "bg-slate-600"
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${
-                    preferences.analytics ? "left-5" : "left-0.5"
-                  }`}
-                />
-              </button>
+              {preferences.analytics ? (
+                <button
+                  onClick={() => setPreferences(p => ({ ...p, analytics: !p.analytics }))}
+                  aria-label="Toggle analytics cookies: currently enabled"
+                  aria-pressed="true"
+                  className="relative h-6 w-11 rounded-full transition bg-emerald-500"
+                >
+                  <span className="absolute top-0.5 left-5 h-5 w-5 rounded-full bg-white shadow transition" />
+                </button>
+              ) : (
+                <button
+                  onClick={() => setPreferences(p => ({ ...p, analytics: !p.analytics }))}
+                  aria-label="Toggle analytics cookies: currently disabled"
+                  aria-pressed="false"
+                  className="relative h-6 w-11 rounded-full transition bg-slate-600"
+                >
+                  <span className="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition" />
+                </button>
+              )}
             </div>
 
             {/* Marketing */}
@@ -274,21 +296,25 @@ export function ConsentBanner({ onConsentGiven }: ConsentBannerProps) {
                 <p className="font-medium text-slate-200">Marketing</p>
                 <p className="text-xs text-slate-500">Allow personalized advertisements</p>
               </div>
-              <button
-                onClick={() => setPreferences(p => ({ ...p, marketing: !p.marketing }))}
-                aria-label={`Toggle marketing cookies: currently ${preferences.marketing ? 'enabled' : 'disabled'}`}
-                aria-checked={preferences.marketing ? "true" : "false"}
-                role="switch"
-                className={`relative h-6 w-11 rounded-full transition ${
-                  preferences.marketing ? "bg-emerald-500" : "bg-slate-600"
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${
-                    preferences.marketing ? "left-5" : "left-0.5"
-                  }`}
-                />
-              </button>
+              {preferences.marketing ? (
+                <button
+                  onClick={() => setPreferences(p => ({ ...p, marketing: !p.marketing }))}
+                  aria-label="Toggle marketing cookies: currently enabled"
+                  aria-pressed="true"
+                  className="relative h-6 w-11 rounded-full transition bg-emerald-500"
+                >
+                  <span className="absolute top-0.5 left-5 h-5 w-5 rounded-full bg-white shadow transition" />
+                </button>
+              ) : (
+                <button
+                  onClick={() => setPreferences(p => ({ ...p, marketing: !p.marketing }))}
+                  aria-label="Toggle marketing cookies: currently disabled"
+                  aria-pressed="false"
+                  className="relative h-6 w-11 rounded-full transition bg-slate-600"
+                >
+                  <span className="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition" />
+                </button>
+              )}
             </div>
 
             {/* Personalization */}
@@ -297,21 +323,25 @@ export function ConsentBanner({ onConsentGiven }: ConsentBannerProps) {
                 <p className="font-medium text-slate-200">Personalization</p>
                 <p className="text-xs text-slate-500">Remember your preferences and settings</p>
               </div>
-              <button
-                onClick={() => setPreferences(p => ({ ...p, personalization: !p.personalization }))}
-                aria-label={`Toggle personalization cookies: currently ${preferences.personalization ? 'enabled' : 'disabled'}`}
-                aria-checked={preferences.personalization ? "true" : "false"}
-                role="switch"
-                className={`relative h-6 w-11 rounded-full transition ${
-                  preferences.personalization ? "bg-emerald-500" : "bg-slate-600"
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${
-                    preferences.personalization ? "left-5" : "left-0.5"
-                  }`}
-                />
-              </button>
+              {preferences.personalization ? (
+                <button
+                  onClick={() => setPreferences(p => ({ ...p, personalization: !p.personalization }))}
+                  aria-label="Toggle personalization cookies: currently enabled"
+                  aria-pressed="true"
+                  className="relative h-6 w-11 rounded-full transition bg-emerald-500"
+                >
+                  <span className="absolute top-0.5 left-5 h-5 w-5 rounded-full bg-white shadow transition" />
+                </button>
+              ) : (
+                <button
+                  onClick={() => setPreferences(p => ({ ...p, personalization: !p.personalization }))}
+                  aria-label="Toggle personalization cookies: currently disabled"
+                  aria-pressed="false"
+                  className="relative h-6 w-11 rounded-full transition bg-slate-600"
+                >
+                  <span className="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition" />
+                </button>
+              )}
             </div>
           </div>
         )}

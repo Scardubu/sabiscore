@@ -5,24 +5,14 @@ import { motion } from "framer-motion";
 import type { InsightsResponse } from "@/lib/api";
 import { ErrorBoundary, PredictionErrorFallback } from "./error-boundary";
 import { freeMonitoring } from "@/lib/monitoring/free-analytics";
+import { PredictionSkeleton } from "./prediction-skeleton";
 
 // Dynamically import InsightsDisplay with client-only rendering
 const InsightsDisplay = dynamic(
   () => import("./insights-display").then((mod) => mod.InsightsDisplay),
   { 
     ssr: false,
-    loading: () => (
-      <div className="p-8 flex items-center justify-center" role="status" aria-live="polite">
-        <div className="flex flex-col items-center gap-3">
-          <div className="relative h-12 w-12">
-            <div className="absolute inset-0 animate-spin rounded-full border-2 border-indigo-500/30 border-t-indigo-500"></div>
-            <div className="absolute inset-2 animate-[spin_0.8s_linear_infinite_reverse] rounded-full border-2 border-purple-500/30 border-t-purple-500"></div>
-          </div>
-          <p className="text-sm text-slate-400 animate-pulse">Finalizing insights...</p>
-          <span className="sr-only">Loading match insights</span>
-        </div>
-      </div>
-    ),
+    loading: () => <PredictionSkeleton />,
   }
 );
 

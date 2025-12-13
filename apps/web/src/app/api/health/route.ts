@@ -14,14 +14,25 @@ export async function GET() {
   try {
     const health = await freeMonitoring.getHealthCheck();
     const statusCode = health.status === 'critical' ? 503 : 200;
+
+    // Frontend dashboards expect these fields at the top-level.
+    // Keep the nested `metrics` object for backward compatibility.
+    const accuracy = typeof health.accuracy === 'number' ? health.accuracy : 0;
+    const brierScore = typeof health.brierScore === 'number' ? health.brierScore : 0;
+    const roi = typeof health.roi === 'number' ? health.roi : 0;
+    const predictionCount = typeof health.predictionCount === 'number' ? health.predictionCount : 0;
     
     return NextResponse.json({
       status: health.status,
+      accuracy,
+      brierScore,
+      roi,
+      predictionCount,
       metrics: {
-        accuracy: health.accuracy,
-        brierScore: health.brierScore,
-        roi: health.roi,
-        predictionCount: health.predictionCount,
+        accuracy,
+        brierScore,
+        roi,
+        predictionCount,
       },
       issues: health.issues,
       hasSufficientData: health.hasSufficientData,

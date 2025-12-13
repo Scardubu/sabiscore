@@ -163,7 +163,7 @@ function InsightsDisplayInner({ insights }: InsightsDisplayProps) {
             const label = context.label || "";
             const parsed = context.parsed ?? 0;
             const value = (Array.isArray(parsed) ? parsed[0] : parsed) as number;
-            return `${label}: ${(value * 100).toFixed(1)}%`;
+            return `${label}: ${typeof value === 'number' ? (value * 100).toFixed(1) : '0.0'}%`;
           },
         },
       },
@@ -308,7 +308,7 @@ function InsightsDisplayInner({ insights }: InsightsDisplayProps) {
           <div className="px-4 py-2 bg-purple-500/10 border border-purple-500/20 rounded-xl">
             <p className="text-sm text-slate-400">Confidence</p>
             <p className="text-2xl font-bold text-purple-400">
-              {(predictions.confidence * 100).toFixed(1)}%
+              {typeof predictions.confidence === 'number' ? (predictions.confidence * 100).toFixed(1) : '0.0'}%
             </p>
           </div>
         </div>
@@ -377,19 +377,19 @@ function InsightsDisplayInner({ insights }: InsightsDisplayProps) {
             <div className="text-center">
               <p className="text-sm text-slate-400 mb-1">Home Win</p>
               <p className="text-2xl font-bold text-indigo-400">
-                {(predictions.home_win_prob * 100).toFixed(1)}%
+                {typeof predictions.home_win_prob === 'number' ? (predictions.home_win_prob * 100).toFixed(1) : '0.0'}%
               </p>
             </div>
             <div className="text-center">
               <p className="text-sm text-slate-400 mb-1">Draw</p>
               <p className="text-2xl font-bold text-purple-400">
-                {(predictions.draw_prob * 100).toFixed(1)}%
+                {typeof predictions.draw_prob === 'number' ? (predictions.draw_prob * 100).toFixed(1) : '0.0'}%
               </p>
             </div>
             <div className="text-center">
               <p className="text-sm text-slate-400 mb-1">Away Win</p>
               <p className="text-2xl font-bold text-green-400">
-                {(predictions.away_win_prob * 100).toFixed(1)}%
+                {typeof predictions.away_win_prob === 'number' ? (predictions.away_win_prob * 100).toFixed(1) : '0.0'}%
               </p>
             </div>
           </div>
@@ -411,7 +411,7 @@ function InsightsDisplayInner({ insights }: InsightsDisplayProps) {
                 {insights.metadata.home_team}
               </span>
               <span className="text-3xl font-bold text-indigo-400">
-                {xg_analysis.home_xg.toFixed(2)}
+                {typeof xg_analysis.home_xg === 'number' ? xg_analysis.home_xg.toFixed(2) : '0.00'}
               </span>
             </div>
             
@@ -420,7 +420,7 @@ function InsightsDisplayInner({ insights }: InsightsDisplayProps) {
                 {insights.metadata.away_team}
               </span>
               <span className="text-3xl font-bold text-green-400">
-                {xg_analysis.away_xg.toFixed(2)}
+                {typeof xg_analysis.away_xg === 'number' ? xg_analysis.away_xg.toFixed(2) : '0.00'}
               </span>
             </div>
           </div>
@@ -429,13 +429,13 @@ function InsightsDisplayInner({ insights }: InsightsDisplayProps) {
             <div className="text-center">
               <p className="text-sm text-slate-400 mb-1">Total xG</p>
               <p className="text-xl font-bold text-slate-100">
-                {xg_analysis.total_xg.toFixed(2)}
+                {typeof xg_analysis.total_xg === 'number' ? xg_analysis.total_xg.toFixed(2) : '0.00'}
               </p>
             </div>
             <div className="text-center">
               <p className="text-sm text-slate-400 mb-1">xG Difference</p>
               <p className="text-xl font-bold text-purple-400">
-                {Math.abs(xg_analysis.xg_difference).toFixed(2)}
+                {typeof xg_analysis.xg_difference === 'number' ? Math.abs(xg_analysis.xg_difference).toFixed(2) : '0.00'}
               </p>
             </div>
           </div>

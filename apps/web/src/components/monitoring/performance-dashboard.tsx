@@ -89,28 +89,28 @@ export function PerformanceDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <MetricCard
               label="Accuracy"
-              value={`${(health.accuracy * 100).toFixed(1)}%`}
+              value={`${typeof health.accuracy === 'number' ? (health.accuracy * 100).toFixed(1) : '0.0'}%`}
               target={75}
-              current={health.accuracy * 100}
+              current={typeof health.accuracy === 'number' ? health.accuracy * 100 : 0}
               icon={Target}
               color="blue"
             />
             <MetricCard
               label="Brier Score"
-              value={health.brierScore.toFixed(3)}
+              value={typeof health.brierScore === 'number' ? health.brierScore.toFixed(3) : '0.000'}
               target={0.25}
-              current={health.brierScore}
+              current={typeof health.brierScore === 'number' ? health.brierScore : 0}
               icon={Activity}
               color="purple"
               inverse
             />
             <MetricCard
               label="ROI"
-              value={`${health.roi > 0 ? '+' : ''}${health.roi.toFixed(1)}%`}
+              value={`${typeof health.roi === 'number' ? (health.roi > 0 ? '+' : '') + health.roi.toFixed(1) : '0.0'}%`}
               target={0}
-              current={health.roi}
+              current={typeof health.roi === 'number' ? health.roi : 0}
               icon={TrendingUp}
-              color={health.roi >= 0 ? 'green' : 'red'}
+              color={typeof health.roi === 'number' && health.roi >= 0 ? 'green' : 'red'}
             />
           </div>
         )}

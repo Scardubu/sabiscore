@@ -230,7 +230,7 @@ export function CompletePredictionFlow({
                 {homeTeam} vs {awayTeam}
               </h2>
               <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                {league} • Predicted with {(prediction.confidence * 100).toFixed(1)}% confidence
+                {league} • Predicted with {typeof prediction.confidence === 'number' ? (prediction.confidence * 100).toFixed(1) : '0.0'}% confidence
               </p>
             </div>
 
@@ -247,12 +247,12 @@ export function CompletePredictionFlow({
               <div className="mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-700 text-sm text-neutral-600 dark:text-neutral-400">
                 <div className="flex justify-between">
                   <span>Confidence:</span>
-                  <span className="font-medium">{(prediction.confidence * 100).toFixed(1)}%</span>
+                  <span className="font-medium">{typeof prediction.confidence === 'number' ? (prediction.confidence * 100).toFixed(1) : '0.0'}%</span>
                 </div>
                 {prediction.brierScore && (
                   <div className="flex justify-between mt-1">
                     <span>Brier Score:</span>
-                    <span className="font-medium">{prediction.brierScore.toFixed(3)}</span>
+                    <span className="font-medium">{typeof prediction.brierScore === 'number' ? prediction.brierScore.toFixed(3) : '0.000'}</span>
                   </div>
                 )}
               </div>
@@ -285,7 +285,7 @@ function ProbabilityCard({ label, value, color }: { label: string; value: number
   return (
     <div className={`rounded-lg p-4 ${colorClasses[color as keyof typeof colorClasses]}`}>
       <div className="text-xs font-medium uppercase mb-2">{label}</div>
-      <div className="text-3xl font-bold">{(value * 100).toFixed(1)}%</div>
+      <div className="text-3xl font-bold">{typeof value === 'number' ? (value * 100).toFixed(1) : '0.0'}%</div>
     </div>
   );
 }

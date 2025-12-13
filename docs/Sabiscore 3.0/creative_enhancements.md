@@ -309,11 +309,6 @@ export function LineupImpactViz({ analysis }: Props) {
             </div>
           </motion.div>
         ))}
-      </div>
-    </div>
-  );
-}
-```
 
 ---
 

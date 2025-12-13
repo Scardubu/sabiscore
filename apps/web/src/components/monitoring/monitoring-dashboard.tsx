@@ -75,17 +75,17 @@ export function MonitoringDashboard() {
           <div className="grid grid-cols-3 gap-4 mb-4">
             <MetricCard
               label="Accuracy"
-              value={`${(health.accuracy * 100).toFixed(1)}%`}
+              value={`${(typeof health.accuracy === 'number' ? (health.accuracy * 100).toFixed(1) : '0.0')}%`}
               status={health.accuracy >= 0.65 ? 'good' : health.accuracy >= 0.50 ? 'warning' : 'critical'}
             />
             <MetricCard
               label="Brier Score"
-              value={health.brierScore.toFixed(3)}
+              value={typeof health.brierScore === 'number' ? health.brierScore.toFixed(3) : '0.000'}
               status={health.brierScore <= 0.20 ? 'good' : health.brierScore <= 0.25 ? 'warning' : 'critical'}
             />
             <MetricCard
               label="ROI"
-              value={`${health.roi.toFixed(1)}%`}
+              value={`${typeof health.roi === 'number' ? health.roi.toFixed(1) : '0.0'}%`}
               status={health.roi >= 5 ? 'good' : health.roi >= 0 ? 'warning' : 'critical'}
             />
           </div>
@@ -169,7 +169,7 @@ export function MonitoringDashboard() {
                 Total Profit
               </div>
               <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                ₦{metrics.totalProfit.toFixed(0)}
+                ₦{typeof metrics.totalProfit === 'number' ? metrics.totalProfit.toFixed(0) : '0'}
               </div>
             </div>
           </div>
@@ -229,7 +229,7 @@ export function MonitoringDashboard() {
                   Accuracy Drift
                 </div>
                 <div className="text-xl font-bold text-red-600 dark:text-red-400">
-                  {(drift.metrics.accuracyDrift * 100).toFixed(1)}%
+                  {typeof drift.metrics.accuracyDrift === 'number' ? (drift.metrics.accuracyDrift * 100).toFixed(1) : '0.0'}%
                 </div>
               </div>
               
@@ -238,7 +238,7 @@ export function MonitoringDashboard() {
                   Brier Drift
                 </div>
                 <div className="text-xl font-bold text-yellow-600 dark:text-yellow-400">
-                  {(drift.metrics.brierDrift * 100).toFixed(1)}%
+                  {typeof drift.metrics.brierDrift === 'number' ? (drift.metrics.brierDrift * 100).toFixed(1) : '0.0'}%
                 </div>
               </div>
               
@@ -247,7 +247,7 @@ export function MonitoringDashboard() {
                   ROI Drift
                 </div>
                 <div className="text-xl font-bold text-orange-600 dark:text-orange-400">
-                  {drift.metrics.roiDrift.toFixed(1)}%
+                  {typeof drift.metrics.roiDrift === 'number' ? drift.metrics.roiDrift.toFixed(1) : '0.0'}%
                 </div>
               </div>
             </div>

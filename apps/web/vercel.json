@@ -89,16 +89,5 @@
       "destination": "/api/health",
       "permanent": false
     }
-  ],
-  
-  "crons": [
-    {
-      "path": "/api/cron/update-odds",
-      "schedule": "0 8 * * *"
-    },
-    {
-      "path": "/api/cron/ping-backend",
-      "schedule": "0 0 * * *"
-    }
   ]
 }
