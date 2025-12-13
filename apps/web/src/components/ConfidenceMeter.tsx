@@ -124,7 +124,7 @@ export function ConfidenceMeter({
           label: (context) => {
             const label = context.label || '';
             const value = context.parsed || 0;
-            return `${label}: ${value.toFixed(1)}%`;
+            return `${label}: ${typeof value === 'number' ? value.toFixed(1) : '0.0'}%`;
           },
         },
       },
@@ -196,7 +196,7 @@ export function ConfidenceMeter({
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-center">
             <div className="text-4xl font-bold text-white">
-              {(metrics.confidence_score * 100).toFixed(0)}%
+              {typeof metrics.confidence_score === 'number' ? (metrics.confidence_score * 100).toFixed(0) : '0'}%
             </div>
             <div className="text-xs text-slate-400">Confidence</div>
           </div>
@@ -220,7 +220,7 @@ export function ConfidenceMeter({
                 ? 'text-white' 
                 : 'text-slate-400'
             }`}>
-              {(prob.value * 100).toFixed(1)}%
+              {typeof prob.value === 'number' ? (prob.value * 100).toFixed(1) : '0.0'}%
             </span>
           </div>
         ))}
@@ -243,7 +243,7 @@ export function ConfidenceMeter({
           
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-bold text-white">
-              {metrics.brier_score.toFixed(3)}
+              {typeof metrics.brier_score === 'number' ? metrics.brier_score.toFixed(3) : '0.000'}
             </span>
             <span className="text-xs text-slate-400">Brier Score</span>
           </div>
@@ -278,7 +278,7 @@ export function ConfidenceMeter({
           <div>
             <p className="text-xs font-medium text-green-400">Most Likely</p>
             <p className="text-sm font-bold text-white">
-              {mostLikely.label} ({(mostLikely.value * 100).toFixed(1)}%)
+              {mostLikely.label} ({typeof mostLikely.value === 'number' ? (mostLikely.value * 100).toFixed(1) : '0.0'}%)
             </p>
           </div>
         </div>

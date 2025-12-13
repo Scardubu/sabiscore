@@ -146,7 +146,7 @@ export function MonteCarloVisualizer({
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Progress</span>
-              <span className="text-purple-400 font-mono">{progress.toFixed(0)}%</span>
+              <span className="text-purple-400 font-mono">{typeof progress === 'number' ? progress.toFixed(0) : '0'}%</span>
             </div>
             <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
               <motion.div
@@ -190,7 +190,7 @@ export function MonteCarloVisualizer({
             <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-800">
               <div className="text-center">
                 <div className="text-2xl font-bold text-blue-400">
-                  {((results.homeWins / simulations.length) * 100).toFixed(1)}%
+                  {typeof results.homeWins === 'number' && simulations.length > 0 ? ((results.homeWins / simulations.length) * 100).toFixed(1) : '0.0'}%
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
                   {homeTeam} Win Rate
@@ -198,7 +198,7 @@ export function MonteCarloVisualizer({
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-yellow-400">
-                  {((results.draws / simulations.length) * 100).toFixed(1)}%
+                  {typeof results.draws === 'number' && simulations.length > 0 ? ((results.draws / simulations.length) * 100).toFixed(1) : '0.0'}%
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
                   Draw Rate
@@ -206,7 +206,7 @@ export function MonteCarloVisualizer({
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-red-400">
-                  {((results.awayWins / simulations.length) * 100).toFixed(1)}%
+                  {typeof results.awayWins === 'number' && simulations.length > 0 ? ((results.awayWins / simulations.length) * 100).toFixed(1) : '0.0'}%
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
                   {awayTeam} Win Rate
@@ -263,7 +263,7 @@ function SimulationBar({
         />
         <div className="absolute inset-0 flex items-end justify-center pb-2">
           <span className="text-lg font-bold text-white drop-shadow-lg">
-            {percentage.toFixed(1)}%
+            {typeof percentage === 'number' ? percentage.toFixed(1) : '0.0'}%
           </span>
         </div>
       </div>
@@ -312,7 +312,7 @@ function ScoreDistribution({ simulations }: { simulations: Simulation[] }) {
                 />
                 <div className="absolute inset-0 flex items-center px-3">
                   <span className="text-xs font-medium text-white drop-shadow">
-                    {percentage.toFixed(1)}% ({count}x)
+                    {typeof percentage === 'number' ? percentage.toFixed(1) : '0.0'}% ({count}x)
                   </span>
                 </div>
               </div>

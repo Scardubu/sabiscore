@@ -78,7 +78,7 @@ export function OneClickBetSlip({ valueBet, bankroll }: OneClickBetSlipProps) {
         <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
           <p className="text-xs text-green-400 uppercase tracking-wide">Edge</p>
           <p className="text-2xl font-black text-green-400">
-            +{currentBet.edge_percent.toFixed(1)}%
+            +{typeof currentBet.edge_percent === 'number' ? currentBet.edge_percent.toFixed(1) : '0.0'}%
           </p>
           <p className="text-xs text-slate-400 mt-1">EV</p>
         </div>
@@ -96,7 +96,7 @@ export function OneClickBetSlip({ valueBet, bankroll }: OneClickBetSlipProps) {
       <div className="space-y-3 mb-6 p-4 bg-slate-800/50 rounded-lg border border-slate-700">
         <div className="flex justify-between">
           <span className="text-slate-400">Odds:</span>
-          <span className="text-white font-semibold">{currentBet.odds.toFixed(2)}</span>
+          <span className="text-white font-semibold">{typeof currentBet.odds === 'number' ? currentBet.odds.toFixed(2) : '0.00'}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-slate-400">Kelly Stake (⅛):</span>
@@ -107,19 +107,19 @@ export function OneClickBetSlip({ valueBet, bankroll }: OneClickBetSlipProps) {
         <div className="flex justify-between">
           <span className="text-slate-400">From Bankroll:</span>
           <span className="text-slate-300">
-            {((currentBet.kelly_stake_ngn / bankroll) * 100).toFixed(1)}%
+            {typeof currentBet.kelly_stake_ngn === 'number' && typeof bankroll === 'number' ? ((currentBet.kelly_stake_ngn / bankroll) * 100).toFixed(1) : '0.0'}%
           </span>
         </div>
         <div className="flex justify-between">
           <span className="text-slate-400">Confidence:</span>
           <span className="text-blue-400 font-semibold">
-            {(currentBet.confidence * 100).toFixed(1)}%
+            {typeof currentBet.confidence === 'number' ? (currentBet.confidence * 100).toFixed(1) : '0.0'}%
           </span>
         </div>
         <div className="flex justify-between">
           <span className="text-slate-400">Brier Score:</span>
           <span className="text-purple-400">
-            {currentBet.brier_score.toFixed(3)}
+            {typeof currentBet.brier_score === 'number' ? currentBet.brier_score.toFixed(3) : '0.000'}
           </span>
         </div>
       </div>

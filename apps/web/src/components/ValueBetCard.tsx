@@ -97,12 +97,12 @@ export function ValueBetCard({ bet, context, bankroll = 1000 }: ValueBetCardProp
 🎯 VALUE BET ALERT
 ${context.homeTeam} vs ${context.awayTeam}
 Market: ${getMarketLabel()}
-Odds: ${bookmakerOdds.toFixed(2)} @ ${bookmakerName}
-Edge: ${edgePercentage.toFixed(1)}%
-Recommended Stake: ${formatCurrency(stakeValue)} (${(kellyFraction * 100).toFixed(1)}% of bankroll)
+Odds: ${typeof bookmakerOdds === 'number' ? bookmakerOdds.toFixed(2) : '0.00'} @ ${bookmakerName}
+Edge: ${typeof edgePercentage === 'number' ? edgePercentage.toFixed(1) : '0.0'}%
+Recommended Stake: ${formatCurrency(stakeValue)} (${typeof kellyFraction === 'number' ? (kellyFraction * 100).toFixed(1) : '0.0'}% of bankroll)
 Potential Return: ${formatCurrency(potentialReturnValue)}
 Quality: ${qualityTier}
-${context.clvExpected ? `Expected CLV: ${context.clvExpected.toFixed(1)}¢` : ''}
+${typeof context.clvExpected === 'number' ? `Expected CLV: ${context.clvExpected.toFixed(1)}¢` : ''}
     `.trim();
 
     try {
@@ -163,14 +163,14 @@ ${context.clvExpected ? `Expected CLV: ${context.clvExpected.toFixed(1)}¢` : ''
             <EdgeTooltip />
           </div>
           <p className="mt-1 text-2xl font-bold text-green-400">
-            +{edgePercentage.toFixed(1)}%
+            +{typeof edgePercentage === 'number' ? edgePercentage.toFixed(1) : '0.0'}%
           </p>
         </div>
 
         <div className="rounded-lg bg-slate-800/50 p-3">
           <div className="text-xs text-slate-400">Odds</div>
           <p className="mt-1 text-2xl font-bold text-white">
-            {bookmakerOdds.toFixed(2)}
+            {typeof bookmakerOdds === 'number' ? bookmakerOdds.toFixed(2) : '0.00'}
           </p>
         </div>
       </div>
@@ -183,7 +183,7 @@ ${context.clvExpected ? `Expected CLV: ${context.clvExpected.toFixed(1)}¢` : ''
             <KellyTooltip />
           </div>
           <span className="text-xs text-slate-500">
-            {(kellyFraction * 100).toFixed(1)}% Kelly
+            {typeof kellyFraction === 'number' ? (kellyFraction * 100).toFixed(1) : '0.0'}% Kelly
           </span>
         </div>
         <div className="flex items-baseline gap-2">
@@ -202,20 +202,20 @@ ${context.clvExpected ? `Expected CLV: ${context.clvExpected.toFixed(1)}¢` : ''
         <div className="flex items-center justify-between text-xs">
           <span className="text-slate-400">Fair Probability</span>
           <span className="font-medium text-white">
-            {(fairProbability * 100).toFixed(1)}%
+            {typeof fairProbability === 'number' ? (fairProbability * 100).toFixed(1) : '0.0'}%
           </span>
         </div>
         <div className="flex items-center justify-between text-xs">
           <span className="text-slate-400">Implied Probability</span>
           <span className="font-medium text-slate-500">
-            {(impliedProbability * 100).toFixed(1)}%
+            {typeof impliedProbability === 'number' ? (impliedProbability * 100).toFixed(1) : '0.0'}%
           </span>
         </div>
         {typeof context.clvExpected === 'number' && (
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-400">Expected CLV</span>
             <span className="font-medium text-blue-400">
-              +{context.clvExpected.toFixed(1)}¢
+              +{typeof context.clvExpected === 'number' ? context.clvExpected.toFixed(1) : '0.0'}¢
             </span>
           </div>
         )}

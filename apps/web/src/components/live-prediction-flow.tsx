@@ -229,7 +229,7 @@ function PredictionCard({ prediction, homeTeam, awayTeam }: { prediction: Predic
         <div className="flex items-center gap-2">
           <Activity className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
-            {(prediction.confidence * 100).toFixed(1)}% confidence
+            {typeof prediction.confidence === 'number' ? (prediction.confidence * 100).toFixed(1) : '0.0'}% confidence
           </span>
         </div>
       </div>
@@ -243,7 +243,7 @@ function PredictionCard({ prediction, homeTeam, awayTeam }: { prediction: Predic
                 {outcome.label}
               </span>
               <span className="text-neutral-900 dark:text-neutral-100 font-bold">
-                {(outcome.value * 100).toFixed(1)}%
+                {typeof outcome.value === 'number' ? (outcome.value * 100).toFixed(1) : '0.0'}%
               </span>
             </div>
             <div className="relative h-3 bg-neutral-100 dark:bg-neutral-800 rounded-full overflow-hidden">
@@ -266,13 +266,13 @@ function PredictionCard({ prediction, homeTeam, awayTeam }: { prediction: Predic
           <div>
             <div className="text-neutral-600 dark:text-neutral-400 mb-1">Agreement</div>
             <div className="font-bold text-neutral-900 dark:text-neutral-100">
-              {(prediction.ensembleAgreement * 100).toFixed(1)}%
+              {typeof prediction.ensembleAgreement === 'number' ? (prediction.ensembleAgreement * 100).toFixed(1) : '0.0'}%
             </div>
           </div>
           <div>
             <div className="text-neutral-600 dark:text-neutral-400 mb-1">Calibration</div>
             <div className="font-bold text-neutral-900 dark:text-neutral-100">
-              {prediction.calibratedBrier.toFixed(3)}
+              {typeof prediction.calibratedBrier === 'number' ? prediction.calibratedBrier.toFixed(3) : '0.000'}
             </div>
           </div>
         </div>

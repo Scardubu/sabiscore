@@ -339,7 +339,7 @@ function OutcomeCard({ label, accuracy, total, correct }: {
         {label}
       </div>
       <div className="text-xl font-bold text-neutral-900 dark:text-neutral-100">
-        {(accuracy * 100).toFixed(1)}%
+        {typeof accuracy === 'number' ? (accuracy * 100).toFixed(1) : '0.0'}%
       </div>
       <div className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
         {correct}/{total}

@@ -112,7 +112,7 @@ function ProbabilityBar({
           )}
         </span>
         <span className={cn("font-bold", isHighest ? "text-white" : "text-slate-400")}>
-          {(probability * 100).toFixed(1)}%
+          {typeof probability === 'number' ? (probability * 100).toFixed(1) : '0.0'}%
         </span>
       </div>
       <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-800">
@@ -336,7 +336,7 @@ export function PredictionCard({
             </div>
             <div className="text-right">
               <p className={cn("text-lg font-bold", confidenceTier.color)}>
-                {(prediction.confidence * 100).toFixed(0)}%
+                {typeof prediction.confidence === 'number' ? (prediction.confidence * 100).toFixed(0) : '0'}%
               </p>
               <p className="text-xs text-slate-500">{confidenceTier.label}</p>
             </div>
@@ -358,7 +358,7 @@ export function PredictionCard({
             <div className="flex items-center justify-between">
               <span className="text-sm text-green-400">Edge Detected</span>
               <span className="font-bold text-green-400">
-                +{(prediction.edge * 100).toFixed(1)}%
+                +{typeof prediction.edge === 'number' ? (prediction.edge * 100).toFixed(1) : '0.0'}%
               </span>
             </div>
           </motion.div>

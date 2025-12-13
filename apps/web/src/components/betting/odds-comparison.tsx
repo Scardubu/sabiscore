@@ -93,13 +93,13 @@ export function OddsComparison({ odds, clv }: OddsComparisonProps) {
             </span>
             <div className="flex gap-4 text-sm">
               <span className={source.home === bestOdds.home ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : 'text-neutral-600 dark:text-neutral-400'}>
-                {source.home?.toFixed(2) || 'N/A'}
+                {typeof source.home === 'number' ? source.home.toFixed(2) : 'N/A'}
               </span>
               <span className={source.draw === bestOdds.draw ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : 'text-neutral-600 dark:text-neutral-400'}>
-                {source.draw?.toFixed(2) || 'N/A'}
+                {typeof source.draw === 'number' ? source.draw.toFixed(2) : 'N/A'}
               </span>
               <span className={source.away === bestOdds.away ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : 'text-neutral-600 dark:text-neutral-400'}>
-                {source.away?.toFixed(2) || 'N/A'}
+                {typeof source.away === 'number' ? source.away.toFixed(2) : 'N/A'}
               </span>
             </div>
           </div>
@@ -113,7 +113,7 @@ export function OddsComparison({ odds, clv }: OddsComparisonProps) {
             Spread
           </div>
           <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-            {(averageSpread * 100).toFixed(1)}%
+            {typeof averageSpread === 'number' ? (averageSpread * 100).toFixed(1) : '0.0'}%
           </div>
         </div>
         
@@ -146,7 +146,7 @@ export function OddsComparison({ odds, clv }: OddsComparisonProps) {
             <div>
               <div className="text-xs text-neutral-600 dark:text-neutral-400">CLV</div>
               <div className="font-semibold text-neutral-900 dark:text-neutral-100">
-                {clv.clv.toFixed(1)}%
+                {typeof clv.clv === 'number' ? clv.clv.toFixed(1) : '0.0'}%
               </div>
             </div>
             <div>
@@ -158,7 +158,7 @@ export function OddsComparison({ odds, clv }: OddsComparisonProps) {
             <div>
               <div className="text-xs text-neutral-600 dark:text-neutral-400">Movement</div>
               <div className="font-semibold text-neutral-900 dark:text-neutral-100">
-                {clv.oddsMovement.change.toFixed(2)}
+                {typeof clv.oddsMovement.change === 'number' ? clv.oddsMovement.change.toFixed(2) : '0.00'}
               </div>
             </div>
           </div>
@@ -196,7 +196,7 @@ function OddsCard({ label, odds, source, isBest }: OddsCardProps) {
         {label}
       </div>
       <div className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mb-1">
-        {odds?.toFixed(2) || 'N/A'}
+        {typeof odds === 'number' ? odds.toFixed(2) : 'N/A'}
       </div>
       <div className="text-xs text-neutral-600 dark:text-neutral-400 capitalize">
         {source}

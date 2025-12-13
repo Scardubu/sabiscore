@@ -530,14 +530,14 @@ function InsightsDisplayInner({ insights }: InsightsDisplayProps) {
             <div className="space-y-2">
               <p className="text-sm text-slate-400">Expected Value</p>
               <p className="text-2xl font-bold text-green-400">
-                +{(bestBet.expected_value * 100).toFixed(1)}%
+                +{typeof bestBet.expected_value === 'number' ? (bestBet.expected_value * 100).toFixed(1) : '0.0'}%
               </p>
             </div>
 
             <div className="space-y-2">
               <p className="text-sm text-slate-400">Kelly Stake (⅛)</p>
               <p className="text-2xl font-bold text-indigo-400">
-                {(bestBet.kelly_stake * 100).toFixed(1)}%
+                {typeof bestBet.kelly_stake === 'number' ? (bestBet.kelly_stake * 100).toFixed(1) : '0.0'}%
               </p>
             </div>
           </div>
@@ -546,19 +546,19 @@ function InsightsDisplayInner({ insights }: InsightsDisplayProps) {
             <div className="flex justify-between text-sm">
               <span className="text-slate-400">Market Odds</span>
               <span className="text-slate-100 font-semibold">
-                {bestBet.market_odds.toFixed(2)}
+                {typeof bestBet.market_odds === 'number' ? bestBet.market_odds.toFixed(2) : '0.00'}
               </span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-slate-400">Model Probability</span>
               <span className="text-slate-100 font-semibold">
-                {(bestBet.model_prob * 100).toFixed(1)}%
+                {typeof bestBet.model_prob === 'number' ? (bestBet.model_prob * 100).toFixed(1) : '0.0'}%
               </span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-slate-400">Edge</span>
               <span className="text-green-400 font-semibold">
-                +{(bestBet.edge * 100).toFixed(2)}%
+                +{typeof bestBet.edge === 'number' ? (bestBet.edge * 100).toFixed(2) : '0.00'}%
               </span>
             </div>
           </div>
@@ -622,7 +622,7 @@ function InsightsDisplayInner({ insights }: InsightsDisplayProps) {
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-slate-400">Confidence Score</span>
               <span className="text-sm font-bold text-slate-100">
-                {(risk_assessment.confidence_score * 100).toFixed(0)}%
+                {typeof risk_assessment.confidence_score === 'number' ? (risk_assessment.confidence_score * 100).toFixed(0) : '0'}%
               </span>
             </div>
             <div className="h-2 bg-slate-800 rounded-full overflow-hidden">

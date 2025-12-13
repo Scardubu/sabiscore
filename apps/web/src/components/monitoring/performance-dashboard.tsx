@@ -163,17 +163,17 @@ export function PerformanceDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <DriftMetric
                 label="Accuracy Drift"
-                value={`${(drift.metrics.accuracyDrift * 100).toFixed(2)}%`}
-                severity={drift.metrics.accuracyDrift > 0.05 ? 'high' : drift.metrics.accuracyDrift > 0.03 ? 'medium' : 'low'}
+                value={`${typeof drift.metrics.accuracyDrift === 'number' ? (drift.metrics.accuracyDrift * 100).toFixed(2) : '0.00'}%`}
+                severity={typeof drift.metrics.accuracyDrift === 'number' && drift.metrics.accuracyDrift > 0.05 ? 'high' : typeof drift.metrics.accuracyDrift === 'number' && drift.metrics.accuracyDrift > 0.03 ? 'medium' : 'low'}
               />
               <DriftMetric
                 label="Brier Drift"
-                value={drift.metrics.brierDrift.toFixed(3)}
-                severity={drift.metrics.brierDrift > 0.03 ? 'high' : drift.metrics.brierDrift > 0.02 ? 'medium' : 'low'}
+                value={typeof drift.metrics.brierDrift === 'number' ? drift.metrics.brierDrift.toFixed(3) : '0.000'}
+                severity={typeof drift.metrics.brierDrift === 'number' && drift.metrics.brierDrift > 0.03 ? 'high' : typeof drift.metrics.brierDrift === 'number' && drift.metrics.brierDrift > 0.02 ? 'medium' : 'low'}
               />
               <DriftMetric
                 label="ROI Drift"
-                value={`${drift.metrics.roiDrift > 0 ? '+' : ''}${drift.metrics.roiDrift.toFixed(1)}%`}
+                value={`${typeof drift.metrics.roiDrift === 'number' ? (drift.metrics.roiDrift > 0 ? '+' : '') + drift.metrics.roiDrift.toFixed(1) : '0.0'}%`}
                 severity={Math.abs(drift.metrics.roiDrift) > 5 ? 'high' : Math.abs(drift.metrics.roiDrift) > 3 ? 'medium' : 'low'}
               />
             </div>

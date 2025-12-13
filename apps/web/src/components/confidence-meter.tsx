@@ -69,7 +69,7 @@ export function ConfidenceMeter({
         </div>
         <div className="flex items-center gap-2">
           <span className={cn('text-2xl font-bold', theme.text)}>
-            {(confidence * 100).toFixed(1)}%
+            {typeof confidence === 'number' ? (confidence * 100).toFixed(1) : '0.0'}%
           </span>
           <span className={cn('text-xs px-2 py-1 rounded-full', theme.bg, theme.text)}>
             {level.toUpperCase()}
@@ -170,7 +170,7 @@ export function ConfidenceBadge({ confidence }: { confidence: number }) {
           level === 'low' && 'bg-red-600'
         )} />
       </span>
-      {(confidence * 100).toFixed(0)}%
+      {typeof confidence === 'number' ? (confidence * 100).toFixed(0) : '0'}%
     </span>
   );
 }
@@ -257,8 +257,7 @@ function MetricBadge({
         agreement === 'high' && 'text-green-600 dark:text-green-400',
         agreement === 'medium' && 'text-yellow-600 dark:text-yellow-400',
         agreement === 'low' && 'text-red-600 dark:text-red-400'
-      )}>
-        {(value * 100).toFixed(0)}%
+      )}>        {typeof value === 'number' ? (value * 100).toFixed(0) : '0'}%
       </span>
     </div>
   );
@@ -285,7 +284,7 @@ function AgreementBar({
     <div>
       <div className="flex items-center justify-between mb-1">
         <span className="text-xs font-medium">{label}</span>
-        <span className="text-xs text-muted-foreground">{(value * 100).toFixed(0)}%</span>
+        <span className="text-xs text-muted-foreground">{typeof value === 'number' ? (value * 100).toFixed(0) : '0'}%</span>
       </div>
       <div className="h-2 bg-muted rounded-full overflow-hidden">
         <motion.div

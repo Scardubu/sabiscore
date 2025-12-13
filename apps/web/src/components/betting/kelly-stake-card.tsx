@@ -74,7 +74,7 @@ export function KellyStakeCard({
                 </span>
               </div>
               <div className="text-xl font-bold text-neutral-900 dark:text-neutral-100">
-                {(edge * 100).toFixed(1)}%
+                {typeof edge === 'number' ? (edge * 100).toFixed(1) : '0.0'}%
               </div>
             </div>
             
@@ -86,7 +86,7 @@ export function KellyStakeCard({
                 </span>
               </div>
               <div className="text-xl font-bold text-neutral-900 dark:text-neutral-100">
-                {currencySymbol}{expectedValue.toFixed(0)}
+                {currencySymbol}{typeof expectedValue === 'number' ? expectedValue.toFixed(0) : '0'}
               </div>
             </div>
           </div>
@@ -102,21 +102,21 @@ export function KellyStakeCard({
                 <div className="text-center p-3 rounded-lg bg-red-50 dark:bg-red-900/20">
                   <div className="text-xs text-neutral-600 dark:text-neutral-400 mb-1">P5</div>
                   <div className="text-sm font-semibold text-red-700 dark:text-red-400">
-                    {currencySymbol}{monteCarlo.p5.toFixed(0)}
+                    {currencySymbol}{typeof monteCarlo.p5 === 'number' ? monteCarlo.p5.toFixed(0) : '0'}
                   </div>
                 </div>
                 
                 <div className="text-center p-3 rounded-lg bg-neutral-50 dark:bg-neutral-800/50">
                   <div className="text-xs text-neutral-600 dark:text-neutral-400 mb-1">P50</div>
                   <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                    {currencySymbol}{monteCarlo.p50.toFixed(0)}
+                    {currencySymbol}{typeof monteCarlo.p50 === 'number' ? monteCarlo.p50.toFixed(0) : '0'}
                   </div>
                 </div>
                 
                 <div className="text-center p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20">
                   <div className="text-xs text-neutral-600 dark:text-neutral-400 mb-1">P95</div>
                   <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-                    {currencySymbol}{monteCarlo.p95.toFixed(0)}
+                    {currencySymbol}{typeof monteCarlo.p95 === 'number' ? monteCarlo.p95.toFixed(0) : '0'}
                   </div>
                 </div>
               </div>
@@ -125,25 +125,25 @@ export function KellyStakeCard({
                 <div>
                   <div className="text-xs text-neutral-600 dark:text-neutral-400">Win Rate</div>
                   <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                    {(monteCarlo.winRate * 100).toFixed(1)}%
+                    {typeof monteCarlo.winRate === 'number' ? (monteCarlo.winRate * 100).toFixed(1) : '0.0'}%
                   </div>
                 </div>
                 
                 <div>
                   <div className="text-xs text-neutral-600 dark:text-neutral-400">Sharpe Ratio</div>
                   <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                    {monteCarlo.sharpeRatio.toFixed(2)}
+                    {typeof monteCarlo.sharpeRatio === 'number' ? monteCarlo.sharpeRatio.toFixed(2) : '0.00'}
                   </div>
                 </div>
                 
                 <div>
                   <div className="text-xs text-neutral-600 dark:text-neutral-400">Ruin Risk</div>
                   <div className={`text-sm font-medium ${
-                    monteCarlo.ruinProbability > 0.01 
+                    typeof monteCarlo.ruinProbability === 'number' && monteCarlo.ruinProbability > 0.01 
                       ? 'text-red-600 dark:text-red-400' 
                       : 'text-emerald-600 dark:text-emerald-400'
                   }`}>
-                    {(monteCarlo.ruinProbability * 100).toFixed(2)}%
+                    {typeof monteCarlo.ruinProbability === 'number' ? (monteCarlo.ruinProbability * 100).toFixed(2) : '0.00'}%
                   </div>
                 </div>
               </div>
