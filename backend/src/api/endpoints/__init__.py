@@ -12,6 +12,7 @@ from .predictions import router as predictions_router  # noqa: E402
 from .odds import router as odds_router  # noqa: E402
 from .value_bets import router as value_bets_router  # noqa: E402
 from .health import router as health_router  # noqa: E402
+from .ultra_predictions import router as ultra_predictions_router  # noqa: E402
 
 # Include sub-routers without adding additional prefixes here. The application
 # will apply the API version prefix (e.g. /api/v1) at the app level.
@@ -21,5 +22,6 @@ router.include_router(predictions_router)
 router.include_router(odds_router)
 router.include_router(value_bets_router)
 router.include_router(health_router)
+router.include_router(ultra_predictions_router)
 
 __all__ = ["router"]

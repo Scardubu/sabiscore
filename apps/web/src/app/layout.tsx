@@ -65,6 +65,12 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
+// Enable Edge Runtime for ultra-fast performance
+export const runtime = 'edge';
+
+// Enable progressive enhancement
+export const preferredRegion = 'auto';
+
 export default function RootLayout({
   children,
 }: {
@@ -78,6 +84,8 @@ export default function RootLayout({
         <link rel="preconnect" href="https://raw.githubusercontent.com" />
         <link rel="dns-prefetch" href="https://api.football-data.org" />
         <link rel="dns-prefetch" href="https://raw.githubusercontent.com" />
+        {/* Preload critical assets */}
+        <link rel="preload" href="/icon.svg" as="image" type="image/svg+xml" />
       </head>
       <body className={`${inter.className} bg-slate-950 text-slate-100 antialiased min-h-screen`}>
         <ErrorBoundary>
