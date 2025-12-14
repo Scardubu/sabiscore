@@ -80,13 +80,12 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable} suppressHydrationWarning>
       <head>
-        {/* Preconnect to external resources */}
+        {/* Preconnect to external resources for faster API calls */}
         <link rel="preconnect" href="https://api.football-data.org" />
         <link rel="preconnect" href="https://raw.githubusercontent.com" />
         <link rel="dns-prefetch" href="https://api.football-data.org" />
         <link rel="dns-prefetch" href="https://raw.githubusercontent.com" />
-        {/* Preload critical assets */}
-        <link rel="preload" href="/icon.svg" as="image" type="image/svg+xml" />
+        {/* Icon is loaded on-demand, no preload needed */}
       </head>
       <body className={`${inter.className} bg-slate-950 text-slate-100 antialiased min-h-screen`}>
         <ErrorBoundary>

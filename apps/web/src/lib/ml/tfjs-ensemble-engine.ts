@@ -293,15 +293,22 @@ export class TFJSEnsembleEngine {
     });
     
     // Model 2: LSTM (temporal patterns - form, momentum)
+    // Use glorotUniform instead of default orthogonal to avoid slowness on large matrices
     this.models.lstm = tf.sequential({
       layers: [
         tf.layers.lstm({ 
           units: 64, 
           returnSequences: true, 
-          inputShape: [10, 20]  // 10 games, 20 features each
+          inputShape: [10, 20],  // 10 games, 20 features each
+          kernelInitializer: 'glorotUniform',
+          recurrentInitializer: 'glorotUniform'
         }),
         tf.layers.dropout({ rate: 0.3 }),
-        tf.layers.lstm({ units: 32 }),
+        tf.layers.lstm({ 
+          units: 32,
+          kernelInitializer: 'glorotUniform',
+          recurrentInitializer: 'glorotUniform'
+        }),
         tf.layers.dense({ units: 16, activation: 'relu' }),
         tf.layers.dense({ units: 3, activation: 'softmax' })
       ]
