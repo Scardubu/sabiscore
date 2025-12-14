@@ -65,10 +65,11 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-// Enable Edge Runtime for ultra-fast performance
-export const runtime = 'edge';
+// Use Node.js runtime for root layout to avoid Edge Function size limits
+// Individual API routes can opt-in to Edge runtime as needed
+export const runtime = 'nodejs';
 
-// Enable progressive enhancement
+// Enable progressive enhancement with auto region selection
 export const preferredRegion = 'auto';
 
 export default function RootLayout({
