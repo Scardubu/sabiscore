@@ -4,6 +4,26 @@
  */
 
 const ULTRA_API_URL = process.env.NEXT_PUBLIC_ULTRA_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const ULTRA_API_PREFIX = '/api/v1/ultra'; // Ultra predictions API prefix
+
+/**
+ * Normalize Ultra API URL - handles cases where env var includes prefix or not
+ * @param baseUrl - The base URL (may or may not include /api/v1/ultra)
+ * @returns Properly formatted URL with prefix, no trailing slash
+ */
+function normalizeUltraUrl(baseUrl: string): string {
+  const base = baseUrl.replace(/\/+$/, '');
+  // If URL already ends with the prefix path, don't add it again
+  if (base.endsWith('/ultra') || base.endsWith('/api/v1/ultra')) {
+    return base;
+  }
+  // If URL ends with /api/v1, add /ultra
+  if (base.endsWith('/api/v1')) {
+    return `${base}/ultra`;
+  }
+  // Otherwise add the full prefix
+  return `${base}${ULTRA_API_PREFIX}`;
+}
 
 // Request deduplication cache
 const inFlightRequests = new Map<string, Promise<unknown>>();
@@ -84,7 +104,8 @@ class UltraAPIClient {
   private retryDelay: number = 500;
 
   constructor(baseUrl: string = ULTRA_API_URL, apiKey?: string) {
-    this.baseUrl = baseUrl.replace(/\/+$/, '');
+    // Normalize URL to handle env vars with or without prefix
+    this.baseUrl = normalizeUltraUrl(baseUrl);
     this.apiKey = apiKey || process.env.NEXT_PUBLIC_ULTRA_API_KEY || 'dev-key-12345';
   }
 

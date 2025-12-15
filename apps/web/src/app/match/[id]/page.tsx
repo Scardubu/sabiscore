@@ -60,7 +60,16 @@ export default async function MatchInsightsPage({ params, searchParams }: PagePr
       }
     }
     
-    // For server errors, timeouts, or network issues, throw to error boundary
-    throw error;
+    // For server errors, timeouts, or network issues, throw a plain Error
+    // to ensure proper serialization across Server/Client boundary
+    const errorMessage = error instanceof Error ? error.message : "Failed to load match insights";
+    const plainError = new Error(errorMessage);
+    
+    // Preserve the digest if available for error tracking
+    if (error instanceof APIError && error.status) {
+      (plainError as Error & { digest?: string }).digest = `${error.status}-${error.code || 'UNKNOWN'}`;
+    }
+    
+    throw plainError;
   }
 }

@@ -50,7 +50,7 @@ export function UltraPredictionFlow({
   league,
   features,
   bankroll = 10000,
-  showValueBets = true,
+  showValueBets: _showValueBets = true,
   onPredictionComplete,
   className = '',
 }: UltraPredictionFlowProps) {

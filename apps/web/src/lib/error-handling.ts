@@ -381,7 +381,7 @@ function sleep(ms: number): Promise<void> {
 // Exports
 // ============================================================================
 
-export default {
+const errorHandling = {
   SabiScoreError,
   NetworkError,
   APIError,
@@ -401,3 +401,5 @@ export default {
   clearErrorLog,
   getUserFriendlyMessage,
 };
+
+export default errorHandling;
