@@ -9,19 +9,32 @@ import hashlib
 import logging
 import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 import numpy as np
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.cache import cache_manager
 from ..core.config import settings
-from ..ml_ultra.ultra_predictor import UltraPredictor, LegacyPredictorAdapter
-from ..ml_ultra.feature_engineering import AdvancedFeatureEngineer
 from ..models.edge_detector import EdgeDetector
 from ..monitoring.metrics import metrics_collector
 from ..schemas.prediction import MatchPredictionRequest, PredictionResponse
 from ..schemas.value_bet import ValueBetResponse
+
+# Lazy import ml_ultra components with graceful fallback
+UltraPredictor = None
+LegacyPredictorAdapter = None
+AdvancedFeatureEngineer = None
+_ml_ultra_available = False
+
+try:
+    from ..ml_ultra import is_ultra_available
+    if is_ultra_available():
+        from ..ml_ultra.ultra_predictor import UltraPredictor, LegacyPredictorAdapter
+        from ..ml_ultra.feature_engineering import AdvancedFeatureEngineer
+        _ml_ultra_available = True
+except ImportError as e:
+    logging.getLogger(__name__).warning(f"ml_ultra not available: {e}")
 
 logger = logging.getLogger(__name__)
 
@@ -51,9 +64,10 @@ class UltraPredictionService:
         self._default_bankroll = 10_000.0
         
         # Initialize Ultra predictor
-        self._ultra_predictor: Optional[UltraPredictor] = None
-        self._legacy_adapter: Optional[LegacyPredictorAdapter] = None
+        self._ultra_predictor = None
+        self._legacy_adapter = None
         self._model_path = model_path
+        self._ultra_available = _ml_ultra_available
         
         # Edge detection
         self.edge_detector = EdgeDetector(
@@ -62,8 +76,8 @@ class UltraPredictionService:
             max_stake_pct=0.05,
         )
         
-        # Feature engineering
-        self.feature_engineer = AdvancedFeatureEngineer()
+        # Feature engineering (only if available)
+        self.feature_engineer = AdvancedFeatureEngineer() if AdvancedFeatureEngineer else None
         
         # Metrics
         self.metrics: Dict[str, float] = {
@@ -81,16 +95,19 @@ class UltraPredictionService:
     
     def _initialize_model(self) -> None:
         """Initialize the ultra predictor with fallback"""
-        try:
-            self._ultra_predictor = UltraPredictor(model_path=self._model_path)
-            if self._ultra_predictor.pipeline is not None:
-                logger.info("✅ Ultra predictor initialized successfully")
-            else:
-                logger.warning("⚠️ Ultra model not loaded, will use fallback")
+        if self._ultra_available and UltraPredictor:
+            try:
+                self._ultra_predictor = UltraPredictor(model_path=self._model_path)
+                if self._ultra_predictor.pipeline is not None:
+                    logger.info("✅ Ultra predictor initialized successfully")
+                else:
+                    logger.warning("⚠️ Ultra model not loaded, will use fallback")
+                    self._ultra_predictor = None
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to initialize Ultra predictor: {e}")
                 self._ultra_predictor = None
-        except Exception as e:
-            logger.warning(f"⚠️ Failed to initialize Ultra predictor: {e}")
-            self._ultra_predictor = None
+        else:
+            logger.info("ℹ️ Ultra ML not available, using legacy fallback")
         
         # Initialize legacy adapter as fallback
         try:
