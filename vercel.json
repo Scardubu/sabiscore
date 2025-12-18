@@ -97,7 +97,7 @@
   "crons": [
     {
       "path": "/api/cron/ping-backend",
-      "schedule": "0 0 * * *"
+      "schedule": "*/10 * * * *"
     }
   ]
 }
