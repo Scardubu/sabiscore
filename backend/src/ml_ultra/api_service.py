@@ -179,18 +179,33 @@ class ModelManager:
             raise
     
     def predict(self, features_dict: Dict[str, Any]) -> Dict[str, float]:
-        """Make prediction"""
+        """Make prediction from pre-computed features"""
         if not self.pipeline:
             raise RuntimeError("Model not loaded")
         
-        # Convert dict to format expected by pipeline
-        # This is simplified - in production, you'd extract features from database
-        probas = self.pipeline.predict(features_dict)
+        # The API receives pre-computed features, so we need to use the ensemble directly
+        # rather than going through feature engineering
+        import pandas as pd
         
+        # Create DataFrame with features
+        feature_names = self.pipeline.feature_names
+        
+        # Build feature vector from input dict, filling missing features with 0
+        feature_values = {}
+        for feat_name in feature_names:
+            feature_values[feat_name] = features_dict.get(feat_name, 0.0)
+        
+        # Create single-row DataFrame
+        df = pd.DataFrame([feature_values])
+        
+        # Get predictions from ensemble
+        probas = self.pipeline.ensemble.predict_proba(df)
+        
+        # probas is [away_win, draw, home_win] (0, 1, 2)
         return {
-            'home_win_prob': float(probas[0]),
-            'draw_prob': float(probas[1]),
-            'away_win_prob': float(probas[2])
+            'home_win_prob': float(probas[0, 2]),
+            'draw_prob': float(probas[0, 1]),
+            'away_win_prob': float(probas[0, 0])
         }
 
 # Global model manager
