@@ -21,6 +21,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, validator
 import numpy as np
+import pandas as pd
 
 from .training_pipeline import ProductionMLPipeline
 from .feature_engineering import AdvancedFeatureEngineer
@@ -185,7 +186,6 @@ class ModelManager:
         
         # The API receives pre-computed features, so we need to use the ensemble directly
         # rather than going through feature engineering
-        import pandas as pd
         
         # Create DataFrame with features
         feature_names = self.pipeline.feature_names
