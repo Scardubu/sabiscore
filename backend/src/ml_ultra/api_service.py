@@ -30,7 +30,7 @@ from .feature_engineering import AdvancedFeatureEngineer
 # ============================================================================
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
-MODEL_PATH = os.getenv("MODEL_PATH", "models/ultra/ensemble.pkl")
+MODEL_PATH = os.getenv("MODEL_PATH", "models/ultra")  # Directory path, not file
 API_KEY = os.getenv("API_KEY", "dev-key-12345")
 CACHE_TTL = int(os.getenv("CACHE_TTL", "300"))  # 5 minutes
 MAX_BATCH_SIZE = int(os.getenv("MAX_BATCH_SIZE", "50"))
@@ -157,15 +157,15 @@ class ModelManager:
         self.load_time: float = 0
         
     def load_model(self, model_path: str) -> None:
-        """Load trained model"""
+        """Load trained model from directory"""
         start_time = time.time()
         logger.info(f"Loading model from {model_path}...")
         
         try:
             self.pipeline = ProductionMLPipeline.load_trained_model(model_path)
             
-            # Load metadata
-            metadata_path = model_path.replace('.pkl', '_metadata.json')
+            # Load metadata from directory
+            metadata_path = os.path.join(model_path, 'metadata.json')
             if os.path.exists(metadata_path):
                 with open(metadata_path, 'r') as f:
                     metadata = json.load(f)

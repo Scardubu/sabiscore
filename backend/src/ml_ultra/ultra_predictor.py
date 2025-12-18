@@ -29,7 +29,7 @@ class UltraPredictor:
         """
         self.model_path = model_path or os.getenv(
             "ULTRA_MODEL_PATH", 
-            "models/ultra/ensemble.pkl"
+            "models/ultra"  # Directory path
         )
         self.pipeline: Optional[ProductionMLPipeline] = None
         self.model_version = "v3.0.0-ultra"
