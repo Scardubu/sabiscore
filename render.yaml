@@ -85,6 +85,8 @@
         value: "A5xdvmmrzleh84xfpxs7bwev1g2ri6hfucwsi1um8uaq5dl04ro"
       - key: MODELS_PATH
         value: "/opt/render/project/src/models"
+      - key: MODEL_PATH
+        value: "/opt/render/project/src/backend/models/ultra"
 
 databases:
   - name: sabiscore-db
