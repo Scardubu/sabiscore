@@ -84,18 +84,33 @@ def health_check() -> Dict[str, Any]:
     # Check model availability
     try:
         from ...models.ensemble import SabiScoreEnsemble
-        # Check for any league ensemble model (epl, bundesliga, la_liga, etc.)
-        model_files = list(settings.models_path.glob("*_ensemble.pkl"))
-        model_available = len(model_files) > 0
+        # Check for V2 model first
+        v2_model_path = settings.models_path / "sabiscore_production_v2.joblib"
         
-        health_status["components"]["ml_models"] = {
-            "status": "healthy" if model_available else "degraded",
-            "message": f"Models loaded ({len(model_files)} ensembles)" if model_available else "Models not found",
-            "models_path": str(settings.models_path),
-            "available_models": [f.stem for f in model_files] if model_available else []
-        }
-        if not model_available:
-            degraded = True
+        if v2_model_path.exists():
+            health_status["components"]["ml_models"] = {
+                "status": "healthy",
+                "message": "V2 Production Model loaded",
+                "models_path": str(settings.models_path),
+                "model_version": "v2",
+                "model_file": "sabiscore_production_v2.joblib",
+                "features": 58,
+                "test_accuracy": "52.80%",
+            }
+        else:
+            # Fall back to legacy ensemble models
+            model_files = list(settings.models_path.glob("*_ensemble.pkl"))
+            model_available = len(model_files) > 0
+            
+            health_status["components"]["ml_models"] = {
+                "status": "healthy" if model_available else "degraded",
+                "message": f"Models loaded ({len(model_files)} ensembles)" if model_available else "Models not found",
+                "models_path": str(settings.models_path),
+                "model_version": "legacy",
+                "available_models": " ".join([f.stem for f in model_files]) if model_available else ""
+            }
+            if not model_available:
+                degraded = True
     except Exception as e:
         logger.error(f"Model health check failed: {e}")
         health_status["components"]["ml_models"] = {

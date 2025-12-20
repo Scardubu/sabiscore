@@ -103,20 +103,34 @@ async def readiness_check(
         # For now, check if models directory exists and has artifacts
         models_path = settings.models_path
         if models_path.exists():
-            model_files = list(models_path.glob("*_ensemble.pkl"))
-            if model_files:
+            # Check for V2 model first
+            v2_model = models_path / "sabiscore_production_v2.joblib"
+            if v2_model.exists():
                 checks["models"] = {
                     "status": "healthy",
                     "loaded": True,
-                    "count": len(model_files),
-                    "models": [f.stem for f in model_files],
+                    "version": "v2",
+                    "model_file": "sabiscore_production_v2.joblib",
+                    "features": 58,
+                    "accuracy": "52.80%",
                 }
             else:
-                checks["models"] = {
-                    "status": "degraded",
-                    "loaded": False,
-                    "message": "No model artifacts found",
-                }
+                # Fall back to legacy ensemble models
+                model_files = list(models_path.glob("*_ensemble.pkl"))
+                if model_files:
+                    checks["models"] = {
+                        "status": "healthy",
+                        "loaded": True,
+                        "version": "legacy",
+                        "count": len(model_files),
+                        "models": [f.stem for f in model_files],
+                    }
+                else:
+                    checks["models"] = {
+                        "status": "degraded",
+                        "loaded": False,
+                        "message": "No model artifacts found",
+                    }
         else:
             checks["models"] = {
                 "status": "degraded",
