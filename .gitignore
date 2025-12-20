@@ -97,6 +97,8 @@ checkpoints/
 
 # Allow production-ready artifacts needed at runtime
 !models/*.pkl
+!models/*.joblib
+!models/sabiscore_production_v2.*
 !models/*.json
 !data/processed/
 !data/processed/*.csv

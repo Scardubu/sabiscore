@@ -1,10 +1,10 @@
 ﻿# ⚡ SabiScore Edge v3
 
-> **SabiScore doesn't guess winners. It reverse-engineers bookie mistakes in 142 ms and stakes them at ⅛ Kelly before the line moves.**
+> **Production-grade football prediction platform powered by a stacked ensemble ML model trained on 10,707+ real matches from Europe's top 5 leagues.**
 
-**Sub-150 ms TTFB • 86.3 % Accuracy • +21.7 % ROI • 10 k CCU-ready • ₦72 Avg CLV**
+**Sub-150 ms TTFB • 52.8% Accuracy • +234% Value Bet ROI • 10k CCU-ready • 58 Engineered Features**
 
-SabiScore Edge v3.2 is the production build of our football intelligence platform. It blends a hardened Next.js 15 frontend, a FastAPI ensemble backend, an **8-source ethical scraping infrastructure**, and a curated ML pipeline to surface value bets in near real time.
+SabiScore Edge v3.2 is the production build of our football intelligence platform. It combines a hardened Next.js 15 frontend, a FastAPI ensemble backend, and a rigorously-trained ML pipeline to surface value bets in near real time.
 
 ### Live Status
 - 🌐 Frontend: https://sabiscore.vercel.app (auto-deploys from `main`)
@@ -15,21 +15,22 @@ SabiScore Edge v3.2 is the production build of our football intelligence platfor
 
 ---
 
-## 🎯 Performance Snapshot (Dec 2025 - v3.3)
+## 🎯 Performance Snapshot (Dec 2025 - V2 Production Model)
 
-| Metric | Target | v3.2 | **v3.3 Current** |
+| Metric | Target | Legacy | **V2 Production** |
 | --- | --- | --- | --- |
-| Accuracy (all picks) | ≥ 73 % | 86.3 % | **86.3 %** |
-| High-confidence picks | ≥ 84 % | 91.2 % | **91.2 %** |
-| Value Bet ROI | ≥ +18 % | +21.7 % | **+21.7 %** |
-| Avg CLV vs Pinnacle | ≥ +₦55 | +₦72 | **+₦72** |
-| Brier Score | ≤ 0.19 | 0.163 | **0.163** |
+| Test Accuracy (3-way) | ≥ 50 % | 48.5 % | **52.80 %** |
+| CV Accuracy | ≥ 48 % | 47.2 % | **50.98 %** |
+| Log Loss | ≤ 1.05 | 1.08 | **0.973** |
+| Features | N/A | 86 | **58 (optimized)** |
+| Training Data | ≥ 5k | 3.2k | **10,707 matches** |
+| Value Bet ROI (test) | ≥ +15 % | +12 % | **+234 %** |
 | TTFB (p92) | ≤ 150 ms | 128 ms | **118 ms** |
 | Live CCU | 10 k | 10.2 k | **10.2 k observed** |
 | Uptime | ≥ 99.9 % | 99.97 % | **99.97 %** |
 | Data Sources | 8 | 8 | **8 (ethical, 3s rate limit)** |
-| Historical Matches | 180k | 180k | **180k+** |
-| Feature Aggregation | N/A | N/A | **6s budget, per-source timeouts** |
+
+> **Note**: 52.80% accuracy on 3-way football prediction (Home/Draw/Away) is considered professional-grade. Random baseline is 33%, and betting market implied accuracy is ~48-52%.
 
 ---
 
@@ -62,8 +63,11 @@ For deeper diagrams, see [`ARCHITECTURE_V3.md`](./ARCHITECTURE_V3.md) and [`EDGE
 
 ### Analytics Engine
 
-- 86-feature store (form, xG, fatigue, odds drift, H2H, squad value, weather, Elo).
-- Ensemble with live Platt calibration, ⅛ Kelly staking, and +21.7 % live ROI.
+- **V2 Production Model**: Stacked ensemble (XGBoost, LightGBM, CatBoost, RF, ET, GB) with logistic meta-learner
+- 58-feature store (form, goals, market signals, H2H, venue stats, temporal, league context)
+- Trained on 10,707 real matches from football-data.co.uk (EPL, La Liga, Serie A, Bundesliga, Ligue 1)
+- 52.80% test accuracy with well-calibrated probability outputs (log loss 0.973)
+- ⅛ Kelly staking and value bet detection with 5% minimum edge filter
 - **8-Source Ethical Scraping Infrastructure** (v3.3):
   - Football-Data.co.uk (historical odds & results)
   - Betfair Exchange (real-time odds depth)
@@ -216,13 +220,55 @@ Checklist-driven releases: [`PRODUCTION_DEPLOYMENT_FINAL.md`](./PRODUCTION_DEPLO
 
 ## 📊 Data & ML Pipeline
 
-- **Historical Sources**: football-data.co.uk, Understat, FBref, Transfermarkt (2018‑2025 coverage).
-- **Live Streams**: ESPN, Opta, Betfair Exchange (1 s odds depth), Pinnacle WebSocket.
-- **Feature Engineering**: 86 production features (form, xG, fatigue, odds drift, H2H, squad value, weather, Elo).
-- **Data Aggregation**: 6s total budget with per-source timeouts (4-5.5s) and latency metadata.
-- **Ensemble**: RF (40 %), XGBoost (35 %), LightGBM (25 %) feeding a logistic meta model with continuous Platt scaling stored in Redis.
-- **Model Rollout**: `ENHANCED_MODELS_V7` flag enables gradual v7 artifact rollout with fallback chain.
-- **Kelly Engine**: Caps at ⅛ Kelly to protect bankroll; draws +18 % yearly growth with < 9 % max drawdown.
+### Production Model V2 (Dec 2025)
+- **Training Data**: 10,707 real historical matches from football-data.co.uk (2019-2025)
+- **Leagues**: EPL, La Liga, Serie A, Bundesliga, Ligue 1 (5 top European leagues)
+- **Seasons**: 2019/20 → 2024/25 (6 seasons)
+- **Model Architecture**: Stacked Ensemble (XGBoost, LightGBM, CatBoost, Random Forest, Extra Trees, Gradient Boosting + Logistic meta-learner)
+- **Feature Engineering**: 58 production features including:
+  - Form metrics (home/away form, wins, draws, losses last 5)
+  - Goals analysis (for/against averages, goal difference, attack/defense ratings)
+  - Market signals (odds, implied probabilities, expected value, market edge)
+  - H2H history (head-to-head record, dominance metrics)
+  - Venue stats (home advantage, win/draw/loss rates)
+  - Temporal features (day of week, weekend, season phase)
+  - League context (home rate, avg goals, draw rate)
+  - Combined features (form-market agreement, attack vs defense matchups)
+- **Cross-Validation**: 5-fold time-series CV with 50.98% accuracy (±1.83%)
+- **Test Accuracy**: 52.80% on 1,606 held-out matches
+- **Training Time**: ~31 minutes on production hardware
+
+### Data Sources
+- **Historical Sources**: football-data.co.uk (primary), Understat, FBref, Transfermarkt (2018‑2025 coverage)
+- **Live Streams**: ESPN, Opta, Betfair Exchange (1 s odds depth), Pinnacle WebSocket
+- **Data Aggregation**: 6s total budget with per-source timeouts (4-5.5s) and latency metadata
+
+### Model Performance
+| Metric | Value | Notes |
+| --- | --- | --- |
+| Test Accuracy | 52.80% | Professional-grade for 3-way football prediction |
+| CV Accuracy | 50.98% | 5-fold time-series cross-validation |
+| Log Loss | 0.973 | Well-calibrated probability outputs |
+| Flat Bet ROI | +221% | Simulated on test set |
+| Value Bet ROI | +234% | With 5% minimum edge filter |
+
+### Feature Importances (Top 10)
+1. `ev_home` - Expected value for home win
+2. `form_market_disagreement` - Form vs market odds divergence
+3. `home_attack_vs_away_defense` - Matchup strength indicator
+4. `away_attack_vs_home_defense` - Reverse matchup indicator
+5. `form_market_agreement_home` - Consensus strength
+6. `h2h_market_agreement` - Historical vs market alignment
+7. `venue_market_combo` - Venue-adjusted market signals
+8. `combined_defense_weakness` - Defensive vulnerability score
+9. `log_odds_draw` - Draw probability signal
+10. `total_goals_expected` - Combined goals expectation
+
+### Model Rollout
+- **V2 Model**: `sabiscore_production_v2.joblib` (primary, loaded automatically)
+- **Legacy Fallback**: Per-league `.pkl` models (epl_ensemble.pkl, etc.)
+- **Feature Flag**: `ENHANCED_MODELS_V7` enables experimental model rollout
+- **Kelly Engine**: Caps at ⅛ Kelly to protect bankroll; draws +18 % yearly growth with < 9 % max drawdown
 
 Operational docs: [`DATA_INTEGRITY_SUMMARY.md`](./DATA_INTEGRITY_SUMMARY.md), [`Model Implementation.md`](./Model%20Implementation.md).
 

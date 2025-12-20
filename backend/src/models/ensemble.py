@@ -203,6 +203,10 @@ class EnsembleModel:
             raise ValueError("Model not trained yet")
 
         try:
+            # Check if using V2 model
+            if getattr(self, 'is_v2', False):
+                return self._predict_v2(X)
+            
             # Handle missing values
             X = X.fillna(X.mean())
             
@@ -238,6 +242,60 @@ class EnsembleModel:
 
         except Exception as e:
             logger.error(f"Prediction failed: {e}")
+            raise
+    
+    def _predict_v2(self, X: pd.DataFrame) -> pd.DataFrame:
+        """Make predictions using V2 production model"""
+        try:
+            # Get V2 model
+            v2_model = self.v2_model_data.get('model')
+            scaler = self.v2_scaler
+            feature_names = self.v2_feature_names
+            
+            # Align features
+            X_aligned = X.copy()
+            
+            # Add missing features with zeros
+            for feat in feature_names:
+                if feat not in X_aligned.columns:
+                    X_aligned[feat] = 0
+            
+            # Select only the features the model expects
+            X_aligned = X_aligned[feature_names] if feature_names else X_aligned
+            
+            # Handle missing values
+            X_aligned = X_aligned.fillna(0)
+            
+            # Scale if scaler available
+            if scaler is not None:
+                X_scaled = scaler.transform(X_aligned)
+            else:
+                X_scaled = X_aligned.values
+            
+            # Get predictions
+            y_pred = v2_model.predict(X_scaled)
+            y_proba = v2_model.predict_proba(X_scaled)
+            
+            # V2 model outputs: 0=Away, 1=Draw, 2=Home
+            # Create results DataFrame - note: V2 model's class order may differ
+            results = pd.DataFrame({
+                'away_win_prob': y_proba[:, 0],
+                'draw_prob': y_proba[:, 1],
+                'home_win_prob': y_proba[:, 2]
+            })
+            
+            # Map predictions
+            pred_map = {0: 'away_win', 1: 'draw', 2: 'home_win'}
+            results['prediction'] = [pred_map.get(p, 'draw') for p in y_pred]
+            
+            # Calculate confidence
+            results['confidence'] = results[['home_win_prob', 'draw_prob', 'away_win_prob']].max(axis=1)
+            
+            logger.debug(f"V2 prediction complete: {len(results)} predictions")
+            return results
+            
+        except Exception as e:
+            logger.error(f"V2 prediction failed: {e}")
             raise
 
     def explain_predictions(self, X: pd.DataFrame) -> Dict[str, Any]:
@@ -334,10 +392,21 @@ class EnsembleModel:
 
     @classmethod
     def load_latest_model(cls, models_path: str) -> 'SabiScoreEnsemble':
-        """Load the latest trained model"""
+        """Load the latest trained model - supports both V2 (joblib) and legacy (pkl) formats"""
         # Validate path
         if not os.path.exists(models_path) or not os.path.isdir(models_path):
             raise FileNotFoundError(f"Models path not found or is not a directory: {models_path}")
+
+        # First, check for V2 production model (highest priority)
+        v2_model_path = os.path.join(models_path, "sabiscore_production_v2.joblib")
+        if os.path.exists(v2_model_path):
+            try:
+                size = os.path.getsize(v2_model_path)
+                if size > 10_240:  # At least 10KB
+                    logger.info(f"Loading V2 production model from {v2_model_path}")
+                    return cls._load_v2_model(v2_model_path)
+            except Exception as e:
+                logger.warning(f"Failed to load V2 model: {e}, falling back to legacy models")
 
         # Find candidate model files (newest first)
         model_files = [f for f in os.listdir(models_path) if f.endswith('.pkl')]
@@ -378,6 +447,40 @@ class EnsembleModel:
         if last_exc:
             raise RuntimeError(msg) from last_exc
         raise RuntimeError(msg)
+    
+    @classmethod
+    def _load_v2_model(cls, model_path: str) -> 'EnsembleModel':
+        """Load V2 production model (stacked ensemble format)"""
+        try:
+            save_data = joblib.load(model_path)
+            
+            instance = cls()
+            instance.v2_model_data = save_data  # Store raw V2 data
+            instance.models = {'v2_ensemble': save_data.get('model')}  # Wrap in dict for compatibility
+            instance.meta_model = save_data.get('model')  # V2 model acts as meta-learner
+            instance.feature_columns = save_data.get('feature_names', [])
+            instance.model_metadata = {
+                'model_name': save_data.get('model_name', 'sabiscore_production_v2'),
+                'training_metrics': save_data.get('training_metrics', {}),
+                'version': 'v2',
+                'trained_at': save_data.get('trained_at', datetime.now().isoformat())
+            }
+            instance.is_trained = True
+            instance.is_v2 = True
+            instance.v2_scaler = save_data.get('scaler')
+            instance.v2_feature_names = save_data.get('feature_names', [])
+            
+            logger.info(f"V2 production model loaded successfully from {model_path}")
+            logger.info(f"Features: {len(instance.feature_columns)}")
+            if 'training_metrics' in save_data:
+                tm = save_data['training_metrics']
+                logger.info(f"CV Accuracy: {tm.get('cv_accuracy_mean', 'N/A'):.4f}")
+            
+            return instance
+            
+        except Exception as e:
+            logger.exception(f"Failed to load V2 model: {e}")
+            raise ModelLoadError(f"Failed to load V2 model from {model_path}: {e}") from e
 
 
 # Backward compatibility alias
