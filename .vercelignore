@@ -1,54 +1,80 @@
-# Backend (deployed separately)
-/backend/
-**/backend/
+# ===========================================
+# SabiScore Vercel Ignore Configuration
+# Only ignore root-level and backend files
+# PRESERVE: apps/web/** for frontend build
+# ===========================================
 
-# Python
+# Backend (deployed separately to Render)
+/backend/
+
+# Python files (root level only)
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
 *.egg-info/
-dist/
-build/
-venv/
-.env
+/venv/
+/.env
 
-# Data directories (exclude only repo-root copies, not app source)
+# Root-level data directories
 /data/
 /models/
 /monitoring/
 /dags/
+/catboost_info/
 
-# Logs
+# Root-level logs
 *.log
-logs/
+/logs/
 
-# Tests
-test-results/
-tests/
-**/__tests__/
+# Root-level tests
+/test-results/
+/tests/
+/test_*.py
 
-# Documentation (not needed in production)
-*.md
+# Root-level documentation (keep README)
+/*.md
 !README.md
+/docs/
 
-# Scripts
-scripts/
-*.sh
-*.bat
-*.ps1
+# Root-level scripts (preserve apps/web/scripts)
+/scripts/
+/*.sh
+/*.bat
+/*.ps1
 
-# Docker
-docker-compose*.yml
-Dockerfile
-.dockerignore
+# Docker (root level)
+/docker-compose*.yml
+/Dockerfile
+/.dockerignore
 
 # IDE
 .vscode/
 .idea/
+.qodo/
+.serena/
 
-# Misc
-dump.rdb
-*.txt
+# Build artifacts (root level)
+/dump.rdb
+/*.txt
 !requirements.txt
+/.coverage
+/.coveragerc
+/.pytest_cache/
+/build.log
+/build-error.log
+/*.db
+
+# Git hooks
+/.githooks/
+
+# Other root-level items
+/frontend/
+/packages/
+/apps/api/
+/apps/ws/
+
+# Explicitly preserve apps/web (DO NOT IGNORE)
+!apps/web/
+!apps/web/**
