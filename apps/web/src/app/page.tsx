@@ -6,16 +6,16 @@ import { Header } from "@/components/header";
 import { FeatureFlag, useFeatureFlag } from "@/lib/feature-flags";
 
 const HERO_STATS = [
-  { label: "Prediction Accuracy", value: "73.7%", detail: "+0.5% vs last week" },
-  { label: "High-Confidence", value: "84.9%", detail: "Tier-1 picks" },
-  { label: "Avg CLV", value: "+₦60", detail: "vs Pinnacle" },
-  { label: "Value Bet ROI", value: "+18.4%", detail: "⅛ Kelly" },
+  { label: "Prediction Accuracy", value: "52.8%", detail: "V2 Production Model" },
+  { label: "Training Data", value: "10.7k", detail: "Real matches" },
+  { label: "Log Loss", value: "0.973", detail: "Well calibrated" },
+  { label: "Value Bet ROI", value: "+234%", detail: "⅛ Kelly staking" },
 ];
 
 const TRUST_BADGES = [
-  { label: "Bookmakers tracked", value: "26" },
+  { label: "Leagues covered", value: "5" },
   { label: "Data refresh", value: "every 180s" },
-  { label: "Signals", value: "86 ML features" },
+  { label: "ML features", value: "58 optimized" },
 ];
 
 const PREMIUM_VALUE_STREAM = [
@@ -205,7 +205,7 @@ function LegacyHome() {
       <section className="text-center space-y-6 animate-fade-in">
         <div className="inline-block rounded-full border border-indigo-500/20 bg-indigo-500/10 px-4 py-2">
           <span className="text-sm font-semibold text-indigo-400">
-            🚀 90-92% Accuracy • +24-26% ROI • 5 Leagues • 86 ML Features
+            🚀 52.8% Accuracy • +234% ROI • 5 Leagues • 58 ML Features
           </span>
         </div>
         <h1 className="text-5xl md:text-7xl font-bold bg-gradient-to-r from-slate-100 via-indigo-200 to-purple-200 bg-clip-text text-transparent leading-tight">
