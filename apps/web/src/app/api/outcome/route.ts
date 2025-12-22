@@ -3,12 +3,14 @@
  * 
  * Updates prediction outcomes when match results are known.
  * This enables the monitoring system to calculate accuracy and ROI.
+ * Note: Uses Node.js runtime for localStorage compatibility in freeMonitoring.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { freeMonitoring } from '@/lib/monitoring/free-analytics';
 
-export const runtime = 'edge';
+// Use Node.js runtime for localStorage compatibility
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 interface OutcomeUpdateRequest {

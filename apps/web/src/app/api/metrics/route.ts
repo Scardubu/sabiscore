@@ -2,12 +2,14 @@
  * Metrics API Route
  * 
  * Returns detailed rolling metrics for dashboard.
+ * Note: Uses Node.js runtime for localStorage compatibility in freeMonitoring.
  */
 
 import { NextResponse } from 'next/server';
 import { freeMonitoring } from '@/lib/monitoring/free-analytics';
 
-export const runtime = 'edge';
+// Use Node.js runtime for localStorage compatibility
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {

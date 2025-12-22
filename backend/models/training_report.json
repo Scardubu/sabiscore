@@ -1,0 +1,176 @@
+{
+  "config": {
+    "leagues": [
+      "EPL",
+      "La_Liga",
+      "Bundesliga",
+      "Serie_A",
+      "Ligue_1"
+    ],
+    "seasons": [
+      "2425",
+      "2324",
+      "2223",
+      "2122",
+      "2021",
+      "1920"
+    ],
+    "min_games_threshold": 5,
+    "test_size": 0.15,
+    "random_state": 42
+  },
+  "data": {
+    "total_samples": 10707,
+    "train_samples": 9101,
+    "test_samples": 1606,
+    "n_features": 58,
+    "feature_names": [
+      "home_form_last5_home",
+      "home_wins_last5_home",
+      "home_draws_last5_home",
+      "home_losses_last5_home",
+      "away_form_last5_away",
+      "away_wins_last5_away",
+      "away_draws_last5_away",
+      "away_losses_last5_away",
+      "home_goals_for_avg",
+      "home_goals_against_avg",
+      "away_goals_for_avg",
+      "away_goals_against_avg",
+      "total_goals_expected",
+      "home_gd_recent",
+      "away_gd_recent",
+      "combined_attack",
+      "combined_defense_weakness",
+      "market_prob_home",
+      "market_prob_draw",
+      "market_prob_away",
+      "market_edge_home",
+      "market_favorite",
+      "odds_ratio",
+      "log_odds_home",
+      "log_odds_draw",
+      "log_odds_away",
+      "draw_probability",
+      "market_confidence",
+      "ev_home",
+      "ev_draw",
+      "ev_away",
+      "h2h_home_wins",
+      "h2h_away_wins",
+      "h2h_draws",
+      "h2h_matches",
+      "h2h_dominance",
+      "home_venue_win_rate",
+      "home_venue_draw_rate",
+      "home_venue_loss_rate",
+      "home_advantage_strength",
+      "day_of_week",
+      "is_weekend",
+      "month",
+      "season_phase",
+      "league_home_rate",
+      "league_avg_goals",
+      "league_draw_rate",
+      "form_market_agreement_home",
+      "form_market_disagreement",
+      "home_attack_vs_away_defense"
+    ]
+  },
+  "training_metrics": {
+    "cv_accuracy_mean": 0.5097625329815303,
+    "cv_accuracy_std": 0.018310661290656963,
+    "cv_log_loss_mean": 1.015139444915647,
+    "fold_metrics": [
+      {
+        "fold": 1,
+        "accuracy": 0.4742744063324538,
+        "log_loss": 1.081019120750035,
+        "train_size": 1521,
+        "val_size": 1516
+      },
+      {
+        "fold": 2,
+        "accuracy": 0.5105540897097626,
+        "log_loss": 1.0167401327913728,
+        "train_size": 3037,
+        "val_size": 1516
+      },
+      {
+        "fold": 3,
+        "accuracy": 0.5191292875989446,
+        "log_loss": 1.0040668805341337,
+        "train_size": 4553,
+        "val_size": 1516
+      },
+      {
+        "fold": 4,
+        "accuracy": 0.5244063324538258,
+        "log_loss": 0.9932008166848455,
+        "train_size": 6069,
+        "val_size": 1516
+      },
+      {
+        "fold": 5,
+        "accuracy": 0.5204485488126649,
+        "log_loss": 0.9806702738178471,
+        "train_size": 7585,
+        "val_size": 1516
+      }
+    ],
+    "training_time_seconds": 1755.134541,
+    "n_samples": 9101,
+    "n_features": 58,
+    "training_date": "2025-12-20T11:43:50.847562"
+  },
+  "evaluation": {
+    "accuracy": 0.5280199252801993,
+    "log_loss": 0.9726041987177607,
+    "confusion_matrix": [
+      [
+        544,
+        23,
+        108
+      ],
+      [
+        245,
+        24,
+        126
+      ],
+      [
+        224,
+        32,
+        280
+      ]
+    ],
+    "actual_distribution": {
+      "0": 0.4202988792029888,
+      "1": 0.2459526774595268,
+      "2": 0.33374844333748444
+    },
+    "predicted_distribution": {
+      "0": 0.6307596513075965,
+      "1": 0.04919053549190536,
+      "2": 0.32004981320049813
+    },
+    "betting_analysis": {
+      "flat_betting": {
+        "profit": 3550.230000000004,
+        "bets": 1606,
+        "roi": 221.06039850560424
+      },
+      "kelly_betting": {
+        "profit": 0,
+        "bets": 0,
+        "roi": 0
+      },
+      "value_betting": {
+        "profit": 3574.040000000005,
+        "bets": 1528,
+        "roi": 233.90314136125684
+      }
+    }
+  },
+  "model_path": "C:\\Users\\USR\\Documents\\SabiScore\\backend\\models\\sabiscore_production_v2.joblib",
+  "training_time": "0:31:27.078157"
+}

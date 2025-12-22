@@ -5,12 +5,14 @@
  * Vercel Cron job configuration in vercel.json.
  * 
  * Supports webhook alerts via ALERT_WEBHOOK_URL environment variable.
+ * Note: Uses Node.js runtime for localStorage compatibility in freeMonitoring.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { freeMonitoring, type DriftReport } from '@/lib/monitoring/free-analytics';
 
-export const runtime = 'edge';
+// Use Node.js runtime for localStorage compatibility
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // Severity type from DriftReport

@@ -499,10 +499,29 @@ export class FreeMonitoring {
   }
   
   /**
+   * Check if localStorage is available (browser environment with storage access)
+   */
+  private isStorageAvailable(): boolean {
+    try {
+      // Must be in browser context with localStorage available
+      if (typeof window === 'undefined') return false;
+      if (typeof localStorage === 'undefined') return false;
+      
+      // Test actual storage access
+      const testKey = '__storage_test__';
+      localStorage.setItem(testKey, 'test');
+      localStorage.removeItem(testKey);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Save to localStorage
    */
   private saveToStorage(): void {
-    if (typeof window === 'undefined') return;
+    if (!this.isStorageAvailable()) return;
     
     try {
       const data = {
@@ -520,7 +539,7 @@ export class FreeMonitoring {
    * Load from localStorage
    */
   private loadFromStorage(): void {
-    if (typeof window === 'undefined') return;
+    if (!this.isStorageAvailable()) return;
     
     try {
       const stored = localStorage.getItem(this.STORAGE_KEY);
@@ -555,7 +574,7 @@ export class FreeMonitoring {
   clear(): void {
     this.predictions.clear();
     this.baseline = null;
-    if (typeof window !== 'undefined') {
+    if (this.isStorageAvailable()) {
       localStorage.removeItem(this.STORAGE_KEY);
     }
   }
