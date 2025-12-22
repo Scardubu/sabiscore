@@ -1,58 +1,83 @@
-# SabiScore Vercel Ignore - Keep apps/web for frontend!
+# SabiScore Vercel Ignore
+# IMPORTANT: All patterns anchored to root (/) to preserve apps/web/
 
-# Backend (on Render)
-backend/
+# Backend (deployed to Render)
+/backend/
 
-# Python
-__pycache__/
-*.pyc
-venv/
+# Python artifacts at root
+/__pycache__/
+/venv/
 
-# Data
-data/
-models/
-monitoring/
-dags/
+# Root data directories
+/data/
+/models/
+/monitoring/
+/dags/
+/catboost_info/
 
-# Logs
-*.log
-logs/
+# Root logs
+/logs/
 
-# Tests
-test-results/
-tests/
-.coverage
-.pytest_cache/
+# Root test directories
+/test-results/
+/tests/
 
-# Docs (keep README)
-docs/
-*.md
-!README.md
-!apps/web/**/*.md
+# Root-level markdown docs (not in apps/web)
+/docs/
+/ARCHITECTURE*.md
+/BACKEND*.md
+/CREATIVE*.md
+/DEPLOY*.md
+/DEVELOPER*.md
+/DEV_RUN.md
+/EDGE*.md
+/ENVIRONMENT*.md
+/IMPLEMENTATION*.md
+/LOADING*.md
+/MERGED*.md
+/ML_EXTENSIONS*.md
+/MODEL*.md
+/OPTIMIZATION*.md
+/PART3*.md
+/PRODUCTION*.md
+/QUICK*.md
+/READY*.md
+/SCHEMA*.md
+/TECHNICAL*.md
+/Sabi*.md
+/SabiScore*.md
+/implementation_summary*.md
 
-# Root scripts
-scripts/
-*.ps1
-*.bat
-*.sh
+# Root-level scripts only (NOT in apps/web)
+/scripts/
+/*.ps1
+/*.bat
+/*.sh
 
-# Docker
-docker-compose*.yml
-Dockerfile
-.dockerignore
+# Docker at root
+/docker-compose*.yml
+/Dockerfile
+/.dockerignore
 
-# IDE
-.vscode/
-.idea/
-.qodo/
-.serena/
-.githooks/
+# IDE/tool directories at root
+/.vscode/
+/.idea/
+/.qodo/
+/.serena/
+/.githooks/
+/.copilot-todo.md
+/.coverage
+/.coveragerc
+/.pytest_cache/
+/.env
 
-# Build artifacts
-*.db
-dump.rdb
+# Root build artifacts
+/*.db
+/dump.rdb
+/build.log
+/build-error.log
 
-# Other apps (not web)
-apps/api/
-apps/ws/
-frontend/
+# Other app directories (not web)
+/apps/api/
+/apps/ws/
+/frontend/
