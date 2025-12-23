@@ -83,11 +83,7 @@ function PremiumHome() {
     <>
       <section className="relative overflow-hidden rounded-[32px] border border-white/10 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-10 text-left shadow-[0_35px_80px_rgba(2,6,23,0.6)]">
         <div
-          className="pointer-events-none absolute inset-0 opacity-70"
-          style={{
-            background:
-              "radial-gradient(circle at 20% 20%, rgba(0,212,255,0.35), transparent 55%), radial-gradient(circle at 80% 10%, rgba(123,47,247,0.25), transparent 45%)",
-          }}
+          className="pointer-events-none absolute inset-0 opacity-70 bg-[radial-gradient(circle_at_20%_20%,rgba(0,212,255,0.35),transparent_55%),radial-gradient(circle_at_80%_10%,rgba(123,47,247,0.25),transparent_45%)]"
           aria-hidden="true"
         />
         <div className="relative grid gap-10 lg:grid-cols-[1.2fr,0.8fr]">

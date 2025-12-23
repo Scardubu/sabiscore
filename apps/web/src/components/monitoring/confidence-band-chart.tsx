@@ -222,9 +222,11 @@ function ConfidenceBandRow({
       <div className="flex items-center gap-2 text-xs">
         <div className="flex-1 h-1 bg-slate-700 rounded-full overflow-hidden relative">
           {/* Expected accuracy line */}
-          <div
+          <motion.div
             className="absolute h-full w-0.5 bg-white/50"
-            style={{ left: `${expectedPercent}%` }}
+            initial={{ left: `${expectedPercent}%` }}
+            animate={{ left: `${expectedPercent}%` }}
+            transition={{ duration: 0.001 }}
           />
           {/* Actual accuracy marker */}
           <motion.div

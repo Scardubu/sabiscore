@@ -110,7 +110,7 @@ export function TeamAutocomplete({
 }: TeamAutocompleteProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const listRef = useRef<HTMLUListElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const [internalValue, setInternalValue] = useState(value);
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -276,13 +276,6 @@ export function TeamAutocomplete({
     }
   };
 
-  const renderSectionHeader = (title: string, icon: React.ReactNode) => (
-    <li className="px-3 py-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-2 bg-slate-900/50 border-b border-slate-700/50">
-      {icon}
-      {title}
-    </li>
-  );
-
   let currentIndex = 0;
 
   return (
@@ -294,7 +287,6 @@ export function TeamAutocomplete({
           <input
             ref={inputRef}
             type="text"
-            role="combobox"
             id={`team-combobox-${uid}`}
             value={internalValue}
             onChange={handleInputChange}
@@ -303,31 +295,29 @@ export function TeamAutocomplete({
             placeholder={placeholder}
             disabled={disabled}
             autoComplete="off"
-            aria-autocomplete="list"
-            aria-expanded={isOpen}
-            aria-controls={`team-listbox-${uid}`}
             className="w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           />
         </div>
         {isOpen && allDisplayedOptions.length > 0 && (
-          <ul
-            ref={listRef}
+          <div
+            ref={listRef as unknown as React.RefObject<HTMLDivElement>}
             id={`team-listbox-${uid}`}
-            role="listbox"
             className="absolute z-20 mt-1 w-full max-h-72 overflow-auto rounded-lg border border-slate-700 bg-slate-900/95 shadow-xl backdrop-blur-sm"
           >
             {/* Recent Teams Section */}
             {filteredOptions.recent.length > 0 && (
               <>
-                {renderSectionHeader('Recent', <Clock className="w-3 h-3" />)}
+                <div className="px-3 py-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-2 bg-slate-900/50 border-b border-slate-700/50">
+                  <Clock className="w-3 h-3" />
+                  Recent
+                </div>
                 {filteredOptions.recent.map((team) => {
                   const index = currentIndex++;
                   return (
-                    <li
+                    <div
                       key={`recent-${team}`}
                       id={`team-option-${uid}-${index}`}
-                      role="option"
-                      aria-selected={highlightedIndex === index}
+                      tabIndex={-1}
                       title={team}
                       className={`cursor-pointer px-4 py-2.5 text-sm transition-colors flex items-center gap-2 ${
                         highlightedIndex === index
@@ -347,7 +337,7 @@ export function TeamAutocomplete({
                         showLeaguePill={Boolean(league)}
                         className={highlightedIndex === index ? "text-white" : ""}
                       />
-                    </li>
+                    </div>
                   );
                 })}
               </>
@@ -356,15 +346,19 @@ export function TeamAutocomplete({
             {/* Suggestions Section */}
             {filteredOptions.suggestions.length > 0 && (
               <>
-                {filteredOptions.recent.length > 0 && renderSectionHeader('All Teams', <Search className="w-3 h-3" />)}
+                {filteredOptions.recent.length > 0 && (
+                  <div className="px-3 py-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-2 bg-slate-900/50 border-b border-slate-700/50">
+                    <Search className="w-3 h-3" />
+                    All Teams
+                  </div>
+                )}
                 {filteredOptions.suggestions.map((team) => {
                   const index = currentIndex++;
                   return (
-                    <li
+                    <div
                       key={team}
                       id={`team-option-${uid}-${index}`}
-                      role="option"
-                      aria-selected={highlightedIndex === index}
+                      tabIndex={-1}
                       title={team}
                       className={`cursor-pointer px-4 py-2.5 text-sm transition-colors ${
                         highlightedIndex === index
@@ -383,7 +377,7 @@ export function TeamAutocomplete({
                         showLeaguePill={Boolean(league)}
                         className={highlightedIndex === index ? "text-white" : ""}
                       />
-                    </li>
+                    </div>
                   );
                 })}
               </>
@@ -391,11 +385,11 @@ export function TeamAutocomplete({
             
             {/* More results indicator */}
             {filteredOptions.hasMore && (
-              <li className="px-4 py-2 text-xs text-slate-500 text-center border-t border-slate-700/50">
+              <div role="presentation" className="px-4 py-2 text-xs text-slate-500 text-center border-t border-slate-700/50">
                 Type to see more results...
-              </li>
+              </div>
             )}
-          </ul>
+          </div>
         )}
 
         {isOpen && allDisplayedOptions.length === 0 && (

@@ -152,14 +152,28 @@ export const CachedLogo = memo(function CachedLogo({
     16: "h-4 w-4",
     18: "h-[18px] w-[18px]",
     20: "h-5 w-5",
+    22: "h-[22px] w-[22px]",
     24: "h-6 w-6",
+    26: "h-[26px] w-[26px]",
     28: "h-7 w-7",
+    30: "h-[30px] w-[30px]",
     32: "h-8 w-8",
+    34: "h-[34px] w-[34px]",
     36: "h-9 w-9",
+    38: "h-[38px] w-[38px]",
     40: "h-10 w-10",
+    44: "h-11 w-11",
     48: "h-12 w-12",
+    52: "h-[52px] w-[52px]",
     56: "h-14 w-14",
+    60: "h-[60px] w-[60px]",
     64: "h-16 w-16",
+  };
+
+  const getNearestSizeClass = (target: number): string => {
+    const sizes = Object.keys(sizeClasses).map(Number).sort((a, b) => a - b);
+    const nearest = sizes.reduce((prev, curr) => Math.abs(curr - target) < Math.abs(prev - target) ? curr : prev, sizes[0]);
+    return sizeClasses[nearest];
   };
   
   const fontSizeClasses: Record<number, string> = {
@@ -178,11 +192,8 @@ export const CachedLogo = memo(function CachedLogo({
   };
   
   // Get closest size class or use inline style as fallback
-  const sizeClass = sizeClasses[size];
+  const sizeClass = sizeClasses[size] || getNearestSizeClass(size);
   const fontClass = fontSizeClasses[size] || fontSizeClasses[Math.min(...Object.keys(fontSizeClasses).map(Number).filter(k => k >= size))] || "text-base";
-  
-  // If no predefined class exists, we need to use inline styles
-  const inlineStyle = sizeClass ? undefined : { width: size, height: size };
   
   const gradientBg = getGradientFromColors(colors);
 
@@ -196,7 +207,6 @@ export const CachedLogo = memo(function CachedLogo({
           sizeClass,
           className
         )}
-        style={inlineStyle}
         role="img"
         aria-label={alt}
       >
@@ -217,7 +227,6 @@ export const CachedLogo = memo(function CachedLogo({
         sizeClass,
         className
       )}
-      style={inlineStyle}
     >
       {/* Loading shimmer */}
       {isLoading && (

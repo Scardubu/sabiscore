@@ -1,6 +1,3 @@
-/* eslint-disable react/forbid-dom-props */
-// Note: Global error boundary intentionally uses inline styles
-// because external CSS may not be available during critical errors
 'use client';
 
 import { useEffect } from 'react';
@@ -20,36 +17,14 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
 
   return (
     <html lang="en">
-      <body>
-        <div style={{
-          display: 'flex',
-          minHeight: '100vh',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: '#0f172a',
-          color: '#f1f5f9',
-          padding: '1rem',
-          fontFamily: 'system-ui, -apple-system, sans-serif'
-        }}>
-          <div style={{ maxWidth: '32rem', textAlign: 'center' }}>
-            <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '1rem' }}>
-              Something went wrong
-            </h1>
-            <p style={{ color: '#94a3b8', marginBottom: '2rem' }}>
-              {errorMessage}
-            </p>
+      <body className="min-h-screen bg-slate-900 text-slate-50 font-sans">
+        <div className="flex min-h-screen items-center justify-center px-4">
+          <div className="w-full max-w-xl text-center space-y-4">
+            <h1 className="text-2xl font-bold">Something went wrong</h1>
+            <p className="text-slate-300">{errorMessage}</p>
             <button
               onClick={reset}
-              style={{
-                padding: '0.75rem 1.5rem',
-                backgroundColor: '#4f46e5',
-                color: 'white',
-                border: 'none',
-                borderRadius: '0.5rem',
-                fontSize: '1rem',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
+              className="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-6 py-3 text-base font-semibold text-white shadow-lg shadow-indigo-900/40 transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-300"
             >
               Try again
             </button>
