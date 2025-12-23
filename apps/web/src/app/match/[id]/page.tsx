@@ -2,9 +2,8 @@ import { notFound } from "next/navigation";
 import { InsightsDisplayWrapper } from "@/components/insights-display-wrapper";
 import { getMatchInsights, APIError } from "@/lib/api";
 
-// Edge runtime disabled to prevent styled-jsx SSR errors during build
-// export const runtime = "edge";
-// export const preferredRegion = ["iad1", "lhr1", "fra1"];
+// Use Node.js runtime for stability - Edge can cause hydration issues
+export const runtime = "nodejs";
 export const revalidate = 15; // ISR: revalidate every 15 seconds
 export const fetchCache = "force-no-store"; // Always fresh for live data
 
@@ -14,30 +13,52 @@ type PageProps = {
 };
 
 export async function generateMetadata({ params, searchParams }: PageProps) {
+  // Handle undefined params gracefully
   if (!params) {
-    notFound();
+    return {
+      title: "Match Not Found | Sabiscore",
+      description: "The requested match could not be found.",
+    };
   }
 
-  const { id } = await params;
-  const resolvedSearchParams = searchParams ? await searchParams : undefined;
-  const { league } = resolvedSearchParams || {};
+  try {
+    const { id } = await params;
+    const resolvedSearchParams = searchParams ? await searchParams : undefined;
+    const { league } = resolvedSearchParams || {};
 
-  const matchup = decodeURIComponent(id);
+    const matchup = decodeURIComponent(id);
 
-  return {
-    title: `${matchup} - Insights | Sabiscore`,
-    description: `AI-powered betting insights and predictions for ${matchup} in ${league || "EPL"}`,
-  };
+    return {
+      title: `${matchup} - Insights | Sabiscore`,
+      description: `AI-powered betting insights and predictions for ${matchup} in ${league || "EPL"}`,
+    };
+  } catch {
+    return {
+      title: "Match Insights | Sabiscore",
+      description: "AI-powered betting insights and predictions.",
+    };
+  }
 }
 
 export default async function MatchInsightsPage({ params, searchParams }: PageProps) {
+  // Guard against undefined params - this can happen during build
   if (!params) {
     notFound();
   }
 
-  const { id } = await params;
-  const resolvedSearchParams = searchParams ? await searchParams : undefined;
-  const { league = "EPL" } = resolvedSearchParams || {};
+  let id: string;
+  let league: string = "EPL";
+  
+  try {
+    const resolvedParams = await params;
+    id = resolvedParams.id;
+    
+    const resolvedSearchParams = searchParams ? await searchParams : undefined;
+    league = resolvedSearchParams?.league || "EPL";
+  } catch {
+    // If params resolution fails, show not found
+    notFound();
+  }
 
   const matchup = decodeURIComponent(id);
 
@@ -50,10 +71,12 @@ export default async function MatchInsightsPage({ params, searchParams }: PagePr
       </div>
     );
   } catch (error) {
-    console.error("Failed to fetch insights:", error);
+    // Log error safely (avoid logging full error objects in production)
+    console.error("Failed to fetch insights:", 
+      error instanceof Error ? error.message : "Unknown error"
+    );
     
     // Only show notFound for genuine 404 errors (match not found/invalid)
-    // Re-throw other errors to trigger error.tsx boundary with retry option
     if (error instanceof APIError) {
       if (error.status === 404 || error.code === "INVALID_MATCHUP" || error.code === "INVALID_MATCHUP_FORMAT") {
         notFound();
@@ -62,14 +85,23 @@ export default async function MatchInsightsPage({ params, searchParams }: PagePr
     
     // For server errors, timeouts, or network issues, throw a plain Error
     // to ensure proper serialization across Server/Client boundary
-    const errorMessage = error instanceof Error ? error.message : "Failed to load match insights";
-    const plainError = new Error(errorMessage);
+    // IMPORTANT: Only pass serializable data - no custom error classes
+    const errorMessage = error instanceof Error 
+      ? error.message 
+      : "Failed to load match insights. Please try again.";
     
-    // Preserve the digest if available for error tracking
+    // Create a simple Error that can be safely serialized
+    const safeError = new Error(errorMessage);
+    
+    // Use a simple string digest for tracking (no complex objects)
     if (error instanceof APIError && error.status) {
-      (plainError as Error & { digest?: string }).digest = `${error.status}-${error.code || 'UNKNOWN'}`;
+      Object.defineProperty(safeError, 'digest', {
+        value: `api-${error.status}-${error.code || 'unknown'}`,
+        enumerable: false,
+        writable: false,
+      });
     }
     
-    throw plainError;
+    throw safeError;
   }
 }

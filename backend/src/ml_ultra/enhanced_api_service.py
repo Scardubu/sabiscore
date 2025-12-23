@@ -45,15 +45,15 @@ except ImportError:
 
 
 class EnhancedMatchInput(BaseModel):
-    """Enhanced input for match prediction"""
+    """Enhanced input for match prediction with validation"""
     match_id: str
     home_team: str
     away_team: str
     league: str = "EPL"
     
     # Form features (required)
-    home_ppg_5: float = Field(1.5, description="Home team points per game (last 5)")
-    away_ppg_5: float = Field(1.2, description="Away team points per game (last 5)")
+    home_ppg_5: float = Field(1.5, ge=0.0, le=3.0, description="Home team points per game (last 5)")
+    away_ppg_5: float = Field(1.2, ge=0.0, le=3.0, description="Away team points per game (last 5)")
     home_goals_for_5: float = Field(1.5, description="Home team goals scored per game (last 5)")
     home_goals_against_5: float = Field(1.2, description="Home team goals conceded per game (last 5)")
     away_goals_for_5: float = Field(1.2, description="Away team goals scored per game (last 5)")
@@ -111,6 +111,7 @@ class PredictionInsight(BaseModel):
 class EnhancedModelManager:
     """
     Manages both V1 and V2 models with graceful fallback.
+    Includes prediction caching and batch prediction support.
     """
     
     def __init__(self):
@@ -118,6 +119,10 @@ class EnhancedModelManager:
         self.v1_model: Optional[Any] = None
         self.model_version = "unknown"
         self.is_loaded = False
+        self._prediction_cache: Dict[str, tuple] = {}  # cache_key -> (result, timestamp)
+        self._cache_ttl_seconds = 300  # 5 minute cache
+        self._feature_count = 0
+        self._model_accuracy = 0.0
         
     def load_model(self, model_dir: Optional[str] = None) -> bool:
         """Load best available model"""
@@ -166,11 +171,38 @@ class EnhancedModelManager:
         logger.warning("⚠️ No model loaded - will use baseline predictions")
         return False
         
+    def _get_cache_key(self, match: EnhancedMatchInput) -> str:
+        """Generate cache key from match input"""
+        key_parts = [
+            match.home_team, match.away_team, match.league,
+            f"{match.home_ppg_5:.2f}", f"{match.away_ppg_5:.2f}",
+            f"{match.home_odds or 0:.2f}", f"{match.away_odds or 0:.2f}"
+        ]
+        return hashlib.md5(":".join(key_parts).encode()).hexdigest()
+    
+    def _check_cache(self, cache_key: str) -> Optional[PredictionInsight]:
+        """Check if prediction is in cache and still valid"""
+        if cache_key in self._prediction_cache:
+            result, timestamp = self._prediction_cache[cache_key]
+            if time.time() - timestamp < self._cache_ttl_seconds:
+                return result
+            del self._prediction_cache[cache_key]
+        return None
+    
     def predict(self, match: EnhancedMatchInput) -> PredictionInsight:
         """
         Make prediction with full insights.
+        Uses caching for repeated predictions.
         """
         start_time = time.time()
+        
+        # Check cache first
+        cache_key = self._get_cache_key(match)
+        cached_result = self._check_cache(cache_key)
+        if cached_result is not None:
+            # Update latency for cached result
+            cached_result.latency_ms = (time.time() - start_time) * 1000
+            return cached_result
         
         # Build feature dict
         features = self._build_features(match)
@@ -216,6 +248,18 @@ class EnhancedModelManager:
         
         # Risk assessment
         insight.risk_level = self._assess_risk(probs, confidence)
+        
+        # Cache the result
+        self._prediction_cache[cache_key] = (insight, time.time())
+        
+        # Limit cache size (LRU-style cleanup)
+        if len(self._prediction_cache) > 1000:
+            oldest_keys = sorted(
+                self._prediction_cache.keys(),
+                key=lambda k: self._prediction_cache[k][1]
+            )[:500]
+            for k in oldest_keys:
+                del self._prediction_cache[k]
         
         return insight
         

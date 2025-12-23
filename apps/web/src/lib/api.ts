@@ -4,9 +4,12 @@
 import { API_ORIGIN, API_V1_BASE } from "./api-base";
 
 // Tunables for slow upstreams (Render free tier can stall)
-const INSIGHTS_TIMEOUT_MS = Number(process.env.INSIGHTS_TIMEOUT_MS ?? process.env.NEXT_PUBLIC_INSIGHTS_TIMEOUT_MS ?? 12000);
-const INSIGHTS_MAX_RETRIES = Number(process.env.INSIGHTS_MAX_RETRIES ?? process.env.NEXT_PUBLIC_INSIGHTS_MAX_RETRIES ?? 0);
+const INSIGHTS_TIMEOUT_MS = Number(process.env.INSIGHTS_TIMEOUT_MS ?? process.env.NEXT_PUBLIC_INSIGHTS_TIMEOUT_MS ?? 15000);
+const INSIGHTS_MAX_RETRIES = Number(process.env.INSIGHTS_MAX_RETRIES ?? process.env.NEXT_PUBLIC_INSIGHTS_MAX_RETRIES ?? 1);
 const INSIGHTS_OFFLINE = (process.env.INSIGHTS_OFFLINE ?? process.env.NEXT_PUBLIC_INSIGHTS_OFFLINE) === "true";
+
+// Performance optimization: Enable connection reuse
+const ENABLE_KEEPALIVE = true;
 
 export interface HealthResponse {
   status: "healthy" | "degraded" | "unhealthy";
@@ -160,13 +163,19 @@ async function fetchWithTimeout(
     const response = await fetch(url, {
       ...options,
       signal: controller.signal,
+      // Enable keep-alive for connection reuse
+      keepalive: ENABLE_KEEPALIVE,
     });
     clearTimeout(timeoutId);
     return response;
   } catch (error) {
     clearTimeout(timeoutId);
     if (error instanceof Error && error.name === "AbortError") {
-      throw new APIError("Request timeout", 408, "TIMEOUT");
+      throw new APIError("Request timeout - API may be warming up. Please retry.", 408, "TIMEOUT");
+    }
+    // Handle network errors gracefully
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new APIError("Network error - please check your connection", 0, "NETWORK_ERROR");
     }
     throw error;
   }
