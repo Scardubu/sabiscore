@@ -31,6 +31,7 @@ try:
     from .production_ml_model import ProductionMLModel
     HAS_V2_MODEL = True
 except ImportError:
+    ProductionMLModel = None  # type: ignore[misc,assignment]
     HAS_V2_MODEL = False
     logger.warning("V2 model not available, falling back to V1")
 
@@ -39,6 +40,7 @@ try:
     from .training_pipeline import ProductionMLPipeline
     HAS_V1_MODEL = True
 except ImportError:
+    ProductionMLPipeline = None  # type: ignore[misc,assignment]
     HAS_V1_MODEL = False
 
 
@@ -112,22 +114,22 @@ class EnhancedModelManager:
     """
     
     def __init__(self):
-        self.v2_model: Optional[ProductionMLModel] = None
-        self.v1_model: Optional[ProductionMLPipeline] = None
+        self.v2_model: Optional[Any] = None
+        self.v1_model: Optional[Any] = None
         self.model_version = "unknown"
         self.is_loaded = False
         
-    def load_model(self, model_dir: str = None) -> bool:
+    def load_model(self, model_dir: Optional[str] = None) -> bool:
         """Load best available model"""
         
         if model_dir is None:
-            model_dir = Path(__file__).parent.parent.parent / "models"
+            model_path = Path(__file__).parent.parent.parent / "models"
         else:
-            model_dir = Path(model_dir)
+            model_path = Path(model_dir)
             
         # Try V2 model first
-        v2_path = model_dir / "sabiscore_production_v2.joblib"
-        if HAS_V2_MODEL and v2_path.exists():
+        v2_path = model_path / "sabiscore_production_v2.joblib"
+        if HAS_V2_MODEL and ProductionMLModel is not None and v2_path.exists():
             try:
                 self.v2_model = ProductionMLModel.load(v2_path)
                 self.model_version = "v2.0"
@@ -138,8 +140,8 @@ class EnhancedModelManager:
                 logger.warning(f"Failed to load V2 model: {e}")
                 
         # Try V2 with alternate name
-        v2_alt_path = model_dir / "sabiscore_v2.joblib"
-        if HAS_V2_MODEL and v2_alt_path.exists():
+        v2_alt_path = model_path / "sabiscore_v2.joblib"
+        if HAS_V2_MODEL and ProductionMLModel is not None and v2_alt_path.exists():
             try:
                 self.v2_model = ProductionMLModel.load(v2_alt_path)
                 self.model_version = "v2.0"
@@ -150,8 +152,8 @@ class EnhancedModelManager:
                 logger.warning(f"Failed to load V2 model: {e}")
                 
         # Fallback to V1
-        v1_path = model_dir / "ultra"
-        if HAS_V1_MODEL and v1_path.exists():
+        v1_path = model_path / "ultra"
+        if HAS_V1_MODEL and ProductionMLPipeline is not None and v1_path.exists():
             try:
                 self.v1_model = ProductionMLPipeline.load_trained_model(str(v1_path))
                 self.model_version = "v1.0"

@@ -8,34 +8,31 @@ export const contentType = 'image/png';
 export default function AppleIcon() {
   return new ImageResponse(
     (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width={size.width}
-        height={size.height}
-        viewBox={`0 0 ${size.width} ${size.height}`}
-        role="img"
-        aria-label="SabiScore app icon"
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: '100%',
+          height: '100%',
+          background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
+          borderRadius: 40,
+        }}
       >
-        <defs>
-          <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#0F172A" />
-            <stop offset="100%" stopColor="#1E293B" />
-          </linearGradient>
-        </defs>
-        <rect x="0" y="0" width="100%" height="100%" rx="40" fill="url(#bg)" />
-        <text
-          x="50%"
-          y="50%"
-          dominantBaseline="middle"
-          textAnchor="middle"
-          fontFamily="system-ui, -apple-system, sans-serif"
-          fontSize="120"
-          fontWeight="700"
-          fill="#22C55E"
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 120,
+            fontWeight: 700,
+            color: '#22C55E',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+          }}
         >
           S
-        </text>
-      </svg>
+        </div>
+      </div>
     ),
     {
       ...size,
