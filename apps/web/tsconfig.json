@@ -15,7 +15,7 @@
     "forceConsistentCasingInFileNames": true,
     "incremental": true,
     "isolatedModules": true,
-    "ignoreDeprecations": "5.0",
+    "ignoreDeprecations": "6.0",
     "plugins": [
       {
         "name": "next"
