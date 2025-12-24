@@ -596,7 +596,26 @@ export class FreeMonitoring {
 }
 
 // ============================================================================
-// Singleton Export
+// Singleton Export - Lazy initialized for SSR safety
 // ============================================================================
 
-export const freeMonitoring = new FreeMonitoring();
+let _freeMonitoringInstance: FreeMonitoring | null = null;
+
+function getFreeMonitoring(): FreeMonitoring {
+  if (!_freeMonitoringInstance) {
+    _freeMonitoringInstance = new FreeMonitoring();
+  }
+  return _freeMonitoringInstance;
+}
+
+// Export a proxy that lazily initializes the singleton
+export const freeMonitoring = new Proxy({} as FreeMonitoring, {
+  get(_, prop) {
+    const instance = getFreeMonitoring();
+    const value = instance[prop as keyof FreeMonitoring];
+    if (typeof value === 'function') {
+      return value.bind(instance);
+    }
+    return value;
+  }
+});
