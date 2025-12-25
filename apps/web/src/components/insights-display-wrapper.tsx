@@ -4,7 +4,6 @@ import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import type { InsightsResponse } from "@/lib/api";
 import { ErrorBoundary, PredictionErrorFallback } from "./error-boundary";
-import { freeMonitoring } from "@/lib/monitoring/free-analytics";
 import { PredictionSkeleton } from "./prediction-skeleton";
 
 // Dynamically import InsightsDisplay with client-only rendering
@@ -20,18 +19,28 @@ interface InsightsDisplayWrapperProps {
   insights: InsightsResponse;
 }
 
+// Safe error tracking that only runs on client
+function trackClientError(error: Error, errorInfo: React.ErrorInfo) {
+  // Only track errors on the client
+  if (typeof window === "undefined") return;
+  
+  // Lazy import to avoid SSR issues
+  import("@/lib/monitoring/free-analytics").then(({ freeMonitoring }) => {
+    freeMonitoring.trackError({
+      type: "insights_display",
+      message: `${error.message} - Component: ${errorInfo.componentStack?.slice(0, 100)}`,
+      timestamp: Date.now(),
+    });
+  }).catch(() => {
+    // Silently fail if monitoring is unavailable
+  });
+}
+
 export function InsightsDisplayWrapper({ insights }: InsightsDisplayWrapperProps) {
   return (
     <ErrorBoundary
       fallback={(error, reset) => <PredictionErrorFallback error={error} reset={reset} />}
-      onError={(error, errorInfo) => {
-        // Track error in monitoring system
-        freeMonitoring.trackError({
-          type: "insights_display",
-          message: `${error.message} - Component: ${errorInfo.componentStack?.slice(0, 100)}`,
-          timestamp: Date.now(),
-        });
-      }}
+      onError={trackClientError}
     >
       <motion.div
         initial={{ opacity: 0, y: 10 }}

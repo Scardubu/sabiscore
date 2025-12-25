@@ -90,18 +90,8 @@ export default async function MatchInsightsPage({ params, searchParams }: PagePr
       ? error.message 
       : "Failed to load match insights. Please try again.";
     
-    // Create a simple Error that can be safely serialized
-    const safeError = new Error(errorMessage);
-    
-    // Use a simple string digest for tracking (no complex objects)
-    if (error instanceof APIError && error.status) {
-      Object.defineProperty(safeError, 'digest', {
-        value: `api-${error.status}-${error.code || 'unknown'}`,
-        enumerable: false,
-        writable: false,
-      });
-    }
-    
-    throw safeError;
+    // Throw a simple Error - Next.js will automatically handle adding digest
+    // Avoid Object.defineProperty as it can cause serialization issues
+    throw new Error(errorMessage);
   }
 }

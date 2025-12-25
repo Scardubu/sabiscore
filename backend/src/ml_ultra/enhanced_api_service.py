@@ -358,6 +358,9 @@ class EnhancedModelManager:
     def _predict_v2(self, features: Dict, match: EnhancedMatchInput) -> Dict[str, float]:
         """Predict using V2 model"""
         
+        if self.v2_model is None:
+            return self._predict_baseline(match)
+        
         # Use predict_match which handles market odds
         market_odds = None
         if match.home_odds and match.draw_odds and match.away_odds:
@@ -380,6 +383,7 @@ class EnhancedModelManager:
     def _predict_v1(self, features: Dict) -> Dict[str, float]:
         """Predict using V1 model"""
         
+        assert self.v1_model is not None
         # Build feature DataFrame
         feature_names = self.v1_model.feature_names
         feature_values = {name: features.get(name, 0.0) for name in feature_names}
@@ -434,6 +438,9 @@ class EnhancedModelManager:
         """Analyze model vs market for value opportunities"""
         
         # Market implied probabilities
+        assert match.home_odds is not None
+        assert match.draw_odds is not None
+        assert match.away_odds is not None
         imp_home = 1 / match.home_odds
         imp_draw = 1 / match.draw_odds
         imp_away = 1 / match.away_odds
