@@ -6,6 +6,7 @@ import { ToastProvider } from "./toast-provider";
 import { ConsentProvider } from "../components/consent-banner";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { ModelWarmup } from "../components/model-warmup";
+import { BackendWarmup } from "../components/backend-warmup";
 
 const inter = Inter({ 
   subsets: ["latin"], 
@@ -93,6 +94,7 @@ export default function RootLayout({
         <ErrorBoundary>
           <Providers>
             <ModelWarmup />
+            <BackendWarmup />
             <ToastProvider />
             <ConsentProvider requireConsent={true}>
               {children}
