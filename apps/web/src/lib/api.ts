@@ -4,8 +4,9 @@
 import { API_ORIGIN, API_V1_BASE } from "./api-base";
 
 // Tunables for slow upstreams (Render free tier can stall)
-const INSIGHTS_TIMEOUT_MS = Number(process.env.INSIGHTS_TIMEOUT_MS ?? process.env.NEXT_PUBLIC_INSIGHTS_TIMEOUT_MS ?? 15000);
-const INSIGHTS_MAX_RETRIES = Number(process.env.INSIGHTS_MAX_RETRIES ?? process.env.NEXT_PUBLIC_INSIGHTS_MAX_RETRIES ?? 1);
+// NOTE: Vercel Hobby has 10s function timeout, so we use 8s to leave headroom
+const INSIGHTS_TIMEOUT_MS = Number(process.env.INSIGHTS_TIMEOUT_MS ?? process.env.NEXT_PUBLIC_INSIGHTS_TIMEOUT_MS ?? 8000);
+const INSIGHTS_MAX_RETRIES = Number(process.env.INSIGHTS_MAX_RETRIES ?? process.env.NEXT_PUBLIC_INSIGHTS_MAX_RETRIES ?? 0);
 const INSIGHTS_OFFLINE = (process.env.INSIGHTS_OFFLINE ?? process.env.NEXT_PUBLIC_INSIGHTS_OFFLINE) === "true";
 
 // Performance optimization: Enable connection reuse
@@ -171,7 +172,7 @@ async function fetchWithTimeout(
   } catch (error) {
     clearTimeout(timeoutId);
     if (error instanceof Error && error.name === "AbortError") {
-      throw new APIError("Request timeout - API may be warming up. Please retry.", 408, "TIMEOUT");
+      throw new APIError("The prediction engine is warming up. Please try again in 30 seconds.", 408, "TIMEOUT");
     }
     // Handle network errors gracefully
     if (error instanceof TypeError && error.message.includes('fetch')) {
