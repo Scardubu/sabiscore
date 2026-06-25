@@ -84,7 +84,6 @@ UpcomingMatchFeatureProjector
 ```
 
 ### Feature Registry
-
 | Family | Features | Description |
 |---|---|---|
 | Phase 7 core (65) | Form, goals, H2H, venue, temporal, market | Production baseline |
@@ -93,6 +92,12 @@ UpcomingMatchFeatureProjector
 | EWMA form (6) | Exponentially weighted win/draw/loss rates | Recency-weighted form |
 | Market drift (5) | `odds_drift_home/draw/away`, `max_abs_odds_drift`, `sharp_money_direction` | Sharp money signals |
 | Match context (1) | `match_importance_score` | Stage × title race × relegation weight |
+
+### Core Engine v2.1
+
+`POST /api/v1/core-engine/analyze` is the deterministic betting-decision layer for verified pre-match envelopes. It does not fetch live data or reuse legacy value-bet fallbacks. It validates model probabilities, unified 1X2 odds, source status, and freshness metadata before calculating de-vigged market probabilities, edge, expected value, confidence-adjusted value, and capped fractional Kelly stake sizing.
+
+Supported verdicts are `HIGH_CONVICTION`, `ACTIONABLE`, `SPECULATIVE`, `HOLD`, `NO_BET`, and `PARTIAL`. `PARTIAL`, `HOLD`, and `NO_BET` always return `stake: "pass"` and `stake_fraction: 0.0`; `PARTIAL` also locks value fields such as `best_market`, `edge`, `expected_value`, and `minimum_acceptable_odds` to `null`.
 
 ### Data Quality Contracts
 
@@ -107,7 +112,7 @@ UpcomingMatchFeatureProjector
 
 | Layer | Technology |
 |---|---|
-| Frontend | Next.js 15, React 19 + RSC, Tailwind CSS v4, Framer Motion |
+| Frontend | Next.js 15, React 18 + RSC, Tailwind CSS v3, Framer Motion |
 | Backend | FastAPI, Python 3.11+, SQLAlchemy (async), Pydantic v2 |
 | ML | scikit-learn, XGBoost, LightGBM, CatBoost (gated), SHAP |
 | Database | PostgreSQL 16, Alembic migrations |
@@ -147,7 +152,7 @@ sabiscore/
 
 ### Prerequisites
 
-- Node.js **20.11+** · Python **3.11+** · PostgreSQL 16 · Redis 7
+- Node.js **22.x** · Python **3.11+** · PostgreSQL 16 · Redis 7
 
 ### Local Development
 
@@ -236,6 +241,7 @@ All routes are prefixed `/api/v1`.
 |---|---|---|
 | `GET` | `/health` | Service health + model readiness |
 | `POST` | `/insights` | Full prediction for a matchup string |
+| `POST` | `/core-engine/analyze` | Deterministic v2.1 betting decision engine for verified pre-match inputs |
 | `GET` | `/matches/upcoming` | Upcoming fixtures with enriched odds |
 | `GET` | `/matches/upcoming/{id}/full-analysis` | 6-layer intelligence verdict |
 | `GET` | `/matches/upcoming/{id}/phase8-features` | Phase 8 enriched feature groups |
@@ -262,6 +268,34 @@ All routes are prefixed `/api/v1`.
 }
 ```
 
+**Core-engine response shape (abridged):**
+```json
+{
+  "engine_version": "2.1.0-prod",
+  "top_opportunities": ["match-123"],
+  "matches": [
+    {
+      "match_id": "match-123",
+      "verdict": "ACTIONABLE",
+      "best_market": "HOME_ML",
+      "edge": 0.058,
+      "expected_value": 0.12,
+      "stake": "1u",
+      "stake_fraction": 0.015,
+      "data_gaps": [],
+      "calculation_audit": {
+        "bookmaker": "TestBook",
+        "market_overround": 1.061,
+        "kelly_fraction": 0.125,
+        "kelly_cap": 0.025
+      }
+    }
+  ]
+}
+```
+
+Full contract: [`docs/CORE_ENGINE.md`](./docs/CORE_ENGINE.md).
+
 ---
 
 ## Quality Gates
@@ -278,7 +312,7 @@ All routes are prefixed `/api/v1`.
 
 ## Deployment
 
-- **Frontend**: Vercel auto-deploys from `main`. `apps/web/vercel.json` is the canonical config.
+- **Frontend**: Vercel auto-deploys from the default branch (`master` in this repository). `apps/web/vercel.json` is the canonical config.
 - **Backend**: Render auto-deploys via `render.yaml`. Health check at `/health`.
 - **CI**: GitHub Actions validates lint, tests, and model artifacts on every push.
 

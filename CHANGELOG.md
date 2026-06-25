@@ -7,6 +7,40 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ---
 
+## Core Engine v2.1 production endpoint and docs (2026-06-25)
+
+### Backend
+
+- **Added:** `backend/src/api/endpoints/core_engine.py` - exposes `POST /api/v1/core-engine/analyze` as the deterministic Core Engine entry point.
+- **Added:** `backend/src/schemas/core_engine.py` - Pydantic v2 request/response models for `CoreEngineAnalyzeRequest`, `CoreMatchInput`, and `CoreEngineResponse`.
+- **Added:** `backend/src/services/core_engine.py` - pure evaluator for verified pre-match model outputs, 1X2 market odds, freshness metadata, source status, and team-strength signals.
+- **Extended:** `backend/src/api/endpoints/__init__.py` - registers the Core Engine router under the existing `/api/v1` prefix.
+
+### Engine behaviour
+
+- Enforces probability sanity checks, odds integrity, market overround bounds, source-status gates, and freshness deadbands before value calculations.
+- Computes implied market probability, de-vigged fair probability, edge, expected value, confidence-adjusted value, minimum acceptable odds, and capped fractional Kelly stake sizing.
+- Preserves nulls under `PARTIAL`; `best_market`, `edge`, `edge_percentage_points`, `expected_value`, and `minimum_acceptable_odds` remain `null` when critical inputs are incomplete.
+- Restricts betting decisions to supplied 1X2 moneyline markets: `HOME_ML`, `DRAW_ML`, and `AWAY_ML`.
+- Caps UCL soft-coverage fixtures at `ACTIONABLE`, blocking `HIGH_CONVICTION` unless a future dedicated validated UCL model variant is implemented.
+
+### Tests
+
+- **Added:** `backend/tests/test_core_engine.py` - covers partial null preservation, invalid overround, clean high-conviction Tier 1 fixture, UCL actionability cap, no-bet value gate, and top-opportunity filtering/ranking.
+- **Verified:** `..\.venv\Scripts\python.exe -m pytest tests\test_core_engine.py -q --no-cov` - 6 passed.
+
+### Frontend / local development
+
+- **Fixed:** `apps/web/next.config.js` - lazy-loads `@next/bundle-analyzer` only when `ANALYZE=true`, so normal `pnpm dev` startup no longer fails when the analyzer package is not linked yet.
+
+### Documentation
+
+- **Added:** `docs/CORE_ENGINE.md` - operational contract, validation flow, formulas, verdict semantics, invalidation rules, implementation map, and verification notes.
+- **Updated:** `docs/API.md` - documents `POST /core-engine/analyze`, request/response examples, verdict semantics, and updated league enum names.
+- **Updated:** `README.md` - adds Core Engine overview, route listing, response example, and removes a stray `q` typo from the feature registry section.
+
+---
+
 ## V4 / Phase 9 — Shadow-mode candidate data sources, connector primitives, xG + market-efficiency features (2026-06-14)
 
 ### New connectors — `backend/src/connectors/`

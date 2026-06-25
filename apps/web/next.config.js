@@ -1,11 +1,15 @@
 /** @type {import('next').NextConfig} */
 const path = require('path');
 
-// Bundle analyzer configuration
-const withBundleAnalyzer = require('@next/bundle-analyzer')({
-  enabled: process.env.ANALYZE === 'true',
-  openAnalyzer: true,
-});
+// Bundle analyzer is loaded only when requested so normal dev startup does not
+// require the optional analyzer package to be linked locally.
+const withBundleAnalyzer =
+  process.env.ANALYZE === 'true'
+    ? require('@next/bundle-analyzer')({
+        enabled: true,
+        openAnalyzer: true,
+      })
+    : (config) => config;
 
 const nextConfig = {
   reactStrictMode: true,

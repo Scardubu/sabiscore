@@ -127,6 +127,113 @@ Generate comprehensive betting insights for a match.
 }
 ```
 
+### Core Engine Analyze
+
+**POST** `/core-engine/analyze`
+
+Runs the deterministic SabiScore Core Engine v2.1 betting-decision layer over one or more verified pre-match input envelopes. This endpoint does not fetch live data, infer missing odds, inject league averages, or reuse legacy value-bet fallbacks. Inputs are evaluated independently, then actionable outputs are ranked into `top_opportunities`.
+
+Use this endpoint when the caller already has:
+
+- calibrated 1X2 model probabilities;
+- one unified 1X2 market price matrix from a single bookmaker;
+- freshness timestamps and source-status flags;
+- team-strength and availability signals.
+
+**Request Body (abridged):**
+```json
+{
+  "matches": [
+    {
+      "match_id": "epl-2026-001",
+      "home_team": "Arsenal",
+      "away_team": "Chelsea",
+      "competition": "EPL",
+      "kickoff_utc": "2026-08-15T15:00:00Z",
+      "model": {
+        "home_probability": 0.55,
+        "draw_probability": 0.25,
+        "away_probability": 0.20,
+        "model_version": "core-v1",
+        "calibration_method": "isotonic",
+        "calibration_validated": true,
+        "epistemic_uncertainty": 0.05,
+        "aleatoric_uncertainty": 0.12,
+        "confidence_tier": "OK"
+      },
+      "market": {
+        "bookmaker": "ExampleBook",
+        "market_type": "1X2",
+        "home_odds": 2.1,
+        "draw_odds": 3.4,
+        "away_odds": 4.5,
+        "captured_at": "2026-08-15T13:45:00Z"
+      },
+      "signals": {
+        "lineup_status": "CONFIRMED",
+        "sharp_market_signal": "CONFIRMING",
+        "confirmed_absences": []
+      },
+      "freshness": {
+        "model_features_seconds": 300,
+        "market_seconds": 120,
+        "injury_news_seconds": 400,
+        "lineup_seconds": 180
+      },
+      "source_status": {
+        "model": "VERIFIED",
+        "market": "VERIFIED",
+        "team_metrics": "VERIFIED",
+        "availability": "VERIFIED"
+      }
+    }
+  ]
+}
+```
+
+**Response (abridged):**
+```json
+{
+  "engine_version": "2.1.0-prod",
+  "generated_at": "2026-06-25T18:00:00Z",
+  "top_opportunities": ["epl-2026-001"],
+  "matches": [
+    {
+      "match_id": "epl-2026-001",
+      "match_identifier": "Arsenal vs Chelsea",
+      "verdict": "ACTIONABLE",
+      "best_market": "HOME_ML",
+      "market_odds": 2.1,
+      "fair_market_probability": 0.43,
+      "edge": 0.12,
+      "expected_value": 0.155,
+      "stake": "1u",
+      "stake_fraction": 0.019375,
+      "data_gaps": [],
+      "calculation_audit": {
+        "bookmaker": "ExampleBook",
+        "market_overround": 1.06,
+        "calibration_method": "isotonic",
+        "model_version": "core-v1",
+        "kelly_fraction": 0.125,
+        "kelly_cap": 0.025
+      }
+    }
+  ]
+}
+```
+
+**Verdicts:**
+
+- `PARTIAL`: critical data is missing, stale, conflicting, or mathematically invalid. Value fields are `null` and stake is `pass`.
+- `NO_BET`: data is valid but the best market has non-positive edge or EV.
+- `HOLD`: positive value exists but gating restrictions force inaction.
+- `SPECULATIVE`: positive EV exists below the actionable edge threshold with confirming signals; stake is capped at 0.25%.
+- `ACTIONABLE`: EV is positive, edge clears 4.2 percentage points, and model/market gates pass.
+- `HIGH_CONVICTION`: action criteria plus very low epistemic uncertainty and confirmed lineup; UCL fixtures are excluded.
+
+Full contract and implementation notes: [`docs/CORE_ENGINE.md`](./CORE_ENGINE.md).
+
 ### Model Status
 
 **GET** `/models/status`
@@ -174,10 +281,11 @@ String format: `"Home Team vs Away Team"`
 
 ### League Codes
 - `EPL`: Premier League
-- `La Liga`: La Liga
-- `Bundesliga`: Bundesliga
-- `Serie A`: Serie A
-- `Ligue 1`: Ligue 1
+- `LA_LIGA`: La Liga
+- `BUNDESLIGA`: Bundesliga
+- `SERIE_A`: Serie A
+- `LIGUE_1`: Ligue 1
+- `EREDIVISIE`: Eredivisie
 - `UCL`: UEFA Champions League
 
 ### Bet Types
