@@ -1,0 +1,47 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": ["**/.env.*local"],
+  "globalEnv": [
+    "NEXT_PUBLIC_API_URL",
+    "NEXT_PUBLIC_WS_URL",
+    "NEXT_PUBLIC_CURRENCY",
+    "NEXT_PUBLIC_CURRENCY_SYMBOL",
+    "NEXT_PUBLIC_BASE_BANKROLL",
+    "NEXT_PUBLIC_KELLY_FRACTION",
+    "NEXT_PUBLIC_MIN_EDGE_NGN"
+  ],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**", "dist/**", "build/**"],
+      "env": [
+        "APP_SECRET",
+        "CRON_SECRET",
+        "WARMUP_SECRET",
+        "FOOTBALL_DATA_API_KEY",
+        "ODDS_API_KEY",
+        "REDIS_URL"
+      ]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {
+      "dependsOn": ["^lint"]
+    },
+    "typecheck": {
+      "dependsOn": ["^typecheck"]
+    },
+    "test": {
+      "dependsOn": ["^build"]
+    },
+    "format": {
+      "outputs": ["**/*.{ts,tsx,js,jsx,json,md}"],
+      "cache": false
+    },
+    "clean": {
+      "cache": false
+    }
+  }
+}

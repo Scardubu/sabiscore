@@ -1,0 +1,25 @@
+name: Smoke Backend
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/edge-v3
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run smoke test against Render
+        env:
+          BASE_URL: https://sabiscore-api.onrender.com
+        run: |
+          python scripts/smoke_backend.py "$BASE_URL"

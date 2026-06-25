@@ -1,0 +1,20 @@
+{
+  "accuracy": 0.5272727272727272,
+  "brier_score": 0.27482634928211014,
+  "log_loss": 9.73338746176692,
+  "trained_at": "2026-06-02T11:52:17.743037+00:00",
+  "feature_count": 68,
+  "draw_threshold": 0.18,
+  "draw_margin": 0.0,
+  "probability_smoothing": "train_prior_blend",
+  "probability_smoothing_alpha": null,
+  "league": "bundesliga",
+  "phase": "7-B",
+  "holdout_accuracy": 0.41935483870967744,
+  "train_accuracy": 0.8654545454545455,
+  "holdout_log_loss": 1.0983184570760067,
+  "holdout_draw_rate": 0.5161290322580645,
+  "holdout_draw_ratio": 2.098085496984002,
+  "accuracy_eval_scope": "holdout",
+  "logloss_eval_scope": "holdout"
+}

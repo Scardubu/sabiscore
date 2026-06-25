@@ -1,0 +1,345 @@
+﻿{
+    "value":  [
+                  {
+                      "deploy":  {
+                                     "id":  "dep-d4ai7m7pm1nc73971t3g",
+                                     "commit":  {
+                                                    "id":  "fc278e727ad6a7dbc8810fc4b9855802bc9c27ea",
+                                                    "message":  "chore(ci): add smoke tests and workflow",
+                                                    "createdAt":  "2025-11-13T00:15:57Z"
+                                                },
+                                     "status":  "update_failed",
+                                     "trigger":  "api",
+                                     "createdAt":  "2025-11-13T00:18:34.622813Z",
+                                     "updatedAt":  "2025-11-13T00:23:01.400869Z",
+                                     "startedAt":  "2025-11-13T00:18:34.472241Z",
+                                     "finishedAt":  "2025-11-13T00:23:01.399785Z"
+                                 },
+                      "cursor":  "hY3kIsSVD6k3bTdwbTFuYzczOTcxdDNn"
+                  },
+                  {
+                      "deploy":  {
+                                     "id":  "dep-d4afvck9c44c73ab7qig",
+                                     "commit":  {
+                                                    "id":  "574052c634647b1c5e47d2e99b2801abc576be9e",
+                                                    "message":  "fix(api): resolve router import conflict by renaming endpoints.py to legacy_endpoints.py",
+                                                    "createdAt":  "2025-11-12T21:41:37Z"
+                                                },
+                                     "status":  "update_failed",
+                                     "trigger":  "new_commit",
+                                     "createdAt":  "2025-11-12T21:44:22.840266Z",
+                                     "updatedAt":  "2025-11-12T21:49:30.737429Z",
+                                     "startedAt":  "2025-11-12T21:44:22.004962Z",
+                                     "finishedAt":  "2025-11-12T21:49:30.736635Z"
+                                 },
+                      "cursor":  "Fs2eAkfonsR2Y2s5YzQ0YzczYWI3cWln"
+                  },
+                  {
+                      "deploy":  {
+                                     "id":  "dep-d4afq3vfte5s739h00dg",
+                                     "commit":  {
+                                                    "id":  "25d2616e7521203987e5341e89f138412e9c3c24",
+                                                    "message":  "fix(models): remove duplicate orphaned code block causing IndentationError in live_calibrator",
+                                                    "createdAt":  "2025-11-12T21:32:45Z"
+                                                },
+                                     "status":  "update_failed",
+                                     "trigger":  "new_commit",
+                                     "createdAt":  "2025-11-12T21:33:04.142693Z",
+                                     "updatedAt":  "2025-11-12T21:37:50.157068Z",
+                                     "startedAt":  "2025-11-12T21:33:04.081894Z",
+                                     "finishedAt":  "2025-11-12T21:37:50.156004Z"
+                                 },
+                      "cursor":  "Fs2eAkfonsRxM3ZmdGU1czczOWgwMGRn"
+                  },
+                  {
+                      "deploy":  {
+                                     "id":  "dep-d4afkongi27c73cknni0",
+                                     "commit":  {
+                                                    "id":  "a2f7695fbb0947e883c8121d859e7f32efdd95df",
+                                                    "message":  "fix(api): add lightweight match response models and wire matches endpoints",
+                                                    "createdAt":  "2025-11-12T21:21:20Z"
+                                                },
+                                     "status":  "update_failed",
+                                     "trigger":  "new_commit",
+                                     "createdAt":  "2025-11-12T21:21:40.847426Z",
+                                     "updatedAt":  "2025-11-12T21:26:09.631233Z",
+                                     "startedAt":  "2025-11-12T21:21:40.434666Z",
+                                     "finishedAt":  "2025-11-12T21:26:09.629745Z"
+                                 },
+                      "cursor":  "Fs2eAkfonsRrb25naTI3YzczY2tubmkw"
+                  },
+                  {
+                      "deploy":  {
+                                     "id":  "dep-d4afdvt6ubrc73847cg0",
+                                     "commit":  {
+                                                    "id":  "0e4f48480dc2c138d3fe42d658983515ec1b2f2f",
+                                                    "message":  "ci: remove committed SQLite DBs and ignore going forward",
+                                                    "createdAt":  "2025-11-12T21:06:33Z"
+                                                },
+                                     "status":  "update_failed",
+                                     "trigger":  "new_commit",
+                                     "createdAt":  "2025-11-12T21:07:13.983397Z",
+                                     "updatedAt":  "2025-11-12T21:12:31.290181Z",
+                                     "startedAt":  "2025-11-12T21:07:13.83358Z",
+                                     "finishedAt":  "2025-11-12T21:12:31.289408Z"
+                                 },
+                      "cursor":  "Fs2eAkfonsRkdnQ2dWJyYzczODQ3Y2cw"
+                  },
+                  {
+                      "deploy":  {
+                                     "id":  "dep-d4aeckvdiees7385acj0",
+                                     "commit":  {
+                                                    "id":  "3c5c982a76ca17bf5ec89dcb974b71e6d71190e9",
+                                                    "message":  "chore(api): make endpoints a package and aggregate sub-routers",
+                                                    "createdAt":  "2025-11-12T19:55:43Z"
+                                                },
+                                     "status":  "update_failed",
+                                     "trigger":  "new_commit",
+                                     "createdAt":  "2025-11-12T19:56:04.761474Z",
+                                     "updatedAt":  "2025-11-12T20:01:06.014852Z",
+                                     "startedAt":  "2025-11-12T19:56:04.678242Z",
+                                     "finishedAt":  "2025-11-12T20:01:06.013753Z"
+                                 },
+                      "cursor":  "giqKH4chqAlja3ZkaWVlczczODVhY2ow"
+                  },
+                  {
+                      "deploy":  {
+                                     "id":  "dep-d4ae0ihr0fns73dlsnug",
+                                     "commit":  {
+                                                    "id":  "36840df18cb1264254169a29876eb9f8b0c85978",
+                                                    "message":  "fix(api): use canonical api_router with settings.API_V1_STR to avoid double prefix",
+                                                    "createdAt":  "2025-11-12T19:29:45Z"
+                                                },
+                                     "status":  "update_failed",
+                                     "trigger":  "new_commit",
+                                     "createdAt":  "2025-11-12T19:30:19.68013Z",
+                                     "updatedAt":  "2025-11-12T19:36:46.265305Z",
+                                     "startedAt":  "2025-11-12T19:30:19.538342Z",
+                                     "finishedAt":  "2025-11-12T19:36:46.263759Z"
+                                 },
+                      "cursor":  "giqKH4chqAkwaWhyMGZuczczZGxzbnVn"
+                  },
+                  {
+                      "deploy":  {
+                                     "id":  "dep-d4adq1pr0fns73dlqmd0",
+                                     "commit":  {
+                                                    "id":  "912ce47f58a93474349bb7c8f340b9f94d59c6b6",
+                                                    "message":  "fix(backend): use settings.cors_origins accessor and improve CORS logging",
+                                                    "createdAt":  "2025-11-12T19:15:53Z"
+                                                },
+                                     "status":  "update_failed",
+                                     "trigger":  "new_commit",
+                                     "createdAt":  "2025-11-12T19:16:24.771259Z",
+                                     "updatedAt":  "2025-11-12T19:24:16.84657Z",
+                                     "startedAt":  "2025-11-12T19:16:24.702933Z",
+                                     "finishedAt":  "2025-11-12T19:24:16.840925Z"
+                                 },
+                      "cursor":  "cj7sc0PAsItxMXByMGZuczczZGxxbWQw"
+                  },
+                  {
+                      "deploy":  {
+                                     "id":  "dep-d4ad42n8qels73erv5jg",
+                                     "commit":  {
+                                                    "id":  "ad6b4ee15f3a5b270e93b1b9aaad12a467c6ac4a",
+                                                    "message":  "fix(api): avoid importing api.main (prevents duplicate router registration)",
+                                                    "createdAt":  "2025-11-12T18:29:05Z"
+                                                },
+                                     "status":  "update_failed",
+                                     "trigger":  "new_commit",
+                                     "createdAt":  "2025-11-12T18:29:31.537862Z",
+                                     "updatedAt":  "2025-11-12T18:35:40.671994Z",
+                                     "startedAt":  "2025-11-12T18:29:52.65137Z",
+                                     "finishedAt":  "2025-11-12T18:35:40.671262Z"
+                                 },
+                      "cursor":  "cj7sc0PAsIs0Mm44cWVsczczZXJ2NWpn"
+                  },
+                  {
+                      "deploy":  {
+                                     "id":  "dep-d4ad1numcj7s73dge2e0",
+                                     "commit":  {
+                                                    "id":  "943b2869fda4da630ea49c1f0a0ed6b1737221f6",
+                                                    "message":  "fix(api): remove duplicate /api/v1 prefix from predictions route",
+                                                    "createdAt":  "2025-11-12T18:24:09Z"
+                                                },
+                                     "status":  "update_failed",
+                                     "trigger":  "new_commit",
+                                     "createdAt":  "2025-11-12T18:24:36.343572Z",
+                                     "updatedAt":  "2025-11-12T18:29:49.379005Z",
+                                     "startedAt":  "2025-11-12T18:24:36.107179Z",
+                                     "finishedAt":  "2025-11-12T18:29:49.378291Z"
+                                 },
+                      "cursor":  "cj7sc0PAsIsxbnVtY2o3czczZGdlMmUw"
+                  },
+                  {
+                      "deploy":  {
+                                     "id":  "dep-d4acf8emcj7s73dg7r50",
+                                     "commit":  {
+                                                    "id":  "58dd391630ec5fe2e2078cfc4f2883abfe0dff7b",
+                                                    "message":  "fix(api): resolve import errors and router configuration\n\n- Include matches and predictions routers in main API router\n- Fix model imports to use core.database instead of empty model files\n- Add cache_manager alias for backwards compatibility\n- Ensure all endpoints can import required dependencies",
+                                                    "createdAt":  "2025-11-12T17:42:32Z"
+                                                },
+                                     "status":  "update_failed",
+                                     "trigger":  "new_commit",
+                                     "createdAt":  "2025-11-12T17:45:11.631536Z",
+                                     "updatedAt":  "2025-11-12T17:50:01.150726Z",
+                                     "startedAt":  "2025-11-12T17:45:10.609187Z",
+                                     "finishedAt":  "2025-11-12T17:50:01.149563Z"
+                                 },
+                      "cursor":  "wH4UXqTHNrdmOGVtY2o3czczZGc3cjUw"
+                  },
+                  {
+                      "deploy":  {
+                                     "id":  "dep-d4ac337diees7384iho0",
+                                     "commit":  {
+                                                    "id":  "5765000599865ce4a94aaa80101f35cca79ba9d4",
+                                                    "message":  "fix(backend): repair async session initialization for render",
+                                                    "createdAt":  "2025-11-12T17:16:49Z"
+                                                },
+                                     "status":  "live",
+                                     "trigger":  "new_commit",
+                                     "createdAt":  "2025-11-12T17:19:09.772588Z",
+                                     "updatedAt":  "2025-11-13T00:23:04.75911Z",
+                                     "startedAt":  "2025-11-12T17:19:09.736379Z",
+                                     "finishedAt":  "2025-11-12T17:28:26.346408Z"
+                                 },
+                      "cursor":  "wH4UXqTHNrczMzdkaWVlczczODRpaG8w"
+                  },
+                  {
+                      "deploy":  {
+                                     "id":  "dep-d4ab3sl6ubrc7382p5rg",
+                                     "commit":  {
+                                                    "id":  "237b9aec1348b8750881b4d7148d126b0918adad",
+                                                    "message":  "fix(deployment): Fix remaining critical issues - LFS dump.rdb, init_db ImportError, Vercel 404\n\n- Fix dump.rdb LFS: Disable Git LFS for *.rdb files (Redis snapshots)\n- Fix init_db ImportError: Create complete backend/src/db/session.py with all required functions\n  * init_db() - Initialize database and create tables\n  * close_db() - Cleanup database connections\n  * check_db_connection() - Verify database connectivity\n  * get_db_stats() - Get connection pool stats\n  * get_db_session() - Async context manager for sessions\n  * get_db() - FastAPI dependency injection\n- Fix Vercel 404: Remove conflicting rootDirectory, keep monorepo buildCommand\n\nAll three blockers now resolved. Backend should start successfully, frontend should deploy.",
+                                                    "createdAt":  "2025-11-12T16:09:32Z"
+                                                },
+                                     "status":  "update_failed",
+                                     "trigger":  "new_commit",
+                                     "createdAt":  "2025-11-12T16:12:36.673716Z",
+                                     "updatedAt":  "2025-11-12T16:16:59.323963Z",
+                                     "startedAt":  "2025-11-12T16:12:35.536737Z",
+                                     "finishedAt":  "2025-11-12T16:16:59.323404Z"
+                                 },
+                      "cursor":  "r1ODGBwPB9Uzc2w2dWJyYzczODJwNXJn"
+                  },
+                  {
+                      "deploy":  {
+                                     "id":  "dep-d4aaq8khg0os73fuo5og",
+                                     "commit":  {
+                                                    "id":  "934670feb54dc48a86d4545eaef886644ebc138e",
+                                                    "message":  "fix(deployment): Critical fixes for Vercel 404 and Render startup\n\n- Fix Vercel 404: Update vercel.json with correct rootDirectory and monorepo build commands\n- Fix Render LFS: Disable Git LFS for *.db files to prevent Host key verification failures\n- Fix ImportError: Implement configure_logging() function in backend/src/core/logging.py\n- Redis: Already handled gracefully with fallback to in-memory cache\n\nBackend will now start successfully on Render with in-memory cache fallback.\nFrontend will now build and deploy correctly on Vercel with monorepo structure.",
+                                                    "createdAt":  "2025-11-12T15:34:34Z"
+                                                },
+                                     "status":  "update_failed",
+                                     "trigger":  "manual",
+                                     "createdAt":  "2025-11-12T15:52:05.107962Z",
+                                     "updatedAt":  "2025-11-12T15:57:26.722059Z",
+                                     "startedAt":  "2025-11-12T15:52:05.042805Z",
+                                     "finishedAt":  "2025-11-12T15:57:26.721489Z"
+                                 },
+                      "cursor":  "UsF1335L-7BxOGtoZzBvczczZnVvNW9n"
+                  },
+                  {
+                      "deploy":  {
+                                     "id":  "dep-d4aaiat6ubrc7382jlr0",
+                                     "commit":  {
+                                                    "id":  "934670feb54dc48a86d4545eaef886644ebc138e",
+                                                    "message":  "fix(deployment): Critical fixes for Vercel 404 and Render startup\n\n- Fix Vercel 404: Update vercel.json with correct rootDirectory and monorepo build commands\n- Fix Render LFS: Disable Git LFS for *.db files to prevent Host key verification failures\n- Fix ImportError: Implement configure_logging() function in backend/src/core/logging.py\n- Redis: Already handled gracefully with fallback to in-memory cache\n\nBackend will now start successfully on Render with in-memory cache fallback.\nFrontend will now build and deploy correctly on Vercel with monorepo structure.",
+                                                    "createdAt":  "2025-11-12T15:34:34Z"
+                                                },
+                                     "status":  "update_failed",
+                                     "trigger":  "new_commit",
+                                     "createdAt":  "2025-11-12T15:35:11.743017Z",
+                                     "updatedAt":  "2025-11-12T15:39:58.861003Z",
+                                     "startedAt":  "2025-11-12T15:35:10.44075Z",
+                                     "finishedAt":  "2025-11-12T15:39:58.860363Z"
+                                 },
+                      "cursor":  "UsF1335L-7BpYXQ2dWJyYzczODJqbHIw"
+                  },
+                  {
+                      "deploy":  {
+                                     "id":  "dep-d4a9e315pdvs73e2tucg",
+                                     "commit":  {
+                                                    "id":  "595644232dc5ca55e217bef043f0b9da7c43d0ab",
+                                                    "message":  "refactor: restore backend schemas and router stability",
+                                                    "createdAt":  "2025-11-12T13:42:56Z"
+                                                },
+                                     "status":  "update_failed",
+                                     "trigger":  "manual",
+                                     "createdAt":  "2025-11-12T14:17:50.175793Z",
+                                     "updatedAt":  "2025-11-12T14:24:04.095688Z",
+                                     "startedAt":  "2025-11-12T14:17:50.149612Z",
+                                     "finishedAt":  "2025-11-12T14:24:04.094178Z"
+                                 },
+                      "cursor":  "Z6CYqkCA7_dlMzE1cGR2czczZTJ0dWNn"
+                  },
+                  {
+                      "deploy":  {
+                                     "id":  "dep-d4a8u3pr0fns73dk9abg",
+                                     "commit":  {
+                                                    "id":  "595644232dc5ca55e217bef043f0b9da7c43d0ab",
+                                                    "message":  "refactor: restore backend schemas and router stability",
+                                                    "createdAt":  "2025-11-12T13:42:56Z"
+                                                },
+                                     "status":  "update_failed",
+                                     "trigger":  "new_commit",
+                                     "createdAt":  "2025-11-12T13:43:45.864862Z",
+                                     "updatedAt":  "2025-11-12T13:51:00.493537Z",
+                                     "startedAt":  "2025-11-12T13:43:44.81062Z",
+                                     "finishedAt":  "2025-11-12T13:51:00.492821Z"
+                                 },
+                      "cursor":  "AcIScVcgGvB1M3ByMGZuczczZGs5YWJn"
+                  },
+                  {
+                      "deploy":  {
+                                     "id":  "dep-d4a7und6ubrc7381po70",
+                                     "commit":  {
+                                                    "id":  "c7fabb0fb9647401515ab49fe100fd86326ef7ec",
+                                                    "message":  "chore(lfs): untrack SVG assets and re-add as regular files to avoid Render LFS smudge errors",
+                                                    "createdAt":  "2025-11-12T12:36:06Z"
+                                                },
+                                     "status":  "update_failed",
+                                     "trigger":  "new_commit",
+                                     "createdAt":  "2025-11-12T12:36:45.985987Z",
+                                     "updatedAt":  "2025-11-12T12:42:11.422458Z",
+                                     "startedAt":  "2025-11-12T12:36:45.976692Z",
+                                     "finishedAt":  "2025-11-12T12:42:11.42147Z"
+                                 },
+                      "cursor":  "hzrSFcVaNjJ1bmQ2dWJyYzczODFwbzcw"
+                  },
+                  {
+                      "deploy":  {
+                                     "id":  "dep-d4a7ipgdl3ps739kgkf0",
+                                     "commit":  {
+                                                    "id":  "d9e2273d03981c4baf8a357daace80bd4d710fc3",
+                                                    "message":  "docs: Add executive summary of deployment analysis and action plan\n\nComplete diagnostic results:\n- Frontend: Vercel Authentication enabled (blocking all traffic)\n- Backend: Render deployment in progress or build failed\n- Root cause: Platform configuration, NOT code issues\n- Confidence: 85% resolution within 15 minutes\n\nImmediate actions required:\n1. Disable Vercel Deployment Protection (5 min)\n2. Verify Render deployment status (10 min)\n3. Re-run diagnostics to confirm\n\nAll diagnostic tools, analysis, and remediation guides complete.",
+                                                    "createdAt":  "2025-11-12T12:05:47Z"
+                                                },
+                                     "status":  "update_failed",
+                                     "trigger":  "manual",
+                                     "createdAt":  "2025-11-12T12:11:20.367617Z",
+                                     "updatedAt":  "2025-11-12T12:16:53.154978Z",
+                                     "startedAt":  "2025-11-12T12:11:20.324664Z",
+                                     "finishedAt":  "2025-11-12T12:16:53.154302Z"
+                                 },
+                      "cursor":  "hzrSFcVaNjJpcGdkbDNwczczOWtna2Yw"
+                  },
+                  {
+                      "deploy":  {
+                                     "id":  "dep-d4a6das9c44c73a897sg",
+                                     "commit":  {
+                                                    "id":  "183466fe2c75dc16aa77d4d095ec45a7492eda81",
+                                                    "message":  "fix(deployment): Critical deployment fixes for Render and Vercel\n\n**Issues Resolved:**\n1. Git LFS checkout failure - Removed all .map files causing Render smudge errors\n2. CORS_ORIGINS parsing error - Fixed empty string handling in Pydantic validator\n3. PowerShell syntax error - Changed \u0027max\u0027 to \u0027maximum\u0027 in monitor script\n\n**Changes:**\n- Removed 400+ .map files from LFS tracking (frontend/node_modules)\n- Updated backend/src/core/config.py: _split_cors_origins now handles empty strings\n- Fixed monitor_deployment.ps1: PowerShell command interpretation issue\n\n**Impact:**\n- Render backend deployment should now succeed (no LFS smudge errors)\n- Backend startup will complete (CORS_ORIGINS parsing fixed)\n- Monitoring script will run without syntax errors\n\nFixes: Render clone failures, Pydantic settings validation errors",
+                                                    "createdAt":  "2025-11-12T10:50:42Z"
+                                                },
+                                     "status":  "update_failed",
+                                     "trigger":  "new_commit",
+                                     "createdAt":  "2025-11-12T10:51:25.043741Z",
+                                     "updatedAt":  "2025-11-12T10:56:42.101012Z",
+                                     "startedAt":  "2025-11-12T10:51:25.009808Z",
+                                     "finishedAt":  "2025-11-12T10:56:42.10047Z"
+                                 },
+                      "cursor":  "beakFJ5wYn1kYXM5YzQ0YzczYTg5N3Nn"
+                  }
+              ],
+    "Count":  20
+}

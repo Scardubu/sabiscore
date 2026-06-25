@@ -1,0 +1,20 @@
+{
+  "accuracy": 0.34545454545454546,
+  "brier_score": 0.39031455830814776,
+  "log_loss": 17.437788259137715,
+  "trained_at": "2026-06-02T11:52:30.177819+00:00",
+  "feature_count": 68,
+  "draw_threshold": 0.33,
+  "draw_margin": 0.0,
+  "probability_smoothing": "train_prior_blend",
+  "probability_smoothing_alpha": null,
+  "league": "ligue_1",
+  "phase": "7-B",
+  "holdout_accuracy": 0.3548387096774194,
+  "train_accuracy": 0.8472727272727273,
+  "holdout_log_loss": 1.1492119511649785,
+  "holdout_draw_rate": 0.25806451612903225,
+  "holdout_draw_ratio": 1.049042748492001,
+  "accuracy_eval_scope": "holdout",
+  "logloss_eval_scope": "holdout"
+}

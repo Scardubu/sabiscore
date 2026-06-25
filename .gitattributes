@@ -1,0 +1,134 @@
+# ============================================================================
+# SCAR Skill Suite — Git Attributes
+# ============================================================================
+# Enforces consistent LF line endings across Windows, Linux, WSL2, CI/CD,
+# Render, Docker, and production environments.
+#
+# Prevents:
+# - CRLF corruption of shell scripts
+# - inconsistent formatting across operating systems
+# - accidental binary file transformations
+# - Render/Git LFS checkout failures
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Default text handling
+# ----------------------------------------------------------------------------
+
+* text=auto
+
+# ----------------------------------------------------------------------------
+# Force LF endings for source/config files
+# ----------------------------------------------------------------------------
+
+*.sh       text eol=lf
+*.bash     text eol=lf
+*.zsh      text eol=lf
+
+*.md       text eol=lf
+
+*.json     text eol=lf
+*.jsonc    text eol=lf
+
+*.yml      text eol=lf
+*.yaml     text eol=lf
+
+*.toml     text eol=lf
+*.env      text eol=lf
+
+Makefile   text eol=lf
+
+# ----------------------------------------------------------------------------
+# Source code
+# ----------------------------------------------------------------------------
+
+*.js       text eol=lf
+*.jsx      text eol=lf
+*.ts       text eol=lf
+*.tsx      text eol=lf
+
+*.py       text eol=lf
+
+*.html     text eol=lf
+*.css      text eol=lf
+*.scss     text eol=lf
+
+*.sql      text eol=lf
+
+# ----------------------------------------------------------------------------
+# Binary assets (never modify line endings)
+# ----------------------------------------------------------------------------
+
+*.png      binary
+*.jpg      binary
+*.jpeg     binary
+*.gif      binary
+*.ico      binary
+*.svg      binary
+
+*.pdf      binary
+
+*.woff     binary
+*.woff2    binary
+*.ttf      binary
+*.otf      binary
+
+# ----------------------------------------------------------------------------
+# Git LFS
+# ----------------------------------------------------------------------------
+# Avoid LFS for common web assets because:
+# - causes Render deployment failures
+# - causes CI checkout issues
+# - slows cloning for contributors
+#
+# Uncomment only if your deployment pipeline explicitly supports Git LFS.
+
+# *.png     filter=lfs diff=lfs merge=lfs -text
+# *.jpg     filter=lfs diff=lfs merge=lfs -text
+# *.svg     filter=lfs diff=lfs merge=lfs -text
+
+# Database files intentionally NOT tracked by LFS.
+# Render and many CI environments fail when LFS objects are unavailable.
+
+# *.db      filter=lfs diff=lfs merge=lfs -text
+# *.rdb     filter=lfs diff=lfs merge=lfs -text
+
+# Large media artifacts
+
+*.mp4      filter=lfs diff=lfs merge=lfs -text
+*.zip      filter=lfs diff=lfs merge=lfs -text
+
+# ----------------------------------------------------------------------------
+# ML / AI artifacts
+# ----------------------------------------------------------------------------
+# Prefer external artifact storage (S3, HuggingFace, Cloud Storage, etc.)
+# instead of Git LFS for deployment portability.
+#
+# Uncomment only if your workflow requires LFS.
+
+# *.pkl      filter=lfs diff=lfs merge=lfs -text
+# *.onnx     filter=lfs diff=lfs merge=lfs -text
+# *.bin      filter=lfs diff=lfs merge=lfs -text
+# *.pt       filter=lfs diff=lfs merge=lfs -text
+# *.csv      filter=lfs diff=lfs merge=lfs -text
+# *.parquet  filter=lfs diff=lfs merge=lfs -text
+
+# ----------------------------------------------------------------------------
+# Source maps
+# ----------------------------------------------------------------------------
+# Do NOT store source maps in Git LFS.
+# This causes Render checkout failures.
+
+# Removed:
+# *.map filter=lfs diff=lfs merge=lfs -text
+
+Dockerfile text eol=lf
+*.dockerfile text eol=lf
+
+*.graphql text eol=lf
+*.gql text eol=lf
+
+*.cjs text eol=lf
+*.mjs text eol=lf
+
+*.lock text eol=lf

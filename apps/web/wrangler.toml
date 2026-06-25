@@ -1,0 +1,15 @@
+name = "sabiscore-web"
+compatibility_date = "2024-11-03"
+
+# KV Namespaces for edge caching
+[[kv_namespaces]]
+binding = "SABISCORE_CACHE"
+id = "dcf83f48ee0849ad94888a0e47c91e7b"
+preview_id = "aa46e37beaae4c7fa6f391a3bd695005"
+
+# Environment configuration
+[env.production]
+name = "sabiscore-web-production"
+
+[env.preview]
+name = "sabiscore-web-preview"

@@ -1,0 +1,20 @@
+{
+  "accuracy": 0.7818181818181819,
+  "brier_score": 0.1069788700618331,
+  "log_loss": 2.9281274759438314,
+  "trained_at": "2026-06-02T11:52:35.826894+00:00",
+  "feature_count": 68,
+  "draw_threshold": 0.05,
+  "draw_margin": 0.0,
+  "probability_smoothing": "train_prior_blend",
+  "probability_smoothing_alpha": null,
+  "league": "eredivisie",
+  "phase": "7-B",
+  "holdout_accuracy": 0.41935483870967744,
+  "train_accuracy": 0.48727272727272725,
+  "holdout_log_loss": 0.33932312557825794,
+  "holdout_draw_rate": 0.7419354838709677,
+  "holdout_draw_ratio": 3.015997901914503,
+  "accuracy_eval_scope": "holdout",
+  "logloss_eval_scope": "holdout"
+}

@@ -1,0 +1,46 @@
+{
+  "phase": "7-C",
+  "agent_source": "KELLY_FALLBACK",
+  "n_matches": 513,
+  "n_bets": 338,
+  "n_abstained": 175,
+  "roi_per_bet": 0.4330473372781064,
+  "max_drawdown": 0.1943408642246107,
+  "rolling_sharpe_mean": 1.5753488469800545,
+  "abstention_rate": 0.341130604288499,
+  "per_league_roi": {
+    "serie_a": 0.5719672131147541,
+    "bundesliga": 0.3416326530612244,
+    "epl": 1.1538461538461537,
+    "ligue_1": 0.3453488372093023,
+    "la_liga": 0.03460317460317454,
+    "eredivisie": 0.04754385964912275
+  },
+  "gates": [
+    {
+      "gate": "roi_per_bet_gt_0_05",
+      "threshold": "> 5.0%",
+      "value": 0.4330473372781064,
+      "passed": true
+    },
+    {
+      "gate": "max_drawdown_lt_0_25",
+      "threshold": "< 25.0%",
+      "value": 0.1943408642246107,
+      "passed": true
+    },
+    {
+      "gate": "rolling_sharpe_ge_1_50",
+      "threshold": "\u2265 1.50",
+      "value": 1.5753488469800545,
+      "passed": true
+    },
+    {
+      "gate": "abstention_rate_10_40pct",
+      "threshold": "10\u201340%",
+      "value": 0.341130604288499,
+      "passed": true
+    }
+  ],
+  "all_pass": true
+}

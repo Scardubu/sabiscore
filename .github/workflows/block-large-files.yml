@@ -1,0 +1,28 @@
+name: Block large files
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [ main, develop ]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Find large files
+        run: |
+          echo "Scanning for files > 10MB..."
+          set -e
+          LARGE_FILES=$(git ls-tree -r --long HEAD | awk '$4 > 10485760 {print $0}') || true
+          if [ -n "$LARGE_FILES" ]; then
+            echo "Found files larger than 10MB:" >&2
+            git ls-tree -r --long HEAD | awk '$4 > 10485760 {print $0}' >&2
+            exit 1
+          else
+            echo "No large files found."
+          fi

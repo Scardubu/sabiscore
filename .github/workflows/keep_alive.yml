@@ -1,0 +1,31 @@
+name: Keep-alive ping
+
+on:
+  schedule:
+    - cron: '*/14 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip httpx
+
+      - name: Ping backend readiness
+        run: python scripts/keep_alive.py
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+          # Log a cold-start warning when response time exceeds this threshold.
+          # Render free-tier cold starts typically range 5-30 s.
+          COLD_START_THRESHOLD_S: '5.0'

@@ -1,0 +1,10 @@
+.vercel
+.next
+.turbo
+node_modules
+coverage
+test-results
+*.log
+*.tsbuildinfo
+.env.local
+.env*.local

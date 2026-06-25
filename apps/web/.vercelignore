@@ -1,0 +1,14 @@
+.vercel
+.next
+.turbo
+node_modules
+coverage
+test-results
+*.log
+*.tsbuildinfo
+.env.local
+.env*.local
+run-e2e-tests.ps1
+verify-all-endpoints.ps1
+pre-deploy-check.ps1
+test-prediction-flow.ts

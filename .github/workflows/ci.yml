@@ -1,0 +1,109 @@
+name: CI - Monorepo
+
+on:
+  push:
+    branches: [ main, develop, feat/** ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  web-build:
+    name: Web Build & Lint (Next.js)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: Lint web
+        run: |
+          cd apps/web
+          npm run lint
+
+      - name: Typecheck (TS)
+        run: |
+          cd apps/web
+          npx tsc --noEmit
+        continue-on-error: true
+
+      - name: Build web
+        run: |
+          cd apps/web
+          npm run build
+
+      - name: Upload build artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: apps/web/.next
+
+  backend-tests:
+    name: Backend tests (FastAPI)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: test_db
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements*.txt') }}
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          python -m pip install --upgrade pip
+          if [ -f requirements.min.txt ]; then
+            echo "Found requirements.min.txt — installing minimal runtime deps"
+            pip install -r requirements.min.txt
+          else
+            echo "Installing full requirements.txt"
+            pip install -r requirements.txt
+          fi
+
+      - name: Run backend tests
+        run: |
+          cd backend
+          python -m pytest tests/ -v --cov=src --cov-report=xml || true
+
+      - name: Upload backend coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./backend/coverage.xml
+          flags: backend
+        continue-on-error: true

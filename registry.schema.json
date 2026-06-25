@@ -1,0 +1,218 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://scardubu.dev/schemas/skill-registry/v2.schema.json",
+  "title": "SCAR Skill Suite Registry",
+  "description": "Validates registry.json \u2014 the 34-skill manifest for the SCAR engineering AI skill system.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "suiteVersion",
+    "updatedAt",
+    "skills"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "URI reference to the JSON Schema this document conforms to. Consumed by editors/IDEs only; stripped by the validator."
+    },
+    "schemaVersion": {
+      "type": "string",
+      "description": "Semver of this schema. Bump major on breaking field changes.",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "suiteVersion": {
+      "type": "string",
+      "description": "Semver of the skill suite itself. Bump when skills are added/removed.",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "updatedAt": {
+      "type": "string",
+      "description": "ISO 8601 date of last suite update.",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "stack": {
+      "type": "object",
+      "description": "Immutable project-stack constants the registry is authored against.",
+      "additionalProperties": false,
+      "properties": {
+        "frontend": {
+          "type": "string"
+        },
+        "mobile": {
+          "type": "string"
+        },
+        "backend": {
+          "type": "string"
+        },
+        "database": {
+          "type": "string"
+        },
+        "monorepo": {
+          "type": "string"
+        },
+        "observability": {
+          "type": "string"
+        },
+        "auth": {
+          "type": "string"
+        },
+        "ai": {
+          "type": "string"
+        },
+        "runtimes": {
+          "type": "string"
+        }
+      }
+    },
+    "verticals": {
+      "type": "array",
+      "description": "Active product verticals this suite serves.",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "skills": {
+      "type": "array",
+      "description": "Ordered list of all skills in the suite.",
+      "items": {
+        "$ref": "#/$defs/skill"
+      },
+      "minItems": 1
+    }
+  },
+  "$defs": {
+    "skill": {
+      "type": "object",
+      "required": [
+        "name",
+        "version",
+        "description",
+        "cluster",
+        "clusterName",
+        "installOrder",
+        "filePath",
+        "triggers"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Lowercase-hyphenated skill identifier. Must match the SKILL.md frontmatter name field.",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$",
+          "minLength": 3,
+          "maxLength": 64
+        },
+        "version": {
+          "type": "string",
+          "description": "Semver of this individual skill file.",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "description": {
+          "type": "string",
+          "description": "One-sentence summary of what the skill does. Used by NEXUS for routing.",
+          "minLength": 10,
+          "maxLength": 200
+        },
+        "cluster": {
+          "type": "integer",
+          "description": "Cluster number (1\u20137).",
+          "minimum": 1,
+          "maximum": 7
+        },
+        "clusterName": {
+          "type": "string",
+          "description": "Human-readable cluster label.",
+          "enum": [
+            "Editor & Environment",
+            "Frontend Design",
+            "Backend Engineering",
+            "Application Layer",
+            "Mobile & Meta",
+            "Vertical Intelligence",
+            "Real-Time & Data"
+          ]
+        },
+        "installOrder": {
+          "type": "integer",
+          "description": "Recommended installation order (1\u201334). Lower = install first.",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "filePath": {
+          "type": "string",
+          "description": "Path to SKILL.md relative to the repo root.",
+          "pattern": "\\.md$"
+        },
+        "triggers": {
+          "type": "array",
+          "description": "Canonical trigger phrases that invoke this skill. At least 5.",
+          "items": {
+            "type": "string",
+            "minLength": 5
+          },
+          "minItems": 5,
+          "uniqueItems": true
+        },
+        "dependencies": {
+          "type": "array",
+          "description": "Names of skills that should be loaded before this one.",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$"
+          },
+          "uniqueItems": true,
+          "default": []
+        },
+        "pairedWith": {
+          "type": "array",
+          "description": "Names of skills frequently used alongside this one (non-blocking).",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$"
+          },
+          "uniqueItems": true,
+          "default": []
+        },
+        "verticals": {
+          "type": "array",
+          "description": "Product verticals this skill has explicit domain knowledge for.",
+          "items": {
+            "type": "string",
+            "enum": [
+              "TaxBridge",
+              "SabiScore",
+              "Hashablanca",
+              "SwarmX",
+              "all"
+            ]
+          },
+          "uniqueItems": true,
+          "default": [
+            "all"
+          ]
+        },
+        "claudeCodeCommand": {
+          "type": "string",
+          "description": "If a matching slash command exists in .claude/skills/, its name.",
+          "pattern": "^[a-z0-9-]+$"
+        },
+        "tags": {
+          "type": "array",
+          "description": "Free-form classification tags for search/filtering.",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true,
+          "default": []
+        },
+        "deprecated": {
+          "type": "boolean",
+          "description": "True if this skill is scheduled for removal.",
+          "default": false
+        }
+      }
+    }
+  }
+}

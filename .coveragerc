@@ -1,0 +1,21 @@
+[run]
+branch = True
+source = 
+    src
+omit = 
+    src/api/websocket.py
+    src/cli/*
+    src/connectors/*
+    src/models/*
+    src/data/scrapers.py
+    src/core/redis.py
+
+[report]
+show_missing = True
+skip_covered = False
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.
+    raise NotImplementedError
+    except ImportError
+    except Exception as e

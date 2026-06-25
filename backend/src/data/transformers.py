@@ -1,0 +1,727 @@
+import logging
+from typing import Any, Dict, Callable, Optional
+
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+
+from ..models.feature_registry import CANONICAL_FEATURES_68, DEFAULT_FEATURE_VALUES_68
+
+
+logger = logging.getLogger(__name__)
+
+
+# Legacy defaults below are retained for backward-compatible intermediate calculations.
+# Final inference projection is always aligned to the canonical 68-feature schema (Phase 7-A).
+MODEL_EXPECTED_FEATURES = [
+    'home_form_5', 'home_form_10', 'home_form_20', 'home_win_rate_5', 'home_goals_per_match_5',
+    'away_form_5', 'away_form_10', 'away_form_20', 'away_win_rate_5', 'away_goals_per_match_5',
+    'home_xg_avg_5', 'home_xg_conceded_avg_5', 'home_xg_diff_5', 'home_xg_overperformance', 'home_xg_consistency',
+    'away_xg_avg_5', 'away_xg_conceded_avg_5', 'away_xg_diff_5', 'away_xg_overperformance', 'away_xg_consistency',
+    'xg_differential',
+    'home_days_rest', 'home_fatigue_index', 'home_fixtures_14d', 'home_fixture_congestion',
+    'away_days_rest', 'away_fatigue_index', 'away_fixtures_14d', 'away_fixture_congestion',
+    'home_advantage_win_rate', 'home_goals_advantage', 'away_win_rate_away', 'home_crowd_boost',
+    'home_advantage_coefficient', 'referee_home_bias',
+    'home_momentum_lambda', 'home_momentum_weighted', 'home_win_streak', 'home_unbeaten_streak',
+    'away_momentum_lambda', 'away_momentum_weighted', 'away_win_streak', 'away_unbeaten_streak',
+    'odds_volatility_1h', 'market_panic_score', 'odds_drift_home', 'bookmaker_margin', 'home_implied_prob',
+    'h2h_home_wins', 'h2h_draws', 'h2h_away_wins', 'h2h_total_matches', 'h2h_avg_goals', 'h2h_home_win_rate',
+    'home_squad_value', 'home_missing_value', 'away_squad_value', 'away_missing_value', 'squad_value_diff',
+    'temperature', 'precipitation', 'wind_speed', 'weather_impact_score',
+    'home_elo', 'away_elo', 'elo_difference',
+    'home_possession_style', 'away_possession_style', 'home_pressing_intensity', 'away_pressing_intensity',
+    'home_first_half_goals_rate', 'away_first_half_goals_rate',
+    'home_defensive_solidity', 'away_defensive_solidity',
+    'home_setpiece_goals_rate', 'away_setpiece_goals_rate',
+    'home_goals_conceded_per_match_5', 'home_gd_avg_5', 'home_gd_trend', 'home_clean_sheets_5', 'home_scoring_consistency',
+    'away_goals_conceded_per_match_5', 'away_gd_avg_5', 'away_gd_trend', 'away_clean_sheets_5', 'away_scoring_consistency',
+]
+
+# Default values for features when real data is unavailable
+# Based on EPL league averages from training data
+FEATURE_DEFAULTS = {
+    # Form features
+    'home_form_5': 0.55, 'home_form_10': 0.54, 'home_form_20': 0.53,
+    'home_win_rate_5': 0.50, 'home_goals_per_match_5': 1.55,
+    'away_form_5': 0.45, 'away_form_10': 0.44, 'away_form_20': 0.43,
+    'away_win_rate_5': 0.40, 'away_goals_per_match_5': 1.25,
+    # xG features
+    'home_xg_avg_5': 1.55, 'home_xg_conceded_avg_5': 1.30, 'home_xg_diff_5': 0.25,
+    'home_xg_overperformance': 0.05, 'home_xg_consistency': 0.75,
+    'away_xg_avg_5': 1.35, 'away_xg_conceded_avg_5': 1.50, 'away_xg_diff_5': -0.15,
+    'away_xg_overperformance': -0.05, 'away_xg_consistency': 0.70,
+    'xg_differential': 0.20,
+    # Rest & fatigue
+    'home_days_rest': 7.0, 'home_fatigue_index': 0.30, 'home_fixtures_14d': 2.0, 'home_fixture_congestion': 0.35,
+    'away_days_rest': 7.0, 'away_fatigue_index': 0.35, 'away_fixtures_14d': 2.0, 'away_fixture_congestion': 0.35,
+    # Home advantage
+    'home_advantage_win_rate': 0.55, 'home_goals_advantage': 0.30, 'away_win_rate_away': 0.35,
+    'home_crowd_boost': 0.10, 'home_advantage_coefficient': 1.15, 'referee_home_bias': 0.52,
+    # Momentum
+    'home_momentum_lambda': 0.55, 'home_momentum_weighted': 0.55, 'home_win_streak': 1.5, 'home_unbeaten_streak': 3.0,
+    'away_momentum_lambda': 0.45, 'away_momentum_weighted': 0.45, 'away_win_streak': 1.0, 'away_unbeaten_streak': 2.5,
+    # Odds/market
+    'odds_volatility_1h': 0.02, 'market_panic_score': 0.15, 'odds_drift_home': 0.0,
+    'bookmaker_margin': 0.05, 'home_implied_prob': 0.45,
+    # H2H
+    'h2h_home_wins': 4.0, 'h2h_draws': 3.0, 'h2h_away_wins': 3.0,
+    'h2h_total_matches': 10.0, 'h2h_avg_goals': 2.5, 'h2h_home_win_rate': 0.40,
+    # Squad
+    'home_squad_value': 400.0, 'home_missing_value': 20.0,
+    'away_squad_value': 350.0, 'away_missing_value': 15.0,
+    'squad_value_diff': 50.0,
+    # Weather
+    'temperature': 15.0, 'precipitation': 2.0, 'wind_speed': 12.0, 'weather_impact_score': 0.1,
+    # Elo
+    'home_elo': 1550.0, 'away_elo': 1500.0, 'elo_difference': 50.0,
+    # Tactical
+    'home_possession_style': 0.52, 'away_possession_style': 0.48,
+    'home_pressing_intensity': 0.55, 'away_pressing_intensity': 0.50,
+    'home_first_half_goals_rate': 0.45, 'away_first_half_goals_rate': 0.42,
+    'home_defensive_solidity': 0.65, 'away_defensive_solidity': 0.60,
+    'home_setpiece_goals_rate': 0.25, 'away_setpiece_goals_rate': 0.22,
+    # Goals/GD
+    'home_goals_conceded_per_match_5': 1.20, 'home_gd_avg_5': 0.35, 'home_gd_trend': 0.05,
+    'home_clean_sheets_5': 0.30, 'home_scoring_consistency': 0.70,
+    'away_goals_conceded_per_match_5': 1.40, 'away_gd_avg_5': -0.15, 'away_gd_trend': -0.02,
+    'away_clean_sheets_5': 0.25, 'away_scoring_consistency': 0.65,
+}
+
+# Enforce canonical production schema for all inference-time projections.
+FEATURE_DEFAULTS.update(DEFAULT_FEATURE_VALUES_68)
+MODEL_EXPECTED_FEATURES = list(CANONICAL_FEATURES_68)
+
+
+def _safe_float(value: Any) -> Optional[float]:
+    try:
+        if value is None:
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _clamp(value: float, min_value: float, max_value: float) -> float:
+    return max(min_value, min(value, max_value))
+
+
+class FeatureTransformer:
+    """Feature engineering pipeline with validation and leakage controls.
+    
+    Produces canonical feature vectors aligned with production model metadata.
+    """
+
+    def __init__(self) -> None:
+        self.scaler = StandardScaler()
+        self.expected_columns = list(CANONICAL_FEATURES_68)
+
+    def engineer_features(self, match_data: Dict[str, Any]) -> pd.DataFrame:
+        # Handle None values by converting to empty DataFrame/dict
+        historical_stats = match_data.get("historical_stats")
+        if historical_stats is None or (isinstance(historical_stats, pd.DataFrame) and historical_stats.empty):
+            historical_stats = pd.DataFrame()
+
+        current_form = match_data.get("current_form") or {}
+
+        odds = match_data.get("odds") or {}
+        
+        injuries = match_data.get("injuries")
+        if injuries is None or (isinstance(injuries, pd.DataFrame) and injuries.empty):
+            injuries = pd.DataFrame()
+            
+        head_to_head = match_data.get("head_to_head")
+        if head_to_head is None or (isinstance(head_to_head, pd.DataFrame) and head_to_head.empty):
+            head_to_head = pd.DataFrame()
+            
+        team_stats = match_data.get("team_stats") or {}
+
+        base = self._create_base_features(historical_stats)
+        base = self._add_form_features(base, current_form)
+        base = self._add_odds_features(base, odds)
+        base = self._add_injury_features(base, injuries)
+        base = self._add_h2h_features(base, head_to_head)
+        base = self._add_team_stats_features(base, team_stats)
+        base = self._add_advanced_team_features(base, team_stats)
+        base = self._add_form_trends(base, current_form)
+        base = self._add_schedule_features(base, match_data)
+        base = self._apply_enhanced_features(base, match_data)
+        base = self._project_to_canonical_features(base, match_data)
+
+        base = self._ensure_minimum_row(base)
+
+        base = self._handle_missing_values(base)
+        base = self._validate_features(base)
+
+        return self._scale_features(base)
+
+    def _project_to_canonical_features(self, features: pd.DataFrame, match_data: Dict[str, Any]) -> pd.DataFrame:
+        """Project engineered features into the canonical 68-feature inference schema."""
+        schedule = match_data.get("schedule") or {}
+        odds = match_data.get("odds") or {}
+
+        row = features.iloc[0].to_dict() if not features.empty else {}
+        canonical = dict(DEFAULT_FEATURE_VALUES_68)
+
+        def get_num(name: str, default: float) -> float:
+            value = _safe_float(row.get(name))
+            return default if value is None else value
+
+        home_odds = max(float(odds.get("home_win", 2.5)), 1.01)
+        draw_odds = max(float(odds.get("draw", 3.3)), 1.01)
+        away_odds = max(float(odds.get("away_win", 2.8)), 1.01)
+
+        ip_home = 1.0 / home_odds
+        ip_draw = 1.0 / draw_odds
+        ip_away = 1.0 / away_odds
+        total_ip = max(ip_home + ip_draw + ip_away, 1e-9)
+
+        market_prob_home = ip_home / total_ip
+        market_prob_draw = ip_draw / total_ip
+        market_prob_away = ip_away / total_ip
+
+        home_form_5 = get_num("home_form_5", 0.5)
+        away_form_5 = get_num("away_form_5", 0.45)
+
+        canonical["home_form_last5_home"] = home_form_5 * 3.0
+        canonical["away_form_last5_away"] = away_form_5 * 3.0
+
+        canonical["home_wins_last5_home"] = float(round(get_num("home_win_rate_5", 0.5) * 5.0))
+        canonical["away_wins_last5_away"] = float(round(get_num("away_win_rate_5", 0.4) * 5.0))
+        canonical["home_draws_last5_home"] = max(0.0, 5.0 - canonical["home_wins_last5_home"] - 2.0)
+        canonical["away_draws_last5_away"] = max(0.0, 5.0 - canonical["away_wins_last5_away"] - 2.0)
+        canonical["home_losses_last5_home"] = max(0.0, 5.0 - canonical["home_wins_last5_home"] - canonical["home_draws_last5_home"])
+        canonical["away_losses_last5_away"] = max(0.0, 5.0 - canonical["away_wins_last5_away"] - canonical["away_draws_last5_away"])
+
+        canonical["home_goals_for_avg"] = get_num("home_goals_per_match_5", 1.55)
+        canonical["away_goals_for_avg"] = get_num("away_goals_per_match_5", 1.25)
+        canonical["home_goals_against_avg"] = get_num("home_goals_conceded_per_match_5", 1.20)
+        canonical["away_goals_against_avg"] = get_num("away_goals_conceded_per_match_5", 1.40)
+
+        canonical["home_gd_recent"] = get_num("home_gd_avg_5", 0.35)
+        canonical["away_gd_recent"] = get_num("away_gd_avg_5", -0.15)
+
+        canonical["combined_attack"] = canonical["home_goals_for_avg"] + canonical["away_goals_for_avg"]
+        canonical["combined_defense_weakness"] = canonical["home_goals_against_avg"] + canonical["away_goals_against_avg"]
+        canonical["total_goals_expected"] = get_num("xg_differential", 0.20) + 2.60
+
+        canonical["market_prob_home"] = market_prob_home
+        canonical["market_prob_draw"] = market_prob_draw
+        canonical["market_prob_away"] = market_prob_away
+        canonical["market_edge_home"] = market_prob_home - market_prob_away
+        canonical["market_favorite"] = float(np.argmax([market_prob_home, market_prob_draw, market_prob_away]))
+        canonical["odds_ratio"] = home_odds / away_odds
+        canonical["log_odds_home"] = float(np.log(home_odds))
+        canonical["log_odds_draw"] = float(np.log(draw_odds))
+        canonical["log_odds_away"] = float(np.log(away_odds))
+        canonical["draw_probability"] = market_prob_draw
+        canonical["market_confidence"] = max(market_prob_home, market_prob_draw, market_prob_away)
+
+        canonical["ev_home"] = market_prob_home * home_odds - 1.0
+        canonical["ev_draw"] = market_prob_draw * draw_odds - 1.0
+        canonical["ev_away"] = market_prob_away * away_odds - 1.0
+
+        canonical["h2h_home_wins"] = get_num("h2h_home_wins", 2.0)
+        canonical["h2h_away_wins"] = get_num("h2h_away_wins", 2.0)
+        canonical["h2h_draws"] = get_num("h2h_draws", 1.0)
+        canonical["h2h_matches"] = max(1.0, get_num("h2h_total_matches", 5.0))
+        canonical["h2h_dominance"] = (canonical["h2h_home_wins"] - canonical["h2h_away_wins"]) / canonical["h2h_matches"]
+
+        home_win_rate = get_num("home_advantage_win_rate", 0.5)
+        away_win_rate = get_num("away_win_rate_away", 0.3)
+        home_draw_rate = max(0.0, 1.0 - home_win_rate - away_win_rate)
+
+        canonical["home_venue_win_rate"] = home_win_rate
+        canonical["home_venue_draw_rate"] = home_draw_rate
+        canonical["home_venue_loss_rate"] = away_win_rate
+        canonical["home_advantage_strength"] = home_win_rate - away_win_rate
+
+        kickoff = schedule.get("date")
+        kickoff_dt = None
+        if kickoff:
+            try:
+                kickoff_dt = pd.to_datetime(kickoff)
+            except Exception:
+                kickoff_dt = None
+        if kickoff_dt is None:
+            kickoff_dt = pd.Timestamp.utcnow()
+
+        canonical["day_of_week"] = float(kickoff_dt.dayofweek)
+        canonical["is_weekend"] = 1.0 if kickoff_dt.dayofweek >= 5 else 0.0
+        canonical["month"] = float(kickoff_dt.month)
+        canonical["season_phase"] = float(min(max((kickoff_dt.month - 1) / 11.0, 0.0), 1.0))
+
+        league_name = str(schedule.get("league", "EPL"))
+        league_defaults = {
+            "epl": (0.42, 2.85, 0.246),
+            "la_liga": (0.44, 2.60, 0.255),
+            "bundesliga": (0.45, 3.05, 0.228),
+            "serie_a": (0.43, 2.58, 0.272),
+            "ligue_1": (0.41, 2.66, 0.259),
+        }
+        key = league_name.lower().replace(" ", "_")
+        home_rate, avg_goals, draw_rate = league_defaults.get(key, (0.42, 2.75, 0.246))
+        canonical["league_home_rate"] = home_rate
+        canonical["league_avg_goals"] = avg_goals
+        canonical["league_draw_rate"] = draw_rate
+
+        canonical["form_market_agreement_home"] = (canonical["home_form_last5_home"] / 3.0) * market_prob_home
+        canonical["form_market_disagreement"] = abs((canonical["home_form_last5_home"] / 3.0) - market_prob_home)
+        canonical["home_attack_vs_away_defense"] = canonical["home_goals_for_avg"] - canonical["away_goals_against_avg"]
+        canonical["away_attack_vs_home_defense"] = canonical["away_goals_for_avg"] - canonical["home_goals_against_avg"]
+        canonical["venue_market_combo"] = canonical["home_venue_win_rate"] * market_prob_home
+        canonical["h2h_market_agreement"] = canonical["h2h_dominance"] * market_prob_home
+
+        canonical["league_Bundesliga"] = 1.0 if key == "bundesliga" else 0.0
+        canonical["league_EPL"] = 1.0 if key in ("epl", "premier_league") else 0.0
+        canonical["league_La_Liga"] = 1.0 if key in ("la_liga", "laliga") else 0.0
+        canonical["league_Ligue_1"] = 1.0 if key in ("ligue_1", "ligue1") else 0.0
+        canonical["league_Serie_A"] = 1.0 if key in ("serie_a", "seriea") else 0.0
+
+        # Phase 7-A additions (Elo + StatsBomb tactical layer).
+        # Keep neutral defaults when sources are missing. PredictionService will still
+        # select only the model's declared feature columns, preserving 58-feature models.
+        team_stats = match_data.get("team_stats") or {}
+        home_stats = team_stats.get("home", {}) if isinstance(team_stats, dict) else {}
+        away_stats = team_stats.get("away", {}) if isinstance(team_stats, dict) else {}
+        enhanced = match_data.get("enhanced_features") or {}
+
+        elo_diff = get_num("elo_difference", float(home_stats.get("elo", 0.0)) - float(away_stats.get("elo", 0.0)))
+        elo_home_trend_5 = get_num("elo_home_trend_5", get_num("home_elo_trend_5", float(home_stats.get("elo_trend_5", 0.0))))
+        elo_away_trend_5 = get_num("elo_away_trend_5", get_num("away_elo_trend_5", float(away_stats.get("elo_trend_5", 0.0))))
+
+        league_elo_spread = {
+            "epl": 110.0,
+            "premier_league": 110.0,
+            "la_liga": 105.0,
+            "bundesliga": 115.0,
+            "serie_a": 100.0,
+            "ligue_1": 95.0,
+            "eredivisie": 90.0,
+        }.get(key, 100.0)
+
+        canonical["elo_difference"] = elo_diff
+        canonical["elo_home_trend_5"] = elo_home_trend_5
+        canonical["elo_away_trend_5"] = elo_away_trend_5
+        canonical["elo_league_adjusted"] = elo_diff / max(league_elo_spread, 1e-6)
+        canonical["elo_momentum_cross"] = elo_home_trend_5 - elo_away_trend_5
+
+        def _enhanced_num(*keys: str, default: float = 0.0) -> float:
+            for item in keys:
+                raw = enhanced.get(item)
+                value = _safe_float(raw)
+                if value is not None:
+                    return value
+            return default
+
+        canonical["home_pressing_intensity"] = get_num(
+            "home_pressing_intensity",
+            _enhanced_num("home_pressing_intensity", "sb_home_pressing_intensity", default=0.55),
+        )
+        canonical["progressive_carry_diff"] = _enhanced_num(
+            "progressive_carry_diff",
+            "sb_progressive_carry_diff",
+            default=0.0,
+        )
+        canonical["shot_quality_diff"] = _enhanced_num(
+            "shot_quality_diff",
+            "sb_shot_quality_diff",
+            default=0.0,
+        )
+        canonical["key_passes_under_pressure_diff"] = _enhanced_num(
+            "key_passes_under_pressure_diff",
+            "sb_key_passes_under_pressure_diff",
+            default=0.0,
+        )
+        canonical["set_piece_xg_diff"] = _enhanced_num(
+            "set_piece_xg_diff",
+            "sb_set_piece_xg_diff",
+            default=0.0,
+        )
+
+        return pd.DataFrame([canonical], columns=self.expected_columns)
+
+    # ------------------------------------------------------------------
+    def _create_base_features(self, historical_stats: pd.DataFrame) -> pd.DataFrame:
+        # Start with defaults
+        features = pd.DataFrame([FEATURE_DEFAULTS]).copy()
+        
+        if historical_stats is None or (isinstance(historical_stats, pd.DataFrame) and historical_stats.empty):
+            return features
+
+        # Update with calculated values where possible
+        try:
+            # Assuming historical_stats contains recent matches relevant to the teams
+            # We'll use the last 5 matches for the "_5" features
+            last_5 = historical_stats.tail(5)
+            
+            if not last_5.empty:
+                features["home_goals_per_match_5"] = last_5["home_score"].mean()
+                features["away_goals_per_match_5"] = last_5["away_score"].mean()
+                features["home_goals_conceded_per_match_5"] = last_5["away_score"].mean()
+                features["away_goals_conceded_per_match_5"] = last_5["home_score"].mean()
+                
+                # Simple win rate calculation based on score comparison
+                home_wins = (last_5["home_score"] > last_5["away_score"]).mean()
+                away_wins = (last_5["away_score"] > last_5["home_score"]).mean()
+                features["home_win_rate_5"] = home_wins
+                features["away_win_rate_5"] = away_wins
+                
+                # GD stats
+                features["home_gd_avg_5"] = (last_5["home_score"] - last_5["away_score"]).mean()
+                features["away_gd_avg_5"] = (last_5["away_score"] - last_5["home_score"]).mean()
+                
+                # Clean sheets
+                features["home_clean_sheets_5"] = (last_5["away_score"] == 0).mean()
+                features["away_clean_sheets_5"] = (last_5["home_score"] == 0).mean()
+
+        except Exception as e:
+            logger.warning(f"Error calculating base features: {e}")
+            
+        return features
+
+    def _add_form_features(self, features: pd.DataFrame, current_form: Dict[str, Any]) -> pd.DataFrame:
+        for side in ("home", "away"):
+            form = current_form.get(side, {})
+            # Form points from last 5 games (W=3, D=1, L=0)
+            results = form.get("last_5_games", [])
+            points = sum(3 if r == "W" else 1 if r == "D" else 0 for r in results)
+            
+            # Normalize form to 0-1 range (max 15 points)
+            features[f"{side}_form_5"] = points / 15.0 if results else FEATURE_DEFAULTS[f"{side}_form_5"]
+            
+            # For 10 and 20 game form, we might not have data, so use defaults or estimate
+            # If we have 'form_10' in input, use it, otherwise estimate from form_5
+            features[f"{side}_form_10"] = form.get("form_10", features[f"{side}_form_5"])
+            features[f"{side}_form_20"] = form.get("form_20", features[f"{side}_form_10"])
+            
+            # Streaks
+            features[f"{side}_win_streak"] = form.get("win_streak", FEATURE_DEFAULTS[f"{side}_win_streak"])
+            features[f"{side}_unbeaten_streak"] = form.get("unbeaten_streak", FEATURE_DEFAULTS[f"{side}_unbeaten_streak"])
+            
+        return features
+
+    def _add_odds_features(self, features: pd.DataFrame, odds: Dict[str, float]) -> pd.DataFrame:
+        home = float(odds.get("home_win", 2.5))
+        draw = float(odds.get("draw", 3.2))
+        away = float(odds.get("away_win", 2.8))
+
+        # Ensure odds are valid (> 1.0 to avoid division by zero)
+        home = max(home, 1.01)
+        draw = max(draw, 1.01)
+        away = max(away, 1.01)
+
+        # Calculate implied probabilities
+        ip_home = 1 / home
+        ip_draw = 1 / draw
+        ip_away = 1 / away
+        
+        margin = ip_home + ip_draw + ip_away - 1
+        
+        # Normalize probabilities to sum to 1
+        prob_sum = ip_home + ip_draw + ip_away
+        features["home_implied_prob"] = ip_home / prob_sum
+        features["bookmaker_margin"] = margin
+        
+        # Market features (use defaults if not provided)
+        features["odds_volatility_1h"] = odds.get("volatility_1h", FEATURE_DEFAULTS["odds_volatility_1h"])
+        features["market_panic_score"] = odds.get("panic_score", FEATURE_DEFAULTS["market_panic_score"])
+        features["odds_drift_home"] = odds.get("drift_home", FEATURE_DEFAULTS["odds_drift_home"])
+
+        return features
+
+    def _add_injury_features(self, features: pd.DataFrame, injuries: pd.DataFrame) -> pd.DataFrame:
+        # Not in expected features list explicitly, but might be used for 'missing_value' calculation
+        # We'll keep it simple and just return features as is for now, 
+        # assuming missing_value is handled in team_stats
+        return features
+
+    def _add_h2h_features(self, features: pd.DataFrame, head_to_head: pd.DataFrame) -> pd.DataFrame:
+        if head_to_head.empty:
+            # Use defaults
+            features["h2h_home_wins"] = FEATURE_DEFAULTS["h2h_home_wins"]
+            features["h2h_away_wins"] = FEATURE_DEFAULTS["h2h_away_wins"]
+            features["h2h_draws"] = FEATURE_DEFAULTS["h2h_draws"]
+            features["h2h_total_matches"] = FEATURE_DEFAULTS["h2h_total_matches"]
+            features["h2h_avg_goals"] = FEATURE_DEFAULTS["h2h_avg_goals"]
+            features["h2h_home_win_rate"] = FEATURE_DEFAULTS["h2h_home_win_rate"]
+            return features
+
+        total = len(head_to_head)
+        home_wins = (head_to_head["home_score"] > head_to_head["away_score"]).sum()
+        away_wins = (head_to_head["away_score"] > head_to_head["home_score"]).sum()
+        draws = (head_to_head["home_score"] == head_to_head["away_score"]).sum()
+        
+        features["h2h_home_wins"] = home_wins
+        features["h2h_away_wins"] = away_wins
+        features["h2h_draws"] = draws
+        features["h2h_total_matches"] = total
+        features["h2h_avg_goals"] = (head_to_head["home_score"] + head_to_head["away_score"]).mean()
+        features["h2h_home_win_rate"] = home_wins / total if total > 0 else 0.0
+        
+        return features
+
+    def _add_team_stats_features(self, features: pd.DataFrame, team_stats: Dict[str, Any]) -> pd.DataFrame:
+        home_stats = team_stats.get("home", {})
+        away_stats = team_stats.get("away", {})
+        
+        # Squad value features
+        features["home_squad_value"] = home_stats.get("squad_value", FEATURE_DEFAULTS["home_squad_value"])
+        features["away_squad_value"] = away_stats.get("squad_value", FEATURE_DEFAULTS["away_squad_value"])
+        features["home_missing_value"] = home_stats.get("missing_value", FEATURE_DEFAULTS["home_missing_value"])
+        features["away_missing_value"] = away_stats.get("missing_value", FEATURE_DEFAULTS["away_missing_value"])
+        features["squad_value_diff"] = features["home_squad_value"] - features["away_squad_value"]
+        
+        # Elo features
+        features["home_elo"] = home_stats.get("elo", FEATURE_DEFAULTS["home_elo"])
+        features["away_elo"] = away_stats.get("elo", FEATURE_DEFAULTS["away_elo"])
+        features["elo_difference"] = features["home_elo"] - features["away_elo"]
+        
+        return features
+
+    def _add_advanced_team_features(self, features: pd.DataFrame, team_stats: Dict[str, Any]) -> pd.DataFrame:
+        home_stats = team_stats.get("home", {})
+        away_stats = team_stats.get("away", {})
+
+        # xG features
+        for side, stats in [("home", home_stats), ("away", away_stats)]:
+            features[f"{side}_xg_avg_5"] = stats.get("xg_avg_5", FEATURE_DEFAULTS[f"{side}_xg_avg_5"])
+            features[f"{side}_xg_conceded_avg_5"] = stats.get("xg_conceded_avg_5", FEATURE_DEFAULTS[f"{side}_xg_conceded_avg_5"])
+            features[f"{side}_xg_diff_5"] = stats.get("xg_diff_5", FEATURE_DEFAULTS[f"{side}_xg_diff_5"])
+            features[f"{side}_xg_overperformance"] = stats.get("xg_overperformance", FEATURE_DEFAULTS[f"{side}_xg_overperformance"])
+            features[f"{side}_xg_consistency"] = stats.get("xg_consistency", FEATURE_DEFAULTS[f"{side}_xg_consistency"])
+            
+        features["xg_differential"] = features["home_xg_diff_5"] - features["away_xg_diff_5"]
+
+        # Tactical features
+        for side, stats in [("home", home_stats), ("away", away_stats)]:
+            features[f"{side}_possession_style"] = stats.get("possession_style", FEATURE_DEFAULTS[f"{side}_possession_style"])
+            features[f"{side}_pressing_intensity"] = stats.get("pressing_intensity", FEATURE_DEFAULTS[f"{side}_pressing_intensity"])
+            features[f"{side}_first_half_goals_rate"] = stats.get("first_half_goals_rate", FEATURE_DEFAULTS[f"{side}_first_half_goals_rate"])
+            features[f"{side}_defensive_solidity"] = stats.get("defensive_solidity", FEATURE_DEFAULTS[f"{side}_defensive_solidity"])
+            features[f"{side}_setpiece_goals_rate"] = stats.get("setpiece_goals_rate", FEATURE_DEFAULTS[f"{side}_setpiece_goals_rate"])
+            
+            # GD trends
+            features[f"{side}_gd_trend"] = stats.get("gd_trend", FEATURE_DEFAULTS[f"{side}_gd_trend"])
+            features[f"{side}_scoring_consistency"] = stats.get("scoring_consistency", FEATURE_DEFAULTS[f"{side}_scoring_consistency"])
+
+        return features
+
+    def _add_form_trends(self, features: pd.DataFrame, current_form: Dict[str, Any]) -> pd.DataFrame:
+        home_form = current_form.get("home", {})
+        away_form = current_form.get("away", {})
+
+        # Momentum features
+        features["home_momentum_lambda"] = home_form.get("momentum_lambda", FEATURE_DEFAULTS["home_momentum_lambda"])
+        features["home_momentum_weighted"] = home_form.get("momentum_weighted", FEATURE_DEFAULTS["home_momentum_weighted"])
+        features["away_momentum_lambda"] = away_form.get("momentum_lambda", FEATURE_DEFAULTS["away_momentum_lambda"])
+        features["away_momentum_weighted"] = away_form.get("momentum_weighted", FEATURE_DEFAULTS["away_momentum_weighted"])
+
+        # Fatigue features
+        features["home_days_rest"] = home_form.get("days_rest", FEATURE_DEFAULTS["home_days_rest"])
+        features["home_fatigue_index"] = home_form.get("fatigue_index", FEATURE_DEFAULTS["home_fatigue_index"])
+        features["home_fixtures_14d"] = home_form.get("fixtures_14d", FEATURE_DEFAULTS["home_fixtures_14d"])
+        features["home_fixture_congestion"] = home_form.get("fixture_congestion", FEATURE_DEFAULTS["home_fixture_congestion"])
+        
+        features["away_days_rest"] = away_form.get("days_rest", FEATURE_DEFAULTS["away_days_rest"])
+        features["away_fatigue_index"] = away_form.get("fatigue_index", FEATURE_DEFAULTS["away_fatigue_index"])
+        features["away_fixtures_14d"] = away_form.get("fixtures_14d", FEATURE_DEFAULTS["away_fixtures_14d"])
+        features["away_fixture_congestion"] = away_form.get("fixture_congestion", FEATURE_DEFAULTS["away_fixture_congestion"])
+
+        return features
+
+    def _add_schedule_features(self, features: pd.DataFrame, match_data: Dict[str, Any]) -> pd.DataFrame:
+        schedule = match_data.get("schedule", {})
+        
+        # Weather features
+        weather = schedule.get("weather", {})
+        features["temperature"] = weather.get("temperature", FEATURE_DEFAULTS["temperature"])
+        features["precipitation"] = weather.get("precipitation", FEATURE_DEFAULTS["precipitation"])
+        features["wind_speed"] = weather.get("wind_speed", FEATURE_DEFAULTS["wind_speed"])
+        features["weather_impact_score"] = weather.get("impact_score", FEATURE_DEFAULTS["weather_impact_score"])
+        
+        # Home advantage features
+        features["home_advantage_win_rate"] = schedule.get("home_advantage_win_rate", FEATURE_DEFAULTS["home_advantage_win_rate"])
+        features["home_goals_advantage"] = schedule.get("home_goals_advantage", FEATURE_DEFAULTS["home_goals_advantage"])
+        features["away_win_rate_away"] = schedule.get("away_win_rate_away", FEATURE_DEFAULTS["away_win_rate_away"])
+        features["home_crowd_boost"] = schedule.get("home_crowd_boost", FEATURE_DEFAULTS["home_crowd_boost"])
+        features["home_advantage_coefficient"] = schedule.get("home_advantage_coefficient", FEATURE_DEFAULTS["home_advantage_coefficient"])
+        features["referee_home_bias"] = schedule.get("referee_home_bias", FEATURE_DEFAULTS["referee_home_bias"])
+        
+        return features
+
+    def _apply_enhanced_features(self, features: pd.DataFrame, match_data: Dict[str, Any]) -> pd.DataFrame:
+        if features.empty:
+            return features
+
+        enhanced = match_data.get("enhanced_features") if isinstance(match_data, dict) else None
+        if not enhanced:
+            return features
+
+        overrides: tuple[tuple[str, str, Optional[Callable[[float, Dict[str, Any]], Optional[float]]]], ...] = (
+            ("ws_home_win_rate_5", "home_win_rate_5", lambda v, _: _clamp(v, 0.0, 1.0)),
+            ("ws_away_win_rate_5", "away_win_rate_5", lambda v, _: _clamp(v, 0.0, 1.0)),
+            ("ws_home_avg_possession", "home_possession_style", lambda v, _: _clamp(v / 100.0 if v > 1 else v, 0.0, 1.0)),
+            ("ws_away_avg_possession", "away_possession_style", lambda v, _: _clamp(v / 100.0 if v > 1 else v, 0.0, 1.0)),
+            ("us_home_xg_pg", "home_xg_avg_5", None),
+            ("us_away_xg_pg", "away_xg_avg_5", None),
+            ("us_home_xga_pg", "home_xg_conceded_avg_5", None),
+            ("us_away_xga_pg", "away_xg_conceded_avg_5", None),
+            ("us_home_xg_diff", "home_xg_diff_5", None),
+            ("us_away_xg_diff", "away_xg_diff_5", None),
+            ("tm_value_diff_m", "squad_value_diff", None),
+            ("bf_market_margin_pct", "bookmaker_margin", lambda v, _: v / 100.0 if v > 1 else v),
+        )
+
+        row_index: Any = features.index[0] if len(features.index) > 0 else 0
+        for source, target, transform in overrides:
+            raw_value = enhanced.get(source)
+            if raw_value is None:
+                continue
+
+            value = _safe_float(raw_value)
+            if value is None:
+                continue
+
+            if transform is not None:
+                try:
+                    transformed = transform(value, enhanced)
+                except Exception as exc:
+                    logger.debug("Enhanced feature transform failed for %s -> %s: %s", source, target, exc)
+                    continue
+                if transformed is None:
+                    continue
+                value = transformed
+
+            if value is None:
+                continue
+
+            safe_val: Any = float(value)
+            col_dtype = features.dtypes.get(target)
+            if col_dtype is not None and pd.api.types.is_integer_dtype(col_dtype):
+                safe_val = int(round(float(value)))
+            features.loc[row_index, target] = safe_val
+
+        self._apply_enhanced_xg_consistency(features, enhanced, row_index)
+        self._apply_enhanced_odds(features, enhanced, row_index)
+        return features
+
+    def _apply_enhanced_xg_consistency(
+        self,
+        features: pd.DataFrame,
+        enhanced: Dict[str, Any],
+        index: Any,
+    ) -> None:
+        home_recent = _safe_float(enhanced.get("us_home_recent_xg"))
+        home_avg = _safe_float(enhanced.get("us_home_xg_pg"))
+        away_recent = _safe_float(enhanced.get("us_away_recent_xg"))
+        away_avg = _safe_float(enhanced.get("us_away_xg_pg"))
+
+        def _consistency(recent: Optional[float], avg: Optional[float]) -> Optional[float]:
+            if recent is None or avg is None or avg == 0:
+                return None
+            variance = abs(recent - avg) / max(abs(avg), 1e-3)
+            return round(_clamp(1.0 - min(variance, 1.0) * 0.5, 0.0, 1.0), 3)
+
+        home_consistency = _consistency(home_recent, home_avg)
+        if home_consistency is not None:
+            features.loc[index, "home_xg_consistency"] = home_consistency
+
+        away_consistency = _consistency(away_recent, away_avg)
+        if away_consistency is not None:
+            features.loc[index, "away_xg_consistency"] = away_consistency
+
+        # Recompute differential after overrides
+        try:
+            home_diff = _safe_float(features.loc[index, "home_xg_diff_5"])
+            away_diff = _safe_float(features.loc[index, "away_xg_diff_5"])
+            if home_diff is not None and away_diff is not None:
+                features.loc[index, "xg_differential"] = home_diff - away_diff
+        except (KeyError, ValueError, TypeError):
+            pass
+
+    def _apply_enhanced_odds(
+        self,
+        features: pd.DataFrame,
+        enhanced: Dict[str, Any],
+        index: Any,
+    ) -> None:
+        home_back = _safe_float(enhanced.get("bf_home_back"))
+        draw_back = _safe_float(enhanced.get("bf_draw_back"))
+        away_back = _safe_float(enhanced.get("bf_away_back"))
+
+        if not all(val and val > 1.0 for val in (home_back, draw_back, away_back)):
+            return
+
+        assert home_back is not None and draw_back is not None and away_back is not None
+
+        implied_home = 1.0 / home_back
+        implied_draw = 1.0 / draw_back
+        implied_away = 1.0 / away_back
+        total = implied_home + implied_draw + implied_away
+        if total <= 0:
+            return
+
+        features.loc[index, "home_implied_prob"] = implied_home / total
+        margin = (implied_home + implied_draw + implied_away) - 1.0
+        if margin > 0:
+            features.loc[index, "bookmaker_margin"] = _clamp(margin, 0.0, 0.3)
+
+    def _handle_missing_values(self, features: pd.DataFrame) -> pd.DataFrame:
+        if features.empty:
+            return features
+        # Fill NaN values with column means, but if mean is NaN, use 0
+        for col in features.columns:
+            if features[col].isnull().any():
+                mean_val = features[col].mean()
+                if pd.isna(mean_val):
+                    features[col] = features[col].fillna(0.0)
+                else:
+                    features[col] = features[col].fillna(mean_val)
+        return features
+
+    def _scale_features(self, features: pd.DataFrame) -> pd.DataFrame:
+        """Scale features for model input.
+        
+        IMPORTANT: StandardScaler.fit_transform on a single row will output zeros
+        because (value - mean) / std = 0/0 for single values.
+        
+        For single-row predictions, we skip scaling since:
+        1. The model was trained on raw features
+        2. Or if scaling was used during training, we'd need the stored scaler
+        
+        In production, the ensemble model handles its own preprocessing if needed.
+        """
+        if features.empty:
+            return features
+        
+        # Skip scaling for single rows - it would zero everything out
+        if len(features) <= 1:
+            return features
+            
+        num_cols = features.select_dtypes(include=[np.number]).columns
+        if len(num_cols) > 0:
+            features[num_cols] = self.scaler.fit_transform(features[num_cols])
+        return features
+
+    def _validate_features(self, features: pd.DataFrame) -> pd.DataFrame:
+        ordered = features.reindex(columns=self.expected_columns, fill_value=0.0).copy()
+
+        if len(ordered) != 1:
+            logger.warning("Expected a single feature row, got %s rows", len(ordered))
+            if len(ordered) > 0:
+                ordered = ordered.iloc[[0]].copy()
+            else:
+                ordered = pd.DataFrame([{c: 0.0 for c in self.expected_columns}])
+
+        if ordered.isnull().any().any():
+            logger.warning("Feature validation found nulls, replacing with 0.0")
+            ordered = ordered.fillna(0.0)
+
+        return pd.DataFrame(ordered)
+
+    def _ensure_minimum_row(self, features: pd.DataFrame) -> pd.DataFrame:
+        if not features.empty:
+            return features
+        defaults = {column: 0.0 for column in self.expected_columns}
+        return pd.DataFrame([defaults])

@@ -1,0 +1,43 @@
+name: Validate Model Artifacts
+
+on:
+  push:
+    branches: [ main, ci/* ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate-models:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install -r backend/requirements-dev.txt || true
+          pip install joblib scikit-learn
+          # boto3 needed if MODEL_BASE_URL uses s3:// in CI
+          pip install boto3 || true
+
+      - name: Generate dummy models if missing
+        run: |
+          if [ ! -d "models" ] || [ -z "$(ls -A models/*.pkl 2>/dev/null)" ]; then
+            python scripts/generate_dummy_models.py --outdir ./models
+          fi
+
+      - name: Validate model artifacts
+        run: |
+          # Fail CI if dummy models detected unless explicitly allowed
+          python scripts/validate_models.py --models-dir ./models --timeout 20
+
+      - name: List models directory
+        run: |
+          ls -lh ./models

@@ -1,0 +1,20 @@
+{
+  "accuracy": 0.4057971014492754,
+  "brier_score": 0.3534377695070862,
+  "log_loss": 13.309914631261158,
+  "trained_at": "2026-06-02T11:52:11.499401+00:00",
+  "feature_count": 68,
+  "draw_threshold": 0.25,
+  "draw_margin": 0.0,
+  "probability_smoothing": "train_prior_blend",
+  "probability_smoothing_alpha": null,
+  "league": "la_liga",
+  "phase": "7-B",
+  "holdout_accuracy": 0.5263157894736842,
+  "train_accuracy": 0.8508771929824561,
+  "holdout_log_loss": 1.0285011234220065,
+  "holdout_draw_rate": 0.3684210526315789,
+  "holdout_draw_ratio": 1.4976465554129226,
+  "accuracy_eval_scope": "holdout",
+  "logloss_eval_scope": "holdout"
+}

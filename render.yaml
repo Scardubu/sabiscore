@@ -1,0 +1,165 @@
+﻿services:
+  - type: web
+    name: sabiscore-api
+    runtime: python
+    region: oregon
+    plan: free
+    branch: main
+    rootDir: backend
+    buildCommand: "pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt && echo '=== Build dir ===' && pwd && ls -la ../ && mkdir -p /opt/render/project/src/models && mkdir -p models && cp -a ../models/. /opt/render/project/src/models 2>/dev/null || true && cp -a ../models/. models/ 2>/dev/null || true && echo '=== Models copied to /opt/render/project/src/models and backend/models ===' && ls -la /opt/render/project/src/models && ls -la models"
+    startCommand: uvicorn src.api.main:app --host 0.0.0.0 --port $PORT --workers 1 --limit-max-requests 500 --timeout-keep-alive 30 --log-level info
+    # Use readiness probe which validates DB/cache/models before marking instance healthy
+    healthCheckPath: /health/ready
+    autoDeploy: true
+    pullRequestPreviewsEnabled: false
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: APP_ENV
+        value: production
+      - key: APP_NAME
+        value: Sabiscore
+      - key: VERSION
+        value: 3.0.0
+      - key: DEBUG
+        value: "false"
+      - key: API_V1_STR
+        value: /api/v1
+      - key: LOG_LEVEL
+        value: INFO
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sabiscore-db
+          property: connectionString
+      - key: REDIS_URL
+        sync: false
+      - key: REDIS_ENABLED
+        value: "true"
+      - key: ALLOWED_HOSTS
+        value: sabiscore-api.onrender.com
+      - key: REDIS_CACHE_TTL
+        value: "900"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 30
+      - key: CURRENCY
+        value: NGN
+      - key: CURRENCY_SYMBOL
+        value: ₦
+      - key: NGN_PER_USD
+        value: 1580.0
+      - key: BASE_BANKROLL_NGN
+        value: 10000
+      - key: MIN_EDGE_NGN
+        value: 66
+      - key: KELLY_FRACTION
+        value: 0.125
+      - key: MODEL_VERSION
+        value: 3.0
+      - key: FEATURES_COUNT
+        value: 220
+      - key: SKIP_S3
+        value: "true"
+      - key: MODEL_FETCH_STRICT
+        value: "true"
+      - key: ENHANCED_MODELS_V7
+        value: "false"
+      - key: USE_MOCK_DATA
+        value: "false"
+      - key: USE_MOCK_PREDICTIONS
+        value: "false"
+      - key: ENABLE_RATE_LIMITING
+        value: "true"
+      - key: RATE_LIMIT_REQUESTS
+        value: "100"
+      - key: RATE_LIMIT_WINDOW
+        value: "60"
+      - key: CORS_ORIGINS
+        value: https://sabiscore.vercel.app,https://sabiscore-web.vercel.app,http://localhost:3000,http://localhost:3001,http://localhost:5173
+      # Regex to allow Vercel preview deployments (e.g. sabiscore-git-fix-cors-scar.vercel.app).
+      # Starlette's CORSMiddleware does not support glob patterns in allow_origins, so
+      # we use allow_origin_regex for preview URL coverage.
+      - key: CORS_ORIGIN_REGEX
+        value: "https://sabiscore(-[a-z0-9-]+)?\\.vercel\\.app"
+      - key: FOOTBALL_DATA_API_KEY
+        sync: false
+      - key: MODELS_PATH
+        value: "/opt/render/project/src/models"
+      - key: USE_PHASE7_MODELS
+        value: "true"
+      - key: PHASE7_CANARY_PCT
+        value: "1.0"
+      - key: PHASE7_MODELS_PATH
+        value: "/opt/render/project/src/backend/models"
+      - key: ELO_PARQUET_PATH
+        value: "/opt/render/project/src/data/processed/elo_ratings.parquet"
+      - key: STATSBOMB_CACHE_PATH
+        value: "/opt/render/project/src/data/processed/statsbomb_features_cache.parquet"
+      - key: MODEL_PATH
+        value: "/opt/render/project/src/backend/models/ultra"
+      # ── Phase 8 Sprint 1: Strict per-league model readiness ──────────────────
+      # ACTIVE_LEAGUES controls which league model artifacts are loaded at startup.
+      # Must be a comma-separated list matching {league}_ensemble_{version}.pkl filenames.
+      - key: ACTIVE_LEAGUES
+        value: "epl,la_liga,bundesliga,serie_a,ligue_1"
+      # ACTIVE_BASELINE_VERSION controls which artifact version is loaded at startup.
+      - key: ACTIVE_BASELINE_VERSION
+        value: "v5_phase7"
+      # MODEL_BASE_URL: optional remote artifact store. Leave unset to use local files only.
+      - key: MODEL_BASE_URL
+        sync: false
+      # MODEL_FETCH_TOKEN: optional bearer token for authenticated model artifact downloads.
+      - key: MODEL_FETCH_TOKEN
+        sync: false
+      # BACKEND_URL: used by the keep-alive cron job. Set in Vercel secret store.
+      # Not used by the backend itself; documented here for operational visibility.
+      # ── Phase 8 Sprint 2: Canary toggles ──────────────────────────────────────
+      # USE_PHASE8_FEATURES: enable Phase 8 feature computation in the prediction pipeline.
+      - key: USE_PHASE8_FEATURES
+        value: "false"
+      # PHASE8_CANARY_PCT: fraction of requests (0.0–1.0) using Phase 8 feature enrichment.
+      - key: PHASE8_CANARY_PCT
+        value: "0.0"
+      # ── Phase 8 Sprint 4: CLV advisory, enrichment controls & ensemble diversity ─
+      # ODDS_STALENESS_MAX_HOURS: market features become DATA_GAP if odds row is older than this.
+      - key: ODDS_STALENESS_MAX_HOURS
+        value: "24"
+      # LIVE_THRESHOLD_SECONDS: freshness decay window for edge_quality_score sub-score.
+      - key: LIVE_THRESHOLD_SECONDS
+        value: "3600"
+      # EDGE_QUALITY_ABSTAIN_THRESHOLD: composite score floor below which abstain=true.
+      - key: EDGE_QUALITY_ABSTAIN_THRESHOLD
+        value: "0.30"
+      # PHASE8_ENRICHMENT_SHADOW: run enrichment pipeline but keep all Phase 8 features as DATA_GAP.
+      - key: PHASE8_ENRICHMENT_SHADOW
+        value: "false"
+      # ENSEMBLE_CORRELATION_PRUNE_THRESHOLD: pairwise learner correlation above which a WARNING is logged.
+      - key: ENSEMBLE_CORRELATION_PRUNE_THRESHOLD
+        value: "0.92"
+      # SHAP_PRUNE_THRESHOLD: RPS improvement threshold for flagging a feature family as pruneable.
+      - key: SHAP_PRUNE_THRESHOLD
+        value: "0.002"
+      # USE_CATBOOST_LEARNER: add CatBoost as a 4th base learner during retraining.
+      - key: USE_CATBOOST_LEARNER
+        value: "false"
+      # USE_TWO_STAGE_DRAW_MODEL: enable two-stage draw sub-model during retraining.
+      - key: USE_TWO_STAGE_DRAW_MODEL
+        value: "false"
+      # TRAINING_RECENCY_HALFLIFE_SEASONS: exponential decay half-life for sample weights.
+      - key: TRAINING_RECENCY_HALFLIFE_SEASONS
+        value: "2.0"
+      # STATSBOMB_STALENESS_MAX_DAYS: max StatsBomb cache age before tactical features become DATA_GAP.
+      - key: STATSBOMB_STALENESS_MAX_DAYS
+        value: "7"
+
+databases:
+  - name: sabiscore-db
+    databaseName: sabiscore_production
+    user: sabiscore_user
+    plan: free
+    region: oregon

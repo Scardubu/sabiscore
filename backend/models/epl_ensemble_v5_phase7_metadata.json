@@ -1,0 +1,20 @@
+{
+  "accuracy": 0.4492753623188406,
+  "brier_score": 0.29903003685077173,
+  "log_loss": 8.659719788204223,
+  "trained_at": "2026-06-02T11:52:05.748391+00:00",
+  "feature_count": 68,
+  "draw_threshold": 0.29,
+  "draw_margin": 0.0,
+  "probability_smoothing": "train_prior_blend",
+  "probability_smoothing_alpha": null,
+  "league": "epl",
+  "phase": "7-B",
+  "holdout_accuracy": 0.4473684210526316,
+  "train_accuracy": 0.8596491228070176,
+  "holdout_log_loss": 1.0302126919513162,
+  "holdout_draw_rate": 0.42105263157894735,
+  "holdout_draw_ratio": 1.7115960633290543,
+  "accuracy_eval_scope": "holdout",
+  "logloss_eval_scope": "holdout"
+}

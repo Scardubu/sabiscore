@@ -1,0 +1,142 @@
+groups:
+  - name: sabiscore.model
+    interval: 60s
+    rules:
+      # ── Model loading / readiness ─────────────────────────────────────────
+      - alert: ModelNotLoaded
+        expr: |
+          up{job="sabiscore-api"} == 1
+          unless
+          (sabiscore_model_loaded == 1)
+        for: 5m
+        labels:
+          severity: critical
+          team: ml
+        annotations:
+          summary: "SabiScore model is not loaded on {{ $labels.instance }}"
+          description: >
+            The ML model has not been successfully loaded for more than 5 minutes.
+            Prediction endpoints will return 503. Check /health/ready for diagnostics.
+
+      - alert: ModelColdStartSpike
+        expr: |
+          rate(sabiscore_model_load_attempts_total[5m]) > 3
+        for: 2m
+        labels:
+          severity: warning
+          team: ml
+        annotations:
+          summary: "Excessive model load retries on {{ $labels.instance }}"
+          description: >
+            More than 3 model load attempts per minute over the past 5 minutes,
+            indicating repeated cold-start failures. Review artifact availability.
+
+  - name: sabiscore.accuracy
+    interval: 300s
+    rules:
+      # ── Prediction quality ────────────────────────────────────────────────
+      - alert: AccuracyRegression
+        expr: |
+          sabiscore_rolling_accuracy_30d < 0.45
+        for: 30m
+        labels:
+          severity: warning
+          team: ml
+        annotations:
+          summary: "Rolling 30d accuracy below threshold ({{ $value | humanizePercentage }})"
+          description: >
+            Model accuracy has dropped below 45% over a 30-day rolling window.
+            Baseline is 33.3% (random). Action: re-evaluate on latest data and
+            check for concept drift or data pipeline issues.
+
+      - alert: AccuracyCriticalRegression
+        expr: |
+          sabiscore_rolling_accuracy_30d < 0.38
+        for: 10m
+        labels:
+          severity: critical
+          team: ml
+        annotations:
+          summary: "CRITICAL: accuracy below 38% ({{ $value | humanizePercentage }})"
+          description: >
+            Accuracy has fallen below 38%, close to random-chance level.
+            Trigger a model retrain and consider disabling live value-bet scan.
+
+  - name: sabiscore.value_bets
+    interval: 300s
+    rules:
+      # ── CLV regression ────────────────────────────────────────────────────
+      - alert: CLVRegression
+        expr: |
+          sabiscore_clv_30d_cents < -5
+        for: 60m
+        labels:
+          severity: warning
+          team: ml
+        annotations:
+          summary: "30d CLV negative ({{ $value }}¢)"
+          description: >
+            Closing line value has been negative for more than 60 minutes.
+            This suggests the model is finding bets that close worse, indicating
+            possible edge erosion or market adaptation. Review odds sourcing.
+
+      - alert: CLVCritical
+        expr: |
+          sabiscore_clv_30d_cents < -15
+        for: 30m
+        labels:
+          severity: critical
+          team: ml
+        annotations:
+          summary: "CRITICAL: CLV severely negative ({{ $value }}¢)"
+          description: >
+            CLV has dropped below -15¢ sustained for 30 minutes.
+            Disable the value-bet scanner and initiate model review.
+
+  - name: sabiscore.infrastructure
+    interval: 30s
+    rules:
+      # ── Cold-start / response time ────────────────────────────────────────
+      - alert: PredictionLatencyHigh
+        expr: |
+          histogram_quantile(0.95,
+            rate(sabiscore_prediction_duration_seconds_bucket[5m])
+          ) > 1.5
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "p95 prediction latency {{ $value | humanizeDuration }} on {{ $labels.instance }}"
+          description: >
+            95th percentile prediction latency is above 1.5s for 5 minutes.
+            Target SLA is <150ms. Check model load status, cache availability,
+            and database query performance.
+
+      - alert: BackendDown
+        expr: |
+          up{job="sabiscore-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "SabiScore API is down on {{ $labels.instance }}"
+          description: >
+            Prometheus cannot scrape the SabiScore API for more than 2 minutes.
+            Check Render service logs and ensure the service is running.
+
+      - alert: HighErrorRate
+        expr: |
+          rate(http_requests_total{job="sabiscore-api", status=~"5.."}[5m])
+          /
+          rate(http_requests_total{job="sabiscore-api"}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "5xx error rate {{ $value | humanizePercentage }} on {{ $labels.instance }}"
+          description: >
+            More than 5% of HTTP requests are returning 5xx errors over the last 5 minutes.
+            Check application logs for root cause.

@@ -1,0 +1,72 @@
+{
+  "name": "sabiscore-monorepo",
+  "version": "3.0.0",
+  "private": true,
+  "packageManager": "pnpm@8.15.8",
+  "type": "module",
+  "description": "Edge-first Next.js 15 + FastAPI monorepo powering Sabiscore, plus SCAR skill-suite validation and management tooling",
+  "license": "MIT",
+  "engines": {
+    "node": "22.x",
+    "npm": ">=10.8.0",
+    "pnpm": ">=8.0.0"
+  },
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "dev:web": "turbo run dev --filter=@sabiscore/web",
+    "dev:api": "cd apps/api && uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000",
+    "build": "turbo run build",
+    "build:local": "node ./scripts/build-local.js",
+    "build:web": "turbo run build --filter=@sabiscore/web",
+    "typecheck": "turbo run typecheck",
+    "type-check": "pnpm typecheck",
+    "lint:repo": "turbo run lint",
+    "lint:md": "markdownlint-cli2 '.ai/skills/**/*.md' '.claude/skills/**/*.md' 'CLAUDE.md' 'NEXUS.md' '#node_modules'",
+    "lint:sh": "shellcheck install.sh || echo '[SKIP] shellcheck not available'",
+    "lint:skills": "pnpm lint:md && pnpm lint:sh",
+    "lint": "pnpm lint:skills && pnpm lint:repo",
+    "validate": "ajv validate --spec=draft2020 -s registry.schema.json -d registry.json --all-errors",
+    "check": "pnpm validate && pnpm lint",
+    "doctor": "make doctor",
+    "install:skills": "bash install.sh",
+    "install:dry": "bash install.sh --dry-run",
+    "install:force": "bash install.sh --force",
+    "bump": "node scripts/bump-version.mjs",
+    "status": "jq '.skills | group_by(.clusterName) | .[] | \"C\\(.[0].cluster) \\(.[0].clusterName): \\(length) skills\"' registry.json -r",
+    "test": "turbo run test",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "docker:up": "docker-compose -f docker-compose.prod.yml up -d",
+    "docker:down": "docker-compose -f docker-compose.prod.yml down",
+    "docker:build": "docker-compose -f docker-compose.prod.yml build"
+  },
+  "devDependencies": {
+    "@tailwindcss/typography": "^0.5.19",
+    "@typescript-eslint/eslint-plugin": "^8.12.1",
+    "@typescript-eslint/parser": "^8.12.1",
+    "ajv": "^8.20.0",
+    "ajv-cli": "^5.0.0",
+    "ajv-formats": "^3.0.1",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^15.0.3",
+    "eslint-config-prettier": "^9.1.0",
+    "markdownlint-cli2": "^0.17.2",
+    "prettier": "^3.3.3",
+    "prettier-plugin-tailwindcss": "^0.6.9",
+    "tailwindcss": "^3.4.18",
+    "tailwindcss-animate": "^1.0.7",
+    "tsup": "^8.3.5",
+    "turbo": "^2.6.1",
+    "typescript": "^5.6.3"
+  },
+  "dependencies": {
+    "@vercel/speed-insights": "^1.2.0",
+    "next": "^15.1.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-hot-toast": "^2.4.1"
+  },
+  "optionalDependencies": {
+    "@next/swc-win32-x64-msvc": "^16.1.1"
+  }
+}

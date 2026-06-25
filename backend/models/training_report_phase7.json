@@ -1,0 +1,89 @@
+{
+  "phase": "7-B",
+  "feature_count": 68,
+  "per_league": [
+    {
+      "league": "epl",
+      "samples_train": 342,
+      "samples_holdout": 38,
+      "accuracy": 0.4473684210526316,
+      "train_accuracy": 0.8596491228070176,
+      "log_loss": 1.0302126919513162,
+      "predicted_draw_rate": 0.42105263157894735,
+      "draw_ratio": 1.7115960633290543,
+      "draw_threshold": 0.29,
+      "draw_margin": 0.0
+    },
+    {
+      "league": "la_liga",
+      "samples_train": 342,
+      "samples_holdout": 38,
+      "accuracy": 0.5263157894736842,
+      "train_accuracy": 0.8508771929824561,
+      "log_loss": 1.0285011234220065,
+      "predicted_draw_rate": 0.3684210526315789,
+      "draw_ratio": 1.4976465554129226,
+      "draw_threshold": 0.25,
+      "draw_margin": 0.0
+    },
+    {
+      "league": "bundesliga",
+      "samples_train": 275,
+      "samples_holdout": 31,
+      "accuracy": 0.41935483870967744,
+      "train_accuracy": 0.8654545454545455,
+      "log_loss": 1.0983184570760067,
+      "predicted_draw_rate": 0.5161290322580645,
+      "draw_ratio": 2.098085496984002,
+      "draw_threshold": 0.18,
+      "draw_margin": 0.0
+    },
+    {
+      "league": "serie_a",
+      "samples_train": 342,
+      "samples_holdout": 38,
+      "accuracy": 0.47368421052631576,
+      "train_accuracy": 0.8508771929824561,
+      "log_loss": 1.0816497795926878,
+      "predicted_draw_rate": 0.3157894736842105,
+      "draw_ratio": 1.2836970474967908,
+      "draw_threshold": 0.28,
+      "draw_margin": 0.0
+    },
+    {
+      "league": "ligue_1",
+      "samples_train": 275,
+      "samples_holdout": 31,
+      "accuracy": 0.3548387096774194,
+      "train_accuracy": 0.8472727272727273,
+      "log_loss": 1.1492119511649785,
+      "predicted_draw_rate": 0.25806451612903225,
+      "draw_ratio": 1.049042748492001,
+      "draw_threshold": 0.33,
+      "draw_margin": 0.0
+    },
+    {
+      "league": "eredivisie",
+      "samples_train": 275,
+      "samples_holdout": 31,
+      "accuracy": 0.41935483870967744,
+      "train_accuracy": 0.48727272727272725,
+      "log_loss": 0.33932312557825794,
+      "predicted_draw_rate": 0.7419354838709677,
+      "draw_ratio": 3.015997901914503,
+      "draw_threshold": 0.05,
+      "draw_margin": 0.0
+    }
+  ],
+  "global": {
+    "accuracy_mean": 0.4401528013582343,
+    "log_loss_mean": 0.9545361881308758,
+    "gates": {
+      "accuracy_gt_0_535": false,
+      "logloss_lt_0_950": false,
+      "draw_ratio_all_ge_0_998": true,
+      "eredivisie_draw_ratio_ge_3_0": true
+    },
+    "all_pass": false
+  }
+}

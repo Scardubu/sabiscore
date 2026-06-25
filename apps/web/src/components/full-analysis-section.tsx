@@ -1,0 +1,64 @@
+"use client";
+
+import dynamic from "next/dynamic";
+import { Suspense } from "react";
+import { FeatureFlag, useFeatureFlag } from "@/lib/feature-flags";
+import { ErrorBoundary } from "@/components/error-boundary";
+
+const FullAnalysisDashboard = dynamic(
+  () =>
+    import("./full-analysis-dashboard").then((m) => ({ default: m.FullAnalysisDashboard })),
+  { ssr: false, loading: () => <FullAnalysisSkeleton /> }
+);
+
+function FullAnalysisSkeleton() {
+  return (
+    <div className="space-y-5 animate-pulse" aria-hidden="true">
+      <div className="h-14 rounded-2xl bg-slate-800/70" />
+      <div className="h-20 rounded-2xl bg-slate-800/50" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="h-44 rounded-2xl bg-slate-800/40" />
+        <div className="h-44 rounded-2xl bg-slate-800/40" />
+      </div>
+    </div>
+  );
+}
+
+function FullAnalysisFallback() {
+  return (
+    <div className="rounded-2xl border border-slate-800/50 bg-slate-900/30 p-6 text-center">
+      <p className="text-sm text-slate-500">
+        Phase 7 intelligence unavailable for this match.
+      </p>
+    </div>
+  );
+}
+
+interface FullAnalysisSectionProps {
+  matchId: string;
+  league?: string;
+}
+
+export function FullAnalysisSection({ matchId, league = "EPL" }: FullAnalysisSectionProps) {
+  const enabled = useFeatureFlag(FeatureFlag.FULL_ANALYSIS_V7);
+
+  if (!enabled) return null;
+
+  return (
+    <section aria-label="Phase 7 unified intelligence">
+      <div className="flex items-center gap-3 mb-5">
+        <div className="h-px flex-1 bg-slate-800/60" />
+        <span className="text-[11px] uppercase tracking-[0.35em] text-slate-600 font-semibold">
+          Intelligence · 6-Layer Analysis
+        </span>
+        <div className="h-px flex-1 bg-slate-800/60" />
+      </div>
+
+      <ErrorBoundary fallback={(_error, _reset) => <FullAnalysisFallback />}>
+        <Suspense fallback={<FullAnalysisSkeleton />}>
+          <FullAnalysisDashboard matchId={matchId} league={league} />
+        </Suspense>
+      </ErrorBoundary>
+    </section>
+  );
+}
