@@ -13,6 +13,17 @@ export class FootballDataAdapter {
   }
 
   async scrapeLeague({ league, leagueCode, seasonCode = "2425", fixtureText = null }) {
+    if (process.env[this.source.killSwitchEnv] === "true") {
+      return {
+        source_id: this.source.id,
+        league,
+        season_code: seasonCode,
+        rows: 0,
+        fixtures: 0,
+        skipped: true,
+        reason: "source_kill_switch_enabled",
+      };
+    }
     const url = this.buildUrl(seasonCode, leagueCode);
     const raw = fixtureText ?? await this.client.getText(url);
     const rawArtifact = await writeRaw(`football-data-${league}-${seasonCode}.csv`, raw);

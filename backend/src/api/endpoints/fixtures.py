@@ -167,6 +167,7 @@ def _fixture_summary(fixture: Match, odds: Optional[Odds], prediction: Optional[
     kickoff = fixture.match_date
     if kickoff.tzinfo is None:
         kickoff = kickoff.replace(tzinfo=timezone.utc)
+    prediction_contract_gaps = _prediction_contract_gaps(prediction)
     return FixtureSummary(
         fixture_id=str(fixture.id),
         competition=str(fixture.league_id or "EPL"),
@@ -175,7 +176,7 @@ def _fixture_summary(fixture: Match, odds: Optional[Odds], prediction: Optional[
         kickoff_utc=kickoff,
         status=str(fixture.status or "scheduled"),
         venue=fixture.venue,
-        evidence_status="MODEL_READY" if prediction else "MODEL_UNAVAILABLE",
+        evidence_status="MODEL_READY" if prediction and not prediction_contract_gaps else "MODEL_UNAVAILABLE",
         odds_status="SNAPSHOT_READY" if odds else "MANUAL_ODDS_REQUIRED",
     )
 
@@ -211,22 +212,70 @@ def _critical_availability_gaps(fixture: Match) -> List[str]:
     return gaps
 
 
+def _prediction_metadata(prediction: Optional[Prediction]) -> Dict[str, Any]:
+    if prediction is None or not isinstance(prediction.features, dict):
+        return {}
+    metadata = prediction.features.get("betting_intelligence")
+    if isinstance(metadata, dict):
+        return metadata
+    return prediction.features
+
+
+def _prediction_contract_gaps(prediction: Optional[Prediction]) -> List[str]:
+    gaps: List[str] = []
+    if prediction is None:
+        return ["DATA_GAP: model_prediction"]
+    values = (prediction.home_win_prob, prediction.draw_prob, prediction.away_win_prob)
+    if any(value is None for value in values):
+        gaps.append("DATA_GAP: model_probabilities")
+
+    metadata = _prediction_metadata(prediction)
+    required = (
+        "calibration_method",
+        "calibration_validated",
+        "epistemic_uncertainty",
+        "aleatoric_uncertainty",
+        "confidence_tier",
+    )
+    for field in required:
+        if metadata.get(field) is None:
+            gaps.append(f"DATA_GAP: model_metadata.{field}")
+    if metadata.get("calibration_validated") is not None and not isinstance(metadata.get("calibration_validated"), bool):
+        gaps.append("DATA_GAP: model_metadata.calibration_validated_invalid")
+    if metadata.get("confidence_tier") is not None:
+        try:
+            EvidenceTierEnum(str(metadata["confidence_tier"]))
+        except ValueError:
+            gaps.append("DATA_GAP: model_metadata.confidence_tier_invalid")
+    for field in ("epistemic_uncertainty", "aleatoric_uncertainty"):
+        if metadata.get(field) is not None:
+            try:
+                float(metadata[field])
+            except (TypeError, ValueError):
+                gaps.append(f"DATA_GAP: model_metadata.{field}_invalid")
+    return gaps
+
+
 def _model_from_prediction(prediction: Optional[Prediction]) -> Optional[ModelInput]:
     if prediction is None:
         return None
     values = (prediction.home_win_prob, prediction.draw_prob, prediction.away_win_prob)
     if any(value is None for value in values):
         return None
+    metadata = _prediction_metadata(prediction)
+    contract_gaps = _prediction_contract_gaps(prediction)
+    if contract_gaps:
+        return None
     return ModelInput(
         home_probability=float(prediction.home_win_prob),
         draw_probability=float(prediction.draw_prob),
         away_probability=float(prediction.away_win_prob),
         model_version=str(prediction.model_version or "unknown"),
-        calibration_method="stored_prediction",
-        calibration_validated=False,
-        epistemic_uncertainty=0.25,
-        aleatoric_uncertainty=0.15,
-        confidence_tier=EvidenceTierEnum.LOW_EVIDENCE,
+        calibration_method=str(metadata["calibration_method"]),
+        calibration_validated=bool(metadata["calibration_validated"]),
+        epistemic_uncertainty=float(metadata["epistemic_uncertainty"]),
+        aleatoric_uncertainty=float(metadata["aleatoric_uncertainty"]),
+        confidence_tier=EvidenceTierEnum(str(metadata["confidence_tier"])),
     )
 
 
@@ -254,6 +303,8 @@ async def _build_evidence(db: AsyncSession, fixture_id: str) -> tuple[Match, Opt
     data_gaps: List[str] = []
     if prediction is None:
         data_gaps.append("DATA_GAP: model_prediction")
+    else:
+        data_gaps.extend(_prediction_contract_gaps(prediction))
     if odds is None:
         data_gaps.append("DATA_GAP: coherent_1x2_market_snapshot")
     model_age = _prediction_age_seconds(prediction)
@@ -264,7 +315,7 @@ async def _build_evidence(db: AsyncSession, fixture_id: str) -> tuple[Match, Opt
     data_gaps.extend(_critical_availability_gaps(fixture))
 
     model_status = "DATA_GAP"
-    if prediction is not None:
+    if prediction is not None and not _prediction_contract_gaps(prediction):
         model_status = "STALE" if model_age is None or model_age > MODEL_FEATURES_FRESH_SECONDS else "VERIFIED"
 
     evidence = EvidenceResponse(
@@ -275,6 +326,7 @@ async def _build_evidence(db: AsyncSession, fixture_id: str) -> tuple[Match, Opt
             "draw_probability": prediction.draw_prob,
             "away_probability": prediction.away_win_prob,
             "created_at": prediction.created_at,
+            "metadata_complete": not _prediction_contract_gaps(prediction),
         } if prediction else None,
         market={
             "bookmaker": odds.bookmaker,

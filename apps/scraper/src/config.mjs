@@ -20,10 +20,16 @@ export const sourceAllowlist = {
     allowedDomains: ["www.football-data.co.uk"],
     allowedUrlPatterns: ["/mmz4281/"],
     termsReviewStatus: "reviewed_public_csv",
+    robotsPolicy: "check_before_fetch",
     permittedFrequency: "daily",
     concurrency: 1,
+    timeoutMs: 20000,
+    collectedFields: ["fixtures", "results", "closing_1x2_odds", "team_form"],
     parserVersion: "1.0.0",
     schemaVersion: "1.0.0",
+    enabledEnvironments: ["development", "staging"],
+    owner: "data-engineering",
+    killSwitchEnv: "DISABLE_FOOTBALL_DATA_CSV",
     attribution: "football-data.co.uk"
   },
   clubElo: {
@@ -35,10 +41,16 @@ export const sourceAllowlist = {
     allowedDomains: ["api.clubelo.com"],
     allowedUrlPatterns: ["/"],
     termsReviewStatus: "disabled_pending_review",
+    robotsPolicy: "disabled_until_reviewed",
     permittedFrequency: "manual",
     concurrency: 1,
+    timeoutMs: 20000,
+    collectedFields: ["elo_ratings"],
     parserVersion: "1.0.0",
     schemaVersion: "1.0.0",
+    enabledEnvironments: [],
+    owner: "data-engineering",
+    killSwitchEnv: "DISABLE_CLUBELO_PUBLIC",
     attribution: "clubelo.com"
   }
 };

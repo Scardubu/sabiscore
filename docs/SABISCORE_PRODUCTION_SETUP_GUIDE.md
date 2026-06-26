@@ -12,6 +12,8 @@ The system is evidence-first and fail-closed. Missing model evidence, missing co
 
 Model feature freshness is a critical input. If the stored prediction age is unknown or older than the configured live threshold, the strict engine returns `PARTIAL` instead of treating the forecast as current.
 
+Stored predictions must also carry strict betting-intelligence metadata before they can become executable evidence: `calibration_method`, `calibration_validated`, `epistemic_uncertainty`, `aleatoric_uncertainty`, and `confidence_tier`. If any of those fields are absent or malformed, fixture analysis fails closed with model metadata `DATA_GAP` entries rather than inventing uncertainty.
+
 ## Prerequisites
 
 - Python 3.11
@@ -133,6 +135,20 @@ pnpm --filter @sabiscore/scraper test
 
 The worker uses one stable honest user agent, robots checks, source throttling, retry backoff, and atomic temp-file writes followed by rename. Manifests are immutable JSON files under `data/manifests/node-scraper/`.
 
+Each source registry entry must declare allowed domains, URL patterns, collected fields, transport type, terms-review status, robots policy, frequency, concurrency, timeout, parser/schema versions, enabled environments, owner, attribution, and a kill-switch environment variable. Sources with unclear permission stay disabled by default.
+
+Backend ingestion validates a manifest before trusting any scraper payload:
+
+- manifest JSON schema fields and version;
+- status is `SUCCESS` or `PARTIAL`, never `FAILED` or `DISABLED`;
+- adapter version is explicitly allowed;
+- every raw/processed file stays inside the configured `data/` root;
+- no temporary file is ingested;
+- every payload exists and matches its SHA-256 hash;
+- processed JSON payloads parse successfully.
+
+The validation helper is `backend/src/services/manifest_ingestion.py`; persistence jobs should call it before writing canonical fixtures, feature snapshots, or source-run rows.
+
 ## Backend Intelligence Flow
 
 Public API surface:
@@ -171,26 +187,29 @@ Commands executed successfully in this environment:
 
 ```powershell
 $env:DEBUG='false'
-.\.venv\Scripts\python.exe -m pytest -q backend\tests\test_betting_intelligence_engine.py backend\tests\test_core_engine.py --no-cov
+.\.venv\Scripts\python.exe -m pytest -q backend\tests\test_manifest_ingestion.py backend\tests\test_betting_intelligence_engine.py --no-cov
+.\.venv\Scripts\python.exe -m pytest -q backend\tests\test_core_engine.py --no-cov
 
 $env:PYTHONPATH='backend'
 .\.venv\Scripts\python.exe backend\scripts\verify_core_engine.py
 
-cd apps\scraper
-node tests\parsers.test.mjs
-node src\cli.mjs validate
-node src\cli.mjs doctor
+node apps\scraper\tests\parsers.test.mjs
+node apps\scraper\src\cli.mjs validate
+node apps\scraper\src\cli.mjs doctor
 
-cd ..\web
-..\..\node_modules\.bin\tsc.cmd --noEmit
+.\node_modules\.bin\tsc.cmd --noEmit -p apps\web\tsconfig.json
 ```
 
 Observed results:
 
-- Backend focused tests: `69 passed`
+- Backend strict engine plus manifest tests: `67 passed`
+- Legacy core-engine tests: `6 passed`
 - Core smoke: `35/35 passed`
-- Scraper tests: `5 passed`
+- Scraper tests: `6 passed`
+- Scraper validation and doctor: passed, generated immutable audit manifests
 - Web TypeScript: passed
+
+Note: this workstation's local `.env` currently contains a non-boolean `DEBUG` value, so verification commands set `DEBUG=false` at process scope. Treat that as an environment hygiene issue before deployment.
 
 Additional release gates still required before claiming full production certification:
 

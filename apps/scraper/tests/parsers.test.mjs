@@ -4,6 +4,7 @@ import { buildTeamForm, normalizeFootballDataRows, parseCsv } from "../src/parse
 import { parseRobotsAllow } from "../src/safety.mjs";
 import * as safety from "../src/safety.mjs";
 import { writeManifest } from "../src/storage.mjs";
+import { sourceAllowlist } from "../src/config.mjs";
 
 test("parses football-data CSV and normalizes fixtures", () => {
   const csv = [
@@ -51,4 +52,11 @@ test("manifest writer creates immutable manifest files", async () => {
   assert.match(second, /data[\\/]+manifests[\\/]+node-scraper/);
   assert.notEqual(first, second);
   assert.equal(first.endsWith(".manifest.json"), true);
+});
+
+test("source registry exposes policy controls", () => {
+  assert.equal(sourceAllowlist.footballData.allowedDomains.includes("www.football-data.co.uk"), true);
+  assert.equal(sourceAllowlist.footballData.concurrency, 1);
+  assert.equal(sourceAllowlist.footballData.robotsPolicy, "check_before_fetch");
+  assert.equal(Boolean(sourceAllowlist.footballData.killSwitchEnv), true);
 });

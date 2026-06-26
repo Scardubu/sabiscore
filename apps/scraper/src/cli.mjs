@@ -59,6 +59,8 @@ async function scrape({ adapterKind = "fixtures" } = {}) {
   const summary = summarizeResults(results);
   const manifestFile = await writeManifest({
     source_id: "football-data-csv",
+    adapter_version: "1.0.0",
+    schema_version: "1.0.0",
     status: summary.errors.length ? "PARTIAL" : "SUCCESS",
     command,
     sources: results,
@@ -71,7 +73,8 @@ async function scrape({ adapterKind = "fixtures" } = {}) {
     attribution: "football-data.co.uk",
     licence: {
       source_policy: "public CSV; operator must review current terms before live use"
-    }
+    },
+    source_policy: adapter.source
   });
   console.log(JSON.stringify({ ok: true, manifest: manifestFile, results }, null, 2));
 }

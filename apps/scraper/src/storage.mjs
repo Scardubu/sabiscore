@@ -61,6 +61,8 @@ export async function writeManifest(run) {
     attribution: run.attribution ?? null,
     generated_at: now,
     zero_paid_api: true,
+    command: run.command ?? null,
+    source_policy: run.source_policy ?? null,
     ...run
   };
   const file = join(manifestDir, `${runId}-${basename(manifest.source_id)}.manifest.json`);
