@@ -24,22 +24,11 @@ const VERDICT_COPY: Record<string, string> = {
   ACTIONABLE: "Positive edge with sufficient model confidence and causal support.",
   SPECULATIVE: "Model is confident. No causal drivers confirm the signal yet.",
   HOLD: "Model and market are aligned. No edge above threshold.",
+  NO_BET: "Verified data is available, but no market currently offers positive value.",
   PARTIAL: "Feature data gaps limit verdict reliability. See data quality panel.",
 };
 
 // ─── Derive action chip (Phase 3) ────────────────────────────────────────────
-
-function deriveAction(
-  verdict: string,
-  abstain: boolean,
-  hasValueBets: boolean,
-): string {
-  if (abstain) return "ABSTAIN";
-  if ((verdict === "HIGH_CONVICTION" || verdict === "ACTIONABLE") && hasValueBets) return "BET";
-  if (verdict === "SPECULATIVE") return "WATCHLIST";
-  if (verdict === "HOLD") return "HOLD";
-  return "WATCHLIST";
-}
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -83,6 +72,13 @@ const VERDICT_META: Record<
     bg: "bg-slate-700/30",
     border: "border-slate-600/40",
     dot: "bg-slate-500",
+  },
+  NO_BET: {
+    label: "No Bet",
+    color: "text-rose-300",
+    bg: "bg-rose-500/10",
+    border: "border-rose-500/30",
+    dot: "bg-rose-400",
   },
   PARTIAL: {
     label: "Partial Data",
@@ -468,13 +464,14 @@ function FreshnessPill({
   tag,
   stalenessSecs,
 }: {
-  tag: "LIVE" | "RECENT" | "STALE";
+  tag: "LIVE" | "RECENT" | "STALE" | "UNKNOWN";
   stalenessSecs: number;
 }) {
   const config = {
     LIVE: { label: "Live", dot: "bg-emerald-400", text: "text-emerald-300", border: "border-emerald-500/25 bg-emerald-500/8" },
     RECENT: { label: "Recent", dot: "bg-amber-400", text: "text-amber-300", border: "border-amber-500/25 bg-amber-500/8" },
     STALE: { label: "Stale", dot: "bg-rose-400", text: "text-rose-300", border: "border-rose-500/25 bg-rose-500/8" },
+    UNKNOWN: { label: "Unknown", dot: "bg-slate-500", text: "text-slate-300", border: "border-slate-600/30 bg-slate-700/20" },
   }[tag];
   const ageLabel =
     stalenessSecs === 0 ? "" :

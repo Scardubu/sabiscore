@@ -456,7 +456,7 @@ export interface FullMatchOddsEdge {
 
 export interface FullMatchAnalysisResponse {
   match_id: string;
-  verdict: "HIGH_CONVICTION" | "ACTIONABLE" | "SPECULATIVE" | "HOLD" | "PARTIAL";
+  verdict: "HIGH_CONVICTION" | "ACTIONABLE" | "SPECULATIVE" | "HOLD" | "NO_BET" | "PARTIAL";
   ensemble: FullMatchEnsemble;
   uncertainty: FullMatchUncertainty;
   causal_drivers: string[];
@@ -469,7 +469,7 @@ export interface FullMatchAnalysisResponse {
   /** Age in seconds of the oldest live feature source used. 0 means cache-fresh or unavailable. */
   staleness_seconds: number;
   /** "LIVE" | "RECENT" | "STALE" — derived from staleness_seconds on the backend. */
-  freshness_tag: "LIVE" | "RECENT" | "STALE";
+  freshness_tag: "LIVE" | "RECENT" | "STALE" | "UNKNOWN";
   /**
    * Per-feature staleness map (Phase 8 Sprint 4). Keys are canonical feature names.
    * null value = DATA_GAP (feature could not be live-computed).

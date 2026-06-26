@@ -1,0 +1,63 @@
+{
+  "_comment": "Replace KICKOFF_UTC and MARKET_CAPTURED_AT with real future timestamps before use.",
+  "engine_version": "1.1.0",
+  "matches": [
+    {
+      "match_id": "epl-2026-arsenal-chelsea-001",
+      "home_team": "Arsenal",
+      "away_team": "Chelsea",
+      "competition": "EPL",
+      "kickoff_utc": "KICKOFF_UTC",
+      "model": {
+        "home_probability": 0.54,
+        "draw_probability": 0.26,
+        "away_probability": 0.20,
+        "model_version": "sabiscore-epl-v3.1-isotonic",
+        "calibration_method": "isotonic",
+        "calibration_validated": true,
+        "epistemic_uncertainty": 0.09,
+        "aleatoric_uncertainty": 0.11,
+        "confidence_tier": "OK"
+      },
+      "market": {
+        "bookmaker": "Pinnacle",
+        "market_type": "1X2",
+        "home_odds": 1.87,
+        "draw_odds": 3.75,
+        "away_odds": 4.30,
+        "opening_home_odds": 1.95,
+        "opening_draw_odds": 3.70,
+        "opening_away_odds": 4.00,
+        "captured_at": "MARKET_CAPTURED_AT"
+      },
+      "signals": {
+        "xg_differential": 0.32,
+        "xga_differential": -0.18,
+        "opponent_adjusted_form": 0.61,
+        "club_elo_difference": 45.2,
+        "schedule_congestion": 0.2,
+        "travel_load": 0.1,
+        "confirmed_absences": [],
+        "lineup_status": "PROVISIONAL",
+        "sharp_market_signal": "CONFIRMING"
+      },
+      "freshness": {
+        "model_features_seconds": 420,
+        "market_seconds": 180,
+        "injury_news_seconds": 7200,
+        "lineup_seconds": null
+      },
+      "source_status": {
+        "model": "VERIFIED",
+        "market": "VERIFIED",
+        "team_metrics": "VERIFIED",
+        "availability": "VERIFIED"
+      },
+      "data_gaps": [],
+      "known_risks": [
+        "Lineup not yet confirmed - key midfielder injury doubtful",
+        "Home team played midweek Europa League tie"
+      ]
+    }
+  ]
+}

@@ -94,7 +94,7 @@ class MatchActionability:
 @dataclass
 class FullMatchAnalysisResponse:
     match_id: str
-    verdict: str                             # HIGH_CONVICTION|ACTIONABLE|SPECULATIVE|HOLD|PARTIAL
+    verdict: str                             # HIGH_CONVICTION|ACTIONABLE|SPECULATIVE|HOLD|NO_BET|PARTIAL
     ensemble: EnsemblePrediction
     uncertainty: UncertaintyBreakdown
     causal_drivers: List[str]
@@ -105,6 +105,7 @@ class FullMatchAnalysisResponse:
     partial_intelligence: bool              # True when any DATA_GAP present
     data_gaps: List[str]
     staleness_seconds: int = 0              # Age of oldest live feature source
+    staleness_available: bool = True        # False means freshness is unknown, never LIVE
     feature_freshness_seconds: dict = field(default_factory=dict)  # Phase 8: feature_name → seconds (None = DATA_GAP)
     feature_source: dict = field(default_factory=dict)             # Phase 8: feature_name → source identifier
     actionability: Optional[MatchActionability] = field(default=None)  # Sprint 4 Slice A advisory
@@ -115,7 +116,9 @@ class FullMatchAnalysisResponse:
 
     @property
     def freshness_tag(self) -> str:
-        """Human-readable freshness label: LIVE / RECENT / STALE."""
+        """Human-readable freshness label: LIVE / RECENT / STALE / UNKNOWN."""
+        if not self.staleness_available:
+            return "UNKNOWN"
         if self.staleness_seconds == 0:
             return "LIVE"
         if self.staleness_seconds < 86_400:   # < 24 h
@@ -137,6 +140,7 @@ class FullMatchAnalysisResponse:
                 "calibration_method": self.ensemble.calibration_method,
                 "calibration_applied": self.ensemble.calibration_applied,
                 "overlay_applied": self.ensemble.overlay_applied,
+                "probabilities_available": self.ensemble.confidence > 0,
             },
             "uncertainty": {
                 "epistemic_unc": self.uncertainty.epistemic_unc,
@@ -175,6 +179,7 @@ class FullMatchAnalysisResponse:
             "partial_intelligence": self.partial_intelligence,
             "data_gaps": self.data_gaps,
             "staleness_seconds": self.staleness_seconds,
+            "staleness_available": self.staleness_available,
             "feature_freshness_seconds": self.feature_freshness_seconds,
             "feature_source": self.feature_source,
             "freshness_tag": self.freshness_tag,
@@ -259,6 +264,7 @@ class IntelligenceSynthesizer:
         )
 
         staleness = int(kwargs.get("staleness_seconds", 0))
+        staleness_available = bool(kwargs.get("staleness_available", True))
         freshness = dict(kwargs.get("feature_freshness_seconds") or {})
         feat_source = dict(kwargs.get("feature_source") or {})
 
@@ -285,6 +291,7 @@ class IntelligenceSynthesizer:
             partial_intelligence=partial,
             data_gaps=gaps,
             staleness_seconds=staleness,
+            staleness_available=staleness_available,
             feature_freshness_seconds=freshness,
             feature_source=feat_source,
             actionability=actionability,

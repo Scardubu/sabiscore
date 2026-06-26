@@ -1,0 +1,114 @@
+{
+  "engine_version": "1.1.0",
+  "generated_at": "2026-06-25T14:32:11.847Z",
+  "top_opportunities": ["epl-2026-arsenal-chelsea-001"],
+  "matches": [
+    {
+      "match_identifier": "Arsenal vs Chelsea",
+      "match_id": "epl-2026-arsenal-chelsea-001",
+      "competition": "EPL",
+      "kickoff_utc": "2026-06-28T15:00:00Z",
+      "verdict": "ACTIONABLE",
+      "probabilities": {
+        "home": 0.54,
+        "draw": 0.26,
+        "away": 0.20
+      },
+      "best_market": "HOME_ML",
+      "market_odds": 1.87,
+      "raw_market_implied_probability": 0.534759,
+      "fair_market_probability": 0.499777,
+      "edge": 0.040223,
+      "edge_percentage_points": 4.0223,
+      "expected_value": 0.009800,
+      "confidence": "MEDIUM",
+      "confidence_adjusted_value": 0.005621,
+      "stake": "0.67u",
+      "stake_fraction": 0.006714,
+      "minimum_acceptable_odds": 1.821,
+      "drivers": [
+        "xg_differential",
+        "+4.0pp de-vigged edge on HOME_ML",
+        "Sharp market signal confirms model direction"
+      ],
+      "risks": [
+        "Lineup not yet confirmed - key midfielder injury doubtful",
+        "Home team played midweek Europa League tie"
+      ],
+      "invalidation_conditions": [
+        "Price moves below minimum acceptable odds (1.821).",
+        "Edge falls below 4.2pp after live odds refresh.",
+        "Model probability changes materially after confirmed lineup ingestion.",
+        "Key home starter ruled out or unexpected rotation disclosed.",
+        "Sharp movement reverses direction against the selected outcome.",
+        "Market snapshot becomes stale before execution (>15 min without refresh)."
+      ],
+      "all_market_evaluations": [
+        {
+          "outcome": "home",
+          "market_label": "HOME_ML",
+          "model_probability": 0.54,
+          "market_odds": 1.87,
+          "raw_implied_probability": 0.534759,
+          "fair_market_probability": 0.499777,
+          "edge": 0.040223,
+          "edge_pct": 4.0223,
+          "expected_value": 0.009800,
+          "full_kelly": 0.053763,
+          "stake_fraction": 0.006720,
+          "confidence_adjusted_value": 0.005621
+        },
+        {
+          "outcome": "draw",
+          "market_label": "DRAW_ML",
+          "model_probability": 0.26,
+          "market_odds": 3.75,
+          "raw_implied_probability": 0.266667,
+          "fair_market_probability": 0.249357,
+          "edge": 0.010643,
+          "edge_pct": 1.0643,
+          "expected_value": -0.025000,
+          "full_kelly": 0.0,
+          "stake_fraction": 0.0,
+          "confidence_adjusted_value": 0.0
+        },
+        {
+          "outcome": "away",
+          "market_label": "AWAY_ML",
+          "model_probability": 0.20,
+          "market_odds": 4.30,
+          "raw_implied_probability": 0.232558,
+          "fair_market_probability": 0.217408,
+          "edge": -0.017408,
+          "edge_pct": -1.7408,
+          "expected_value": -0.14,
+          "full_kelly": 0.0,
+          "stake_fraction": 0.0,
+          "confidence_adjusted_value": 0.0
+        }
+      ],
+      "data_freshness": {
+        "status": "FRESH",
+        "market_captured_at": "2026-06-25T14:29:00Z",
+        "oldest_critical_input_seconds": 180,
+        "lineup_status": "PROVISIONAL"
+      },
+      "data_gaps": [],
+      "calculation_audit": {
+        "bookmaker": "Pinnacle",
+        "market_overround": 1.070053,
+        "raw_implied_home": 0.534759,
+        "raw_implied_draw": 0.266667,
+        "raw_implied_away": 0.232558,
+        "fair_market_home": 0.499777,
+        "fair_market_draw": 0.249357,
+        "fair_market_away": 0.217408,
+        "calibration_method": "isotonic",
+        "model_version": "sabiscore-epl-v3.1-isotonic",
+        "kelly_fraction": 0.125,
+        "kelly_cap": 0.025
+      },
+      "explanation": "HOME_ML: 4.02pp de-vigged edge, EV=0.009800 at odds 1.87. Fair market probability 0.500. Execute above minimum acceptable odds 1.821. Lineup confirmation required before execution - risk noted."
+    }
+  ]
+}

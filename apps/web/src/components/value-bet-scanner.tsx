@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useState } from "react";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { TrendingUp, AlertCircle, Loader2, ArrowUpRight, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -134,13 +135,13 @@ function DataGapState() {
       <TrendingUp className="h-8 w-8 text-slate-600" aria-hidden="true" />
       <p className="text-sm font-medium text-slate-300">Scanner requires predictions</p>
       <p className="text-xs text-slate-500">Select a fixture to generate one, then return here.</p>
-      <a
+      <Link
         href="/match"
         className="mt-1 inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700 transition-colors focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
       >
         <ExternalLink className="h-3 w-3" aria-hidden="true" />
         Go to Match
-      </a>
+      </Link>
     </div>
   );
 }
