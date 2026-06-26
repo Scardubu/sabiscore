@@ -36,6 +36,7 @@ from ...services.betting_intelligence import (
     MAX_KELLY_CAP,
     MIN_ACTIONABLE_EDGE,
     HIGH_CONVICTION_EDGE,
+    MODEL_FEATURES_FRESH_SECONDS,
     SPECULATIVE_STAKE_CAP,
     analyze_batch,
     analyze_match,
@@ -72,9 +73,11 @@ async def analyze(
     data_gaps - they are never substituted with defaults or averages.
     """
     try:
+        evaluation_at = datetime.now(timezone.utc)
         result = analyze_batch(
             request=request,
             causal_drivers_map=causal_drivers,
+            evaluation_at=evaluation_at,
         )
         logger.info(
             "Betting intelligence batch completed: %d matches, %d top opportunities",
@@ -109,7 +112,11 @@ async def analyze_single(
 ) -> MatchAnalysisResult:
     """Single-match convenience endpoint."""
     try:
-        result = analyze_match(request=request, causal_drivers=causal_drivers)
+        result = analyze_match(
+            request=request,
+            causal_drivers=causal_drivers,
+            evaluation_at=datetime.now(timezone.utc),
+        )
         logger.info(
             "Single match analysis: %s -> %s",
             request.match_id,
@@ -137,7 +144,9 @@ async def analyze_single(
 async def get_policy() -> Dict[str, Any]:
     """Return active engine policy parameters for client auditing."""
     return {
+        "contract_version": "1.2.0",
         "engine_version": "1.1.0",
+        "policy_version": "1.0",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "policy": {
             "min_actionable_edge_pp": round(MIN_ACTIONABLE_EDGE * 100, 2),
@@ -145,6 +154,8 @@ async def get_policy() -> Dict[str, Any]:
             "kelly_fraction": KELLY_FRACTION,
             "max_kelly_cap": MAX_KELLY_CAP,
             "speculative_stake_cap": SPECULATIVE_STAKE_CAP,
+            "minimum_acceptable_odds_method": "DE_VIGGED_1X2_EDGE_SOLVE_HOLDING_OTHER_PRICES",
+            "target_expected_value": 0.0,
             "verdict_precedence": [
                 "PARTIAL",
                 "NO_BET",
@@ -159,6 +170,7 @@ async def get_policy() -> Dict[str, Any]:
                 "recent_seconds": 3600,
                 "stale_above_seconds": 3600,
             },
+            "model_features_fresh_seconds": MODEL_FEATURES_FRESH_SECONDS,
             "null_rules": {
                 "missing_quantitative_data": "null - never 0 or league average",
                 "stake_under_partial_hold_no_bet": "pass",

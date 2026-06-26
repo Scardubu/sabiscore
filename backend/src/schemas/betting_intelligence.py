@@ -36,6 +36,11 @@ class VerdictEnum(str, Enum):
     NO_BET = "NO_BET"
 
 
+class AnalysisModeEnum(str, Enum):
+    VALUE_ANALYSIS = "VALUE_ANALYSIS"
+    FORECAST_ONLY = "FORECAST_ONLY"
+
+
 class CompetitionEnum(str, Enum):
     EPL = "EPL"
     LA_LIGA = "LA_LIGA"
@@ -228,6 +233,9 @@ class CalculationAudit(BaseModel):
     model_version: Optional[str] = None
     kelly_fraction: float = 0.125
     kelly_cap: float = 0.025
+    breakeven_odds: Optional[float] = None
+    minimum_odds_for_target_ev: Optional[float] = None
+    edge_preserving_minimum_odds: Optional[float] = None
 
 
 class MarketEvaluation(BaseModel):
@@ -249,6 +257,19 @@ class MarketEvaluation(BaseModel):
 
 class MatchAnalysisResult(BaseModel):
     """Complete analysis result for a single match."""
+
+    contract_version: str = "1.2.0"
+    policy_version: str = "1.0"
+    decision_id: Optional[str] = None
+    evaluation_at: Optional[datetime] = None
+    analysis_mode: AnalysisModeEnum = AnalysisModeEnum.FORECAST_ONLY
+    execution_eligible: bool = False
+    watchlist: bool = False
+    source_summary: Dict[str, Any] = Field(default_factory=dict)
+    input_hash: Optional[str] = None
+    policy_hash: Optional[str] = None
+    minimum_acceptable_odds_method: Optional[str] = None
+    target_expected_value: float = 0.0
 
     match_identifier: str
     match_id: str
@@ -291,6 +312,8 @@ class MatchAnalysisResult(BaseModel):
 class BatchAnalysisResponse(BaseModel):
     """Response for a batch of match analyses."""
 
+    contract_version: str = "1.2.0"
+    policy_version: str = "1.0"
     engine_version: str = "1.1.0"
     generated_at: datetime
     top_opportunities: List[str] = Field(default_factory=list)

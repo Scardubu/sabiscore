@@ -1,155 +1,238 @@
-# SabiScore Betting Intelligence Production Setup Guide
+# SabiScore Production Setup Guide
 
-## Architecture
+Last updated: 2026-06-26
 
-SabiScore now uses a hybrid zero-paid-API ingestion and intelligence path:
+This guide reflects the production finalization slice implemented in this repository. The canonical services are:
 
-1. `apps/scraper` scrapes allowlisted public football data sources with rate limiting, robots checks, user-agent rotation, retry/backoff, and circuit breaking.
-2. Scraper outputs are written to `data/raw/node-scraper` and `data/processed/node-scraper` with a manifest for freshness and provenance.
-3. The FastAPI backend owns prediction and strict betting analysis through `/api/v1/betting-intelligence/*`.
-4. The Next.js app proxies strict analysis through `/api/betting-intelligence/analyze` and renders the dashboard at `/intelligence`.
+- Backend: `backend/src/api/main.py`, served as `uvicorn src.api.main:app`
+- Frontend: `apps/web`
+- Scraper worker: `apps/scraper`
 
-No new production path requires a paid API key.
+The system is evidence-first and fail-closed. Missing model evidence, missing coherent 1X2 odds, unknown market freshness, stale critical evidence, or source conflict returns `PARTIAL` with `stake="pass"` rather than fabricated probabilities or prices.
 
-## Environment Setup
+Model feature freshness is a critical input. If the stored prediction age is unknown or older than the configured live threshold, the strict engine returns `PARTIAL` instead of treating the forecast as current.
 
-Install dependencies from the repo root:
+## Prerequisites
 
-```powershell
-pnpm install
-python -m venv .venv
-.\.venv\Scripts\pip.exe install -r backend\requirements.txt
-```
+- Python 3.11
+- Node.js 22.x
+- pnpm 8.x through Corepack
+- PostgreSQL 15 or 16
+- Redis 7
+- Docker with Compose plugin
 
-Minimum local environment:
+Puppeteer/Chromium is not required for the default scraper path. Dynamic scrapers must remain disabled unless a reviewed source explicitly requires browser rendering.
 
-```text
+## Environment
+
+Use this as the production-safe baseline. Do not require paid odds providers for local verification.
+
+```env
+APP_ENV=development
+DEBUG=false
+
+DATABASE_URL=postgresql+asyncpg://sabi:local-password@localhost:5432/sabiscore
+REDIS_URL=redis://localhost:6379/0
+SECRET_KEY=replace-with-random-32-plus-character-secret
+
 SABISCORE_BACKEND_URL=http://localhost:8000
-NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+ENABLE_NODE_SCRAPER=true
+ENABLE_DYNAMIC_SCRAPERS=false
+ENABLE_OPTIONAL_FREE_KEY_PROVIDERS=false
+ENABLE_WEATHER=false
 ENABLE_LEGACY_INFERENCE=false
-USE_PHASE7_MODELS=true
-SABISCORE_SCRAPER_RESPECT_ROBOTS=true
-SABISCORE_SCRAPER_DELAY_MS=2500
+
+SCRAPER_MODE=fixture
+SCRAPER_DATA_ROOT=./data
+SCRAPER_USER_AGENT=SabiScoreDataResearch/1.0
+SCRAPER_MAX_CONCURRENCY=2
+
+MODEL_ARTIFACT_ROOT=./backend/models
+BETTING_POLICY_VERSION=1.0
 ```
 
-## Running Locally
+Optional provider keys must be disabled by default. If an optional provider fails, returns incomplete data, or exhausts quota, the backend must return unavailable evidence rather than substituting mock/default odds.
 
-Validate scraper storage and policy:
+## Installation
 
-```powershell
-pnpm --filter @sabiscore/scraper validate
+Linux/macOS:
+
+```bash
+corepack enable
+pnpm install --frozen-lockfile
+
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r backend/requirements.txt
 ```
 
-Run public fixture scraping:
+Windows PowerShell:
 
 ```powershell
-pnpm --filter @sabiscore/scraper scrape:fixtures
+corepack enable
+pnpm install --frozen-lockfile
+
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r backend\requirements.txt
 ```
 
-Run metric placeholder validation:
+Note: in this environment, direct `pnpm --filter ...` commands attempted network package-manager signature verification and failed under restricted network. Local binary equivalents were used for verification where possible.
 
-```powershell
-pnpm --filter @sabiscore/scraper scrape:metrics
+## Services And Migrations
+
+Start database services:
+
+```bash
+docker compose up -d postgres redis
 ```
 
-Start backend:
+Run the backend:
 
-```powershell
-$env:PYTHONPATH="backend"
-uvicorn src.api.main:app --app-dir backend --reload --host 0.0.0.0 --port 8000
+```bash
+cd backend
+alembic upgrade head
+PYTHONPATH=. uvicorn src.api.main:app --reload --port 8000
 ```
 
-Start web:
+Run the frontend:
 
-```powershell
+```bash
 pnpm --filter @sabiscore/web dev
 ```
 
-Open:
+The frontend proxies backend calls through server routes and uses `SABISCORE_BACKEND_URL` server-side. Do not expose service tokens to browser code.
 
-```text
-http://localhost:3000/intelligence
+## Scraper Worker
+
+Default mode is keyless and fixture-based.
+
+```bash
+pnpm --filter @sabiscore/scraper doctor
+pnpm --filter @sabiscore/scraper validate
+pnpm --filter @sabiscore/scraper scrape:fixtures -- --mode fixture
 ```
 
-## Strict Engine API
+Available commands:
 
-Backend routes:
+```bash
+pnpm --filter @sabiscore/scraper scrape
+pnpm --filter @sabiscore/scraper scrape:fixtures
+pnpm --filter @sabiscore/scraper scrape:results
+pnpm --filter @sabiscore/scraper scrape:metrics
+pnpm --filter @sabiscore/scraper scrape:availability
+pnpm --filter @sabiscore/scraper scrape:markets
+pnpm --filter @sabiscore/scraper validate
+pnpm --filter @sabiscore/scraper doctor
+pnpm --filter @sabiscore/scraper test
+```
+
+The worker uses one stable honest user agent, robots checks, source throttling, retry backoff, and atomic temp-file writes followed by rename. Manifests are immutable JSON files under `data/manifests/node-scraper/`.
+
+## Backend Intelligence Flow
+
+Public API surface:
 
 ```text
 POST /api/v1/betting-intelligence/analyze
 POST /api/v1/betting-intelligence/analyze/single
 GET  /api/v1/betting-intelligence/policy
 GET  /api/v1/betting-intelligence/health
+GET  /api/v1/fixtures/upcoming
+GET  /api/v1/fixtures/{fixture_id}/evidence
+POST /api/v1/fixtures/{fixture_id}/odds-snapshot
+POST /api/v1/fixtures/{fixture_id}/analyze
 ```
 
-Frontend proxy:
+Manual odds snapshots must contain one bookmaker, home/draw/away decimal odds, an observed timestamp, and explicit user confirmation. The backend records provenance and does not fetch user-submitted URLs.
 
-```text
-POST /api/betting-intelligence/analyze
-GET  /api/betting-intelligence/policy
-```
+The strict engine ranks qualifying opportunities by confidence-adjusted value first, then expected value, freshness, and stable match ID. Verdict class alone does not promote an opportunity above a stronger evidence-adjusted value score.
 
-The strict engine evaluates all three 1X2 markets, de-vigs market probabilities, requires positive edge and EV for actionable verdicts, and returns `PARTIAL` instead of substituting fabricated values when critical evidence is absent.
+## Frontend Intelligence Experience
 
-## UI/UX Notes
+The production interface is anchored at `/intelligence`. It keeps market math in the backend and renders only returned evidence, verdicts, audits, and freshness states.
 
-The strict analysis surface lives at:
+UI expectations:
 
-```text
-http://localhost:3000/intelligence
-```
-
-Production UI defaults:
-
-- `NO_BET`, `HOLD`, and `PARTIAL` are displayed as pass/no-execution outcomes.
-- Missing odds or invalid model probabilities are sent as `DATA_GAP`, never as fabricated values.
-- Placeholder numeric values render as `-` so missing data cannot be mistaken for zero.
-- The dashboard uses local/system font stacks and CSS motion only, avoiding external font requests.
-- Responsible-gambling copy remains visible on every analysis result.
+- Use clinical verdict language: `QUALIFIES AT CURRENT PRICE`, `WATCHLIST`, `WAIT FOR LINEUPS`, `PASS`, and `MORE EVIDENCE REQUIRED`.
+- Preserve null quantitative fields as unavailable; never render missing evidence as zero.
+- Show deliberate states for `NO_BET`, `PARTIAL`, forecast-only analysis, stale data, and source conflict.
+- Require one bookmaker, three decimal odds, an observed timestamp, and explicit confirmation before a manual odds snapshot can be submitted.
+- Use accessible text and Lucide icons rather than emoji status art.
+- Keep animations and motion within the existing CSS/React stack; do not add scroll hijacking or additional motion libraries without a measured need.
 
 ## Verification
 
-Backend contract tests:
+Commands executed successfully in this environment:
 
 ```powershell
-$env:PYTHONPATH="backend"
-pytest -q backend\tests\test_betting_intelligence_engine.py --no-cov
-python backend\scripts\verify_core_engine.py
+$env:DEBUG='false'
+.\.venv\Scripts\python.exe -m pytest -q backend\tests\test_betting_intelligence_engine.py backend\tests\test_core_engine.py --no-cov
+
+$env:PYTHONPATH='backend'
+.\.venv\Scripts\python.exe backend\scripts\verify_core_engine.py
+
+cd apps\scraper
+node tests\parsers.test.mjs
+node src\cli.mjs validate
+node src\cli.mjs doctor
+
+cd ..\web
+..\..\node_modules\.bin\tsc.cmd --noEmit
 ```
 
-Scraper tests:
+Observed results:
 
-```powershell
-pnpm --filter @sabiscore/scraper test
-```
+- Backend focused tests: `69 passed`
+- Core smoke: `35/35 passed`
+- Scraper tests: `5 passed`
+- Web TypeScript: passed
 
-If the local pnpm shim cannot verify its package-manager binary in a restricted network, the scraper tests can be run directly:
+Additional release gates still required before claiming full production certification:
 
-```powershell
-node --test apps\scraper\tests\*.test.mjs
-```
+- Full backend suite
+- Alembic fresh-database upgrade
+- OpenAPI validation
+- Frontend lint, test, and build through pnpm once package-manager verification is available
+- Docker Compose config/build validation
+- Secret scan and dependency audit
+- Playwright desktop/mobile evidence for the intelligence workflow
 
-Frontend checks:
+## Deployment
 
-```powershell
-pnpm --filter @sabiscore/web typecheck
-pnpm --filter @sabiscore/web lint
-pnpm --filter @sabiscore/web build
-```
+Frontend:
 
-Equivalent direct commands, useful when pnpm is unavailable:
+- Deploy `apps/web` to Vercel or an equivalent Next.js host.
+- Configure `SABISCORE_BACKEND_URL` as a server-only environment variable.
+- Do not run scraper or Chromium in Vercel functions.
 
-```powershell
-cd apps\web
-..\..\node_modules\.bin\tsc.cmd -p tsconfig.json --noEmit
-..\..\node_modules\.bin\eslint.cmd src --ext .ts,.tsx --max-warnings 0
-..\..\node_modules\.bin\next.cmd build
-```
+Backend:
 
-## Production Defaults
+- Deploy FastAPI on a persistent container platform.
+- Run migrations as a release command before serving traffic.
+- Mount verified model artifacts read-only.
+- Configure health/readiness, logs, metrics, PostgreSQL, and Redis.
 
-- Treat `NO_BET`, `HOLD`, and `PARTIAL` as pass/no-execution verdicts.
-- Treat `freshness_tag="UNKNOWN"` as not live.
-- Keep `SABISCORE_SCRAPER_RESPECT_ROBOTS=true`.
-- Keep paid connector env vars unset for this pipeline.
-- Review `data/processed/node-scraper/manifest.json` before each ingestion promotion.
+Scraper:
+
+- Deploy `apps/scraper` as a dedicated worker/container or controlled cron job.
+- Use a persistent `data/` volume or object storage.
+- Run exactly one scheduler instance.
+- Keep source-level kill switches available.
+
+## Rollback
+
+Rollback is service-specific:
+
+- Frontend: redeploy the previous `apps/web` build.
+- Backend: deploy the previous image and restore the previous migration state from backup when schema changed.
+- Scraper: disable the worker and keep existing immutable manifests for audit.
+- Models: revert to the previous approved artifact bundle by version/hash; never auto-promote a retrained model.
+
+## Responsible Use
+
+SabiScore outputs are analytical estimates, not guarantees. `PARTIAL`, `NO_BET`, `PASS`, and `WAIT_FOR_LINEUPS` are deliberate safety outcomes. Users must never treat a model result as financial advice or guaranteed return.

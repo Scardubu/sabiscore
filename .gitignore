@@ -6,6 +6,7 @@
 
 # Dependencies
 node_modules/
+.pnpm-store/
 .venv/
 backend/venv/
 __pycache__/
@@ -60,6 +61,7 @@ apps/web/sabiscore.db
 coverage/
 .pytest_cache/
 .coverage
+docs/Sabi-Engine-Upgrade-docs
 
 # Misc
 *.bak
@@ -108,6 +110,9 @@ checkpoints/
 !data/processed/*.csv
 data/processed/*.json
 data/processed/raw/
+data/processed/node-scraper/
+data/raw/
+data/manifests/
 
 # Python cache and compiled files
 *.py[cod]

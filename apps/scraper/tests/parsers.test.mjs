@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { buildTeamForm, normalizeFootballDataRows, parseCsv } from "../src/parsers.mjs";
 import { parseRobotsAllow } from "../src/safety.mjs";
+import * as safety from "../src/safety.mjs";
+import { writeManifest } from "../src/storage.mjs";
 
 test("parses football-data CSV and normalizes fixtures", () => {
   const csv = [
@@ -36,4 +38,17 @@ test("robots parser honors longest allow/disallow rule", () => {
   ].join("\n");
   assert.equal(parseRobotsAllow(robots, "/private/report"), false);
   assert.equal(parseRobotsAllow(robots, "/private/public/table"), true);
+});
+
+test("scraper does not expose user-agent rotation", () => {
+  assert.equal("rotateUserAgent" in safety, false);
+});
+
+test("manifest writer creates immutable manifest files", async () => {
+  const first = await writeManifest({ source_id: "test-source", command: "test", status: "SUCCESS" });
+  const second = await writeManifest({ source_id: "test-source", command: "test", status: "SUCCESS" });
+  assert.match(first, /data[\\/]+manifests[\\/]+node-scraper/);
+  assert.match(second, /data[\\/]+manifests[\\/]+node-scraper/);
+  assert.notEqual(first, second);
+  assert.equal(first.endsWith(".manifest.json"), true);
 });

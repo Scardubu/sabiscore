@@ -20,11 +20,14 @@ Key invariants enforced here:
 
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from ..schemas.betting_intelligence import (
+    AnalysisModeEnum,
     BatchAnalysisRequest,
     BatchAnalysisResponse,
     BestMarketEnum,
@@ -57,10 +60,14 @@ KELLY_FRACTION: float = 0.125             # one-eighth Kelly
 MAX_KELLY_CAP: float = 0.025              # 2.5% of bankroll
 MARKET_FRESH_SECONDS: int = 900           # 15 min
 MARKET_RECENT_SECONDS: int = 3600         # 60 min
+MODEL_FEATURES_FRESH_SECONDS: int = 3600  # LIVE_THRESHOLD_SECONDS default
 INJURY_FRESH_SECONDS: int = 21600         # 6 h
 MAX_MARKET_OVERROUND: float = 1.20        # reject >120% book
 MIN_MARKET_OVERROUND: float = 0.90        # reject <90% book (integrity)
 SPECULATIVE_STAKE_CAP: float = 0.0025     # 0.25u cap for SPECULATIVE
+DEFAULT_TARGET_EXPECTED_VALUE: float = 0.0
+CONTRACT_VERSION: str = "1.2.0"
+POLICY_VERSION: str = "1.0"
 
 
 # ---------------------------------------------------------------------------
@@ -106,16 +113,88 @@ def _full_kelly(ev: float, decimal_odds: float) -> float:
     return max(0.0, ev / denom)
 
 
-def _minimum_acceptable_odds(model_prob: float, min_edge: float) -> Optional[float]:
-    """Price below which the recommendation is invalidated.
-
-    min_acceptable_odds = 1 / (model_prob - min_edge)
-    Only valid when denominator > 0.
-    """
-    denom = model_prob - min_edge
-    if denom <= 0:
+def _breakeven_odds(model_prob: float) -> Optional[float]:
+    """Return the decimal price where EV is exactly zero."""
+    if model_prob <= 0:
         return None
-    return round(1.0 / denom, 3)
+    return round(1.0 / model_prob, 3)
+
+
+def _minimum_odds_for_target_ev(
+    model_prob: float,
+    target_expected_value: float = DEFAULT_TARGET_EXPECTED_VALUE,
+) -> Optional[float]:
+    """Return decimal odds needed to clear a target EV."""
+    if model_prob <= 0:
+        return None
+    return round((1.0 + target_expected_value) / model_prob, 3)
+
+
+def _edge_preserving_minimum_odds(
+    *,
+    outcome: str,
+    model_prob: float,
+    min_edge: float,
+    home_odds: float,
+    draw_odds: float,
+    away_odds: float,
+) -> Optional[float]:
+    """Solve the de-vigged 1X2 edge threshold holding other prices fixed."""
+    target_fair_probability = model_prob - min_edge
+    if target_fair_probability <= 0 or target_fair_probability >= 1:
+        return None
+
+    if outcome == "home":
+        other_sum = (1.0 / draw_odds) + (1.0 / away_odds)
+    elif outcome == "draw":
+        other_sum = (1.0 / home_odds) + (1.0 / away_odds)
+    else:
+        other_sum = (1.0 / home_odds) + (1.0 / draw_odds)
+
+    if other_sum <= 0:
+        return None
+    selected_raw_implied = (target_fair_probability * other_sum) / (
+        1.0 - target_fair_probability
+    )
+    if selected_raw_implied <= 0:
+        return None
+    price = 1.0 / selected_raw_implied
+    if not math.isfinite(price) or price <= 1.0:
+        return None
+    return round(price, 3)
+
+
+def _minimum_acceptable_odds(model_prob: float, min_edge: float) -> Optional[float]:
+    """Backward-compatible alias for the target-EV price-window method."""
+    if model_prob <= min_edge:
+        return None
+    return _minimum_odds_for_target_ev(model_prob, DEFAULT_TARGET_EXPECTED_VALUE)
+
+
+def _stable_hash(payload: Any) -> str:
+    serialized = json.dumps(payload, sort_keys=True, default=str, separators=(",", ":"))
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def _policy_payload(settings_override: Optional[Dict[str, float]] = None) -> Dict[str, Any]:
+    s = settings_override or {}
+    return {
+        "policy_version": s.get("POLICY_VERSION", POLICY_VERSION),
+        "min_actionable_edge": s.get("MIN_ACTIONABLE_EDGE", MIN_ACTIONABLE_EDGE),
+        "high_conviction_edge": s.get("HIGH_CONVICTION_EDGE", HIGH_CONVICTION_EDGE),
+        "kelly_fraction": s.get("KELLY_FRACTION", KELLY_FRACTION),
+        "max_kelly_cap": s.get("MAX_KELLY_CAP", MAX_KELLY_CAP),
+        "market_fresh_seconds": s.get("MARKET_FRESH_SECONDS", MARKET_FRESH_SECONDS),
+        "market_recent_seconds": s.get("MARKET_RECENT_SECONDS", MARKET_RECENT_SECONDS),
+        "model_features_fresh_seconds": s.get(
+            "MODEL_FEATURES_FRESH_SECONDS",
+            MODEL_FEATURES_FRESH_SECONDS,
+        ),
+        "min_market_overround": s.get("MIN_MARKET_OVERROUND", MIN_MARKET_OVERROUND),
+        "max_market_overround": s.get("MAX_MARKET_OVERROUND", MAX_MARKET_OVERROUND),
+        "speculative_stake_cap": s.get("SPECULATIVE_STAKE_CAP", SPECULATIVE_STAKE_CAP),
+        "target_expected_value": s.get("TARGET_EXPECTED_VALUE", DEFAULT_TARGET_EXPECTED_VALUE),
+    }
 
 
 def _confidence_label(
@@ -124,6 +203,7 @@ def _confidence_label(
     calibration_validated: bool,
     market_status: FreshnessStatusEnum,
     edge: float,
+    min_actionable_edge: float = MIN_ACTIONABLE_EDGE,
 ) -> ConfidenceLabelEnum:
     """Map evidence quality to HIGH / MEDIUM / LOW."""
     if (
@@ -131,7 +211,7 @@ def _confidence_label(
         and tier == EvidenceTierEnum.OK
         and calibration_validated
         and market_status == FreshnessStatusEnum.FRESH
-        and edge >= MIN_ACTIONABLE_EDGE
+        and edge >= min_actionable_edge
     ):
         return ConfidenceLabelEnum.HIGH
     if tier == EvidenceTierEnum.LOW_EVIDENCE or not calibration_validated:
@@ -185,6 +265,9 @@ def _evaluate_market_freshness(
     market: Optional[MarketInput],
     freshness_seconds: Optional[int],
     source_status: SourceStatusEnum,
+    *,
+    fresh_seconds: int = MARKET_FRESH_SECONDS,
+    recent_seconds: int = MARKET_RECENT_SECONDS,
 ) -> Tuple[FreshnessStatusEnum, List[str]]:
     """Return freshness status and any data gaps from the market snapshot."""
     gaps: List[str] = []
@@ -202,15 +285,47 @@ def _evaluate_market_freshness(
         return FreshnessStatusEnum.STALE, gaps
 
     if freshness_seconds is None:
-        # Market present but freshness unmeasured - treat as RECENT (conservative)
-        return FreshnessStatusEnum.RECENT, gaps
+        gaps.append("DATA_GAP: market_freshness_unknown")
+        return FreshnessStatusEnum.UNKNOWN, gaps
 
-    if freshness_seconds <= MARKET_FRESH_SECONDS:
+    if freshness_seconds <= fresh_seconds:
         return FreshnessStatusEnum.FRESH, gaps
-    if freshness_seconds <= MARKET_RECENT_SECONDS:
+    if freshness_seconds <= recent_seconds:
         return FreshnessStatusEnum.RECENT, gaps
     gaps.append(f"STALE: market_odds ({freshness_seconds}s old)")
     return FreshnessStatusEnum.STALE, gaps
+
+
+def _evaluate_model_freshness(
+    model: Optional[ModelInput],
+    freshness_seconds: Optional[int],
+    source_status: SourceStatusEnum,
+    *,
+    fresh_seconds: int = MODEL_FEATURES_FRESH_SECONDS,
+) -> List[str]:
+    """Return data gaps for model source and feature freshness."""
+    gaps: List[str] = []
+
+    if model is None or source_status == SourceStatusEnum.DATA_GAP:
+        gaps.append("DATA_GAP: model_probabilities")
+        return gaps
+
+    if source_status == SourceStatusEnum.CONFLICTING:
+        gaps.append("CONFLICTING: model_source")
+        return gaps
+
+    if source_status == SourceStatusEnum.STALE:
+        gaps.append("STALE: model_features")
+        return gaps
+
+    if freshness_seconds is None:
+        gaps.append("DATA_GAP: model_features_freshness_unknown")
+        return gaps
+
+    if freshness_seconds > fresh_seconds:
+        gaps.append(f"STALE: model_features ({freshness_seconds}s old)")
+
+    return gaps
 
 
 # ---------------------------------------------------------------------------
@@ -224,6 +339,9 @@ def _evaluate_all_outcomes(
     fair_home: float,
     fair_draw: float,
     fair_away: float,
+    *,
+    kelly_fraction: float = KELLY_FRACTION,
+    max_kelly_cap: float = MAX_KELLY_CAP,
 ) -> List[Dict[str, Any]]:
     """Evaluate all three 1X2 outcomes and return ranked evaluations.
 
@@ -243,7 +361,7 @@ def _evaluate_all_outcomes(
         edge = model_prob - fair_prob
         ev = _expected_value(model_prob, odds)
         fk = _full_kelly(ev, odds)
-        stake_frac = min(fk * KELLY_FRACTION, MAX_KELLY_CAP) if ev > 0 and edge > 0 else 0.0
+        stake_frac = min(fk * kelly_fraction, max_kelly_cap) if ev > 0 and edge > 0 else 0.0
         # Simple CAV for ranking within this call (full CAV computed at synthesis)
         cav = max(ev, 0.0) * (1.0 - model.epistemic_uncertainty) if ev > 0 and edge > 0 else 0.0
         results.append({
@@ -284,6 +402,9 @@ def _apply_verdict_gate(
     lineup_status: LineupStatusEnum,
     kickoff_utc: Optional[datetime],
     causal_drivers: Optional[List[str]] = None,
+    evaluation_at: Optional[datetime] = None,
+    min_actionable_edge: float = MIN_ACTIONABLE_EDGE,
+    high_conviction_edge: float = HIGH_CONVICTION_EDGE,
 ) -> VerdictEnum:
     """Apply verdict gates in strict precedence order (Section 6 of contract).
 
@@ -301,7 +422,11 @@ def _apply_verdict_gate(
     if model is None or market is None:
         return VerdictEnum.PARTIAL
 
-    if market_freshness in (FreshnessStatusEnum.DATA_GAP, FreshnessStatusEnum.CONFLICTING):
+    if market_freshness in (
+        FreshnessStatusEnum.DATA_GAP,
+        FreshnessStatusEnum.CONFLICTING,
+        FreshnessStatusEnum.UNKNOWN,
+    ):
         return VerdictEnum.PARTIAL
 
     # -- Gate 2: NO_BET -------------------------------------------------------
@@ -315,20 +440,20 @@ def _apply_verdict_gate(
 
     lineup_risk = False
     if kickoff_utc is not None:
-        now = datetime.now(timezone.utc)
+        now = evaluation_at or datetime.now(timezone.utc)
         minutes_to_kickoff = (kickoff_utc - now).total_seconds() / 60.0
         if minutes_to_kickoff <= 90 and lineup_status != LineupStatusEnum.CONFIRMED:
             lineup_risk = True
 
     if tier_low or cal_unvalidated or market_stale or sharp_signal == SharpSignalEnum.CONFLICTING or lineup_risk:
-        if best_edge < MIN_ACTIONABLE_EDGE:
+        if best_edge < min_actionable_edge:
             return VerdictEnum.HOLD
         # Even with positive edge, hold if critical conditions are degraded
         if tier_low or cal_unvalidated or market_stale or lineup_risk:
             return VerdictEnum.HOLD
 
     # -- Gate 4: SPECULATIVE ---------------------------------------------------
-    if best_edge < MIN_ACTIONABLE_EDGE:
+    if best_edge < min_actionable_edge:
         return VerdictEnum.SPECULATIVE
 
     # -- Gate 5: ACTIONABLE ---------------------------------------------------
@@ -338,7 +463,7 @@ def _apply_verdict_gate(
         return VerdictEnum.ACTIONABLE
 
     # -- Gate 6: HIGH_CONVICTION -----------------------------------------------
-    hc_edge_required = max(MIN_ACTIONABLE_EDGE + 0.02, 0.06)
+    hc_edge_required = max(high_conviction_edge, min_actionable_edge + 0.02, 0.06)
 
     ucl_soft = competition == CompetitionEnum.UCL
     if ucl_soft:
@@ -370,11 +495,12 @@ def _build_invalidation_conditions(
     best_odds: float,
     best_edge: float,
     known_risks: List[str],
+    min_actionable_edge: float = MIN_ACTIONABLE_EDGE,
 ) -> List[str]:
     """Build concrete invalidation conditions for the recommended position."""
     conditions = [
         f"Price moves below minimum acceptable odds (see calculation_audit).",
-        f"Edge falls below {MIN_ACTIONABLE_EDGE * 100:.1f}pp after live odds refresh.",
+        f"Edge falls below {min_actionable_edge * 100:.1f}pp after live odds refresh.",
         "Model probability changes materially after confirmed lineup ingestion.",
     ]
     if best_market == BestMarketEnum.HOME_ML:
@@ -415,6 +541,7 @@ def analyze_match(
     request: MatchAnalysisRequest,
     causal_drivers: Optional[List[str]] = None,
     settings_override: Optional[Dict[str, float]] = None,
+    evaluation_at: Optional[datetime] = None,
 ) -> MatchAnalysisResult:
     """Analyze a single match and return a deterministic betting recommendation.
 
@@ -426,33 +553,46 @@ def analyze_match(
         settings_override: Optional dict of {MIN_ACTIONABLE_EDGE, KELLY_FRACTION,
                            MAX_KELLY_CAP} to override module-level constants.
     """
-    s = settings_override or {}
-    min_edge = s.get("MIN_ACTIONABLE_EDGE", MIN_ACTIONABLE_EDGE)
-    kelly_frac = s.get("KELLY_FRACTION", KELLY_FRACTION)
-    kelly_cap = s.get("MAX_KELLY_CAP", MAX_KELLY_CAP)
+    policy = _policy_payload(settings_override)
+    policy_version = str(policy["policy_version"])
+    min_edge = float(policy["min_actionable_edge"])
+    high_conviction_edge = float(policy["high_conviction_edge"])
+    kelly_frac = float(policy["kelly_fraction"])
+    kelly_cap = float(policy["max_kelly_cap"])
+    target_expected_value = float(policy["target_expected_value"])
+    evaluation_at = evaluation_at or datetime.now(timezone.utc)
+    input_hash = _stable_hash(request.model_dump(mode="json"))
+    policy_hash = _stable_hash(policy)
+    decision_id = _stable_hash(
+        {
+            "input_hash": input_hash,
+            "policy_hash": policy_hash,
+            "evaluation_at": evaluation_at.isoformat(),
+        }
+    )[:24]
 
     gaps: List[str] = list(request.data_gaps)  # start with caller-declared gaps
     model = request.model
     market = request.market
 
     # -- Model validation -----------------------------------------------------
-    if model is None:
-        gaps.append("DATA_GAP: model_probabilities")
-    else:
-        if request.source_status.model == SourceStatusEnum.DATA_GAP:
-            gaps.append("DATA_GAP: model_source_status")
-            model = None
-        elif request.source_status.model == SourceStatusEnum.CONFLICTING:
-            gaps.append("CONFLICTING: model_source")
-            model = None
-        elif request.source_status.model == SourceStatusEnum.STALE:
-            gaps.append("STALE: model_features")
+    model_gaps = _evaluate_model_freshness(
+        model,
+        request.freshness.model_features_seconds,
+        request.source_status.model,
+        fresh_seconds=int(policy["model_features_fresh_seconds"]),
+    )
+    gaps.extend(model_gaps)
+    if model_gaps:
+        model = None
 
     # -- Market validation ----------------------------------------------------
     market_freshness, market_gaps = _evaluate_market_freshness(
         market,
         request.freshness.market_seconds,
         request.source_status.market,
+        fresh_seconds=int(policy["market_fresh_seconds"]),
+        recent_seconds=int(policy["market_recent_seconds"]),
     )
     gaps.extend(market_gaps)
 
@@ -462,7 +602,7 @@ def analyze_match(
             overround, fair_h, fair_d, fair_a = _compute_devig(
                 market.home_odds, market.draw_odds, market.away_odds
             )
-            if overround > MAX_MARKET_OVERROUND or overround < MIN_MARKET_OVERROUND:
+            if overround > float(policy["max_market_overround"]) or overround < float(policy["min_market_overround"]):
                 gaps.append(
                     f"DATA_GAP: market_overround_outside_integrity_limits ({overround:.4f})"
                 )
@@ -481,7 +621,15 @@ def analyze_match(
         overround, fair_h, fair_d, fair_a = _compute_devig(
             market.home_odds, market.draw_odds, market.away_odds
         )
-        all_evals = _evaluate_all_outcomes(model, market, fair_h, fair_d, fair_a)
+        all_evals = _evaluate_all_outcomes(
+            model,
+            market,
+            fair_h,
+            fair_d,
+            fair_a,
+            kelly_fraction=kelly_frac,
+            max_kelly_cap=kelly_cap,
+        )
         # best is first (sorted by confidence_adjusted_value)
         best_eval = all_evals[0] if all_evals else None
 
@@ -503,6 +651,9 @@ def analyze_match(
         lineup_status=request.signals.lineup_status,
         kickoff_utc=request.kickoff_utc,
         causal_drivers=causal_drivers,
+        evaluation_at=evaluation_at,
+        min_actionable_edge=min_edge,
+        high_conviction_edge=high_conviction_edge,
     )
 
     # -- Build result ----------------------------------------------------------
@@ -519,6 +670,7 @@ def analyze_match(
     stake_str = "pass"
     final_stake_fraction = 0.0
     min_acceptable_odds = None
+    minimum_method = None
     drivers: List[str] = []
     invalidation: List[str] = []
     calc_audit: Optional[CalculationAudit] = None
@@ -542,7 +694,7 @@ def analyze_match(
         # Clamp stake for SPECULATIVE
         raw_frac = best_eval["stake_fraction"]
         if verdict == VerdictEnum.SPECULATIVE:
-            final_stake_fraction = min(raw_frac, SPECULATIVE_STAKE_CAP)
+            final_stake_fraction = min(raw_frac, float(policy["speculative_stake_cap"]))
         else:
             final_stake_fraction = raw_frac
 
@@ -565,11 +717,27 @@ def analyze_match(
             calibration_validated=model.calibration_validated,
             market_status=market_freshness,
             edge=edge_field,
+            min_actionable_edge=min_edge,
         )
 
-        min_acceptable_odds = _minimum_acceptable_odds(
+        breakeven = _breakeven_odds(best_eval["model_probability"])
+        target_ev_odds = _minimum_odds_for_target_ev(
+            best_eval["model_probability"],
+            target_expected_value,
+        )
+        edge_preserving_odds = _edge_preserving_minimum_odds(
+            outcome=best_eval["outcome"],
             model_prob=best_eval["model_probability"],
             min_edge=min_edge,
+            home_odds=market.home_odds,
+            draw_odds=market.draw_odds,
+            away_odds=market.away_odds,
+        )
+        min_acceptable_odds = edge_preserving_odds or target_ev_odds or breakeven
+        minimum_method = (
+            "DE_VIGGED_1X2_EDGE_SOLVE_HOLDING_OTHER_PRICES"
+            if edge_preserving_odds is not None
+            else "TARGET_EXPECTED_VALUE_PRICE"
         )
 
         # Drivers
@@ -590,6 +758,7 @@ def analyze_match(
             best_odds=market_odds_field,
             best_edge=edge_field,
             known_risks=request.known_risks,
+            min_actionable_edge=min_edge,
         )
 
         # Audit trail
@@ -606,6 +775,9 @@ def analyze_match(
             model_version=model.model_version,
             kelly_fraction=kelly_frac,
             kelly_cap=kelly_cap,
+            breakeven_odds=breakeven,
+            minimum_odds_for_target_ev=target_ev_odds,
+            edge_preserving_minimum_odds=edge_preserving_odds,
         )
 
     # Risks
@@ -639,6 +811,27 @@ def analyze_match(
     )
 
     return MatchAnalysisResult(
+        contract_version=CONTRACT_VERSION,
+        policy_version=policy_version,
+        decision_id=decision_id,
+        evaluation_at=evaluation_at,
+        analysis_mode=(
+            AnalysisModeEnum.VALUE_ANALYSIS
+            if market is not None and market_freshness not in (FreshnessStatusEnum.DATA_GAP, FreshnessStatusEnum.UNKNOWN)
+            else AnalysisModeEnum.FORECAST_ONLY
+        ),
+        execution_eligible=verdict in (VerdictEnum.HIGH_CONVICTION, VerdictEnum.ACTIONABLE),
+        watchlist=verdict == VerdictEnum.SPECULATIVE,
+        source_summary={
+            "model": request.source_status.model.value,
+            "market": request.source_status.market.value,
+            "team_metrics": request.source_status.team_metrics.value,
+            "availability": request.source_status.availability.value,
+        },
+        input_hash=input_hash,
+        policy_hash=policy_hash,
+        minimum_acceptable_odds_method=minimum_method,
+        target_expected_value=target_expected_value,
         match_identifier=f"{request.home_team} vs {request.away_team}",
         match_id=request.match_id,
         competition=request.competition.value,
@@ -714,7 +907,7 @@ def _build_explanation(
         return (
             f"Sub-threshold edge on {outcome}_ML: {edge_pp:.2f}pp above fair market "
             f"(fair_p={fair_p:.3f}, EV={ev:.4f} at {odds:.2f}). "
-            f"Execute only with micro-allocation. Variance is high."
+            f"Watchlist only; the micro-allocation cap applies if the price remains valid."
         )
 
     if verdict == VerdictEnum.ACTIONABLE:
@@ -722,14 +915,14 @@ def _build_explanation(
         return (
             f"{outcome}_ML: {edge_pp:.2f}pp de-vigged edge, EV={ev:.4f} at odds {odds:.2f}. "
             f"Fair market probability {fair_p:.3f}. "
-            f"Execute above minimum acceptable odds{ucl_note}."
+            f"Qualifies above minimum acceptable odds{ucl_note}."
         )
 
     if verdict == VerdictEnum.HIGH_CONVICTION:
         return (
             f"{outcome}_ML: {edge_pp:.2f}pp de-vigged edge, EV={ev:.4f} at odds {odds:.2f}. "
             f"Fair market probability {fair_p:.3f}. "
-            f"All conviction gates satisfied. Execute at current price or better."
+            f"All conviction gates satisfied. Qualifies at current price or better."
         )
 
     return f"Verdict: {verdict.value}."
@@ -759,18 +952,13 @@ def _rank_top_opportunities(results: List[MatchAnalysisResult]) -> List[str]:
         and r.confidence_adjusted_value > 0
     ]
 
-    # Prioritize HIGH_CONVICTION > ACTIONABLE > SPECULATIVE then by CAV
-    verdict_priority = {
-        VerdictEnum.HIGH_CONVICTION: 0,
-        VerdictEnum.ACTIONABLE: 1,
-        VerdictEnum.SPECULATIVE: 2,
-    }
-
     qualifying.sort(
         key=lambda r: (
-            verdict_priority.get(r.verdict, 9),
-            -(r.expected_value or 0),
             -(r.confidence_adjusted_value or 0),
+            -(r.expected_value or 0),
+            r.data_freshness.oldest_critical_input_seconds
+            if r.data_freshness and r.data_freshness.oldest_critical_input_seconds is not None
+            else 10**12,
             r.match_id,
         )
     )
@@ -782,6 +970,7 @@ def analyze_batch(
     request: BatchAnalysisRequest,
     causal_drivers_map: Optional[Dict[str, List[str]]] = None,
     settings_override: Optional[Dict[str, float]] = None,
+    evaluation_at: Optional[datetime] = None,
 ) -> BatchAnalysisResponse:
     """Analyze all matches in the batch and return ranked results.
 
@@ -792,17 +981,25 @@ def analyze_batch(
     """
     results: List[MatchAnalysisResult] = []
     cdm = causal_drivers_map or {}
+    evaluation_at = evaluation_at or datetime.now(timezone.utc)
 
     for match_req in request.matches:
         drivers = cdm.get(match_req.match_id)
-        result = analyze_match(match_req, causal_drivers=drivers, settings_override=settings_override)
+        result = analyze_match(
+            match_req,
+            causal_drivers=drivers,
+            settings_override=settings_override,
+            evaluation_at=evaluation_at,
+        )
         results.append(result)
 
     top_opps = _rank_top_opportunities(results)
 
     return BatchAnalysisResponse(
+        contract_version=CONTRACT_VERSION,
+        policy_version=str(_policy_payload(settings_override)["policy_version"]),
         engine_version=request.engine_version,
-        generated_at=datetime.now(timezone.utc),
+        generated_at=evaluation_at,
         top_opportunities=top_opps,
         matches=results,
     )

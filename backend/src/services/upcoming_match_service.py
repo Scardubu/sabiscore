@@ -217,17 +217,18 @@ class UpcomingMatchService:
                     match.get("away_team", ""),
                     match.get("league", ""),
                 )
+                odds_available = {"home_win", "draw", "away_win"}.issubset(odds)
 
                 # 4. Calculate value bets
                 value_bets = []
-                if include_value_bets and odds.get("source") != "default":
+                if include_value_bets and odds_available:
                     value_bets = PredictionEngine.calculate_value_bets(
                         predictions, odds
                     )
 
                 # 5. Add enriched data to match
                 match["predictions"] = predictions
-                match["odds"] = odds
+                match["odds"] = odds if odds_available else None
                 match["value_bets"] = value_bets
                 match["has_value"] = len(value_bets) > 0
                 match["best_value_bet"] = value_bets[0] if value_bets else None
@@ -250,7 +251,7 @@ class UpcomingMatchService:
                 )
                 # Still include match without predictions
                 match["predictions"] = None
-                match["odds"] = odds_service.DEFAULT_ODDS
+                match["odds"] = None
                 match["value_bets"] = []
                 match["has_value"] = False
                 match["best_value_bet"] = None

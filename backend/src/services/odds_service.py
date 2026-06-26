@@ -17,8 +17,7 @@ logger = logging.getLogger(__name__)
 
 class OddsService:
     """Fetch and aggregate live odds from multiple bookmaker APIs."""
-    # Default odds for fallback scenarios
-    DEFAULT_ODDS = {"home_win": 2.1, "draw": 3.3, "away_win": 3.6, "source": "default"}
+    DEFAULT_ODDS = {"source": "unavailable", "reason": "odds_not_verified"}
 
     def __init__(self, cache_backend: Any = None) -> None:
         self.cache = cache_backend or cache_manager
@@ -62,8 +61,8 @@ class OddsService:
             return cached
 
         if not self.odds_api_key:
-            logger.warning("Odds API key not configured, returning mock odds")
-            return self._generate_mock_odds(sport)
+            logger.warning("Odds API key not configured; returning empty odds feed")
+            return []
 
         try:
             client = await self._get_client()
@@ -87,10 +86,10 @@ class OddsService:
 
         except httpx.HTTPStatusError as exc:
             logger.error("Odds API HTTP error: %s - %s", exc.response.status_code, exc.response.text)
-            return self._generate_mock_odds(sport)
+            return []
         except Exception as exc:
             logger.error("Failed to fetch live odds: %s", exc)
-            return self._generate_mock_odds(sport)
+            return []
 
     async def get_match_odds(
         self,
@@ -135,18 +134,15 @@ class OddsService:
                     self.cache.set(cache_key, odds, ttl=300)
                     return odds
 
-        # Fallback to reasonable default odds
-        logger.warning("No live odds found for %s vs %s, using defaults", home_team, away_team)
-        default_odds = {
-            "home_win": 2.1,
-            "draw": 3.3,
-            "away_win": 3.6,
-            "source": "default",
+        logger.warning("No verified live odds found for %s vs %s", home_team, away_team)
+        unavailable = {
+            "source": "unavailable",
+            "reason": "coherent_1x2_market_snapshot_not_found",
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "bookmaker": None,
         }
-        self.cache.set(cache_key, default_odds, ttl=60)
-        return default_odds
+        self.cache.set(cache_key, unavailable, ttl=60)
+        return unavailable
 
     async def store_odds_snapshot(
         self,
@@ -209,55 +205,13 @@ class OddsService:
                             elif event.get("away_team", "").lower() in name:
                                 odds_dict["away_win"] = float(price)
 
-                        if len(odds_dict) >= 2:
-                            # Ensure we have all three outcomes
-                            odds_dict.setdefault("home_win", 2.0)
-                            odds_dict.setdefault("draw", 3.3)
-                            odds_dict.setdefault("away_win", 3.5)
+                        if {"home_win", "draw", "away_win"}.issubset(odds_dict):
                             odds_dict["source"] = "odds_api"
                             odds_dict["timestamp"] = datetime.now(timezone.utc).isoformat()
                             odds_dict["bookmaker"] = bookmaker.get("title")
                             return odds_dict
 
         return None
-
-    def _generate_mock_odds(self, sport: str) -> List[Dict[str, Any]]:
-        """Generate mock odds for development/testing."""
-        import random
-
-        mock_matches = [
-            {"home": "Arsenal", "away": "Liverpool"},
-            {"home": "Manchester City", "away": "Chelsea"},
-            {"home": "Tottenham", "away": "Manchester United"},
-        ]
-
-        events = []
-        for match in mock_matches:
-            base_home = random.uniform(1.8, 2.5)
-            base_draw = random.uniform(3.0, 3.8)
-            base_away = random.uniform(2.0, 4.0)
-
-            events.append({
-                "id": f"mock_{match['home']}_{match['away']}",
-                "sport_key": sport,
-                "commence_time": (datetime.now(timezone.utc) + timedelta(days=random.randint(0, 7))).isoformat(),
-                "home_team": match["home"],
-                "away_team": match["away"],
-                "bookmakers": [{
-                    "key": "mock_bookmaker",
-                    "title": "Mock Bookmaker",
-                    "markets": [{
-                        "key": "h2h",
-                        "outcomes": [
-                            {"name": match["home"], "price": round(base_home, 2)},
-                            {"name": "Draw", "price": round(base_draw, 2)},
-                            {"name": match["away"], "price": round(base_away, 2)},
-                        ]
-                    }]
-                }]
-            })
-
-        return events
 
     async def get_odds_movement(
         self,

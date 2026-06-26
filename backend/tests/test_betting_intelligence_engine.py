@@ -33,6 +33,7 @@ from src.services.betting_intelligence import (
     MAX_KELLY_CAP,
     MIN_ACTIONABLE_EDGE,
     HIGH_CONVICTION_EDGE,
+    _rank_top_opportunities,
     _compute_devig,
     _expected_value,
     _full_kelly,
@@ -229,6 +230,19 @@ class TestPartialGate:
         req = _request(source_status_market=SourceStatusEnum.STALE)
         result = analyze_match(req)
         assert result.verdict == VerdictEnum.PARTIAL
+
+    def test_unknown_model_feature_freshness_forces_partial(self):
+        req = _request()
+        req.freshness.model_features_seconds = None
+        result = analyze_match(req)
+        assert result.verdict == VerdictEnum.PARTIAL
+        assert any("model_features" in gap for gap in result.data_gaps)
+
+    def test_stale_model_features_force_partial(self):
+        req = _request(freshness_seconds=7200)
+        result = analyze_match(req)
+        assert result.verdict == VerdictEnum.PARTIAL
+        assert any("STALE: model_features" in gap for gap in result.data_gaps)
 
 
 # ---------------------------------------------------------------------------
@@ -680,6 +694,32 @@ class TestBatchAnalysis:
         )
         response = analyze_batch(batch)
         assert len(response.top_opportunities) == 0
+
+    def test_top_opportunities_rank_by_confidence_adjusted_value_first(self):
+        high_cav_speculative = analyze_match(
+            _request(
+                match_id="speculative-higher-cav",
+                model=_model(home=0.46, draw=0.32, away=0.22, epistemic=0.02),
+                market=_market(home=2.20, draw=3.10, away=4.20),
+            )
+        )
+        lower_cav_actionable = analyze_match(
+            _request(
+                match_id="actionable-lower-cav",
+                model=_model(home=0.66, draw=0.20, away=0.14, epistemic=0.18),
+                market=_market(home=1.78, draw=3.80, away=5.80),
+            )
+        )
+        high_cav_speculative.verdict = VerdictEnum.SPECULATIVE
+        high_cav_speculative.confidence_adjusted_value = 0.09
+        high_cav_speculative.expected_value = 0.03
+        lower_cav_actionable.verdict = VerdictEnum.ACTIONABLE
+        lower_cav_actionable.confidence_adjusted_value = 0.04
+        lower_cav_actionable.expected_value = 0.12
+
+        ranked = _rank_top_opportunities([lower_cav_actionable, high_cav_speculative])
+
+        assert ranked[:2] == ["speculative-higher-cav", "actionable-lower-cav"]
 
 
 # ---------------------------------------------------------------------------

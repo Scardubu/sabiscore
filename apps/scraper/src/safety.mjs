@@ -1,5 +1,4 @@
 import { setTimeout as delay } from "node:timers/promises";
-import { userAgents } from "./config.mjs";
 
 export class RateLimiter {
   constructor({ minDelayMs = 2500, jitterMs = 750 } = {}) {
@@ -43,10 +42,6 @@ export class CircuitBreaker {
       this.openedAt = Date.now();
     }
   }
-}
-
-export function rotateUserAgent() {
-  return userAgents[Math.floor(Math.random() * userAgents.length)];
 }
 
 export async function isAllowedByRobots(targetUrl, userAgent = "*") {

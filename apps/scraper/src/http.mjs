@@ -1,4 +1,6 @@
-import { CircuitBreaker, RateLimiter, isAllowedByRobots, rotateUserAgent } from "./safety.mjs";
+import { setTimeout as delay } from "node:timers/promises";
+import { scraperUserAgent } from "./config.mjs";
+import { CircuitBreaker, RateLimiter, isAllowedByRobots } from "./safety.mjs";
 
 export class PublicHttpClient {
   constructor({ minDelayMs = 2500, retries = 2, respectRobots = true } = {}) {
@@ -13,7 +15,7 @@ export class PublicHttpClient {
       throw new Error(`Circuit breaker open for ${url}`);
     }
 
-    const userAgent = rotateUserAgent();
+    const userAgent = scraperUserAgent;
     if (this.respectRobots) {
       const allowed = await isAllowedByRobots(url, userAgent);
       if (!allowed) {
@@ -32,14 +34,20 @@ export class PublicHttpClient {
           },
           signal: AbortSignal.timeout(20_000)
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) {
+          const retryAfter = Number(res.headers.get("retry-after") ?? 0);
+          if (retryAfter > 0) {
+            await delay(Math.min(retryAfter * 1000, 30_000));
+          }
+          throw new Error(`HTTP ${res.status}`);
+        }
         const text = await res.text();
         this.breaker.success();
         return text;
       } catch (err) {
         lastError = err;
         this.breaker.failure();
-        await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
+        await delay(500 * 2 ** attempt);
       }
     }
     throw lastError;

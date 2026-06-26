@@ -135,6 +135,9 @@ export interface CalculationAudit {
   model_version?: string | null;
   kelly_fraction: number;
   kelly_cap: number;
+  breakeven_odds?: number | null;
+  minimum_odds_for_target_ev?: number | null;
+  edge_preserving_minimum_odds?: number | null;
 }
 
 export interface MarketEvaluation {
@@ -153,6 +156,18 @@ export interface MarketEvaluation {
 }
 
 export interface MatchAnalysisResult {
+  contract_version?: string;
+  policy_version?: string;
+  decision_id?: string | null;
+  evaluation_at?: string | null;
+  analysis_mode?: "VALUE_ANALYSIS" | "FORECAST_ONLY";
+  execution_eligible?: boolean;
+  watchlist?: boolean;
+  source_summary?: Record<string, unknown>;
+  input_hash?: string | null;
+  policy_hash?: string | null;
+  minimum_acceptable_odds_method?: string | null;
+  target_expected_value?: number;
   match_identifier: string;
   match_id: string;
   competition: string;
@@ -182,6 +197,8 @@ export interface MatchAnalysisResult {
 }
 
 export interface BatchAnalysisResponse {
+  contract_version?: string;
+  policy_version?: string;
   engine_version: string;
   generated_at: string;
   top_opportunities: string[];
@@ -191,7 +208,9 @@ export interface BatchAnalysisResponse {
 // --- Engine Policy ------------------------------------------------------------
 
 export interface EnginePolicy {
+  contract_version?: string;
   engine_version: string;
+  policy_version?: string;
   generated_at: string;
   policy: {
     min_actionable_edge_pp: number;
@@ -199,6 +218,8 @@ export interface EnginePolicy {
     kelly_fraction: number;
     max_kelly_cap: number;
     speculative_stake_cap: number;
+    minimum_acceptable_odds_method?: string;
+    target_expected_value?: number;
     verdict_precedence: Verdict[];
     ucl_coverage: string;
     market_freshness_thresholds: {
@@ -206,12 +227,67 @@ export interface EnginePolicy {
       recent_seconds: number;
       stale_above_seconds: number;
     };
+    model_features_fresh_seconds?: number;
     null_rules: {
       missing_quantitative_data: string;
       stake_under_partial_hold_no_bet: string;
       probabilities_under_partial: string;
     };
   };
+}
+
+export interface FixtureSummary {
+  fixture_id: string;
+  competition: string;
+  home_team: string;
+  away_team: string;
+  kickoff_utc: string;
+  status: string;
+  venue?: string | null;
+  evidence_status: string;
+  odds_status: string;
+}
+
+export interface UpcomingFixturesResponse {
+  fixtures: FixtureSummary[];
+  total: number;
+  source: string;
+}
+
+export interface FixtureEvidenceResponse {
+  fixture: FixtureSummary;
+  model?: Record<string, unknown> | null;
+  market?: Record<string, unknown> | null;
+  freshness: Record<string, unknown>;
+  source_status: Record<string, string>;
+  data_gaps: string[];
+  retrieval_timeline: Array<Record<string, unknown>>;
+}
+
+export interface ManualOddsSnapshotRequest {
+  bookmaker: string;
+  home_odds: number;
+  draw_odds: number;
+  away_odds: number;
+  observed_at: string;
+  opening_home_odds?: number | null;
+  opening_draw_odds?: number | null;
+  opening_away_odds?: number | null;
+  source_label?: string | null;
+  source_url?: string | null;
+  user_confirmed: boolean;
+}
+
+export interface ManualOddsSnapshotResponse {
+  fixture_id: string;
+  bookmaker: string;
+  home_odds: number;
+  draw_odds: number;
+  away_odds: number;
+  observed_at: string;
+  received_at: string;
+  executable: boolean;
+  provenance: Record<string, unknown>;
 }
 
 // --- Legacy Full-Analysis Types (backward-compatible, hardened) ---------------
@@ -352,6 +428,34 @@ export async function analyzeSingle(
 /** Get current engine policy parameters. */
 export async function getEnginePolicy(): Promise<EnginePolicy> {
   return apiFetch<EnginePolicy>(`${SAME_ORIGIN_API}/policy`);
+}
+
+export async function getUpcomingFixtures(competition?: string): Promise<UpcomingFixturesResponse> {
+  const params = competition ? `?competition=${encodeURIComponent(competition)}` : "";
+  return apiFetch<UpcomingFixturesResponse>(`/api/fixtures/upcoming${params}`);
+}
+
+export async function getFixtureEvidence(fixtureId: string): Promise<FixtureEvidenceResponse> {
+  return apiFetch<FixtureEvidenceResponse>(
+    `/api/fixtures/${encodeURIComponent(fixtureId)}/evidence`,
+  );
+}
+
+export async function submitManualOddsSnapshot(
+  fixtureId: string,
+  request: ManualOddsSnapshotRequest,
+): Promise<ManualOddsSnapshotResponse> {
+  return apiFetch<ManualOddsSnapshotResponse>(
+    `/api/fixtures/${encodeURIComponent(fixtureId)}/odds-snapshot`,
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+export async function analyzeFixture(fixtureId: string): Promise<MatchAnalysisResult> {
+  return apiFetch<MatchAnalysisResult>(
+    `/api/fixtures/${encodeURIComponent(fixtureId)}/analyze`,
+    { method: "POST" },
+  );
 }
 
 /** Legacy full-analysis route (backward-compatible, hardened). */

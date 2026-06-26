@@ -1,0 +1,418 @@
+"""Fixture evidence and manual odds endpoints for production intelligence."""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field, field_validator, model_validator
+from sqlalchemy import and_, desc, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ...db.models import Match, Odds, Prediction
+from ...db.session import get_async_session
+from ...schemas.betting_intelligence import (
+    BatchAnalysisRequest,
+    CompetitionEnum,
+    EvidenceTierEnum,
+    FreshnessInput,
+    LineupStatusEnum,
+    MarketInput,
+    MatchAnalysisRequest,
+    ModelInput,
+    SharpSignalEnum,
+    SignalsInput,
+    SourceStatusEnum,
+    SourceStatusInput,
+)
+from ...services.betting_intelligence import analyze_match
+
+
+router = APIRouter(prefix="/fixtures", tags=["fixtures"])
+
+MODEL_FEATURES_FRESH_SECONDS = 3600
+AVAILABILITY_CRITICAL_HOURS = 24
+LINEUP_CRITICAL_MINUTES = 90
+
+
+class FixtureSummary(BaseModel):
+    fixture_id: str
+    competition: str
+    home_team: str
+    away_team: str
+    kickoff_utc: datetime
+    status: str
+    venue: Optional[str] = None
+    evidence_status: str
+    odds_status: str
+
+
+class UpcomingFixturesResponse(BaseModel):
+    fixtures: List[FixtureSummary]
+    total: int
+    source: str = "database"
+
+
+class EvidenceResponse(BaseModel):
+    fixture: FixtureSummary
+    model: Optional[Dict[str, Any]] = None
+    market: Optional[Dict[str, Any]] = None
+    freshness: Dict[str, Any]
+    source_status: Dict[str, str]
+    data_gaps: List[str] = Field(default_factory=list)
+    retrieval_timeline: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class ManualOddsSnapshotRequest(BaseModel):
+    bookmaker: str = Field(..., min_length=2, max_length=120)
+    home_odds: float = Field(..., gt=1.0)
+    draw_odds: float = Field(..., gt=1.0)
+    away_odds: float = Field(..., gt=1.0)
+    observed_at: datetime
+    opening_home_odds: Optional[float] = Field(default=None, gt=1.0)
+    opening_draw_odds: Optional[float] = Field(default=None, gt=1.0)
+    opening_away_odds: Optional[float] = Field(default=None, gt=1.0)
+    source_label: Optional[str] = Field(default=None, max_length=180)
+    source_url: Optional[str] = Field(default=None, max_length=500)
+    user_confirmed: bool = False
+
+    @field_validator("source_url")
+    @classmethod
+    def reject_fetchable_user_urls(cls, value: Optional[str]) -> Optional[str]:
+        if value and not value.startswith(("http://", "https://")):
+            raise ValueError("source_url must be an http(s) URL label when provided")
+        return value
+
+    @model_validator(mode="after")
+    def validate_confirmation_and_time(self) -> "ManualOddsSnapshotRequest":
+        if not self.user_confirmed:
+            raise ValueError("User confirmation is required before odds evaluation")
+        observed = self.observed_at
+        if observed.tzinfo is None:
+            observed = observed.replace(tzinfo=timezone.utc)
+        now = datetime.now(timezone.utc)
+        if observed > now:
+            raise ValueError("observed_at cannot be in the future")
+        return self
+
+
+class ManualOddsSnapshotResponse(BaseModel):
+    fixture_id: str
+    bookmaker: str
+    home_odds: float
+    draw_odds: float
+    away_odds: float
+    observed_at: datetime
+    received_at: datetime
+    executable: bool
+    provenance: Dict[str, Any]
+
+
+def _competition_to_enum(raw: Optional[str]) -> CompetitionEnum:
+    normalized = (raw or "").upper().replace(" ", "_").replace("-", "_")
+    aliases = {
+        "PREMIER_LEAGUE": "EPL",
+        "LALIGA": "LA_LIGA",
+        "LA_LIGA": "LA_LIGA",
+        "SERIE_A": "SERIE_A",
+        "BUNDESLIGA": "BUNDESLIGA",
+        "LIGUE_1": "LIGUE_1",
+        "EREDIVISIE": "EREDIVISIE",
+        "CHAMPIONS_LEAGUE": "UCL",
+        "UEFA_CHAMPIONS_LEAGUE": "UCL",
+    }
+    candidate = aliases.get(normalized, normalized)
+    if candidate not in CompetitionEnum.__members__:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Unsupported or unavailable competition for strict engine: {raw or 'unknown'}",
+        )
+    return CompetitionEnum(candidate)
+
+
+def _team_label(value: Any) -> str:
+    return str(value or "Unknown")
+
+
+async def _get_fixture_or_404(db: AsyncSession, fixture_id: str) -> Match:
+    result = await db.execute(select(Match).where(Match.id == fixture_id))
+    fixture = result.scalar_one_or_none()
+    if fixture is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fixture not found")
+    return fixture
+
+
+async def _latest_prediction(db: AsyncSession, fixture_id: str) -> Optional[Prediction]:
+    result = await db.execute(
+        select(Prediction)
+        .where(Prediction.match_id == fixture_id)
+        .order_by(desc(Prediction.created_at), desc(Prediction.id))
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
+async def _latest_odds(db: AsyncSession, fixture_id: str) -> Optional[Odds]:
+    result = await db.execute(
+        select(Odds)
+        .where(Odds.match_id == fixture_id)
+        .order_by(desc(Odds.timestamp), desc(Odds.id))
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
+def _fixture_summary(fixture: Match, odds: Optional[Odds], prediction: Optional[Prediction]) -> FixtureSummary:
+    kickoff = fixture.match_date
+    if kickoff.tzinfo is None:
+        kickoff = kickoff.replace(tzinfo=timezone.utc)
+    return FixtureSummary(
+        fixture_id=str(fixture.id),
+        competition=str(fixture.league_id or "EPL"),
+        home_team=_team_label(fixture.home_team_id),
+        away_team=_team_label(fixture.away_team_id),
+        kickoff_utc=kickoff,
+        status=str(fixture.status or "scheduled"),
+        venue=fixture.venue,
+        evidence_status="MODEL_READY" if prediction else "MODEL_UNAVAILABLE",
+        odds_status="SNAPSHOT_READY" if odds else "MANUAL_ODDS_REQUIRED",
+    )
+
+
+def _market_age_seconds(odds: Optional[Odds]) -> Optional[int]:
+    if odds is None or odds.timestamp is None:
+        return None
+    captured = odds.timestamp
+    if captured.tzinfo is None:
+        captured = captured.replace(tzinfo=timezone.utc)
+    return max(0, int((datetime.now(timezone.utc) - captured).total_seconds()))
+
+
+def _prediction_age_seconds(prediction: Optional[Prediction]) -> Optional[int]:
+    if prediction is None or prediction.created_at is None:
+        return None
+    created = prediction.created_at
+    if created.tzinfo is None:
+        created = created.replace(tzinfo=timezone.utc)
+    return max(0, int((datetime.now(timezone.utc) - created).total_seconds()))
+
+
+def _critical_availability_gaps(fixture: Match) -> List[str]:
+    kickoff = fixture.match_date
+    if kickoff.tzinfo is None:
+        kickoff = kickoff.replace(tzinfo=timezone.utc)
+    seconds_to_kickoff = (kickoff - datetime.now(timezone.utc)).total_seconds()
+    gaps: List[str] = []
+    if seconds_to_kickoff <= AVAILABILITY_CRITICAL_HOURS * 3600:
+        gaps.append("DATA_GAP: availability_status")
+    if seconds_to_kickoff <= LINEUP_CRITICAL_MINUTES * 60:
+        gaps.append("DATA_GAP: confirmed_lineup_status")
+    return gaps
+
+
+def _model_from_prediction(prediction: Optional[Prediction]) -> Optional[ModelInput]:
+    if prediction is None:
+        return None
+    values = (prediction.home_win_prob, prediction.draw_prob, prediction.away_win_prob)
+    if any(value is None for value in values):
+        return None
+    return ModelInput(
+        home_probability=float(prediction.home_win_prob),
+        draw_probability=float(prediction.draw_prob),
+        away_probability=float(prediction.away_win_prob),
+        model_version=str(prediction.model_version or "unknown"),
+        calibration_method="stored_prediction",
+        calibration_validated=False,
+        epistemic_uncertainty=0.25,
+        aleatoric_uncertainty=0.15,
+        confidence_tier=EvidenceTierEnum.LOW_EVIDENCE,
+    )
+
+
+def _market_from_odds(odds: Optional[Odds]) -> Optional[MarketInput]:
+    if odds is None or odds.home_win is None or odds.draw is None or odds.away_win is None:
+        return None
+    captured = odds.timestamp or datetime.now(timezone.utc)
+    if captured.tzinfo is None:
+        captured = captured.replace(tzinfo=timezone.utc)
+    return MarketInput(
+        bookmaker=str(odds.bookmaker or "Manual Snapshot"),
+        market_type="1X2",
+        home_odds=float(odds.home_win),
+        draw_odds=float(odds.draw),
+        away_odds=float(odds.away_win),
+        captured_at=captured,
+    )
+
+
+async def _build_evidence(db: AsyncSession, fixture_id: str) -> tuple[Match, Optional[Prediction], Optional[Odds], EvidenceResponse]:
+    fixture = await _get_fixture_or_404(db, fixture_id)
+    prediction = await _latest_prediction(db, fixture_id)
+    odds = await _latest_odds(db, fixture_id)
+    summary = _fixture_summary(fixture, odds, prediction)
+    data_gaps: List[str] = []
+    if prediction is None:
+        data_gaps.append("DATA_GAP: model_prediction")
+    if odds is None:
+        data_gaps.append("DATA_GAP: coherent_1x2_market_snapshot")
+    model_age = _prediction_age_seconds(prediction)
+    if prediction is not None and model_age is None:
+        data_gaps.append("DATA_GAP: model_features_freshness_unknown")
+    elif model_age is not None and model_age > MODEL_FEATURES_FRESH_SECONDS:
+        data_gaps.append(f"STALE: model_features ({model_age}s old)")
+    data_gaps.extend(_critical_availability_gaps(fixture))
+
+    model_status = "DATA_GAP"
+    if prediction is not None:
+        model_status = "STALE" if model_age is None or model_age > MODEL_FEATURES_FRESH_SECONDS else "VERIFIED"
+
+    evidence = EvidenceResponse(
+        fixture=summary,
+        model={
+            "model_version": prediction.model_version,
+            "home_probability": prediction.home_win_prob,
+            "draw_probability": prediction.draw_prob,
+            "away_probability": prediction.away_win_prob,
+            "created_at": prediction.created_at,
+        } if prediction else None,
+        market={
+            "bookmaker": odds.bookmaker,
+            "home_odds": odds.home_win,
+            "draw_odds": odds.draw,
+            "away_odds": odds.away_win,
+            "captured_at": odds.timestamp,
+        } if odds else None,
+        freshness={"market_seconds": _market_age_seconds(odds), "model_features_seconds": model_age},
+        source_status={
+            "model": model_status,
+            "market": "VERIFIED" if odds else "DATA_GAP",
+            "team_metrics": "DATA_GAP",
+            "availability": "DATA_GAP",
+        },
+        data_gaps=data_gaps,
+        retrieval_timeline=[
+            {"step": "fixture", "status": "VERIFIED", "source": "database"},
+            {"step": "model", "status": model_status, "source": "predictions"},
+            {"step": "market", "status": "VERIFIED" if odds else "DATA_GAP", "source": "manual odds snapshot"},
+            {"step": "availability", "status": "DATA_GAP", "source": "lineup and injury provider unavailable"},
+        ],
+    )
+    return fixture, prediction, odds, evidence
+
+
+@router.get("/upcoming", response_model=UpcomingFixturesResponse)
+async def fixtures_upcoming(
+    competition: Optional[str] = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+    db: AsyncSession = Depends(get_async_session),
+) -> UpcomingFixturesResponse:
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    query = (
+        select(Match)
+        .where(and_(Match.match_date >= now, Match.status == "scheduled"))
+        .order_by(Match.match_date.asc())
+        .limit(limit)
+    )
+    if competition:
+        query = query.where(Match.league_id == competition)
+    result = await db.execute(query)
+    fixtures = result.scalars().all()
+
+    rows: List[FixtureSummary] = []
+    for fixture in fixtures:
+        prediction = await _latest_prediction(db, str(fixture.id))
+        odds = await _latest_odds(db, str(fixture.id))
+        rows.append(_fixture_summary(fixture, odds, prediction))
+    return UpcomingFixturesResponse(fixtures=rows, total=len(rows))
+
+
+@router.get("/{fixture_id}/evidence", response_model=EvidenceResponse)
+async def fixture_evidence(
+    fixture_id: str,
+    db: AsyncSession = Depends(get_async_session),
+) -> EvidenceResponse:
+    _, _, _, evidence = await _build_evidence(db, fixture_id)
+    return evidence
+
+
+@router.post("/{fixture_id}/odds-snapshot", response_model=ManualOddsSnapshotResponse)
+async def create_manual_odds_snapshot(
+    fixture_id: str,
+    payload: ManualOddsSnapshotRequest,
+    db: AsyncSession = Depends(get_async_session),
+) -> ManualOddsSnapshotResponse:
+    await _get_fixture_or_404(db, fixture_id)
+    observed = payload.observed_at
+    if observed.tzinfo is None:
+        observed = observed.replace(tzinfo=timezone.utc)
+    received_at = datetime.now(timezone.utc)
+
+    record = Odds(
+        match_id=fixture_id,
+        bookmaker=payload.bookmaker,
+        home_win=payload.home_odds,
+        draw=payload.draw_odds,
+        away_win=payload.away_odds,
+        timestamp=observed.replace(tzinfo=None),
+    )
+    db.add(record)
+    await db.commit()
+
+    return ManualOddsSnapshotResponse(
+        fixture_id=fixture_id,
+        bookmaker=payload.bookmaker,
+        home_odds=payload.home_odds,
+        draw_odds=payload.draw_odds,
+        away_odds=payload.away_odds,
+        observed_at=observed,
+        received_at=received_at,
+        executable=True,
+        provenance={
+            "source_label": payload.source_label,
+            "source_url_label": payload.source_url,
+            "client_confirmed": payload.user_confirmed,
+            "server_fetch_performed": False,
+        },
+    )
+
+
+@router.post("/{fixture_id}/analyze")
+async def analyze_fixture(
+    fixture_id: str,
+    db: AsyncSession = Depends(get_async_session),
+):
+    fixture, prediction, odds, evidence = await _build_evidence(db, fixture_id)
+    model = _model_from_prediction(prediction)
+    market = _market_from_odds(odds)
+    data_gaps = list(evidence.data_gaps)
+    model_age = _prediction_age_seconds(prediction)
+    model_status = evidence.source_status.get("model", "DATA_GAP")
+
+    req = MatchAnalysisRequest(
+        match_id=fixture_id,
+        home_team=_team_label(fixture.home_team_id),
+        away_team=_team_label(fixture.away_team_id),
+        competition=_competition_to_enum(str(fixture.league_id or "EPL")),
+        kickoff_utc=fixture.match_date.replace(tzinfo=timezone.utc)
+        if fixture.match_date.tzinfo is None
+        else fixture.match_date,
+        model=model,
+        market=market,
+        signals=SignalsInput(
+            lineup_status=LineupStatusEnum.UNKNOWN,
+            sharp_market_signal=SharpSignalEnum.UNKNOWN,
+        ),
+        freshness=FreshnessInput(
+            market_seconds=_market_age_seconds(odds),
+            model_features_seconds=model_age,
+        ),
+        source_status=SourceStatusInput(
+            model=SourceStatusEnum(model_status) if model else SourceStatusEnum.DATA_GAP,
+            market=SourceStatusEnum.VERIFIED if market else SourceStatusEnum.DATA_GAP,
+            team_metrics=SourceStatusEnum.DATA_GAP,
+            availability=SourceStatusEnum.DATA_GAP,
+        ),
+        data_gaps=data_gaps,
+    )
+    return analyze_match(req, evaluation_at=datetime.now(timezone.utc))

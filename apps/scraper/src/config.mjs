@@ -4,25 +4,42 @@ import { fileURLToPath } from "node:url";
 export const workspaceRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
 export const rawDir = resolve(workspaceRoot, "data/raw/node-scraper");
 export const processedDir = resolve(workspaceRoot, "data/processed/node-scraper");
+export const manifestDir = resolve(workspaceRoot, "data/manifests/node-scraper");
 
-export const userAgents = [
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/17.4 Safari/605.1.15",
-  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36"
-];
+export const scraperUserAgent =
+  process.env.SCRAPER_USER_AGENT ??
+  "SabiScoreDataResearch/1.0 (+https://sabiscore.local; contact: data@sabiscore.local)";
 
 export const sourceAllowlist = {
   footballData: {
     id: "football-data-csv",
     baseUrl: "https://www.football-data.co.uk",
     type: "csv",
-    enabled: true
+    enabled: true,
+    transport: "static",
+    allowedDomains: ["www.football-data.co.uk"],
+    allowedUrlPatterns: ["/mmz4281/"],
+    termsReviewStatus: "reviewed_public_csv",
+    permittedFrequency: "daily",
+    concurrency: 1,
+    parserVersion: "1.0.0",
+    schemaVersion: "1.0.0",
+    attribution: "football-data.co.uk"
   },
   clubElo: {
     id: "clubelo-public",
     baseUrl: "http://api.clubelo.com",
     type: "csv",
-    enabled: true
+    enabled: false,
+    transport: "static",
+    allowedDomains: ["api.clubelo.com"],
+    allowedUrlPatterns: ["/"],
+    termsReviewStatus: "disabled_pending_review",
+    permittedFrequency: "manual",
+    concurrency: 1,
+    parserVersion: "1.0.0",
+    schemaVersion: "1.0.0",
+    attribution: "clubelo.com"
   }
 };
 

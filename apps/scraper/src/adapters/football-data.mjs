@@ -15,14 +15,14 @@ export class FootballDataAdapter {
   async scrapeLeague({ league, leagueCode, seasonCode = "2425", fixtureText = null }) {
     const url = this.buildUrl(seasonCode, leagueCode);
     const raw = fixtureText ?? await this.client.getText(url);
-    await writeRaw(`football-data-${league}-${seasonCode}.csv`, raw);
+    const rawArtifact = await writeRaw(`football-data-${league}-${seasonCode}.csv`, raw);
 
     const rows = parseCsv(raw);
     const fixtures = normalizeFootballDataRows(rows, league);
     const teamForm = buildTeamForm(fixtures);
 
-    const fixturesFile = await writeJson("fixtures", `${league}-${seasonCode}`, fixtures);
-    const formFile = await writeJson("team-form", `${league}-${seasonCode}`, teamForm);
+    const fixturesArtifact = await writeJson("fixtures", `${league}-${seasonCode}`, fixtures);
+    const formArtifact = await writeJson("team-form", `${league}-${seasonCode}`, teamForm);
     return {
       source_id: this.source.id,
       url,
@@ -30,7 +30,16 @@ export class FootballDataAdapter {
       season_code: seasonCode,
       rows: rows.length,
       fixtures: fixtures.length,
-      artifacts: { fixtures: fixturesFile, team_form: formFile }
+      artifacts: {
+        raw: rawArtifact.file,
+        fixtures: fixturesArtifact.file,
+        team_form: formArtifact.file,
+      },
+      payload_hashes: {
+        [rawArtifact.file]: rawArtifact.hash,
+        [fixturesArtifact.file]: fixturesArtifact.hash,
+        [formArtifact.file]: formArtifact.hash,
+      },
     };
   }
 }
