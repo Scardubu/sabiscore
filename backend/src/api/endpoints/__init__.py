@@ -28,6 +28,7 @@ from .team_intelligence import router as team_intelligence_router  # noqa: E402
 from .leagues import router as leagues_router  # noqa: E402
 from .sources import router as sources_router  # noqa: E402
 from .core_engine import router as core_engine_router  # noqa: E402
+from .betting_intelligence import router as betting_intelligence_router  # noqa: E402
 
 # Ultra predictions are optional - depends on catboost/xgboost/lightgbm
 try:
@@ -59,6 +60,7 @@ router.include_router(team_intelligence_router)
 router.include_router(leagues_router)
 router.include_router(sources_router)
 router.include_router(core_engine_router)
+router.include_router(betting_intelligence_router)
 
 if _ultra_available and ultra_predictions_router is not None:
     router.include_router(ultra_predictions_router)

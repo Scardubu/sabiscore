@@ -67,20 +67,48 @@ def _default_live_vector(
         "features_dict": features_dict,
         "data_gaps": list(canonical_features),
         "staleness_seconds": 0,
+        "staleness_available": False,
         "elo_pre_match": 0.0,
         "league": league,
         "odds": None,
     }
 
 
-def _ensemble_from_prediction(pred: Dict[str, Any], league: str) -> EnsemblePrediction:
+def _empty_ensemble(league: str) -> EnsemblePrediction:
+    return EnsemblePrediction(
+        home_win_prob=0.0,
+        draw_prob=0.0,
+        away_win_prob=0.0,
+        prediction="unavailable",
+        confidence=0.0,
+        league=league,
+        model_version="unavailable",
+        calibration_method="unavailable",
+        calibration_applied=False,
+        overlay_applied=False,
+    )
+
+
+def _ensemble_from_prediction(pred: Dict[str, Any], league: str) -> Optional[EnsemblePrediction]:
     probs = pred.get("predictions")
     if not isinstance(probs, dict):
         probs = pred
-    h = float(probs.get("home_win", probs.get("home_win_prob", 0.33)))
-    d = float(probs.get("draw", probs.get("draw_prob", 0.33)))
-    a = float(probs.get("away_win", probs.get("away_win_prob", 0.34)))
-    total = h + d + a or 1.0
+
+    try:
+        h_raw = probs.get("home_win", probs.get("home_win_prob"))
+        d_raw = probs.get("draw", probs.get("draw_prob"))
+        a_raw = probs.get("away_win", probs.get("away_win_prob"))
+        if h_raw is None or d_raw is None or a_raw is None:
+            return None
+        h = float(h_raw)
+        d = float(d_raw)
+        a = float(a_raw)
+    except (TypeError, ValueError, AttributeError):
+        return None
+
+    total = h + d + a
+    if total <= 0:
+        return None
     h, d, a = h / total, d / total, a / total
     prediction = max({"home_win": h, "draw": d, "away_win": a}, key=lambda k: {"home_win": h, "draw": d, "away_win": a}[k])
     return EnsemblePrediction(
@@ -154,14 +182,19 @@ def _rl_from_ensemble(
     ensemble: EnsemblePrediction,
     odds: Optional[Dict[str, float]] = None,
 ) -> RLRecommendationPayload:
-    agent = RLBettingAgent()
     probs = {
         "home_win": ensemble.home_win_prob,
         "draw": ensemble.draw_prob,
         "away_win": ensemble.away_win_prob,
     }
     if odds is None:
-        odds = {"home_win": 2.38, "draw": 3.85, "away_win": 3.13}
+        return RLRecommendationPayload(
+            stake_fraction=0.0,
+            abstain=True,
+            reward_components={"R_pnl": 0.0, "R_ic": 0.0, "R_cal": 0.0, "R_risk": 0.0, "R_abs": 0.05},
+            reason="Abstained: market odds unavailable",
+        )
+    agent = RLBettingAgent()
     return agent.recommend(
         probabilities=probs,
         odds=odds,
@@ -187,17 +220,41 @@ def _odds_edge_from_features(
 ) -> Optional[OddsEdge]:
     if odds is None:
         return None
-    market = ensemble.prediction
-    market_odds = float(odds.get(market, 0.0))
-    if market_odds <= 1.0:
+
+    normalized_odds = {
+        "home_win": float(odds.get("home_win", odds.get("home", 0.0)) or 0.0),
+        "draw": float(odds.get("draw", 0.0) or 0.0),
+        "away_win": float(odds.get("away_win", odds.get("away", 0.0)) or 0.0),
+    }
+    if any(value <= 1.0 for value in normalized_odds.values()):
         return None
-    model_prob = float(
-        {"home_win": ensemble.home_win_prob, "draw": ensemble.draw_prob, "away_win": ensemble.away_win_prob}
-        .get(market, 0.0)
-    )
-    edge = model_prob - (1.0 / market_odds)
-    denom = market_odds - 1.0
-    kelly = max(0.0, edge / denom) if denom > 0 and edge > 0 else 0.0
+
+    raw_implied = {market: 1.0 / price for market, price in normalized_odds.items()}
+    overround = sum(raw_implied.values())
+    if overround <= 0:
+        return None
+    fair_market = {market: implied / overround for market, implied in raw_implied.items()}
+    model_probs = {
+        "home_win": ensemble.home_win_prob,
+        "draw": ensemble.draw_prob,
+        "away_win": ensemble.away_win_prob,
+    }
+
+    best: Optional[tuple[str, float, float, float, float]] = None
+    for market, market_odds in normalized_odds.items():
+        model_prob = float(model_probs.get(market, 0.0))
+        edge = model_prob - fair_market[market]
+        expected_value = (model_prob * market_odds) - 1.0
+        denom = market_odds - 1.0
+        kelly = max(0.0, expected_value / denom) if denom > 0 and expected_value > 0 else 0.0
+        candidate = (market, market_odds, model_prob, edge, kelly)
+        if best is None or (edge > best[3] and expected_value > 0):
+            best = candidate
+
+    if best is None or best[3] <= 0:
+        return None
+
+    market, market_odds, model_prob, edge, kelly = best
     from ...core.config import settings
 
     return OddsEdge(
@@ -437,6 +494,9 @@ async def get_full_analysis(
         raw_pred = {}
 
     ensemble = _ensemble_from_prediction(raw_pred, league)
+    if ensemble is None:
+        data_gaps.append("ensemble_prediction")
+        ensemble = _empty_ensemble(league)
     features_dict = live.get("features_dict", {})
 
     # Layer 2: BNN uncertainty
@@ -484,6 +544,7 @@ async def get_full_analysis(
         data_gaps=deduped_gaps,
         actionability=actionability,
         staleness_seconds=int(live.get("staleness_seconds", 0)),
+        staleness_available=bool(live.get("staleness_available", "staleness_seconds" in live)),
         feature_freshness_seconds=dict(live.get("feature_freshness_seconds") or {}),
         feature_source=dict(live.get("feature_source") or {}),
         features_dict=features_dict,
