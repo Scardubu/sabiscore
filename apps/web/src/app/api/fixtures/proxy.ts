@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 
 const BACKEND_URL =
   process.env.SABISCORE_BACKEND_URL ??
-  process.env.NEXT_PUBLIC_API_URL ??
   "http://localhost:8000";
 
 const BACKEND_TOKEN = process.env.BACKEND_TOKEN;

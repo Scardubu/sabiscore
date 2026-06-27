@@ -82,7 +82,6 @@ class Settings(BaseSettings):
         alias="ALLOWED_HOSTS",
         description="Comma-separated list of allowed hosts"
     )
-    espn_api_key: Optional[str] = None
     opta_api_key: Optional[str] = None
     betfair_app_key: Optional[str] = None
     betfair_session_token: Optional[str] = None
@@ -114,8 +113,14 @@ class Settings(BaseSettings):
 
     # Application
     app_env: str = Field(default="development", alias="APP_ENV")
-    debug: bool = Field(default=True)
+    debug: bool = Field(default=False)
     mock_mode: bool = Field(default=False, alias="MOCK_MODE")
+    enable_legacy_inference: bool = Field(default=False, alias="ENABLE_LEGACY_INFERENCE")
+    auto_create_tables: bool = Field(
+        default=False,
+        alias="AUTO_CREATE_TABLES",
+        description="Development-only escape hatch. Production must use Alembic migrations.",
+    )
     log_level: str = Field(default="INFO")
     log_format: str = Field(default="json")
     enable_tracing: bool = Field(default=False)
@@ -232,7 +237,7 @@ class Settings(BaseSettings):
     # Scraper networking
     scraper_ssl_verify: bool | str = Field(default=True, alias="SCRAPER_SSL_VERIFY")
     scraper_allow_insecure_fallback: bool = Field(
-        default=True,
+        default=False,
         alias="SCRAPER_ALLOW_INSECURE_FALLBACK",
         description="Allow retrying scraper requests without SSL verification after failures.",
     )
@@ -456,21 +461,29 @@ class Settings(BaseSettings):
         description="Local directory where backfill_v4_data_sources.py writes Parquet "
                     "snapshots and the JSON manifest. Never written to during live requests.",
     )
-    # Placeholder keys for Phase 9.1 connectors (no implementation yet)
+    enable_espn_provider: bool = Field(default=True, alias="ENABLE_ESPN_PROVIDER")
+    enable_football_data_provider: bool = Field(default=True, alias="ENABLE_FOOTBALL_DATA_PROVIDER")
+    enable_api_football_provider: bool = Field(default=False, alias="ENABLE_API_FOOTBALL_PROVIDER")
+    enable_sportmonks_provider: bool = Field(default=False, alias="ENABLE_SPORTMONKS_PROVIDER")
+    enable_the_odds_api_provider: bool = Field(default=False, alias="ENABLE_THE_ODDS_API_PROVIDER")
+    provider_live_tests: bool = Field(default=False, alias="PROVIDER_LIVE_TESTS")
+    provider_request_budget_enabled: bool = Field(default=True, alias="PROVIDER_REQUEST_BUDGET_ENABLED")
+
+    # Backend-only provider credentials.
     sportmonks_api_key: Optional[str] = Field(
         default=None,
         alias="SPORTMONKS_API_KEY",
-        description="Phase 9.1 placeholder — SportMonks API key. No connector active yet.",
+        description="Sportmonks API key for backend-only provider gateway calls.",
     )
     api_football_key: Optional[str] = Field(
         default=None,
         alias="API_FOOTBALL_KEY",
-        description="Phase 9.1 placeholder — API-Football key. No connector active yet.",
+        description="API-Football key for backend-only provider gateway calls.",
     )
     the_odds_api_key: Optional[str] = Field(
         default=None,
         alias="THE_ODDS_API_KEY",
-        description="Phase 9.1 placeholder — The Odds API key. No connector active yet.",
+        description="The Odds API key for backend-only provider gateway calls.",
     )
 
     def _parse_cors_raw(self) -> List[str]:
@@ -561,6 +574,30 @@ class Settings(BaseSettings):
                         {
                             "loc": ("enable_security_headers",),
                             "msg": "Security headers must remain enabled in production",
+                            "type": "value_error",
+                        }
+                    ],
+                    Settings,
+                )
+
+            if self.auto_create_tables:
+                raise ValidationError(
+                    [
+                        {
+                            "loc": ("auto_create_tables",),
+                            "msg": "AUTO_CREATE_TABLES must be disabled in production; run Alembic migrations instead",
+                            "type": "value_error",
+                        }
+                    ],
+                    Settings,
+                )
+
+            if self.scraper_allow_insecure_fallback:
+                raise ValidationError(
+                    [
+                        {
+                            "loc": ("scraper_allow_insecure_fallback",),
+                            "msg": "SCRAPER_ALLOW_INSECURE_FALLBACK must be disabled in production",
                             "type": "value_error",
                         }
                     ],

@@ -1,41 +1,35 @@
-"""Real-time odds fetching service integrating multiple bookmaker APIs."""
+"""Odds compatibility service backed by the provider gateway."""
 
 import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
-import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.cache import cache_manager
 from ..core.config import settings
 from ..db.models import Match, Odds
+from ..providers.base import ProviderStatus
+from ..providers.the_odds_api import TheOddsAPIProvider
 
 logger = logging.getLogger(__name__)
 
 
 class OddsService:
-    """Fetch and aggregate live odds from multiple bookmaker APIs."""
+    """Fetch live odds through the canonical provider gateway."""
     DEFAULT_ODDS = {"source": "unavailable", "reason": "odds_not_verified"}
 
     def __init__(self, cache_backend: Any = None) -> None:
         self.cache = cache_backend or cache_manager
-        self.odds_api_key = getattr(settings, 'odds_api_key', None)
-        self.odds_api_base = "https://api.the-odds-api.com/v4"
-        self._client: Optional[httpx.AsyncClient] = None
-
-    async def _get_client(self) -> httpx.AsyncClient:
-        if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(
-                timeout=httpx.Timeout(10.0),
-                limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
-            )
-        return self._client
+        self.provider = TheOddsAPIProvider(
+            api_key=settings.the_odds_api_key,
+            enabled=settings.enable_the_odds_api_provider,
+            live_tests=settings.provider_live_tests,
+        )
 
     async def close(self) -> None:
-        if self._client and not self._client.is_closed:
-            await self._client.aclose()
+        return None
 
     async def fetch_live_odds(
         self,
@@ -60,36 +54,18 @@ class OddsService:
             logger.info("Cache hit for live odds: %s", sport)
             return cached
 
-        if not self.odds_api_key:
-            logger.warning("Odds API key not configured; returning empty odds feed")
+        result = await self.provider.odds(sport=sport, regions=regions, markets=markets)
+        if result.status is not ProviderStatus.VERIFIED:
+            logger.warning(
+                "Odds provider unavailable provider=%s status=%s error=%s",
+                result.provider,
+                result.status.value,
+                result.error_code,
+            )
             return []
 
-        try:
-            client = await self._get_client()
-            url = f"{self.odds_api_base}/sports/{sport}/odds"
-            params = {
-                "apiKey": self.odds_api_key,
-                "regions": regions,
-                "markets": markets,
-                "oddsFormat": "decimal",
-            }
-
-            response = await client.get(url, params=params)
-            response.raise_for_status()
-            
-            odds_data = response.json()
-            logger.info("Fetched %d events from Odds API for %s", len(odds_data), sport)
-
-            # Cache for 2 minutes (odds change frequently)
-            self.cache.set(cache_key, odds_data, ttl=120)
-            return odds_data
-
-        except httpx.HTTPStatusError as exc:
-            logger.error("Odds API HTTP error: %s - %s", exc.response.status_code, exc.response.text)
-            return []
-        except Exception as exc:
-            logger.error("Failed to fetch live odds: %s", exc)
-            return []
+        self.cache.set(cache_key, result.records, ttl=120)
+        return result.records
 
     async def get_match_odds(
         self,

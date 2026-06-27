@@ -121,7 +121,7 @@ export async function POST(req: Request) {
 export const runtime = 'edge';
 
 export async function GET() {
-  const backendUrl = process.env.NEXT_PUBLIC_API_URL;
+  const backendUrl = process.env.SABISCORE_BACKEND_URL;
   
   try {
     const res = await fetch(`${backendUrl}/health`, {

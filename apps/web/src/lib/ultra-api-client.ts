@@ -8,7 +8,7 @@
 const ULTRA_API_URL =
   typeof window !== 'undefined'
     ? ''
-    : (process.env.NEXT_PUBLIC_ULTRA_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000');
+    : (process.env.SABISCORE_BACKEND_URL || 'http://localhost:8000');
 const ULTRA_API_PREFIX = '/api/v1/ultra'; // Ultra predictions API prefix
 
 /**
@@ -104,14 +104,14 @@ export interface UltraHealthResponse {
 
 class UltraAPIClient {
   private baseUrl: string;
-  private apiKey: string;
+  private apiKey?: string;
   private maxRetries: number = 2;
   private retryDelay: number = 500;
 
   constructor(baseUrl: string = ULTRA_API_URL, apiKey?: string) {
     // Normalize URL to handle env vars with or without prefix
     this.baseUrl = normalizeUltraUrl(baseUrl);
-    this.apiKey = apiKey || process.env.NEXT_PUBLIC_ULTRA_API_KEY || 'dev-key-12345';
+    this.apiKey = apiKey;
   }
 
   /**
@@ -123,12 +123,15 @@ class UltraAPIClient {
     
     return this.deduplicate(dedupeKey, () => 
       this.withRetry(async () => {
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
+        if (this.apiKey && typeof window === 'undefined') {
+          headers['X-API-Key'] = this.apiKey;
+        }
         const response = await fetch(`${this.baseUrl}/predict`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-API-Key': this.apiKey,
-          },
+          headers,
           body: JSON.stringify({ features }),
         });
 
@@ -156,12 +159,15 @@ class UltraAPIClient {
     }
 
     const response = await this.withRetry(async () => {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (this.apiKey && typeof window === 'undefined') {
+        headers['X-API-Key'] = this.apiKey;
+      }
       const res = await fetch(`${this.baseUrl}/predict/batch`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': this.apiKey,
-        },
+        headers,
         body: JSON.stringify({ matches }),
       });
 
@@ -198,12 +204,15 @@ class UltraAPIClient {
    * Clear prediction cache (admin operation)
    */
   async clearCache(): Promise<{ message: string }> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (this.apiKey && typeof window === 'undefined') {
+      headers['X-API-Key'] = this.apiKey;
+    }
     const response = await fetch(`${this.baseUrl}/cache/clear`, {
       method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': this.apiKey,
-      },
+      headers,
     });
 
     if (!response.ok) {
@@ -224,6 +233,28 @@ class UltraAPIClient {
     league: string,
     features?: Partial<UltraMatchFeatures>
   ): UltraMatchFeatures {
+    if (!features) {
+      throw new Error('Production inference requires backend-resolved features; synthetic defaults are disabled.');
+    }
+    const required: Array<keyof UltraMatchFeatures> = [
+      'home_last_5_wins',
+      'home_last_5_draws',
+      'home_last_5_losses',
+      'away_last_5_wins',
+      'away_last_5_draws',
+      'away_last_5_losses',
+      'home_goals_scored_avg',
+      'home_goals_conceded_avg',
+      'away_goals_scored_avg',
+      'away_goals_conceded_avg',
+      'h2h_home_wins',
+      'h2h_draws',
+      'h2h_away_wins',
+    ];
+    const missing = required.filter((field) => features[field] == null);
+    if (missing.length > 0) {
+      throw new Error(`Missing backend-resolved feature fields: ${missing.join(', ')}`);
+    }
     return {
       match_id: matchId,
       home_team_id: this.hashString(homeTeam) % 1000,
@@ -232,28 +263,28 @@ class UltraAPIClient {
       match_date: new Date().toISOString(),
       
       // Default form values
-      home_last_5_wins: features?.home_last_5_wins ?? 2,
-      home_last_5_draws: features?.home_last_5_draws ?? 1,
-      home_last_5_losses: features?.home_last_5_losses ?? 2,
-      away_last_5_wins: features?.away_last_5_wins ?? 2,
-      away_last_5_draws: features?.away_last_5_draws ?? 1,
-      away_last_5_losses: features?.away_last_5_losses ?? 2,
+      home_last_5_wins: features.home_last_5_wins,
+      home_last_5_draws: features.home_last_5_draws,
+      home_last_5_losses: features.home_last_5_losses,
+      away_last_5_wins: features.away_last_5_wins,
+      away_last_5_draws: features.away_last_5_draws,
+      away_last_5_losses: features.away_last_5_losses,
       
       // Default goals
-      home_goals_scored_avg: features?.home_goals_scored_avg ?? 1.5,
-      home_goals_conceded_avg: features?.home_goals_conceded_avg ?? 1.2,
-      away_goals_scored_avg: features?.away_goals_scored_avg ?? 1.3,
-      away_goals_conceded_avg: features?.away_goals_conceded_avg ?? 1.4,
+      home_goals_scored_avg: features.home_goals_scored_avg,
+      home_goals_conceded_avg: features.home_goals_conceded_avg,
+      away_goals_scored_avg: features.away_goals_scored_avg,
+      away_goals_conceded_avg: features.away_goals_conceded_avg,
       
       // Default H2H
-      h2h_home_wins: features?.h2h_home_wins ?? 3,
-      h2h_draws: features?.h2h_draws ?? 2,
-      h2h_away_wins: features?.h2h_away_wins ?? 3,
+      h2h_home_wins: features.h2h_home_wins,
+      h2h_draws: features.h2h_draws,
+      h2h_away_wins: features.h2h_away_wins,
       
       // Odds
-      home_odds: features?.home_odds,
-      draw_odds: features?.draw_odds,
-      away_odds: features?.away_odds,
+      home_odds: features.home_odds,
+      draw_odds: features.draw_odds,
+      away_odds: features.away_odds,
     };
   }
 

@@ -1,21 +1,18 @@
-# Sabiscore API (FastAPI Backend)
+# Legacy API Folder
 
-This is a symbolic link to the main backend directory.
+`apps/api` is legacy-only and is not a production deployment target.
 
-The actual FastAPI application lives in `../../backend/src/api/`
+The canonical FastAPI application lives at:
 
-## Development
-
-```bash
-cd apps/api
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r ../../backend/requirements.txt
-uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
+```text
+backend/src/api/main.py
 ```
 
-## Production
+Use:
 
 ```bash
-docker-compose -f ../../docker-compose.prod.yml up api
+cd backend
+python -m uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
 ```
+
+Production scripts, deploy configuration, and documentation should reference `backend/`, not `apps/api`.

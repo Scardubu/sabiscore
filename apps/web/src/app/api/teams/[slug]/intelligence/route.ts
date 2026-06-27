@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 const BACKEND_URL =
-  process.env.SABISCORE_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL;
+  process.env.SABISCORE_BACKEND_URL;
 
 export async function GET(
   req: NextRequest,

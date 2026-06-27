@@ -12,7 +12,7 @@ export const maxDuration = 30;
 
 function resolveBackendBaseUrl(): string {
   const configured =
-    process.env.SABISCORE_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL;
+    process.env.SABISCORE_BACKEND_URL;
   if (configured && configured.trim().length > 0) {
     return configured.replace(/\/+$/, "");
   }

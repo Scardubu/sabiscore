@@ -34,7 +34,7 @@ jsonschema==4.20.0
 sqlalchemy==2.0.23
 asyncpg>=0.27.0
 aiosqlite>=0.19.0
-psycopg2-binary==2.9.9
+psycopg[binary]>=3.2.0,<4.0.0
 alembic==1.13.1
 
 # ==============================================================================
@@ -55,15 +55,18 @@ passlib[bcrypt]==1.7.4
 # ==============================================================================
 # HTTP CLIENTS & WEB SCRAPING
 # ==============================================================================
-aiohttp==3.9.1
+aiohttp==3.9.1; python_version < "3.14"
+aiohttp>=3.12.0,<4.0.0; python_version >= "3.14"
 httpx==0.25.2
 requests==2.31.0
 websockets==12.0
 cloudscraper==1.2.71
 beautifulsoup4==4.12.2
-lxml==4.9.3
+lxml==4.9.3; python_version < "3.14"
+lxml>=6.0.0,<7.0.0; python_version >= "3.14"
 cssselect==1.2.0
-selectolax==0.3.17
+selectolax==0.3.17; python_version < "3.14"
+selectolax>=0.4.0,<0.5.0; python_version >= "3.14"
 html5lib==1.1
 w3lib==2.1.2
 
@@ -80,26 +83,36 @@ fake-useragent==1.4.0
 # ==============================================================================
 # DATA PROCESSING & ANALYTICS
 # ==============================================================================
-pandas==2.2.3
-numpy==1.26.2
-polars==0.19.19
-pyarrow==14.0.1
+pandas==2.2.3; python_version < "3.14"
+pandas>=2.3.0,<3.0.0; python_version >= "3.14"
+numpy==1.26.2; python_version < "3.14"
+numpy>=2.3.0,<3.0.0; python_version >= "3.14"
+polars==0.19.19; python_version < "3.14"
+polars>=1.35.0,<2.0.0; python_version >= "3.14"
+pyarrow==14.0.1; python_version < "3.14"
+pyarrow>=21.0.0,<23.0.0; python_version >= "3.14"
 
 # ==============================================================================
 # MACHINE LEARNING
 # ==============================================================================
-scikit-learn==1.3.2
-xgboost==2.0.3
-lightgbm==4.1.0
+# Python 3.14 keeps the API/runtime install on wheel-backed core inference
+# packages. Optional training/experiment packages without reliable cp314 wheels
+# remain on Python <3.14 and should be installed in a dedicated training env.
+scikit-learn==1.3.2; python_version < "3.14"
+scikit-learn>=1.7.0,<2.0.0; python_version >= "3.14"
+xgboost==2.0.3; python_version < "3.14"
+xgboost>=3.0.0,<4.0.0; python_version >= "3.14"
+lightgbm==4.1.0; python_version < "3.14"
+lightgbm>=4.6.0,<5.0.0; python_version >= "3.14"
 optuna>=3.0.0
-catboost==1.2.2
+catboost==1.2.2; python_version < "3.14"
 joblib==1.3.2
-shap==0.44.1
+shap==0.44.1; python_version < "3.14"
 
 # ==============================================================================
 # ML OPERATIONS & EXPERIMENT TRACKING
 # ==============================================================================
-mlflow==2.8.1
+mlflow==2.8.1; python_version < "3.14"
 
 # ==============================================================================
 # CLOUD & STORAGE
@@ -109,13 +122,15 @@ boto3==1.28.57
 # ==============================================================================
 # DATA QUALITY & VALIDATION
 # ==============================================================================
-great-expectations==0.18.8
+great-expectations==0.18.8; python_version < "3.14"
 
 # ==============================================================================
 # SERIALIZATION & DATA FORMATS
 # ==============================================================================
-orjson==3.9.10
-msgpack==1.0.7
+orjson==3.9.10; python_version < "3.14"
+orjson>=3.10.15,<4.0.0; python_version >= "3.14"
+msgpack==1.0.7; python_version < "3.14"
+msgpack>=1.1.0,<2.0.0; python_version >= "3.14"
 
 # ==============================================================================
 # DATE & TIME UTILITIES

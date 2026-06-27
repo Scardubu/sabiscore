@@ -123,9 +123,9 @@ def enrich_features(match_id, limit):
 
 @cli.command()
 @click.option("--league", "-l", default="EPL", help="League to poll")
-@click.option("--interval", "-i", default=8, help="Poll interval in seconds")
+@click.option("--interval", "-i", default=300, help="Poll interval in seconds (minimum 300)")
 def poll_live(league, interval):
-    """Start live match polling from ESPN"""
+    """Start conservative ESPN status polling for operator diagnostics."""
     
     click.echo(f"📡 Starting live polling for {league} (interval: {interval}s)")
     click.echo("Press Ctrl+C to stop\n")

@@ -11,18 +11,15 @@
     "env": {
       "NEXT_TELEMETRY_DISABLED": "1",
       "NODE_OPTIONS": "--max-old-space-size=8192",
-      "NEXT_PUBLIC_API_URL": "https://sabiscore-api.onrender.com",
-      "NEXT_PUBLIC_WS_URL": "wss://sabiscore-api.onrender.com"
+      "SABISCORE_BACKEND_URL": "https://sabiscore-api.onrender.com"
     }
   },
   "env": {
-    "NEXT_PUBLIC_API_URL": "https://sabiscore-api.onrender.com",
-    "NEXT_PUBLIC_WS_URL": "wss://sabiscore-api.onrender.com",
+    "SABISCORE_BACKEND_URL": "https://sabiscore-api.onrender.com",
+    "NEXT_PUBLIC_APP_URL": "https://sabiscore.com",
     "NEXT_PUBLIC_CURRENCY": "NGN",
-    "NEXT_PUBLIC_CURRENCY_SYMBOL": "₦",
-    "NEXT_PUBLIC_BASE_BANKROLL": "10000",
-    "NEXT_PUBLIC_KELLY_FRACTION": "0.125",
-    "NEXT_PUBLIC_MIN_EDGE_NGN": "66"
+    "NEXT_PUBLIC_CURRENCY_SYMBOL": "NGN",
+    "NEXT_PUBLIC_BASE_BANKROLL": "10000"
   },
   "headers": [
     {
@@ -60,7 +57,7 @@
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "public, max-age=15, stale-while-revalidate=30"
+          "value": "no-store"
         }
       ]
     },

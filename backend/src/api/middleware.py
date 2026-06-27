@@ -95,6 +95,22 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
         return response
 
+
+class CorrelationIdMiddleware(BaseHTTPMiddleware):
+    """Attach a stable correlation ID to each request."""
+
+    async def dispatch(self, request: Request, call_next):
+        request_id = (
+            request.headers.get("X-Request-ID")
+            or request.headers.get("X-Correlation-ID")
+            or str(uuid.uuid4())
+        )
+        request.state.request_id = request_id
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        return response
+
+
 class TimingMiddleware(BaseHTTPMiddleware):
     """Request timing and structured logging middleware."""
 
@@ -107,7 +123,7 @@ class TimingMiddleware(BaseHTTPMiddleware):
             body = getattr(request.state, "prediction_result", {}) or {}
             record = {
                 "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "request_id": str(uuid.uuid4()),
+                "request_id": getattr(request.state, "request_id", str(uuid.uuid4())),
                 "match_id": body.get("match_id"),
                 "league": body.get("league"),
                 "predicted_outcome": body.get("predicted_outcome"),
@@ -128,9 +144,12 @@ class TimingMiddleware(BaseHTTPMiddleware):
                 "path": request.url.path,
                 "status_code": response.status_code,
                 "duration_ms": round(process_time * 1000, 2),
+                "request_id": getattr(request.state, "request_id", None),
             },
         )
 
+        if request.url.path.startswith(("/api/v1/betting-intelligence", "/api/v1/fixtures")):
+            response.headers.setdefault("Cache-Control", "no-store")
         response.headers["X-Process-Time"] = f"{process_time:.6f}"
         return response
 
@@ -148,6 +167,7 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
                 content={
                     "detail": "Internal server error",
                     "error_code": "INTERNAL_ERROR",
+                    "request_id": getattr(request.state, "request_id", None),
                     "timestamp": time.time(),
                 },
             )
@@ -190,6 +210,9 @@ def setup_middleware(app):
 
     # Security headers
     app.add_middleware(SecurityHeadersMiddleware)
+
+    # Request correlation
+    app.add_middleware(CorrelationIdMiddleware)
 
     # Response compression
     if settings.enable_response_compression:

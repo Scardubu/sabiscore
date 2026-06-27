@@ -3,11 +3,12 @@ uvicorn[standard]==0.24.0
 pydantic==2.9.2
 pydantic-settings==2.1.0
 sqlalchemy==2.0.23
-psycopg2-binary==2.9.9
+psycopg[binary]>=3.2.0,<4.0.0
 alembic==1.13.1
 redis==5.0.1
 requests==2.31.0
-orjson==3.9.10
+orjson==3.9.10; python_version < "3.14"
+orjson>=3.10.15,<4.0.0; python_version >= "3.14"
 cachetools==5.3.2
 prometheus-client==0.19.0
 sentry-sdk[fastapi]==1.39.1

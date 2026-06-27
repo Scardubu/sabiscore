@@ -7,7 +7,6 @@ from . import api_router
 from .endpoints.monitoring import router as monitoring_router_root
 from .websocket import router as ws_router
 from ..core.config import settings
-from ..core.database import engine, Base
 from ..core.cache import cache
 from ..core.model_fetcher import DEFAULT_LEAGUES, load_ensemble_per_league
 from ..db.session import init_db, close_db
@@ -35,13 +34,27 @@ if settings.sentry_dsn:
     logging.info("Sentry error tracking initialized")
 
 def _filter_sentry_event(event, hint):
-    """Filter Sentry events to reduce noise"""
+    """Filter Sentry events to reduce noise and redact secrets."""
+    sensitive = ("token", "secret", "api_key", "apikey", "authorization", "password", "key")
+
+    def _redact(value):
+        if isinstance(value, dict):
+            return {
+                k: ("[REDACTED]" if any(s in str(k).lower() for s in sensitive) else _redact(v))
+                for k, v in value.items()
+            }
+        if isinstance(value, list):
+            return [_redact(item) for item in value]
+        if isinstance(value, str) and any(marker in value.lower() for marker in ("apikey=", "api_key=", "token=", "authorization")):
+            return "[REDACTED]"
+        return value
+
     # Skip 404 errors
     if event.get('exception'):
         for exception in event['exception']['values']:
             if '404' in str(exception.get('value', '')):
                 return None
-    return event
+    return _redact(event)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -51,14 +64,6 @@ logger = logging.getLogger(__name__)
 model_instance = None
 # Simple flag to avoid concurrent background loads
 model_load_in_progress = False
-
-# Initialize database tables on import
-try:
-    logger.info("Initializing database...")
-    Base.metadata.create_all(bind=engine)
-    logger.info("Database tables created/verified")
-except Exception as e:
-    logger.error(f"Database initialization error: {e}")
 
 # Custom JSON encoder that handles various non-serializable types
 class CustomJSONEncoder(json.JSONEncoder):

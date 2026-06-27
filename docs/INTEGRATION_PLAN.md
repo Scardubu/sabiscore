@@ -1335,7 +1335,7 @@ databases:
     }
   ],
   "env": {
-    "NEXT_PUBLIC_API_URL": "https://sabiscore-api.onrender.com",
+    "SABISCORE_BACKEND_URL": "https://sabiscore-api.onrender.com",
     "NEXT_PUBLIC_API_VERSION": "v1",
     "NEXT_PUBLIC_ENABLE_ANALYTICS": "true",
     "NEXT_PUBLIC_SENTRY_DSN": "@sentry-dsn"
@@ -2022,7 +2022,7 @@ vercel --prod
 - Install Command: npm install
 
 # Set environment variables in Vercel dashboard:
-- NEXT_PUBLIC_API_URL=https://sabiscore-api.onrender.com
+- SABISCORE_BACKEND_URL=https://sabiscore-api.onrender.com
 - NEXT_PUBLIC_API_VERSION=v1
 - NEXT_PUBLIC_SENTRY_DSN=[your sentry DSN]
 ```

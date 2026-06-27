@@ -27,6 +27,8 @@ from ...schemas.betting_intelligence import (
     SourceStatusInput,
 )
 from ...services.betting_intelligence import analyze_match
+from ...providers import build_provider_registry
+from ...providers.orchestrator import EvidenceOrchestrator, EvidenceProfile
 
 
 router = APIRouter(prefix="/fixtures", tags=["fixtures"])
@@ -62,6 +64,35 @@ class EvidenceResponse(BaseModel):
     source_status: Dict[str, str]
     data_gaps: List[str] = Field(default_factory=list)
     retrieval_timeline: List[Dict[str, Any]] = Field(default_factory=list)
+    readiness: List[Dict[str, Any]] = Field(default_factory=list)
+    source_comparison: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class RefreshEvidenceRequest(BaseModel):
+    profile: EvidenceProfile = EvidenceProfile.PREMATCH_STANDARD
+
+
+class RefreshEvidenceResponse(BaseModel):
+    fixture_id: str
+    profile: EvidenceProfile
+    provider_results: List[Dict[str, Any]]
+    refreshed_at: datetime
+
+
+class ProviderOddsCandidate(BaseModel):
+    bookmaker: str
+    home_odds: float
+    draw_odds: float
+    away_odds: float
+    captured_at: datetime
+    provider: str = "stored_snapshot"
+    executable: bool = True
+
+
+class ProviderOddsCandidatesResponse(BaseModel):
+    fixture_id: str
+    candidates: List[ProviderOddsCandidate]
+    warnings: List[str] = Field(default_factory=list)
 
 
 class ManualOddsSnapshotRequest(BaseModel):
@@ -349,6 +380,31 @@ async def _build_evidence(db: AsyncSession, fixture_id: str) -> tuple[Match, Opt
             {"step": "market", "status": "VERIFIED" if odds else "DATA_GAP", "source": "manual odds snapshot"},
             {"step": "availability", "status": "DATA_GAP", "source": "lineup and injury provider unavailable"},
         ],
+        readiness=[
+            {"stage": "Fixture identity", "state": "VERIFIED", "source": "database", "timestamp": summary.kickoff_utc, "reason": None},
+            {"stage": "Team metrics", "state": model_status, "source": "model features", "timestamp": prediction.created_at if prediction else None, "reason": None if prediction else "model prediction missing"},
+            {"stage": "Availability", "state": "DATA_GAP", "source": None, "timestamp": None, "reason": "availability provider evidence not verified"},
+            {"stage": "Lineup", "state": "DATA_GAP", "source": None, "timestamp": None, "reason": "confirmed lineup unavailable"},
+            {"stage": "Model", "state": model_status, "source": "SabiScore backend", "timestamp": prediction.created_at if prediction else None, "reason": None if model_status == "VERIFIED" else "model metadata incomplete or stale"},
+            {"stage": "Market", "state": "VERIFIED" if odds else "DATA_GAP", "source": odds.bookmaker if odds else None, "timestamp": odds.timestamp if odds else None, "reason": None if odds else "one coherent bookmaker snapshot required"},
+            {"stage": "Risk gate", "state": "PARTIAL" if data_gaps else "VERIFIED", "source": "strict engine", "timestamp": datetime.now(timezone.utc), "reason": "; ".join(data_gaps[:3]) if data_gaps else None},
+        ],
+        source_comparison=[
+            {
+                "field": "market",
+                "selected_source": odds.bookmaker if odds else None,
+                "status": "VERIFIED" if odds else "DATA_GAP",
+                "reason": "single coherent 1X2 bookmaker snapshot" if odds else "no coherent market snapshot stored",
+                "timestamp": odds.timestamp if odds else None,
+            },
+            {
+                "field": "model",
+                "selected_source": prediction.model_version if prediction else None,
+                "status": model_status,
+                "reason": "backend-only calibrated probabilities" if prediction else "model prediction unavailable",
+                "timestamp": prediction.created_at if prediction else None,
+            },
+        ],
     )
     return fixture, prediction, odds, evidence
 
@@ -386,6 +442,71 @@ async def fixture_evidence(
 ) -> EvidenceResponse:
     _, _, _, evidence = await _build_evidence(db, fixture_id)
     return evidence
+
+
+@router.post("/{fixture_id}/refresh", response_model=RefreshEvidenceResponse)
+async def refresh_fixture_evidence(
+    fixture_id: str,
+    payload: RefreshEvidenceRequest,
+    db: AsyncSession = Depends(get_async_session),
+) -> RefreshEvidenceResponse:
+    fixture = await _get_fixture_or_404(db, fixture_id)
+    orchestrator = EvidenceOrchestrator(build_provider_registry())
+    results = await orchestrator.collect(
+        {
+            "fixture_id": fixture_id,
+            "competition": str(fixture.league_id or "EPL"),
+            "home_team": _team_label(fixture.home_team_id),
+            "away_team": _team_label(fixture.away_team_id),
+            "kickoff_utc": fixture.match_date,
+        },
+        payload.profile,
+    )
+    return RefreshEvidenceResponse(
+        fixture_id=fixture_id,
+        profile=payload.profile,
+        provider_results=[result.model_dump(mode="json") for result in results],
+        refreshed_at=datetime.now(timezone.utc),
+    )
+
+
+@router.get("/{fixture_id}/odds-snapshots", response_model=ProviderOddsCandidatesResponse)
+async def provider_odds_candidates(
+    fixture_id: str,
+    db: AsyncSession = Depends(get_async_session),
+) -> ProviderOddsCandidatesResponse:
+    await _get_fixture_or_404(db, fixture_id)
+    result = await db.execute(
+        select(Odds)
+        .where(Odds.match_id == fixture_id)
+        .order_by(desc(Odds.timestamp), desc(Odds.id))
+        .limit(25)
+    )
+    candidates: List[ProviderOddsCandidate] = []
+    seen: set[str] = set()
+    for odds in result.scalars().all():
+        if not odds.bookmaker or odds.bookmaker in seen:
+            continue
+        if odds.home_win is None or odds.draw is None or odds.away_win is None:
+            continue
+        seen.add(odds.bookmaker)
+        captured = odds.timestamp or datetime.now(timezone.utc)
+        if captured.tzinfo is None:
+            captured = captured.replace(tzinfo=timezone.utc)
+        candidates.append(
+            ProviderOddsCandidate(
+                bookmaker=odds.bookmaker,
+                home_odds=float(odds.home_win),
+                draw_odds=float(odds.draw),
+                away_odds=float(odds.away_win),
+                captured_at=captured,
+            )
+        )
+    return ProviderOddsCandidatesResponse(
+        fixture_id=fixture_id,
+        candidates=candidates,
+        warnings=[] if candidates else ["no_provider_or_stored_bookmaker_snapshot_available"],
+    )
 
 
 @router.post("/{fixture_id}/odds-snapshot", response_model=ManualOddsSnapshotResponse)

@@ -17,13 +17,16 @@ import type {
   ManualOddsSnapshotRequest,
   MatchAnalysisResult,
   MarketEvaluation,
+  ProviderOddsCandidate,
   Verdict,
 } from "@/lib/betting-intelligence-api";
 import {
   analyzeFixture,
   getEnginePolicy,
   getFixtureEvidence,
+  getProviderOddsCandidates,
   getUpcomingFixtures,
+  refreshFixtureEvidence,
   submitManualOddsSnapshot,
 } from "@/lib/betting-intelligence-api";
 
@@ -185,6 +188,37 @@ function Timeline({ evidence }: { evidence: FixtureEvidenceResponse | null }) {
   );
 }
 
+function ReadinessRail({ evidence }: { evidence: FixtureEvidenceResponse | null }) {
+  const rows = evidence?.readiness ?? [
+    { stage: "Fixture identity", state: "WAITING", source: "database" },
+    { stage: "Team metrics", state: "WAITING", source: "model features" },
+    { stage: "Availability", state: "WAITING", source: "provider gateway" },
+    { stage: "Lineup", state: "WAITING", source: "provider gateway" },
+    { stage: "Model", state: "WAITING", source: "SabiScore backend" },
+    { stage: "Market", state: "WAITING", source: "bookmaker snapshot" },
+    { stage: "Risk gate", state: "WAITING", source: "strict engine" },
+  ];
+
+  return (
+    <section className="bi-panel">
+      <div className="bi-panel-title"><ShieldCheck size={16} /> Evidence Readiness</div>
+      <div className="bi-rail">
+        {rows.map((row) => (
+          <div className="bi-rail-row" key={String(row.stage)}>
+            <span className={`bi-dot ${String(row.state).toLowerCase()}`} />
+            <div>
+              <strong>{String(row.stage)}</strong>
+              <small>{String(row.source ?? "source unavailable")} {row.timestamp ? `| ${fmtDate(String(row.timestamp))}` : ""}</small>
+              {row.reason ? <small className="bi-risk">{String(row.reason)}</small> : null}
+            </div>
+            <span className="bi-state">{String(row.state)}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function OutcomeTable({ rows }: { rows?: MarketEvaluation[] | null }) {
   return (
     <section className="bi-panel">
@@ -222,6 +256,10 @@ export function BettingIntelligenceDashboard() {
   const [selectedFixtureId, setSelectedFixtureId] = useState<string>("");
   const [evidence, setEvidence] = useState<FixtureEvidenceResponse | null>(null);
   const [result, setResult] = useState<MatchAnalysisResult | null>(null);
+  const [teamQuery, setTeamQuery] = useState("");
+  const [dateFilter, setDateFilter] = useState("");
+  const [oddsCandidates, setOddsCandidates] = useState<ProviderOddsCandidate[]>([]);
+  const [sourceDrawerOpen, setSourceDrawerOpen] = useState(false);
   const [oddsForm, setOddsForm] = useState<OddsForm>(() => defaultOddsForm());
   const [policy, setPolicy] = useState<string>("4.2pp edge threshold");
   const [loading, setLoading] = useState<string | null>(null);
@@ -231,6 +269,17 @@ export function BettingIntelligenceDashboard() {
     () => fixtures.find((fixture) => fixture.fixture_id === selectedFixtureId) ?? null,
     [fixtures, selectedFixtureId],
   );
+  const visibleFixtures = useMemo(() => {
+    const q = teamQuery.trim().toLowerCase();
+    return fixtures.filter((fixture) => {
+      const teamMatches = !q
+        || fixture.home_team.toLowerCase().includes(q)
+        || fixture.away_team.toLowerCase().includes(q);
+      const dateMatches = !dateFilter
+        || fixture.kickoff_utc.slice(0, 10) === dateFilter;
+      return teamMatches && dateMatches;
+    });
+  }, [dateFilter, fixtures, teamQuery]);
   const parsedOdds = useMemo(
     () => ({
       home: Number(oddsForm.home),
@@ -310,6 +359,50 @@ export function BettingIntelligenceDashboard() {
     }
   };
 
+  const refreshEvidence = async () => {
+    if (!selectedFixtureId) return;
+    setLoading("refresh");
+    setError(null);
+    try {
+      await refreshFixtureEvidence(selectedFixtureId, "PREMATCH_STANDARD");
+      setEvidence(await getFixtureEvidence(selectedFixtureId));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Evidence refresh failed.");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const loadOddsCandidates = async () => {
+    if (!selectedFixtureId) return;
+    setLoading("odds-candidates");
+    setError(null);
+    try {
+      const payload = await getProviderOddsCandidates(selectedFixtureId);
+      setOddsCandidates(payload.candidates);
+      if (payload.candidates.length === 0) {
+        setError("No backend bookmaker snapshots are available. Manual entry is required.");
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Could not load bookmaker snapshots.");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const previewCandidate = (candidate: ProviderOddsCandidate) => {
+    setOddsForm((current) => ({
+      ...current,
+      bookmaker: candidate.bookmaker,
+      home: String(candidate.home_odds),
+      draw: String(candidate.draw_odds),
+      away: String(candidate.away_odds),
+      observedAt: new Date(candidate.captured_at).toISOString().slice(0, 16),
+      sourceLabel: `${candidate.provider} | ${candidate.bookmaker}`,
+      confirmed: false,
+    }));
+  };
+
   const submitOdds = async (event: FormEvent) => {
     event.preventDefault();
     if (!selectedFixtureId) return;
@@ -378,6 +471,9 @@ export function BettingIntelligenceDashboard() {
         .bi-table-wrap{overflow-x:auto;padding-bottom:2px}.bi-table{display:grid;gap:6px;min-width:680px}.bi-tr{display:grid;grid-template-columns:1fr 1fr 1fr .8fr .8fr .8fr;gap:8px;align-items:center;border-bottom:1px solid rgba(255,255,255,.07);padding:9px 0;font-size:13px}.bi-th{color:#9fb3aa;font-weight:900;text-transform:uppercase;font-size:11px}
         .bi-good{color:#69f0a6}.bi-risk{color:#ffb5bd}
         .bi-timeline{display:grid;gap:10px}.bi-timeline-row{display:grid;grid-template-columns:14px 1fr auto;gap:10px;align-items:center}.bi-timeline-row small{grid-column:2 / 4;color:#9fb3aa}.bi-dot{width:10px;height:10px;border-radius:50%;background:#71827b}.bi-dot.verified,.bi-dot.success{background:#39d98a}.bi-dot.data_gap,.bi-dot.waiting{background:#d8b8ff}.bi-dot.stale{background:#ffd76b}.bi-dot.conflicting{background:#ffb5bd}
+        .bi-rail{display:grid;gap:8px}.bi-rail-row{display:grid;grid-template-columns:14px 1fr auto;gap:10px;align-items:start;border-bottom:1px solid rgba(255,255,255,.07);padding:8px 0}.bi-rail-row strong{display:block}.bi-rail-row small{display:block;color:#9fb3aa;margin-top:2px}.bi-state{font-size:11px;font-weight:900;color:#cfe5dc}
+        .bi-candidates{display:grid;gap:8px;margin-top:10px}.bi-candidate{display:flex;justify-content:space-between;gap:10px;align-items:center;border:1px solid rgba(255,255,255,.12);background:#0c1714;border-radius:7px;padding:10px}
+        .bi-filters{display:grid;grid-template-columns:1fr 1fr;gap:10px}
         .bi-form-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.bi-confirm{display:flex;gap:8px;align-items:flex-start;margin-top:12px;color:#cfe5dc;font-size:13px}
         .bi-error{display:flex;gap:8px;align-items:center;border:1px solid rgba(255,181,189,.3);background:#2a1518;color:#ffd9de;border-radius:7px;padding:10px;margin-top:12px}
         .bi-next-action{margin:8px 0 0;color:#d8f5e7;font-weight:800}
@@ -401,6 +497,14 @@ export function BettingIntelligenceDashboard() {
             <select id="competition" className="bi-select" value={competition} onChange={(e) => setCompetition(e.target.value)}>
               {COMPETITIONS.map((item) => <option value={item} key={item}>{item}</option>)}
             </select>
+            <div className="bi-filters">
+              <label className="bi-label">Team
+                <input className="bi-input" value={teamQuery} onChange={(e) => setTeamQuery(e.target.value)} placeholder="Search team" />
+              </label>
+              <label className="bi-label">Date
+                <input className="bi-input" type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} />
+              </label>
+            </div>
             <div className="bi-actions">
               <button className="bi-btn ghost" type="button" onClick={() => getUpcomingFixtures(competition).then((p) => setFixtures(p.fixtures))}>
                 <RefreshCw size={14} /> Refresh
@@ -408,8 +512,8 @@ export function BettingIntelligenceDashboard() {
             </div>
             <label className="bi-label">Verified Fixtures</label>
             {loading === "fixtures" && <p className="bi-muted">Loading fixtures...</p>}
-            {!loading && fixtures.length === 0 && <p className="bi-muted">No upcoming fixtures found for this competition.</p>}
-            {fixtures.map((fixture) => (
+            {!loading && visibleFixtures.length === 0 && <p className="bi-muted">No upcoming fixtures found for these filters.</p>}
+            {visibleFixtures.map((fixture) => (
               <button
                 className="bi-fixture"
                 key={fixture.fixture_id}
@@ -428,6 +532,9 @@ export function BettingIntelligenceDashboard() {
             <div className="bi-actions">
               <button className="bi-btn" type="button" disabled={!selectedFixtureId || loading !== null} onClick={loadEvidence}>
                 <FileSearch size={14} /> Retrieve Evidence
+              </button>
+              <button className="bi-btn ghost" type="button" disabled={!selectedFixtureId || loading !== null} onClick={refreshEvidence}>
+                <RefreshCw size={14} /> Refresh Evidence
               </button>
               <button className="bi-btn secondary" type="button" disabled={!selectedFixtureId || loading !== null} onClick={runAnalysis}>
                 Analyze
@@ -463,6 +570,10 @@ export function BettingIntelligenceDashboard() {
 
             <div className="bi-two">
               <Timeline evidence={evidence} />
+              <ReadinessRail evidence={evidence} />
+            </div>
+
+            <div className="bi-two">
               <section className="bi-panel">
                 <div className="bi-panel-title"><ShieldCheck size={16} /> Evidence Passport</div>
                 {evidence ? (
@@ -481,10 +592,47 @@ export function BettingIntelligenceDashboard() {
                   </>
                 ) : <p className="bi-muted">Evidence has not been retrieved yet.</p>}
               </section>
+              <section className="bi-panel">
+                <div className="bi-panel-title">Compare Sources</div>
+                <button className="bi-btn ghost" type="button" onClick={() => setSourceDrawerOpen((value) => !value)}>
+                  {sourceDrawerOpen ? "Hide" : "Show"} source comparison
+                </button>
+                {sourceDrawerOpen && evidence?.source_comparison?.length ? (
+                  <div className="bi-candidates">
+                    {evidence.source_comparison.map((row) => (
+                      <div className="bi-candidate" key={`${String(row.field)}-${String(row.selected_source)}`}>
+                        <span>
+                          <strong>{String(row.field)}</strong>
+                          <small className="bi-muted">{String(row.reason ?? "No selection reason")}</small>
+                        </span>
+                        <span className="bi-state">{String(row.status)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : <p className="bi-muted">Source comparison appears after evidence retrieval.</p>}
+              </section>
             </div>
 
             <section className="bi-panel">
               <div className="bi-panel-title"><Database size={16} /> Manual Odds Snapshot</div>
+              <div className="bi-actions">
+                <button className="bi-btn ghost" type="button" disabled={!selectedFixtureId || loading !== null} onClick={loadOddsCandidates}>
+                  Auto-fill market
+                </button>
+              </div>
+              {oddsCandidates.length > 0 && (
+                <div className="bi-candidates">
+                  {oddsCandidates.map((candidate) => (
+                    <div className="bi-candidate" key={`${candidate.bookmaker}-${candidate.captured_at}`}>
+                      <span>
+                        <strong>{candidate.bookmaker}</strong>
+                        <small className="bi-muted">H {fmtOdds(candidate.home_odds)} D {fmtOdds(candidate.draw_odds)} A {fmtOdds(candidate.away_odds)} | {fmtDate(candidate.captured_at)}</small>
+                      </span>
+                      <button className="bi-btn secondary" type="button" onClick={() => previewCandidate(candidate)}>Preview</button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <form onSubmit={submitOdds}>
                 <label className="bi-label">Bookmaker</label>
                 <input className="bi-input" value={oddsForm.bookmaker} onChange={(e) => setOddsForm((f) => ({ ...f, bookmaker: e.target.value }))} required />

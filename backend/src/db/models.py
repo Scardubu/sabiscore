@@ -21,6 +21,14 @@ from ..core.database import (  # noqa: F401
     Team,
     UserAccount,
     ValueBet,
+    CanonicalCompetition,
+    CanonicalFixture,
+    CanonicalTeam,
+    MarketSnapshot,
+    ProviderCapabilityRecord,
+    ProviderEventMapping,
+    ProviderQuotaObservation,
+    ProviderRequestSummary,
 )
 
 __all__ = [
@@ -39,4 +47,12 @@ __all__ = [
     "Team",
     "UserAccount",
     "ValueBet",
+    "CanonicalCompetition",
+    "CanonicalFixture",
+    "CanonicalTeam",
+    "MarketSnapshot",
+    "ProviderCapabilityRecord",
+    "ProviderEventMapping",
+    "ProviderQuotaObservation",
+    "ProviderRequestSummary",
 ]

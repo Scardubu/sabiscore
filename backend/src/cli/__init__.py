@@ -1,5 +1,3 @@
-"""CLI tools for data management"""
+"""SabiScore backend CLI package."""
 
-from .data_pipeline import cli
-
-__all__ = ["cli"]
+__all__: list[str] = []

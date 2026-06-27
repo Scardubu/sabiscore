@@ -1,4 +1,4 @@
-const DEFAULT_API_ORIGIN = "http://localhost:8000";
+const DEFAULT_API_ORIGIN = "";
 
 function normalizeOrigin(raw?: string): string {
   const value = (raw ?? DEFAULT_API_ORIGIN).trim();
@@ -14,7 +14,7 @@ function ensureVersionedBase(origin: string): string {
     : `${origin}/api/v1`;
 }
 
-export const API_ORIGIN = normalizeOrigin(process.env.NEXT_PUBLIC_API_URL);
+export const API_ORIGIN = normalizeOrigin();
 export const API_V1_BASE = ensureVersionedBase(API_ORIGIN);
 
 export function buildApiUrl(path: string): string {

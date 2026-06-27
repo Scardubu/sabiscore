@@ -12,6 +12,37 @@ Currently, the API is open for development. In production, implement JWT-based a
 
 ## Endpoints
 
+### Provider Gateway
+
+Provider routes expose redacted health, capability, and quota state for the backend-only provider gateway.
+
+```text
+GET /providers
+GET /providers/health
+GET /providers/capabilities
+GET /providers/quota
+```
+
+Optional query parameter:
+
+- `provider`: provider id such as `espn`, `football_data_org`, `api_football`, `sportmonks`, or `the_odds_api`.
+
+Providers return standard envelopes with `status`, `trust_tier`, `warnings`, `quota`, and acquired timestamps. ESPN is keyless and supplementary only.
+
+### Fixture Intelligence
+
+```text
+GET  /fixtures/upcoming
+GET  /fixtures/{fixture_id}
+GET  /fixtures/{fixture_id}/evidence
+POST /fixtures/{fixture_id}/refresh
+GET  /fixtures/{fixture_id}/odds-snapshots
+POST /fixtures/{fixture_id}/odds-snapshot
+POST /fixtures/{fixture_id}/analyze
+```
+
+`/odds-snapshots` returns coherent one-bookmaker 1X2 candidates. Cross-bookmaker comparisons are display evidence only; analysis uses one complete bookmaker snapshot or a user-confirmed manual snapshot.
+
 ### Health Check
 
 **GET** `/health`

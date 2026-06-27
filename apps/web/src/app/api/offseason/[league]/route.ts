@@ -13,7 +13,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const BACKEND_URL =
-  process.env.SABISCORE_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL;
+  process.env.SABISCORE_BACKEND_URL;
 
 export async function GET(
   _req: NextRequest,

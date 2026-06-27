@@ -33,7 +33,7 @@ PYTHON_BIN     := ./.venv/bin/python
 # ── Phony Targets ─────────────────────────────────────────────────────────────
 .PHONY: help install install-force install-dry validate lint lint-md lint-sh \
 	bump-version doctor clean check-tools status open-skills \
-	phase7-caches phase7-caches-clean
+	phase7-caches phase7-caches-clean verify
 
 # ── Self-Documenting Help ──────────────────────────────────────────────────────
 help: ## Show this help (default target)
@@ -90,6 +90,25 @@ validate-strict: check-tools ## Validate registry AND verify all skill files exi
 	else \
 	  echo "  ✓ All skill files present on disk"; \
 	fi
+
+verify: ## Run SabiScore production release gates
+	@echo "  SabiScore production verification"
+	@echo "  1/8 Secret and provider contract tests"
+	@cd backend && python -m pytest tests/test_secret_safety.py tests/test_providers_gateway.py -q --no-cov
+	@echo "  2/8 Backend regression tests"
+	@cd backend && python -m pytest tests -q --no-cov
+	@echo "  3/8 Provider CLI doctor"
+	@cd backend && python -m src.cli providers doctor >/dev/null
+	@echo "  4/8 Scraper tests"
+	@pnpm --filter @sabiscore/scraper test
+	@echo "  5/8 Web lint"
+	@pnpm --filter @sabiscore/web lint
+	@echo "  6/8 Web typecheck"
+	@pnpm --filter @sabiscore/web typecheck
+	@echo "  7/8 Web tests"
+	@pnpm --filter @sabiscore/web test
+	@echo "  8/8 Web build"
+	@pnpm --filter @sabiscore/web build
 
 phase7-caches: ## Build deterministic Phase 7 cache artifacts (Elo + StatsBomb tactical cache)
 	@test -x "$(PYTHON_BIN)" || { echo "  Missing virtualenv python at $(PYTHON_BIN). Run: python -m venv .venv && ./.venv/bin/pip install -r requirements.txt"; exit 1; }

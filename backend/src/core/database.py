@@ -34,12 +34,12 @@ Base = declarative_base()
 def _get_sync_database_url(url: str) -> str:
     """
     Convert async database URL to sync URL for synchronous engine.
-    Handles aiosqlite -> sqlite, asyncpg -> psycopg2, etc.
+    Handles aiosqlite -> sqlite, asyncpg -> psycopg, etc.
     """
     if "+aiosqlite" in url:
         return url.replace("+aiosqlite", "")
     if "+asyncpg" in url:
-        return url.replace("+asyncpg", "+psycopg2")
+        return url.replace("+asyncpg", "+psycopg")
     return url
 
 
@@ -100,6 +100,9 @@ else:
         else:
             raise Exception("PostgreSQL connection test failed")
     except Exception as exc:
+        if settings.app_env == "production":
+            logger.error("PostgreSQL unavailable in production; refusing SQLite fallback")
+            raise
         logger.warning("PostgreSQL unavailable (%s), falling back to SQLite", exc)
         _using_fallback = True
         fallback_url = "sqlite:///./sabiscore_fallback.db"
@@ -525,6 +528,163 @@ class ScrapingLog(Base):
     timestamp = Column(DateTime)
     job_metadata = Column(JSON, nullable=True)  # Job-specific config/params - renamed from 'metadata' to avoid SQLAlchemy conflict
 
+
+class ProviderRequestSummary(Base):
+    """Redacted provider request telemetry."""
+
+    __tablename__ = "provider_request_summaries"
+    __table_args__ = (
+        Index("ix_provider_request_provider_time", "provider", "acquired_at"),
+        Index("ix_provider_request_status", "status"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    provider = Column(String, nullable=False)
+    operation = Column(String, nullable=False)
+    status = Column(String, nullable=False)
+    trust_tier = Column(String, nullable=False)
+    acquired_at = Column(DateTime, nullable=False)
+    provider_timestamp = Column(DateTime, nullable=True)
+    quota_limit = Column(Integer, nullable=True)
+    quota_remaining = Column(Integer, nullable=True)
+    quota_reset_at = Column(DateTime, nullable=True)
+    quota_cost = Column(Integer, nullable=True)
+    warnings = Column(JSON, nullable=True)
+    error_code = Column(String, nullable=True)
+    raw_snapshot_id = Column(String, nullable=True)
+    response_hash = Column(String, nullable=True)
+
+
+class ProviderCapabilityRecord(Base):
+    """Persisted provider field availability matrix."""
+
+    __tablename__ = "provider_capabilities"
+    __table_args__ = (
+        Index("ix_provider_capability_provider_comp", "provider", "competition"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    provider = Column(String, nullable=False)
+    competition = Column(String, nullable=False)
+    season = Column(String, nullable=True)
+    fixtures = Column(Boolean, default=False)
+    standings = Column(Boolean, default=False)
+    lineups = Column(Boolean, default=False)
+    injuries = Column(Boolean, default=False)
+    team_statistics = Column(Boolean, default=False)
+    player_statistics = Column(Boolean, default=False)
+    odds = Column(Boolean, default=False)
+    xg = Column(Boolean, default=False)
+    provider_predictions = Column(Boolean, default=False)
+    checked_at = Column(DateTime, nullable=False)
+    notes = Column(JSON, nullable=True)
+
+
+class ProviderQuotaObservation(Base):
+    """Provider quota snapshots captured during doctor/runtime calls."""
+
+    __tablename__ = "provider_quota_observations"
+    __table_args__ = (
+        Index("ix_provider_quota_provider_time", "provider", "observed_at"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    provider = Column(String, nullable=False)
+    observed_at = Column(DateTime, nullable=False)
+    quota_limit = Column(Integer, nullable=True)
+    quota_remaining = Column(Integer, nullable=True)
+    quota_reset_at = Column(DateTime, nullable=True)
+    quota_cost = Column(Integer, nullable=True)
+    source = Column(String, nullable=True)
+
+
+class CanonicalCompetition(Base):
+    __tablename__ = "canonical_competitions"
+
+    id = Column(String, primary_key=True)
+    name = Column(String, nullable=False)
+    coverage_tier = Column(String, nullable=False, default="STANDARD")
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+
+
+class CanonicalTeam(Base):
+    __tablename__ = "canonical_teams"
+    __table_args__ = (
+        Index("ix_canonical_teams_competition_name", "competition_id", "name"),
+    )
+
+    id = Column(String, primary_key=True)
+    competition_id = Column(String, ForeignKey("canonical_competitions.id"))
+    name = Column(String, nullable=False)
+    normalized_name = Column(String, nullable=False)
+    country = Column(String, nullable=True)
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+
+
+class CanonicalFixture(Base):
+    __tablename__ = "canonical_fixtures"
+    __table_args__ = (
+        Index("ix_canonical_fixtures_comp_kickoff", "competition_id", "kickoff_utc"),
+    )
+
+    id = Column(String, primary_key=True)
+    competition_id = Column(String, ForeignKey("canonical_competitions.id"))
+    season = Column(String, nullable=True)
+    home_team_id = Column(String, ForeignKey("canonical_teams.id"))
+    away_team_id = Column(String, ForeignKey("canonical_teams.id"))
+    kickoff_utc = Column(DateTime, nullable=False)
+    status = Column(String, nullable=False, default="scheduled")
+    venue_id = Column(String, nullable=True)
+    reconciliation_status = Column(String, nullable=False, default="UNKNOWN")
+    reconciliation_confidence = Column(Float, nullable=True)
+    evidence = Column(JSON, nullable=True)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+
+
+class ProviderEventMapping(Base):
+    __tablename__ = "provider_event_mappings"
+    __table_args__ = (
+        Index("ix_provider_event_provider_id", "provider", "provider_event_id"),
+        Index("ix_provider_event_fixture", "canonical_fixture_id"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    provider = Column(String, nullable=False)
+    provider_event_id = Column(String, nullable=False)
+    canonical_fixture_id = Column(String, ForeignKey("canonical_fixtures.id"), nullable=True)
+    competition = Column(String, nullable=False)
+    reconciliation_status = Column(String, nullable=False)
+    reconciliation_confidence = Column(Float, nullable=True)
+    evidence = Column(JSON, nullable=True)
+    checked_at = Column(DateTime, nullable=False)
+
+
+class MarketSnapshot(Base):
+    __tablename__ = "market_snapshots"
+    __table_args__ = (
+        Index("ix_market_snapshots_fixture_time", "canonical_fixture_id", "captured_at"),
+        Index("ix_market_snapshots_bookmaker", "bookmaker"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    canonical_fixture_id = Column(String, ForeignKey("canonical_fixtures.id"), nullable=False)
+    provider = Column(String, nullable=False)
+    bookmaker = Column(String, nullable=False)
+    market_type = Column(String, nullable=False, default="1X2")
+    home_odds = Column(Float, nullable=False)
+    draw_odds = Column(Float, nullable=False)
+    away_odds = Column(Float, nullable=False)
+    provider_timestamp = Column(DateTime, nullable=True)
+    captured_at = Column(DateTime, nullable=False)
+    coherent = Column(Boolean, nullable=False, default=True)
+    executable = Column(Boolean, nullable=False, default=False)
+    provenance = Column(JSON, nullable=True)
+
 def get_db() -> Iterator[Session]:
     """Yield a database session for FastAPI dependency injection."""
     with session_scope() as session:
@@ -558,7 +718,10 @@ def check_database_health() -> bool:
 
 
 def init_database_schema() -> None:
-    """Create database tables if they do not already exist."""
+    """Create local development tables only when explicitly enabled."""
+    if settings.is_production or not settings.auto_create_tables:
+        logger.info("Skipping direct table creation; run Alembic migrations instead")
+        return
     try:
         Base.metadata.create_all(bind=engine)
     except SQLAlchemyError as exc:

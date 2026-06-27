@@ -52,9 +52,10 @@ async def _try_create_async_engine(database_url: str, engine_kwargs: Dict[str, A
 
 async def init_db() -> None:
     """
-    Initialize database engine and create tables.
+    Initialize database engine.
     Called during application startup.
-    Uses SQLite fallback if PostgreSQL is unavailable (matching sync engine behavior).
+    Uses SQLite fallback if PostgreSQL is unavailable outside production.
+    Schema creation is disabled by default; use Alembic migrations for production.
     """
     global async_engine, AsyncSessionLocal
 
@@ -90,6 +91,9 @@ async def init_db() -> None:
         logger.info(f"Async database engine created successfully ({'SQLite' if 'sqlite' in database_url else 'PostgreSQL'})")
     except Exception as e:
         if not database_url.startswith("sqlite"):
+            if settings.app_env == "production":
+                logger.error("PostgreSQL async connection failed in production; refusing SQLite fallback")
+                raise
             # PostgreSQL failed, try SQLite fallback
             logger.warning(f"PostgreSQL async connection failed ({e}), falling back to SQLite")
             engine_kwargs["poolclass"] = NullPool
@@ -119,14 +123,16 @@ async def init_db() -> None:
         autoflush=False,
     )
     
-    # Create tables
-    try:
-        async with async_engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-        logger.info("Database tables created/verified successfully")
-    except Exception as e:
-        logger.error(f"Failed to create database tables: {e}", exc_info=True)
-        raise
+    if settings.auto_create_tables:
+        if settings.app_env == "production":
+            raise RuntimeError("AUTO_CREATE_TABLES is forbidden in production")
+        try:
+            async with async_engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            logger.warning("AUTO_CREATE_TABLES enabled; database tables created/verified")
+        except Exception as e:
+            logger.error(f"Failed to create database tables: {e}", exc_info=True)
+            raise
 
 
 async def close_db() -> None:

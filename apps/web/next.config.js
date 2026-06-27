@@ -39,8 +39,7 @@ const nextConfig = {
       '@radix-ui/react-dropdown-menu', 
       '@radix-ui/react-select', 
       '@radix-ui/react-tooltip',
-      'framer-motion',
-      '@tensorflow/tfjs'
+      'framer-motion'
     ],
     // Reduce memory during build
     webpackMemoryOptimizations: true,
@@ -50,14 +49,6 @@ const nextConfig = {
     },
   },
   
-  // Turbopack configuration (mirrors webpack where needed)
-  turbopack: {
-    resolveAlias: {
-      // Ensure TensorFlow.js resolves correctly
-      '@tensorflow/tfjs': '@tensorflow/tfjs',
-    },
-  },
-
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },
@@ -114,9 +105,7 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            // connect-src: flagcdn.com added so any future fetch()-based flag loading
-            // isn't blocked. img-src already permits https: globally.
-            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://api.football-data.org https://raw.githubusercontent.com https://sabiscore-api.onrender.com https://flagcdn.com;"
+            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://sabiscore-api.onrender.com;"
           },
         ],
       },
@@ -145,7 +134,7 @@ const nextConfig = {
 
   // Rewrites for API proxy
   async rewrites() {
-    const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const apiBaseUrl = process.env.SABISCORE_BACKEND_URL || 'http://localhost:8000';
     
     return [
       {

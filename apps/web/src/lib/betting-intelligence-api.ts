@@ -262,6 +262,8 @@ export interface FixtureEvidenceResponse {
   source_status: Record<string, string>;
   data_gaps: string[];
   retrieval_timeline: Array<Record<string, unknown>>;
+  readiness: Array<Record<string, unknown>>;
+  source_comparison: Array<Record<string, unknown>>;
 }
 
 export interface ManualOddsSnapshotRequest {
@@ -288,6 +290,29 @@ export interface ManualOddsSnapshotResponse {
   received_at: string;
   executable: boolean;
   provenance: Record<string, unknown>;
+}
+
+export interface ProviderOddsCandidate {
+  bookmaker: string;
+  home_odds: number;
+  draw_odds: number;
+  away_odds: number;
+  captured_at: string;
+  provider: string;
+  executable: boolean;
+}
+
+export interface ProviderOddsCandidatesResponse {
+  fixture_id: string;
+  candidates: ProviderOddsCandidate[];
+  warnings: string[];
+}
+
+export interface RefreshEvidenceResponse {
+  fixture_id: string;
+  profile: string;
+  provider_results: Array<Record<string, unknown>>;
+  refreshed_at: string;
 }
 
 // --- Legacy Full-Analysis Types (backward-compatible, hardened) ---------------
@@ -438,6 +463,24 @@ export async function getUpcomingFixtures(competition?: string): Promise<Upcomin
 export async function getFixtureEvidence(fixtureId: string): Promise<FixtureEvidenceResponse> {
   return apiFetch<FixtureEvidenceResponse>(
     `/api/fixtures/${encodeURIComponent(fixtureId)}/evidence`,
+  );
+}
+
+export async function refreshFixtureEvidence(
+  fixtureId: string,
+  profile = "PREMATCH_STANDARD",
+): Promise<RefreshEvidenceResponse> {
+  return apiFetch<RefreshEvidenceResponse>(
+    `/api/fixtures/${encodeURIComponent(fixtureId)}/refresh`,
+    { method: "POST", body: JSON.stringify({ profile }) },
+  );
+}
+
+export async function getProviderOddsCandidates(
+  fixtureId: string,
+): Promise<ProviderOddsCandidatesResponse> {
+  return apiFetch<ProviderOddsCandidatesResponse>(
+    `/api/fixtures/${encodeURIComponent(fixtureId)}/odds-snapshots`,
   );
 }
 

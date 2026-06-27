@@ -8,13 +8,12 @@
   "license": "MIT",
   "engines": {
     "node": "22.x",
-    "npm": ">=10.8.0",
     "pnpm": ">=8.0.0"
   },
   "scripts": {
     "dev": "turbo run dev --parallel",
     "dev:web": "turbo run dev --filter=@sabiscore/web",
-    "dev:api": "cd apps/api && uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000",
+    "dev:api": "cd backend && python -m uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000",
     "build": "turbo run build",
     "build:local": "node ./scripts/build-local.js",
     "build:web": "turbo run build --filter=@sabiscore/web",
@@ -34,6 +33,9 @@
     "bump": "node scripts/bump-version.mjs",
     "status": "jq '.skills | group_by(.clusterName) | .[] | \"C\\(.[0].cluster) \\(.[0].clusterName): \\(length) skills\"' registry.json -r",
     "test": "turbo run test",
+    "test:backend": "cd backend && python -m pytest tests -q --no-cov",
+    "test:providers": "cd backend && python -m pytest tests/test_providers_gateway.py tests/test_secret_safety.py -q --no-cov",
+    "verify": "make verify",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "clean": "turbo run clean && rm -rf node_modules",
     "docker:up": "docker-compose -f docker-compose.prod.yml up -d",
