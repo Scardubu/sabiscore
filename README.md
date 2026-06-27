@@ -25,7 +25,7 @@ Python 3.11 through 3.14 is supported for the API runtime. Python 3.14 uses newe
 
 Kafka clients and browser automation packages are treated as optional worker dependencies on Python 3.14/Windows because they otherwise require native toolchains or older `greenlet` pins. The canonical API/provider gateway does not import them at runtime.
 
-Use Node 22 through 24 and pnpm 8.x with this lockfile. Do not run `corepack enable` on Windows unless you have admin rights and intentionally want Corepack shims installed globally.
+Use Node 22 through 24 and pnpm 8 through 11 with this lockfile. Do not run `corepack enable` on Windows unless you have admin rights and intentionally want Corepack shims installed globally.
 
 ```bash
 pnpm install --frozen-lockfile
