@@ -58,7 +58,7 @@ Python 3.11 through 3.14 is supported for the API runtime. Python 3.14 installs 
 
 Kafka clients and browser automation packages are optional worker dependencies on Python 3.14/Windows and are not part of the canonical API/provider-gateway boot path. Install them in a Python 3.11-3.13 worker environment if Kafka or dynamic browser scraping is explicitly enabled.
 
-Use pnpm 8.x with the committed `pnpm-lock.yaml`. On Windows, skip `corepack enable` unless running an elevated shell; a user-scoped pnpm 8 install is sufficient.
+Use Node 22 through 24 and pnpm 8.x with the committed `pnpm-lock.yaml`. On Windows, skip `corepack enable` unless running an elevated shell; a user-scoped pnpm 8 install is sufficient.
 
 Windows PowerShell:
 

@@ -8,9 +8,9 @@
 # CORE WEB FRAMEWORK
 # ==============================================================================
 fastapi==0.104.1; python_version < "3.14"
-fastapi>=0.115.0,<1.0.0; python_version >= "3.14"
+fastapi>=0.115.6,<0.116.0; python_version >= "3.14"
 uvicorn[standard]==0.24.0; python_version < "3.14"
-uvicorn[standard]>=0.30.0,<1.0.0; python_version >= "3.14"
+uvicorn[standard]>=0.30.6,<0.31.0; python_version >= "3.14"
 python-multipart==0.0.6
 
 # ==============================================================================
