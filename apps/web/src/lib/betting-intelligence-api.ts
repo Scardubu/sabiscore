@@ -407,6 +407,17 @@ export class APIError extends Error {
   }
 }
 
+function messageFromErrorBody(body: unknown): string | undefined {
+  if (!body || typeof body !== "object") return undefined;
+  const candidate = body as { message?: unknown; detail?: unknown; error?: unknown };
+  for (const value of [candidate.message, candidate.detail, candidate.error]) {
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
 async function apiFetch<T>(
   path: string,
   options?: RequestInit,
@@ -422,9 +433,18 @@ async function apiFetch<T>(
     });
     if (!res.ok) {
       const body = await res.json().catch(() => null);
-      throw new APIError(res.status, body);
+      throw new APIError(
+        res.status,
+        body,
+        messageFromErrorBody(body) ?? `API error ${res.status}`,
+      );
     }
     return (await res.json()) as T;
+  } catch (err: unknown) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new APIError(408, null, "Request timed out while waiting for the backend.");
+    }
+    throw err;
   } finally {
     clearTimeout(timeout);
   }

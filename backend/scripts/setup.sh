@@ -90,11 +90,7 @@ echo -e "${GREEN}✅ Directories created${NC}"
 # Initialize database
 echo ""
 echo "🗄️  Initializing database..."
-python -c "
-from src.core.database import engine, Base
-Base.metadata.create_all(bind=engine)
-print('Database tables created')
-"
+alembic upgrade head
 echo -e "${GREEN}✅ Database initialized${NC}"
 
 # Download sample data
@@ -108,7 +104,9 @@ echo ""
 echo "🔌 Testing Redis connection..."
 python -c "
 import redis
-r = redis.from_url('redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379')
+import os
+url = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+r = redis.from_url(url)
 r.set('test', 'success')
 assert r.get('test').decode() == 'success'
 print('Redis connection successful')

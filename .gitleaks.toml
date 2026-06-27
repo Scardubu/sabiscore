@@ -1,0 +1,23 @@
+title = "SabiScore credential safety gate"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allow documented placeholders and non-secret local development labels."
+regexes = [
+  '''(?i)CHANGE_ME[A-Z0-9_:-]*''',
+  '''(?i)your[-_a-z0-9]*here''',
+  '''(?i)placeholder''',
+  '''(?i)localhost''',
+  '''(?i)127\.0\.0\.1''',
+  '''(?i)development-token''',
+  '''(?i)dev-secret-token''',
+]
+paths = [
+  '''pnpm-lock\.yaml''',
+  '''package-lock\.json''',
+  '''node_modules/''',
+  '''\.venv/''',
+  '''test-results/''',
+]

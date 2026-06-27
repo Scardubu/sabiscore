@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   BarChart3,
@@ -301,33 +301,66 @@ export function BettingIntelligenceDashboard() {
     && oddsForm.confirmed,
   );
 
-  useEffect(() => {
-    let cancelled = false;
+  const loadFixtures = useCallback(async (preserveSelection = false) => {
     setLoading("fixtures");
     setError(null);
-    getUpcomingFixtures(competition)
-      .then((payload) => {
-        if (cancelled) return;
-        setFixtures(payload.fixtures);
-        setSelectedFixtureId(payload.fixtures[0]?.fixture_id ?? "");
-        setEvidence(null);
-        setResult(null);
-      })
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : "Could not load fixtures."))
-      .finally(() => {
-        if (!cancelled) setLoading(null);
+    try {
+      const payload = await getUpcomingFixtures(competition);
+      setFixtures(payload.fixtures);
+      setSelectedFixtureId((current) => {
+        if (preserveSelection && payload.fixtures.some((fixture) => fixture.fixture_id === current)) {
+          return current;
+        }
+        return payload.fixtures[0]?.fixture_id ?? "";
       });
-    return () => {
-      cancelled = true;
-    };
+      setEvidence(null);
+      setResult(null);
+      setOddsCandidates([]);
+      if (payload.fixtures.length === 0) {
+        setError("No verified fixtures are available for this competition yet.");
+      }
+    } catch (err: unknown) {
+      setFixtures([]);
+      setSelectedFixtureId("");
+      setEvidence(null);
+      setResult(null);
+      setOddsCandidates([]);
+      setError(err instanceof Error ? err.message : "Could not load fixtures.");
+    } finally {
+      setLoading(null);
+    }
   }, [competition]);
 
   useEffect(() => {
+    void loadFixtures(false);
+  }, [loadFixtures]);
+
+  const activeLoading = loading !== null;
+
+  useEffect(() => {
+    setOddsCandidates([]);
+    setOddsForm(defaultOddsForm());
+  }, [selectedFixtureId]);
+
+  useEffect(() => {
+    if (!selectedFixtureId) {
+      setEvidence(null);
+      setResult(null);
+    }
+  }, [selectedFixtureId]);
+
+  useEffect(() => {
+    let cancelled = false;
     getEnginePolicy()
       .then((payload) => {
-        setPolicy(`${payload.policy.min_actionable_edge_pp.toFixed(1)}pp edge threshold`);
+        if (!cancelled) {
+          setPolicy(`${payload.policy.min_actionable_edge_pp.toFixed(1)}pp edge threshold`);
+        }
       })
       .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const loadEvidence = async () => {
@@ -506,8 +539,8 @@ export function BettingIntelligenceDashboard() {
               </label>
             </div>
             <div className="bi-actions">
-              <button className="bi-btn ghost" type="button" onClick={() => getUpcomingFixtures(competition).then((p) => setFixtures(p.fixtures))}>
-                <RefreshCw size={14} /> Refresh
+              <button className="bi-btn ghost" type="button" disabled={activeLoading} onClick={() => void loadFixtures(true)}>
+                <RefreshCw size={14} /> {loading === "fixtures" ? "Refreshing" : "Refresh"}
               </button>
             </div>
             <label className="bi-label">Verified Fixtures</label>
@@ -530,13 +563,13 @@ export function BettingIntelligenceDashboard() {
               </button>
             ))}
             <div className="bi-actions">
-              <button className="bi-btn" type="button" disabled={!selectedFixtureId || loading !== null} onClick={loadEvidence}>
+              <button className="bi-btn" type="button" disabled={!selectedFixtureId || activeLoading} onClick={loadEvidence}>
                 <FileSearch size={14} /> Retrieve Evidence
               </button>
-              <button className="bi-btn ghost" type="button" disabled={!selectedFixtureId || loading !== null} onClick={refreshEvidence}>
+              <button className="bi-btn ghost" type="button" disabled={!selectedFixtureId || activeLoading} onClick={refreshEvidence}>
                 <RefreshCw size={14} /> Refresh Evidence
               </button>
-              <button className="bi-btn secondary" type="button" disabled={!selectedFixtureId || loading !== null} onClick={runAnalysis}>
+              <button className="bi-btn secondary" type="button" disabled={!selectedFixtureId || activeLoading} onClick={runAnalysis}>
                 Analyze
               </button>
             </div>
@@ -616,7 +649,7 @@ export function BettingIntelligenceDashboard() {
             <section className="bi-panel">
               <div className="bi-panel-title"><Database size={16} /> Manual Odds Snapshot</div>
               <div className="bi-actions">
-                <button className="bi-btn ghost" type="button" disabled={!selectedFixtureId || loading !== null} onClick={loadOddsCandidates}>
+                <button className="bi-btn ghost" type="button" disabled={!selectedFixtureId || activeLoading} onClick={loadOddsCandidates}>
                   Auto-fill market
                 </button>
               </div>
@@ -655,7 +688,7 @@ export function BettingIntelligenceDashboard() {
                   I confirm these three prices are from one bookmaker and one fixture snapshot.
                 </label>
                 <div className="bi-actions">
-                  <button className="bi-btn" type="submit" disabled={!oddsFormValid || loading !== null}>Submit Snapshot</button>
+                  <button className="bi-btn" type="submit" disabled={!oddsFormValid || activeLoading}>Submit Snapshot</button>
                 </div>
               </form>
             </section>

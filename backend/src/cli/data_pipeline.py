@@ -11,8 +11,10 @@ Commands:
 import asyncio
 import click
 from datetime import datetime
+from pathlib import Path
+import subprocess
 
-from ..core.database import session_scope, init_database_schema
+from ..core.database import session_scope
 from ..data.loaders import FootballDataLoader, UnderstatLoader
 from ..data.enrichment import FeatureEngineer
 from ..data.connectors import ESPNConnector
@@ -32,6 +34,12 @@ def cli():
     pass
 
 
+def run_alembic_upgrade() -> None:
+    """Apply database migrations through Alembic before data operations."""
+    backend_dir = Path(__file__).resolve().parents[2]
+    subprocess.run(["alembic", "upgrade", "head"], check=True, cwd=backend_dir)
+
+
 @cli.command()
 @click.option("--leagues", "-l", multiple=True, default=["E0", "SP1", "D1", "I1", "F1"], help="League codes to load")
 @click.option("--seasons", "-s", multiple=True, default=["2324", "2425"], help="Seasons to load (e.g., 2324)")
@@ -42,8 +50,8 @@ def load_historical(leagues, seasons):
     click.echo(f"Leagues: {', '.join(leagues)}")
     click.echo(f"Seasons: {', '.join(seasons)}")
     
-    # Initialize database
-    init_database_schema()
+    # Ensure schema is current before loading data.
+    run_alembic_upgrade()
     
     async def run_load():
         loader = FootballDataLoader()
@@ -152,7 +160,7 @@ def init_db():
     """Initialize database schema"""
     
     click.echo("🗄️  Initializing database schema...")
-    init_database_schema()
+    run_alembic_upgrade()
     click.echo("✅ Database schema initialized")
 
 

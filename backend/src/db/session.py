@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from sqlalchemy.pool import NullPool
 
 from ..core.config import settings
-from ..core.database import Base, SessionLocal as SyncSessionLocal, is_using_fallback
+from ..core.database import SessionLocal as SyncSessionLocal, is_using_fallback
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +54,8 @@ async def init_db() -> None:
     """
     Initialize database engine.
     Called during application startup.
-    Uses SQLite fallback if PostgreSQL is unavailable outside production.
-    Schema creation is disabled by default; use Alembic migrations for production.
+    Uses SQLite fallback only for isolated tests or explicit local opt-in.
+    Schema creation is managed exclusively by Alembic migrations.
     """
     global async_engine, AsyncSessionLocal
 
@@ -68,6 +68,8 @@ async def init_db() -> None:
         database_url = SQLITE_FALLBACK_URL
     else:
         database_url = _get_async_database_url(settings.database_url)
+        if database_url.startswith("sqlite") and settings.app_env != "test" and not settings.allow_sqlite_fallback:
+            raise RuntimeError("SQLite database URLs require APP_ENV=test or ALLOW_SQLITE_FALLBACK=true")
 
     use_null_pool = settings.app_env == "test" or database_url.startswith("sqlite")
 
@@ -91,11 +93,11 @@ async def init_db() -> None:
         logger.info(f"Async database engine created successfully ({'SQLite' if 'sqlite' in database_url else 'PostgreSQL'})")
     except Exception as e:
         if not database_url.startswith("sqlite"):
-            if settings.app_env == "production":
-                logger.error("PostgreSQL async connection failed in production; refusing SQLite fallback")
+            if settings.app_env != "test" and not settings.allow_sqlite_fallback:
+                logger.error("PostgreSQL async connection failed and SQLite fallback is not explicitly allowed")
                 raise
             # PostgreSQL failed, try SQLite fallback
-            logger.warning(f"PostgreSQL async connection failed ({e}), falling back to SQLite")
+            logger.warning(f"PostgreSQL async connection failed ({e}), using explicit SQLite fallback")
             engine_kwargs["poolclass"] = NullPool
             engine_kwargs.pop("pool_pre_ping", None)
             engine_kwargs.pop("pool_size", None)
@@ -123,17 +125,6 @@ async def init_db() -> None:
         autoflush=False,
     )
     
-    if settings.auto_create_tables:
-        if settings.app_env == "production":
-            raise RuntimeError("AUTO_CREATE_TABLES is forbidden in production")
-        try:
-            async with async_engine.begin() as conn:
-                await conn.run_sync(Base.metadata.create_all)
-            logger.warning("AUTO_CREATE_TABLES enabled; database tables created/verified")
-        except Exception as e:
-            logger.error(f"Failed to create database tables: {e}", exc_info=True)
-            raise
-
 
 async def close_db() -> None:
     """

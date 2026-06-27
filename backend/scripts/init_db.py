@@ -4,25 +4,24 @@ Initialize database with schema and seed data
 """
 import sys
 import os
+import subprocess
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from sqlalchemy.orm import Session
-from src.core.database import engine, Base, SessionLocal
-from src.core.config import settings
+from src.core.database import SessionLocal
 import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def init_database():
-    """Initialize database schema"""
+    """Run migrations and seed reference data."""
     try:
-        logger.info("Creating database tables...")
+        logger.info("Running Alembic migrations...")
 
-        # Create all tables
-        Base.metadata.create_all(bind=engine)
+        backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        subprocess.run(["alembic", "upgrade", "head"], check=True, cwd=backend_dir)
 
-        logger.info("Database tables created successfully")
+        logger.info("Database migrations completed successfully")
 
         # Seed with initial data
         seed_database()

@@ -51,6 +51,11 @@ _db_available = True
 _using_fallback = False
 
 
+def _sqlite_fallback_allowed() -> bool:
+    """Return True only for isolated tests or explicit local opt-in."""
+    return settings.app_env == "test" or bool(settings.allow_sqlite_fallback)
+
+
 def _create_postgres_engine(url: str):
     """Create PostgreSQL engine with connection pooling."""
     return create_engine(
@@ -88,6 +93,8 @@ def _test_connection(eng) -> bool:
 
 # Initialize database engine with fallback
 if _sync_url.startswith("sqlite"):
+    if not _sqlite_fallback_allowed():
+        raise RuntimeError("SQLite database URLs require APP_ENV=test or ALLOW_SQLITE_FALLBACK=true")
     # SQLite-specific configuration
     engine = _create_sqlite_engine(_sync_url)
     _db_available = _test_connection(engine)
@@ -100,10 +107,10 @@ else:
         else:
             raise Exception("PostgreSQL connection test failed")
     except Exception as exc:
-        if settings.app_env == "production":
-            logger.error("PostgreSQL unavailable in production; refusing SQLite fallback")
+        if not _sqlite_fallback_allowed():
+            logger.error("PostgreSQL unavailable and SQLite fallback is not explicitly allowed")
             raise
-        logger.warning("PostgreSQL unavailable (%s), falling back to SQLite", exc)
+        logger.warning("PostgreSQL unavailable (%s), using explicit SQLite fallback", exc)
         _using_fallback = True
         fallback_url = "sqlite:///./sabiscore_fallback.db"
         engine = _create_sqlite_engine(fallback_url)
@@ -718,12 +725,5 @@ def check_database_health() -> bool:
 
 
 def init_database_schema() -> None:
-    """Create local development tables only when explicitly enabled."""
-    if settings.is_production or not settings.auto_create_tables:
-        logger.info("Skipping direct table creation; run Alembic migrations instead")
-        return
-    try:
-        Base.metadata.create_all(bind=engine)
-    except SQLAlchemyError as exc:
-        logger.exception("Failed to initialize database schema: %s", exc)
-        raise
+    """Reject direct schema creation from application runtime."""
+    raise RuntimeError("Direct table creation is disabled; run Alembic migrations instead")

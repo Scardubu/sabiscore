@@ -22,9 +22,14 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = Field(
-        default="sqlite:///./sabiscore.db",
+        default="postgresql://sabi@localhost:5432/sabiscore",
         alias="DATABASE_URL",
         description="SQLAlchemy-compatible database URL.",
+    )
+    allow_sqlite_fallback: bool = Field(
+        default=False,
+        alias="ALLOW_SQLITE_FALLBACK",
+        description="Development/test-only opt-in for SQLite fallback when PostgreSQL is unavailable.",
     )
     database_pool_size: int = Field(default=20, ge=1, le=100)
     database_max_overflow: int = Field(default=30, ge=0, le=100)
@@ -116,11 +121,6 @@ class Settings(BaseSettings):
     debug: bool = Field(default=False)
     mock_mode: bool = Field(default=False, alias="MOCK_MODE")
     enable_legacy_inference: bool = Field(default=False, alias="ENABLE_LEGACY_INFERENCE")
-    auto_create_tables: bool = Field(
-        default=False,
-        alias="AUTO_CREATE_TABLES",
-        description="Development-only escape hatch. Production must use Alembic migrations.",
-    )
     log_level: str = Field(default="INFO")
     log_format: str = Field(default="json")
     enable_tracing: bool = Field(default=False)
@@ -543,12 +543,12 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def _validate_environment(self) -> "Settings":
         env = self.app_env.lower()
-        if env not in {"development", "staging", "production"}:
+        if env not in {"development", "staging", "production", "test"}:
             raise ValidationError(
                 [
                     {
                         "loc": ("app_env",),
-                        "msg": "app_env must be one of development, staging, production",
+                        "msg": "app_env must be one of development, staging, production, test",
                         "type": "value_error",
                     }
                 ],
@@ -591,24 +591,24 @@ class Settings(BaseSettings):
                     Settings,
                 )
 
-            if self.auto_create_tables:
-                raise ValidationError(
-                    [
-                        {
-                            "loc": ("auto_create_tables",),
-                            "msg": "AUTO_CREATE_TABLES must be disabled in production; run Alembic migrations instead",
-                            "type": "value_error",
-                        }
-                    ],
-                    Settings,
-                )
-
             if self.scraper_allow_insecure_fallback:
                 raise ValidationError(
                     [
                         {
                             "loc": ("scraper_allow_insecure_fallback",),
                             "msg": "SCRAPER_ALLOW_INSECURE_FALLBACK must be disabled in production",
+                            "type": "value_error",
+                        }
+                    ],
+                    Settings,
+                )
+
+            if self.allow_sqlite_fallback:
+                raise ValidationError(
+                    [
+                        {
+                            "loc": ("allow_sqlite_fallback",),
+                            "msg": "ALLOW_SQLITE_FALLBACK must be disabled in production",
                             "type": "value_error",
                         }
                     ],

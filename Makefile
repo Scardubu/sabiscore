@@ -94,7 +94,7 @@ validate-strict: check-tools ## Validate registry AND verify all skill files exi
 verify: ## Run SabiScore production release gates
 	@echo "  SabiScore production verification"
 	@echo "  1/8 Secret and provider contract tests"
-	@cd backend && python -m pytest tests/test_secret_safety.py tests/test_providers_gateway.py -q --no-cov
+	@cd backend && python -m pytest tests/test_secret_safety.py tests/test_database_migration_hardening.py tests/test_providers_gateway.py -q --no-cov
 	@echo "  2/8 Backend regression tests"
 	@cd backend && python -m pytest tests -q --no-cov
 	@echo "  3/8 Provider CLI doctor"

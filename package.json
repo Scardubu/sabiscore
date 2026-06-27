@@ -33,7 +33,7 @@
     "status": "jq '.skills | group_by(.clusterName) | .[] | \"C\\(.[0].cluster) \\(.[0].clusterName): \\(length) skills\"' registry.json -r",
     "test": "turbo run test",
     "test:backend": "cd backend && python -m pytest tests -q --no-cov",
-    "test:providers": "cd backend && python -m pytest tests/test_providers_gateway.py tests/test_secret_safety.py -q --no-cov",
+    "test:providers": "cd backend && python -m pytest tests/test_providers_gateway.py tests/test_secret_safety.py tests/test_database_migration_hardening.py -q --no-cov",
     "verify": "make verify",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "clean": "turbo run clean && rm -rf node_modules",

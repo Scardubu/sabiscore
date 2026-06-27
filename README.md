@@ -18,6 +18,7 @@ Legacy roots such as `apps/api` and `frontend/` are not production deployment ta
 - Coherent 1X2 market snapshots must come from one bookmaker. Cross-bookmaker comparison is display-only.
 - Missing evidence, stale critical data, source conflict, missing coherent odds, or incomplete model metadata returns `PARTIAL` or pass/no-bet states instead of synthetic values.
 - Database schema changes are Alembic-managed. App imports/startup do not create production tables.
+- SQLite fallback is disabled by default and only allowed for isolated tests or explicit local development via `ALLOW_SQLITE_FALLBACK=true`.
 
 ## Quick Start
 
@@ -69,6 +70,13 @@ Provider keys are backend-only:
 - `THE_ODDS_API_KEY`
 
 ESPN is keyless. If a real provider key was ever committed or copied into a frontend/Vercel public variable, rotate it in the provider console.
+
+Focused safety gate:
+
+```bash
+cd backend
+python -m pytest tests/test_secret_safety.py tests/test_database_migration_hardening.py tests/test_providers_gateway.py -q --no-cov
+```
 
 ## Provider Gateway
 

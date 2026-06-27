@@ -23,11 +23,13 @@ DEBUG=false
 MOCK_MODE=false
 ENABLE_LEGACY_INFERENCE=false
 SCRAPER_ALLOW_INSECURE_FALLBACK=false
-AUTO_CREATE_TABLES=false
+ALLOW_SQLITE_FALLBACK=false
 PROVIDER_LIVE_TESTS=false
 ```
 
-Database tables are created by Alembic only. App import/startup does not call `Base.metadata.create_all()` in production.
+Database tables are created by Alembic only. App import/startup does not call `Base.metadata.create_all()` or `Base.metadata.drop_all()`.
+
+SQLite fallback is permitted only for isolated tests or an explicit local development opt-in with `ALLOW_SQLITE_FALLBACK=true`. Production rejects SQLite fallback.
 
 ## Environment Matrix
 
@@ -51,6 +53,19 @@ Frontend/server variables:
 | `NEXT_PUBLIC_BASE_BANKROLL` | Browser-safe | UI default only |
 
 ESPN is keyless. Any previously exposed provider key must be rotated in the provider/platform console after repo sanitization.
+
+Credential safety:
+
+- Keep `DATABASE_URL`, `REDIS_URL`, `SECRET_KEY`, `DB_PASSWORD`, and provider keys blank in committed templates.
+- Do not create `NEXT_PUBLIC_*` provider keys.
+- Run the focused safety gate before release:
+
+```bash
+cd backend
+python -m pytest tests/test_secret_safety.py tests/test_database_migration_hardening.py tests/test_providers_gateway.py -q --no-cov
+```
+
+- CI runs Gitleaks with redacted output and full Git history through `.github/workflows/secret-scan.yml`.
 
 ## Install
 
@@ -176,7 +191,7 @@ make verify
 
 The target runs:
 
-- secret/public-provider scans;
+- secret/public-provider scans and database migration hardening checks;
 - provider gateway tests;
 - backend regression tests;
 - provider CLI doctor;
