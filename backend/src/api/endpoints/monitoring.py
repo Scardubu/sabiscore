@@ -3,7 +3,6 @@ Enhanced health check endpoint with comprehensive system status.
 """
 import logging
 import os
-import psutil
 from fastapi import APIRouter, Response, Request
 from datetime import datetime, timezone
 from typing import Dict, Any
@@ -16,6 +15,11 @@ from ...core.database import engine, get_db_status
 from ...core.config import settings
 from ...core.model_fetcher import DEFAULT_LEAGUES
 from ...db.session import check_db_connection
+
+try:
+    import psutil
+except ImportError:  # pragma: no cover - depends on optional system package
+    psutil = None  # type: ignore[assignment]
 
 try:
     from ...connectors.source_registry import registry_summary as _v4_registry_summary
@@ -158,6 +162,12 @@ def health_check() -> Dict[str, Any]:
     
     # System resource checks
     try:
+        if psutil is None:
+            health_status["components"]["resources"] = {
+                "status": "degraded",
+                "message": "psutil is not installed; resource metrics unavailable",
+            }
+            raise RuntimeError("psutil_unavailable")
         memory = psutil.virtual_memory()
         disk = psutil.disk_usage('/')
         
@@ -361,8 +371,8 @@ def metrics() -> Dict[str, Any]:
         cache_metrics = cache.metrics_snapshot()
         
         # System metrics
-        memory = psutil.virtual_memory()
-        cpu_percent = psutil.cpu_percent(interval=0.1)
+        memory = psutil.virtual_memory() if psutil else None
+        cpu_percent = psutil.cpu_percent(interval=0.1) if psutil else None
         
         # Application metrics
         uptime = int(time.time() - _startup_time)
@@ -375,9 +385,9 @@ def metrics() -> Dict[str, Any]:
             "uptime_seconds": uptime,
             "cache": cache_metrics,
             "system": {
-                "memory_percent": memory.percent,
-                "memory_used_mb": memory.used // (1024 * 1024),
-                "memory_available_mb": memory.available // (1024 * 1024),
+                "memory_percent": memory.percent if memory else None,
+                "memory_used_mb": memory.used // (1024 * 1024) if memory else None,
+                "memory_available_mb": memory.available // (1024 * 1024) if memory else None,
                 "cpu_percent": cpu_percent,
             },
             "production": production_metrics

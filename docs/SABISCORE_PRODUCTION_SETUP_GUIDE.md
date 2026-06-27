@@ -56,10 +56,13 @@ ESPN is keyless. Any previously exposed provider key must be rotated in the prov
 
 Python 3.11 through 3.14 is supported for the API runtime. Python 3.14 installs use newer wheel-backed scientific packages in `backend/requirements.txt`. Optional training/experiment packages such as CatBoost, SHAP, MLflow, and Great Expectations remain Python <3.14 extras because they are not required for API boot or provider intelligence and have historically been fragile on brand-new Python releases.
 
+Kafka clients and browser automation packages are optional worker dependencies on Python 3.14/Windows and are not part of the canonical API/provider-gateway boot path. Install them in a Python 3.11-3.13 worker environment if Kafka or dynamic browser scraping is explicitly enabled.
+
+Use pnpm 8.x with the committed `pnpm-lock.yaml`. On Windows, skip `corepack enable` unless running an elevated shell; a user-scoped pnpm 8 install is sufficient.
+
 Windows PowerShell:
 
 ```powershell
-corepack enable
 pnpm install --frozen-lockfile
 
 py -m venv .venv
@@ -71,7 +74,6 @@ pip install -r backend\requirements.txt
 Linux/macOS:
 
 ```bash
-corepack enable
 pnpm install --frozen-lockfile
 
 python3 -m venv .venv

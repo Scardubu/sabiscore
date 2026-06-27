@@ -5,8 +5,9 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.security import OAuth2PasswordRequestForm
+from dataclasses import dataclass
+
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,6 +26,24 @@ AUTH_RATE_LIMIT_REQUESTS = 20
 AUTH_RATE_LIMIT_WINDOW = 60
 _rate_limit_store: dict[str, list[datetime]] = defaultdict(list)
 _rate_lock = asyncio.Lock()
+
+
+@dataclass(frozen=True)
+class OAuthPasswordForm:
+	username: str
+	password: str
+	scopes: list[str]
+
+
+async def oauth_password_form(
+	username: str = Form(...),
+	password: str = Form(...),
+	scope: str = Form(default=""),
+) -> OAuthPasswordForm:
+	"""Parse OAuth2 password form data without FastAPI's fragile helper class."""
+
+	scopes = [item for item in scope.split() if item]
+	return OAuthPasswordForm(username=username, password=password, scopes=scopes)
 
 
 async def _check_rate_limit(client_ip: str) -> None:
@@ -138,7 +157,7 @@ async def login_user(
 @router.post("/token", response_model=Token)
 async def login_via_oauth_form(
 	request: Request,
-	form_data: OAuth2PasswordRequestForm = Depends(),
+	form_data: OAuthPasswordForm = Depends(oauth_password_form),
 	db: AsyncSession = Depends(get_async_session),
 ):
 	"""OAuth2-compatible token endpoint used by the interactive docs."""

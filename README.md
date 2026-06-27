@@ -23,8 +23,11 @@ Legacy roots such as `apps/api` and `frontend/` are not production deployment ta
 
 Python 3.11 through 3.14 is supported for the API runtime. Python 3.14 uses newer wheel-backed scientific packages; optional CatBoost, SHAP, MLflow, and Great Expectations training extras should run in a Python 3.11-3.13 training environment until their Python 3.14 wheel stacks are dependable.
 
+Kafka clients and browser automation packages are treated as optional worker dependencies on Python 3.14/Windows because they otherwise require native toolchains or older `greenlet` pins. The canonical API/provider gateway does not import them at runtime.
+
+Use pnpm 8.x with this lockfile. Do not run `corepack enable` on Windows unless you have admin rights and intentionally want Corepack shims installed globally.
+
 ```bash
-corepack enable
 pnpm install --frozen-lockfile
 
 python -m venv .venv

@@ -12,21 +12,26 @@ xgboost>=1.7.0; python_version < "3.14"
 lightgbm>=4.6.0,<5.0.0; python_version >= "3.14"
 lightgbm>=3.3.0; python_version < "3.14"
 optuna>=3.0.0
-joblib>=1.1.0
+joblib>=1.5.0,<2.0.0; python_version >= "3.14"
+joblib>=1.1.0; python_version < "3.14"
 redis>=4.5.0
 pydantic>=1.10.0
-pydantic-settings>=2.2.1
+pydantic>=2.12.0,<3.0.0; python_version >= "3.14"
+pydantic-settings>=2.10.0,<3.0.0; python_version >= "3.14"
+pydantic-settings>=2.2.1; python_version < "3.14"
 email-validator>=2.2.0
 python-multipart>=0.0.6
 python-jose[cryptography]>=3.3.0
 passlib[bcrypt]>=1.7.4
-sqlalchemy>=2.0.0
+sqlalchemy>=2.0.40,<3.0.0; python_version >= "3.14"
+sqlalchemy>=2.0.0; python_version < "3.14"
+greenlet>=3.2.0,<4.0.0; python_version >= "3.14"
 alembic>=1.10.0
 psycopg[binary]>=3.2.0,<4.0.0
 requests>=2.28.0
 tenacity>=8.2.3
 beautifulsoup4>=4.11.0
-playwright>=1.30.0
+playwright>=1.30.0; python_version < "3.14"
 psutil>=5.9.0
 pytest>=7.0.0
 pytest-asyncio>=0.20.0

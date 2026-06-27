@@ -7,8 +7,10 @@
 # ==============================================================================
 # CORE WEB FRAMEWORK
 # ==============================================================================
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
+fastapi==0.104.1; python_version < "3.14"
+fastapi>=0.115.0,<1.0.0; python_version >= "3.14"
+uvicorn[standard]==0.24.0; python_version < "3.14"
+uvicorn[standard]>=0.30.0,<1.0.0; python_version >= "3.14"
 python-multipart==0.0.6
 
 # ==============================================================================
@@ -20,10 +22,14 @@ python-decouple==3.8
 # ==============================================================================
 # DATA VALIDATION & SETTINGS
 # ==============================================================================
-# Using Pydantic v2 (major version upgrade from v1)
-pydantic==2.9.2
-pydantic-settings==2.1.0
-pydantic[email]==2.9.2
+# Python 3.14 requires newer pydantic-core wheels; older runtimes keep the
+# previously validated pins.
+pydantic==2.9.2; python_version < "3.14"
+pydantic>=2.12.0,<3.0.0; python_version >= "3.14"
+pydantic-settings==2.1.0; python_version < "3.14"
+pydantic-settings>=2.10.0,<3.0.0; python_version >= "3.14"
+pydantic[email]==2.9.2; python_version < "3.14"
+pydantic[email]>=2.12.0,<3.0.0; python_version >= "3.14"
 cerberus==1.3.5
 schema==0.7.5
 jsonschema==4.20.0
@@ -31,7 +37,9 @@ jsonschema==4.20.0
 # ==============================================================================
 # DATABASE & ORM
 # ==============================================================================
-sqlalchemy==2.0.23
+sqlalchemy==2.0.23; python_version < "3.14"
+sqlalchemy>=2.0.40,<3.0.0; python_version >= "3.14"
+greenlet>=3.2.0,<4.0.0; python_version >= "3.14"
 asyncpg>=0.27.0
 aiosqlite>=0.19.0
 psycopg[binary]>=3.2.0,<4.0.0
@@ -42,9 +50,11 @@ alembic==1.13.1
 # ==============================================================================
 redis==5.0.1
 redis[hiredis]==5.0.1
-# Note: aioredis is deprecated, use redis>=4.2.0 with async support
-aiokafka==0.10.0
-confluent-kafka==2.3.0
+# Note: aioredis is deprecated, use redis>=4.2.0 with async support.
+# Kafka clients are optional and currently lack reliable Python 3.14 wheels on
+# Windows; install them in a worker-specific Python 3.11-3.13 environment.
+aiokafka==0.10.0; python_version < "3.14"
+confluent-kafka==2.3.0; python_version < "3.14"
 
 # ==============================================================================
 # SECURITY & AUTHENTICATION
@@ -73,12 +83,14 @@ w3lib==2.1.2
 # ==============================================================================
 # BROWSER AUTOMATION
 # ==============================================================================
-playwright==1.40.0
-playwright-stealth==1.0.3
-selenium==4.16.0
-webdriver-manager==4.0.1
-undetected-chromedriver==3.5.4
-fake-useragent==1.4.0
+# Browser automation is optional for dynamic scrapers and is excluded from the
+# Python 3.14 API runtime because Playwright 1.40 pins greenlet==3.0.1.
+playwright==1.40.0; python_version < "3.14"
+playwright-stealth==1.0.3; python_version < "3.14"
+selenium==4.16.0; python_version < "3.14"
+webdriver-manager==4.0.1; python_version < "3.14"
+undetected-chromedriver==3.5.4; python_version < "3.14"
+fake-useragent==1.4.0; python_version < "3.14"
 
 # ==============================================================================
 # DATA PROCESSING & ANALYTICS
@@ -106,7 +118,8 @@ lightgbm==4.1.0; python_version < "3.14"
 lightgbm>=4.6.0,<5.0.0; python_version >= "3.14"
 optuna>=3.0.0
 catboost==1.2.2; python_version < "3.14"
-joblib==1.3.2
+joblib==1.3.2; python_version < "3.14"
+joblib>=1.5.0,<2.0.0; python_version >= "3.14"
 shap==0.44.1; python_version < "3.14"
 
 # ==============================================================================
@@ -157,6 +170,8 @@ ruamel.yaml>=0.16,<0.17.18
 # ==============================================================================
 sentry-sdk[fastapi]==1.39.1
 prometheus-client==0.19.0
+psutil>=7.0.0,<8.0.0; python_version >= "3.14"
+psutil>=5.9.0; python_version < "3.14"
 opentelemetry-api==1.21.0
 opentelemetry-sdk==1.21.0
 opentelemetry-instrumentation-fastapi==0.42b0

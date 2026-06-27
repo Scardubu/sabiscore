@@ -6,6 +6,10 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 from urllib.parse import urljoin
 
+from .python_compat import apply_python_314_compat
+
+apply_python_314_compat()
+
 try:
     # Prefer requests if available for easier retries
     import requests
@@ -122,6 +126,40 @@ def _smoke_test_ensemble_model(model: Any, league: str, artifact_name: str) -> N
         )
 
 
+def _force_single_thread_inference(obj: Any, *, _seen: set[int] | None = None) -> None:
+    """Best-effort guard against joblib worker-pool creation during inference."""
+
+    if _seen is None:
+        _seen = set()
+    obj_id = id(obj)
+    if obj_id in _seen:
+        return
+    _seen.add(obj_id)
+
+    if hasattr(obj, "n_jobs"):
+        try:
+            setattr(obj, "n_jobs", 1)
+        except Exception:
+            pass
+
+    if isinstance(obj, dict):
+        iterable = obj.values()
+    elif isinstance(obj, (list, tuple, set)):
+        iterable = obj
+    else:
+        iterable = []
+        for attr in ("models", "estimators_", "estimators", "base_estimators", "steps", "named_steps", "meta_model"):
+            try:
+                value = getattr(obj, attr)
+            except Exception:
+                continue
+            if value is not None:
+                iterable = [*iterable, value]
+
+    for child in iterable:
+        _force_single_thread_inference(child, _seen=_seen)
+
+
 def _load_model_from_bytes(payload: bytes) -> Any:
     with tempfile.NamedTemporaryFile(suffix=".pkl", delete=True) as tmp_file:
         tmp_file.write(payload)
@@ -184,6 +222,7 @@ def load_ensemble_per_league(
             logger.info("Loading local model artifact %s", local_artifact)
             model = SabiScoreEnsemble.load_model(str(local_artifact))
 
+        _force_single_thread_inference(model)
         _smoke_test_ensemble_model(model, league=league, artifact_name=artifact_name)
         loaded_models[str(league)] = model
 
