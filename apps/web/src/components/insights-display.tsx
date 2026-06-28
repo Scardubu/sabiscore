@@ -4,9 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import type { InsightsResponse } from "@/lib/api";
-import type { ChartOptions } from "@/types/chart";
 import { normalizeValueBet } from "@/types/value-bet";
-import { DoughnutChart } from "./charts/DoughnutChart";
+import { ProbabilityDonutChart } from "./charts/ProbabilityDonutChart";
 import { apiClient } from "@/lib/api";
 import { safeErrorMessage, trackPerformance } from "@/lib/error-utils";
 import { ValueBetCard } from "./ValueBetCard";
@@ -147,57 +146,12 @@ function InsightsDisplayInner({ insights }: InsightsDisplayProps) {
     // No cleanup required; width will be overwritten on subsequent updates.
   }, [current]);
 
-  // Memoize chart data to prevent unnecessary re-renders
-  const chartData = useMemo(() => ({
-    labels: ["Home Win", "Draw", "Away Win"],
-    datasets: [
-      {
-        data: [
-          predictions.home_win_prob,
-          predictions.draw_prob,
-          predictions.away_win_prob,
-        ],
-        backgroundColor: [
-          "rgba(99, 102, 241, 0.8)",
-          "rgba(139, 92, 246, 0.8)",
-          "rgba(34, 197, 94, 0.8)",
-        ],
-        borderColor: [
-          "rgba(99, 102, 241, 1)",
-          "rgba(139, 92, 246, 1)",
-          "rgba(34, 197, 94, 1)",
-        ],
-        borderWidth: 2,
-      },
-    ],
-  }), [predictions.home_win_prob, predictions.draw_prob, predictions.away_win_prob]);
-
-  // Memoize chart options - these are static and don't need to change
-  const chartOptions: ChartOptions<"doughnut"> = useMemo(() => ({
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: "bottom" as const,
-        labels: {
-          color: "rgba(226, 232, 240, 0.8)",
-          font: {
-            size: 12,
-          },
-        },
-      },
-      tooltip: {
-        callbacks: {
-          label: (context: { label?: string; parsed?: number | number[] }) => {
-            const label = context.label || "";
-            const parsed = context.parsed ?? 0;
-            const value = (Array.isArray(parsed) ? parsed[0] : parsed) as number;
-            return `${label}: ${typeof value === 'number' ? (value * 100).toFixed(1) : '0.0'}%`;
-          },
-        },
-      },
-    },
-  }), []);
+  // Memoize chart segments to prevent unnecessary re-renders
+  const probabilitySegments = useMemo(() => [
+    { label: "Home Win", value: predictions.home_win_prob, color: "#6366f1" },
+    { label: "Draw", value: predictions.draw_prob, color: "#8b5cf6" },
+    { label: "Away Win", value: predictions.away_win_prob, color: "#22c55e" },
+  ], [predictions.home_win_prob, predictions.draw_prob, predictions.away_win_prob]);
 
   // Memoize normalized best bet to prevent recalculation on each render
   const bestBet = useMemo(() => 
@@ -399,7 +353,7 @@ function InsightsDisplayInner({ insights }: InsightsDisplayProps) {
             premiumVisualsEnabled ? "text-cyan-400" : "text-slate-100"
           )}>Match Probabilities</h2>
           <div className="h-80">
-            <DoughnutChart data={chartData} options={chartOptions} />
+            <ProbabilityDonutChart segments={probabilitySegments} className="h-full w-full" />
           </div>
           
           <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-800/50">

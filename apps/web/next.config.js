@@ -75,10 +75,6 @@ const nextConfig = {
 
   excludeDefaultMomentLocales: true,
 
-  // Prevent heavy browser-only libraries from being bundled into the server output
-  serverExternalPackages: ['chart.js', 'react-chartjs-2'],
-
-
   // Image optimization - disable for static export
   images: {
     unoptimized: true,

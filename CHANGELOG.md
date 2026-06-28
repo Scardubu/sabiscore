@@ -7,6 +7,23 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ---
 
+## Chart consolidation, gate/adapter re-verification (2026-06-28)
+
+### Frontend — chart.js removed, recharts is now the sole charting library
+
+- **Investigated:** the prior entry's note that `MatchDashboard.tsx` and `rolling-accuracy-chart.tsx` use both charting libraries was stale — both already use `recharts` exclusively. The actual chart.js footprint was isolated to `components/charts/DoughnutChart.tsx` (a dynamic-import wrapper around `react-chartjs-2`) with exactly two consumers: `insights-display.tsx` and a dead, zero-import duplicate `ConfidenceMeter.tsx` (PascalCase; the live, tested component is the unrelated `confidence-meter.tsx`, a Framer Motion progress meter with no chart).
+- **Added:** `apps/web/src/components/charts/ProbabilityDonutChart.tsx` — a small `recharts` `PieChart`/`Pie` (innerRadius donut) replacement for the chart.js Doughnut, taking a generic `{ label, value, color }[]` segment list instead of chart.js's dataset shape.
+- **Changed:** `insights-display.tsx` now renders `ProbabilityDonutChart` instead of `DoughnutChart`; removed the chart.js-specific `chartData`/`chartOptions` memoization in favor of a plain segment list.
+- **Removed:** `components/charts/DoughnutChart.tsx`, `types/chart.ts`, and the dead `ConfidenceMeter.tsx` (PascalCase). Removed `chart.js` and `react-chartjs-2` from `apps/web/package.json`. Removed the now-stale `serverExternalPackages: ['chart.js', 'react-chartjs-2']` entry from `next.config.js` (recharts is SVG-based and needs no server-bundling exclusion).
+- **Verified:** `pnpm --filter @sabiscore/web lint|typecheck|test|build` all pass (14/14 unit tests, clean production build) after the migration and lockfile update.
+
+### Re-verified, not changed — two items from the certification doc were already resolved
+
+- **`critical_gaps` PARTIAL gate:** re-confirmed by direct read of `_apply_verdict_gate` (`betting_intelligence.py`) and `_evaluate_match`/`_critical_data_gaps` (`core_engine.py`) plus a passing run of `test_market_source_status_conflicting_forces_partial` and `test_advisory_only_signals_never_force_partial` in both engine test files. The gate already keys off a pre-extracted `critical_gaps` list with CONFLICTING entries excluded, exactly as CLAUDE.md's verified-ground-truth section states. No `betting_intelligence_patch.md` exists or is needed — this claim in circulating prompt drafts is stale.
+- **Provider adapter stubs:** re-confirmed only one stub remains — `api_football.team_statistics()` — not three. `football_data_org.fixtures()/standings()` and `sportmonks.injuries()/lineups()` are operational (shipped in the prior session). `team_statistics()` stays explicitly stubbed: the real endpoint needs a numeric API-Football team ID, and the orchestrator's `PREMATCH_ENRICHED` profile only has `competition` + provider event ID at that call site — no canonical team-ID reconciliation layer exists yet to resolve one safely. Implementing it now would mean fabricating a team-ID lookup, which the betting-engine/provider rules in CLAUDE.md prohibit. Left as the documented `ponytail:` stub pending that reconciliation work.
+
+---
+
 ## Operational provider adapters, real frontend tests, repo hygiene (2026-06-28)
 
 ### Backend — provider adapters (football-data.org, API-Football, Sportmonks)
