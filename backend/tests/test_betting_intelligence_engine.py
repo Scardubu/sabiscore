@@ -244,6 +244,21 @@ class TestPartialGate:
         assert result.verdict == VerdictEnum.PARTIAL
         assert any("STALE: model_features" in gap for gap in result.data_gaps)
 
+    def test_advisory_only_signals_never_force_partial(self):
+        """Unconfirmed lineup far from kickoff, a conflicting sharp signal, and a
+        caller-supplied known risk are advisory by design (Section 11 of the
+        certification contract) — they must never enter data_gaps/critical_gaps
+        or trigger the Gate 1 PARTIAL check, only influence HOLD/confidence."""
+        req = _request()
+        req.signals.lineup_status = LineupStatusEnum.PROVISIONAL
+        req.signals.sharp_market_signal = SharpSignalEnum.CONFLICTING
+        req.signals.confirmed_absences = ["Player X (knock)"]
+        req.known_risks = ["Squad rotation possible ahead of cup fixture"]
+        result = analyze_match(req)
+        assert result.data_gaps == []
+        assert result.critical_gaps == []
+        assert result.verdict != VerdictEnum.PARTIAL
+
 
 # ---------------------------------------------------------------------------
 # Gate 2: NO_BET — valid data but no positive value

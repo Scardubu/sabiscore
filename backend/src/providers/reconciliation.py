@@ -64,5 +64,10 @@ def reconcile_fixture(
     if len(scored) > 1 and abs(scored[0][0] - scored[1][0]) < 0.03:
         return ReconciliationDecision("CONFLICTING", scored[0][0], None, "ambiguous_candidate")
     if scored[0][0] < auto_accept_threshold:
-        return ReconciliationDecision("UNKNOWN", scored[0][0], None, "below_auto_accept_threshold")
+        # A plausible single candidate exists but confidence is below the
+        # auto-accept bar: this is reviewable, not unknown. Surface the
+        # candidate fixture_id so a reviewer has something to confirm.
+        return ReconciliationDecision(
+            "REQUIRES_REVIEW", scored[0][0], scored[0][1].fixture_id, "below_auto_accept_threshold"
+        )
     return ReconciliationDecision("VERIFIED", scored[0][0], scored[0][1].fixture_id, "matched_by_identity_and_kickoff")

@@ -1,5 +1,75 @@
 # SabiScore Release Notes
 
+## v5.5.1 — Reconciliation REQUIRES_REVIEW status, PARTIAL-gate regression guard (2026-06-28)
+
+### Overview
+
+Closes two open questions left by v5.5.0: confirmed (with a new regression test)
+that advisory-only evidence never forces `PARTIAL`, and gave ambiguous-but-plausible
+fixture matches in `reconcile_fixture()` a distinct `REQUIRES_REVIEW` status instead
+of collapsing them into `UNKNOWN`. No math, verdict cascade, or persisted schema
+changed — `reconciliation_status` columns are plain `String`, so no migration is
+needed for the new value.
+
+### Backend changes
+
+**`backend/src/providers/reconciliation.py`**
+
+- `reconcile_fixture()`: a single best-scoring candidate that clears the
+  competition/kickoff filter but falls below `auto_accept_threshold` now
+  returns `REQUIRES_REVIEW` (with the candidate's `fixture_id` attached for a
+  reviewer to confirm or reject) instead of `UNKNOWN`. `UNKNOWN` is now
+  reserved for the case where no candidate exists at all. `CONFLICTING`
+  (multiple equally-scored candidates) is unchanged.
+- Not yet wired to persistence or the evidence endpoint — `reconcile_fixture()`
+  has no production caller yet (confirmed via repo-wide search; only test
+  coverage exercises it today). Wiring `REQUIRES_REVIEW` into
+  `provider_event_mappings` and surfacing it as a `critical_gap` on the
+  evidence endpoint remains a separate, larger task.
+
+**`backend/src/services/betting_intelligence.py`** — no code change; verified
+by test only. Traced every path that can populate the `gaps` list feeding
+`_apply_verdict_gate`: missing model/market, `DATA_GAP`/`CONFLICTING`/`STALE`
+source status, overround-integrity failures, and TTK-critical
+availability/lineup windows. None of them can carry an advisory-only entry —
+`sharp_market_signal == CONFLICTING`, unconfirmed lineup outside the 90-minute
+window, `known_risks`, and `confirmed_absences` only ever flow into `risks` /
+`advisory_gaps`, never into `gaps` / `critical_gaps`. Threading
+`critical_gaps` explicitly into the gate (in place of the raw `gaps` list)
+was considered and rejected: it would have stripped `CONFLICTING:`-prefixed
+entries from the gate input, breaking the two existing tests that require a
+conflicting source status to force `PARTIAL`.
+
+### Tests
+
+- `backend/tests/test_betting_intelligence_engine.py`: added
+  `test_advisory_only_signals_never_force_partial` — locks in that
+  unconfirmed lineup, a conflicting sharp signal, and known risks never
+  populate `data_gaps`/`critical_gaps` or force `PARTIAL`.
+- `backend/tests/test_providers_gateway.py`: added
+  `test_reconciliation_requires_review_for_single_low_confidence_candidate`
+  and `test_reconciliation_unknown_only_when_no_candidate_exists` to lock in
+  the three-way distinction between `REQUIRES_REVIEW`, `UNKNOWN`, and the
+  pre-existing `CONFLICTING` test.
+
+### Verification
+
+- `pytest tests/test_betting_intelligence_engine.py tests/test_core_engine.py tests/test_providers_gateway.py -q --no-cov` — all pass.
+- `pytest tests/ --ignore=tests/integration --no-cov` — 833 passed, 7 skipped
+  (pre-existing/environmental), 2 pre-existing errors in
+  `tests/unit/test_aggregator.py` unrelated to this change (`pytest-mock` not
+  installed in this environment — present before this change).
+
+### Deferred (not in this pass)
+
+- Wiring `reconcile_fixture()` into `provider_event_mappings` persistence and
+  surfacing `REQUIRES_REVIEW` as a `critical_gap` on the evidence endpoint
+  (Section 13's M22 / Refined Execution Prompt Phase 4) — requires async DB
+  session plumbing through `fixtures.py`, a larger change than this pass.
+- Real operational HTTP methods for football-data.org, API-Football,
+  Sportmonks, and The Odds API adapters — still capability-only stubs,
+  blocked on live API contracts/credentials per v5.5.0.
+
 ## v5.5.0 — Betting engine watchlist fix, provider gateway lifespan, dead ML code removal (2026-06-28)
 
 ### Overview

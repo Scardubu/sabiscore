@@ -99,3 +99,61 @@ def test_reconciliation_reports_ambiguity_instead_of_guessing():
     assert decision.status == "CONFLICTING"
     assert decision.fixture_id is None
     assert decision.reason == "ambiguous_candidate"
+
+
+def test_reconciliation_requires_review_for_single_low_confidence_candidate():
+    """A single plausible-but-imperfect candidate is reviewable, not unknown.
+
+    Distinct from CONFLICTING (multiple equally-scored candidates) and from
+    UNKNOWN (no candidate at all): here there is exactly one candidate that
+    cleared the kickoff/competition filter but didn't reach the auto-accept
+    confidence bar, so a human reviewer needs the fixture_id to confirm it.
+    """
+    from datetime import datetime, timezone
+
+    provider_record = FixtureCandidate(
+        fixture_id="provider-a",
+        provider="espn",
+        provider_event_id="a",
+        home_team="Man Utd",
+        away_team="Spurs",
+        kickoff_utc=datetime(2026, 8, 1, 15, 0, tzinfo=timezone.utc),
+        competition="EPL",
+    )
+    candidates = [
+        FixtureCandidate(
+            fixture_id="fixture-1",
+            provider="football_data_org",
+            provider_event_id="b",
+            home_team="Manchester United",
+            away_team="Tottenham Hotspur",
+            kickoff_utc=datetime(2026, 8, 1, 15, 40, tzinfo=timezone.utc),
+            competition="EPL",
+        ),
+    ]
+
+    decision = reconcile_fixture(provider_record, candidates)
+
+    assert decision.status == "REQUIRES_REVIEW"
+    assert decision.fixture_id == "fixture-1"
+    assert decision.reason == "below_auto_accept_threshold"
+
+
+def test_reconciliation_unknown_only_when_no_candidate_exists():
+    from datetime import datetime, timezone
+
+    provider_record = FixtureCandidate(
+        fixture_id="provider-a",
+        provider="espn",
+        provider_event_id="a",
+        home_team="Arsenal",
+        away_team="Chelsea",
+        kickoff_utc=datetime(2026, 8, 1, 15, 0, tzinfo=timezone.utc),
+        competition="EPL",
+    )
+
+    decision = reconcile_fixture(provider_record, [])
+
+    assert decision.status == "UNKNOWN"
+    assert decision.fixture_id is None
+    assert decision.reason == "no_candidate"
