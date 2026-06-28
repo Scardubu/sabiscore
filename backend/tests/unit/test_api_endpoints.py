@@ -6,14 +6,14 @@ import json
 
 # Import the router that aggregates all endpoints
 from src.api import api_router
-from src.main import app
+from src.api.main import app
 from src.db.session import get_async_session
 
 # Create a TestClient instance
 # We need to mount the router to a FastAPI app if it's not already, 
 # but here we can just use the main app which should have the router included.
 # However, to be safe and isolated, we can create a new app or use the existing one.
-# The existing app in src.main likely has the router included.
+# The existing app in src.api.main has the router included.
 
 class CustomTestClient(TestClient):
     """

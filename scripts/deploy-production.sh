@@ -25,7 +25,7 @@ BACKEND_SERVICE="sabiscore-backend"
 echo -e "${YELLOW}[1/7] Running pre-deployment checks...${NC}"
 
 # Check if required tools are installed
-for tool in vercel git node npm; do
+for tool in vercel git node pnpm; do
     if ! command -v $tool &> /dev/null; then
         echo -e "${RED}Error: $tool is not installed${NC}"
         exit 1
@@ -52,14 +52,14 @@ echo -e "${GREEN}Pre-deployment checks passed${NC}"
 echo ""
 echo -e "${YELLOW}[2/7] Running tests...${NC}"
 
-npm run test -- --run --silent
+pnpm --filter @sabiscore/web test
 echo -e "${GREEN}All tests passed${NC}"
 
 # Step 3: Build frontend
 echo ""
 echo -e "${YELLOW}[3/7] Building frontend...${NC}"
 
-npm run build
+pnpm --filter @sabiscore/web build
 echo -e "${GREEN}Frontend build successful${NC}"
 
 # Step 4: Deploy to Vercel
@@ -101,14 +101,25 @@ echo -e "${YELLOW}[6/7] Running smoke tests...${NC}"
 curl -f -s -X POST \
     -H "Content-Type: application/json" \
     -d '{
-        "homeTeam": "Test Home",
-        "awayTeam": "Test Away",
-        "homeForm": [1, 1, 0],
-        "awayForm": [0, 0, 1],
-        "homeXg": 1.5,
-        "awayXg": 1.2
+        "match_id": "smoke-test",
+        "home_team": "Test Home",
+        "away_team": "Test Away",
+        "competition": "EPL",
+        "kickoff_utc": "2026-07-01T12:00:00Z",
+        "model": {
+          "home_probability": 0.45,
+          "draw_probability": 0.28,
+          "away_probability": 0.27
+        },
+        "market": {
+          "bookmaker": "smoke",
+          "home_odds": 2.40,
+          "draw_odds": 3.40,
+          "away_odds": 3.20,
+          "captured_at": "2026-06-28T12:00:00Z"
+        }
     }' \
-    "$NEXT_PUBLIC_API_URL/api/predict" > /dev/null && \
+    "$NEXT_PUBLIC_API_URL/api/v1/predictions/analyze" > /dev/null && \
     echo -e "${GREEN}Prediction API smoke test passed${NC}" || \
     echo -e "${YELLOW}Prediction API smoke test failed${NC}"
 
@@ -129,6 +140,6 @@ echo ""
 echo -e "${YELLOW}Next steps:${NC}"
 echo "1. Monitor deployment at: https://vercel.com/dashboard"
 echo "2. Check logs: vercel logs"
-echo "3. Run load tests: npm run test:load"
+echo "3. Run web checks: pnpm --filter @sabiscore/web build"
 echo "4. Verify monitoring dashboard: $NEXT_PUBLIC_API_URL/monitoring"
 echo ""

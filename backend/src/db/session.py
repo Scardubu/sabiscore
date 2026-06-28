@@ -2,8 +2,11 @@
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, AsyncGenerator, Dict, Optional
 
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
@@ -22,6 +25,10 @@ AsyncSessionLocal: Optional[async_sessionmaker[AsyncSession]] = None
 
 # SQLite fallback URL for async operations
 SQLITE_FALLBACK_URL = "sqlite+aiosqlite:///./sabiscore_fallback.db"
+
+
+def _sqlite_fallback_allowed() -> bool:
+    return settings.app_env != "production" and bool(settings.allow_sqlite_fallback)
 
 
 def _get_async_database_url(raw_url: str) -> str:
@@ -50,6 +57,49 @@ async def _try_create_async_engine(database_url: str, engine_kwargs: Dict[str, A
     return eng
 
 
+def _alembic_head_revision() -> str | None:
+    backend_dir = Path(__file__).resolve().parents[2]
+    config_path = backend_dir / "alembic.ini"
+    if not config_path.exists():
+        logger.warning("Alembic config not found at %s", config_path)
+        return None
+    alembic_config = Config(str(config_path))
+    alembic_config.set_main_option("script_location", str(backend_dir / "alembic"))
+    script = ScriptDirectory.from_config(alembic_config)
+    return script.get_current_head()
+
+
+async def get_applied_alembic_revision(engine: AsyncEngine | None = None) -> str | None:
+    target_engine = engine or async_engine
+    if target_engine is None:
+        return None
+    try:
+        async with target_engine.connect() as conn:
+            result = await conn.execute(text("SELECT version_num FROM alembic_version"))
+            value = result.scalar_one_or_none()
+            return str(value) if value else None
+    except Exception as exc:
+        logger.warning("Unable to read Alembic revision: %s", exc)
+        return None
+
+
+async def check_alembic_current(engine: AsyncEngine | None = None) -> bool:
+    head = _alembic_head_revision()
+    applied = await get_applied_alembic_revision(engine)
+    return bool(head and applied and head == applied)
+
+
+async def require_alembic_current(engine: AsyncEngine | None = None) -> str:
+    head = _alembic_head_revision()
+    applied = await get_applied_alembic_revision(engine)
+    if not head:
+        raise RuntimeError("Alembic head revision could not be resolved")
+    if applied != head:
+        raise RuntimeError(f"Database schema revision {applied or 'missing'} is not current head {head}")
+    logger.info("Alembic schema revision verified: %s", applied)
+    return applied
+
+
 async def init_db() -> None:
     """
     Initialize database engine.
@@ -68,8 +118,11 @@ async def init_db() -> None:
         database_url = SQLITE_FALLBACK_URL
     else:
         database_url = _get_async_database_url(settings.database_url)
-        if database_url.startswith("sqlite") and settings.app_env != "test" and not settings.allow_sqlite_fallback:
-            raise RuntimeError("SQLite database URLs require APP_ENV=test or ALLOW_SQLITE_FALLBACK=true")
+        if database_url.startswith("sqlite") and not _sqlite_fallback_allowed():
+            raise RuntimeError(
+                "SQLite database URLs require SABISCORE_ALLOW_INSECURE_FALLBACK=true "
+                "and APP_ENV must not be production"
+            )
 
     use_null_pool = settings.app_env == "test" or database_url.startswith("sqlite")
 
@@ -93,7 +146,7 @@ async def init_db() -> None:
         logger.info(f"Async database engine created successfully ({'SQLite' if 'sqlite' in database_url else 'PostgreSQL'})")
     except Exception as e:
         if not database_url.startswith("sqlite"):
-            if settings.app_env != "test" and not settings.allow_sqlite_fallback:
+            if not _sqlite_fallback_allowed():
                 logger.error("PostgreSQL async connection failed and SQLite fallback is not explicitly allowed")
                 raise
             # PostgreSQL failed, try SQLite fallback
@@ -124,6 +177,11 @@ async def init_db() -> None:
         autocommit=False,
         autoflush=False,
     )
+
+    if not database_url.startswith("sqlite"):
+        await require_alembic_current(async_engine)
+    else:
+        logger.warning("SQLite fallback active; Alembic current-revision check skipped for fallback database")
     
 
 async def close_db() -> None:

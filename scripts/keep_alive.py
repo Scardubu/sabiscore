@@ -2,7 +2,7 @@
 Ping backend /health/ready to reduce cold starts and emit structured latency telemetry.
 
 Usage:
-  BACKEND_URL=https://sabiscore-api.onrender.com python scripts/keep_alive.py
+  BACKEND_URL=https://your-backend.example.com python scripts/keep_alive.py
 
 Exit codes:
   0  — ready (HTTP 2xx, models_loaded=true)

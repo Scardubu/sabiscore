@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import List, Optional
 import json
 
-from pydantic import Field, ValidationError, field_validator, model_validator
+from pydantic import AliasChoices, Field, ValidationError, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     )
     allow_sqlite_fallback: bool = Field(
         default=False,
-        alias="ALLOW_SQLITE_FALLBACK",
+        validation_alias=AliasChoices("SABISCORE_ALLOW_INSECURE_FALLBACK", "ALLOW_SQLITE_FALLBACK"),
         description="Development/test-only opt-in for SQLite fallback when PostgreSQL is unavailable.",
     )
     database_pool_size: int = Field(default=20, ge=1, le=100)

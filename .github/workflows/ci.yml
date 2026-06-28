@@ -1,109 +1,129 @@
-name: CI - Monorepo
+name: CI - Canonical Platform
 
 on:
   push:
-    branches: [ main, develop, feat/** ]
+    branches: [main, develop, "feat/**"]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  web-build:
-    name: Web Build & Lint (Next.js)
+  security:
+    name: Secret Scan
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          fetch-depth: 0
 
-      - name: Install workspace dependencies
-        run: npm ci
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Lint web
-        run: |
-          cd apps/web
-          npm run lint
-
-      - name: Typecheck (TS)
-        run: |
-          cd apps/web
-          npx tsc --noEmit
-        continue-on-error: true
-
-      - name: Build web
-        run: |
-          cd apps/web
-          npm run build
-
-      - name: Upload build artifacts
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-build
-          path: apps/web/.next
-
-  backend-tests:
-    name: Backend tests (FastAPI)
+  backend-quality:
+    name: Backend Lint, Typecheck, Tests
     runs-on: ubuntu-latest
-    continue-on-error: true
+    needs: security
     services:
       postgres:
-        image: postgres:15
+        image: postgres:15-alpine
         env:
-          POSTGRES_DB: test_db
-          POSTGRES_USER: test_user
+          POSTGRES_DB: sabiscore_test
+          POSTGRES_USER: sabi
           POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U sabi -d sabiscore_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
       redis:
-        image: redis:7
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
 
+    env:
+      APP_ENV: test
+      DATABASE_URL: postgresql://sabi:test_password@localhost:5432/sabiscore_test
+      REDIS_URL: redis://localhost:6379/0
+      SECRET_KEY: test-secret-key-for-ci-only-please-rotate
+      PROVIDER_LIVE_TESTS: "false"
+
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements*.txt') }}
+          python-version: "3.11"
+          cache: pip
 
       - name: Install backend dependencies
+        working-directory: backend
         run: |
-          cd backend
           python -m pip install --upgrade pip
-          if [ -f requirements.min.txt ]; then
-            echo "Found requirements.min.txt — installing minimal runtime deps"
-            pip install -r requirements.min.txt
-          else
-            echo "Installing full requirements.txt"
-            pip install -r requirements.txt
-          fi
+          pip install -r requirements.txt
+          pip install ruff mypy
 
-      - name: Run backend tests
-        run: |
-          cd backend
-          python -m pytest tests/ -v --cov=src --cov-report=xml || true
+      - name: Ruff
+        working-directory: backend
+        run: ruff check src tests
 
-      - name: Upload backend coverage
-        uses: codecov/codecov-action@v3
+      - name: MyPy
+        working-directory: backend
+        run: mypy src
+
+      - name: Alembic upgrade
+        working-directory: backend
+        run: alembic upgrade head
+
+      - name: Backend tests
+        working-directory: backend
+        run: pytest tests -q --no-cov
+
+  web-quality:
+    name: Web Lint, Typecheck, Build
+    runs-on: ubuntu-latest
+    needs: security
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      SABISCORE_BACKEND_URL: http://localhost:8000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
         with:
-          file: ./backend/coverage.xml
-          flags: backend
-        continue-on-error: true
+          version: 9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint web
+        run: pnpm --filter @sabiscore/web lint
+
+      - name: Typecheck web
+        run: pnpm --filter @sabiscore/web typecheck
+
+      - name: Test web
+        run: pnpm --filter @sabiscore/web test
+
+      - name: Build web
+        run: pnpm --filter @sabiscore/web build

@@ -15,6 +15,7 @@ from ...core.database import engine, get_db_status
 from ...core.config import settings
 from ...core.model_fetcher import DEFAULT_LEAGUES
 from ...db.session import check_db_connection
+from ...db.session import _alembic_head_revision
 
 try:
     import psutil
@@ -69,6 +70,44 @@ def _discover_model_artifacts() -> Dict[str, Any]:
     return {
         "count": len(files),
         "files": sorted(set(files))[:20],
+    }
+
+
+def _check_alembic_revision() -> Dict[str, Any]:
+    head = _alembic_head_revision()
+    try:
+        with engine.connect() as conn:
+            applied = conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one_or_none()
+    except Exception as exc:
+        return {
+            "status": "not_ready",
+            "message": "Alembic revision unavailable",
+            "error": str(exc),
+            "head": head,
+            "applied": None,
+        }
+
+    if not head:
+        return {
+            "status": "not_ready",
+            "message": "Alembic head could not be resolved",
+            "head": None,
+            "applied": str(applied) if applied else None,
+        }
+
+    if str(applied) != str(head):
+        return {
+            "status": "not_ready",
+            "message": "Database schema revision is not current",
+            "head": head,
+            "applied": str(applied) if applied else None,
+        }
+
+    return {
+        "status": "ready",
+        "message": "Alembic head is applied",
+        "head": head,
+        "applied": str(applied),
     }
 
 
@@ -213,7 +252,7 @@ def liveness_check(response: Response) -> Dict[str, str]:
     Simple check that the service is running.
     """
     return {
-        "status": "alive",
+        "status": "live",
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
@@ -236,6 +275,10 @@ def readiness_check(request: Request, response: Response) -> Dict[str, Any]:
         logger.error(f"Database not ready: {e}")
         checks["database"] = {"status": "not_ready", "message": str(e)}
         ready = False
+
+    checks["migrations"] = _check_alembic_revision()
+    if checks["migrations"]["status"] != "ready":
+        ready = False
     
     # Check cache (degraded is acceptable)
     try:
@@ -250,6 +293,7 @@ def readiness_check(request: Request, response: Response) -> Dict[str, Any]:
     
     # Check models (critical for predictions)
     try:
+        discovered = _discover_model_artifacts()
         app_state = request.app.state
         required_leagues = _resolve_required_leagues()
         loaded_models = getattr(app_state, "models", {}) or {}
@@ -265,7 +309,19 @@ def readiness_check(request: Request, response: Response) -> Dict[str, Any]:
             if not getattr(model, "is_trained", False)
         ]
 
-        if load_error:
+        if discovered["count"] <= 0:
+            checks["models"] = {
+                "status": "not_ready",
+                "message": "No model artifacts found",
+                "models_loaded": False,
+                "model_version": model_version,
+                "required_leagues": required_leagues,
+                "leagues_loaded": leagues_loaded,
+                "artifact_count": 0,
+                "load_in_progress": load_in_progress,
+            }
+            ready = False
+        elif load_error:
             checks["models"] = {
                 "status": "not_ready",
                 "message": load_error,
@@ -273,6 +329,7 @@ def readiness_check(request: Request, response: Response) -> Dict[str, Any]:
                 "model_version": model_version,
                 "required_leagues": required_leagues,
                 "leagues_loaded": leagues_loaded,
+                "artifact_count": discovered["count"],
                 "load_in_progress": load_in_progress,
             }
             ready = False
@@ -284,6 +341,7 @@ def readiness_check(request: Request, response: Response) -> Dict[str, Any]:
                 "model_version": model_version,
                 "required_leagues": required_leagues,
                 "leagues_loaded": leagues_loaded,
+                "artifact_count": discovered["count"],
                 "load_in_progress": load_in_progress,
             }
             ready = False
@@ -296,6 +354,7 @@ def readiness_check(request: Request, response: Response) -> Dict[str, Any]:
                 "required_leagues": required_leagues,
                 "leagues_loaded": leagues_loaded,
                 "missing_required": missing_required,
+                "artifact_count": discovered["count"],
                 "load_in_progress": load_in_progress,
             }
             ready = False
@@ -308,6 +367,7 @@ def readiness_check(request: Request, response: Response) -> Dict[str, Any]:
                 "required_leagues": required_leagues,
                 "leagues_loaded": leagues_loaded,
                 "untrained_leagues": untrained,
+                "artifact_count": discovered["count"],
                 "load_in_progress": load_in_progress,
             }
             ready = False
@@ -319,6 +379,7 @@ def readiness_check(request: Request, response: Response) -> Dict[str, Any]:
                 "model_version": model_version,
                 "required_leagues": required_leagues,
                 "leagues_loaded": leagues_loaded,
+                "artifact_count": discovered["count"],
                 "load_in_progress": load_in_progress,
             }
     except Exception as e:

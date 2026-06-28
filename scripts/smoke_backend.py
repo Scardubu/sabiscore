@@ -1,10 +1,11 @@
+import os
 import sys
 import time
 import json
 from urllib.request import urlopen, Request
 
 
-BASE = sys.argv[1] if len(sys.argv) > 1 else "https://sabiscore-api.onrender.com"
+BASE = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("SABISCORE_BACKEND_URL", "")
 
 
 def get(path: str):
@@ -18,6 +19,10 @@ def get(path: str):
 
 
 def main() -> int:
+    if not BASE:
+        print("SABISCORE_BACKEND_URL or an explicit BASE_URL argument is required", file=sys.stderr)
+        return 2
+
     print(f"Smoke testing backend: {BASE}\n")
 
     tests_passed = 0

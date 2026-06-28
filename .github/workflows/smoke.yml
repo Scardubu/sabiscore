@@ -20,6 +20,7 @@ jobs:
 
       - name: Run smoke test against Render
         env:
-          BASE_URL: https://sabiscore-api.onrender.com
+          BASE_URL: ${{ secrets.SABISCORE_BACKEND_URL }}
         run: |
+          test -n "$BASE_URL"
           python scripts/smoke_backend.py "$BASE_URL"

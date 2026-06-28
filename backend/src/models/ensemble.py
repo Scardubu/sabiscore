@@ -9,6 +9,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, brier_score_loss, log_loss
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.utils.class_weight import compute_sample_weight
 import xgboost as xgb
 import lightgbm as lgb
@@ -145,6 +146,37 @@ class EnsembleModel:
                 meta_features[f'{model_name}_prob'] = probs[:, 1]
 
         return meta_features
+
+    @classmethod
+    def _repair_sklearn_compatibility(cls, obj: Any, seen: Optional[set[int]] = None) -> None:
+        """Patch trusted legacy sklearn pickles loaded under newer sklearn versions."""
+        if seen is None:
+            seen = set()
+
+        obj_id = id(obj)
+        if obj_id in seen:
+            return
+        seen.add(obj_id)
+
+        if isinstance(obj, DecisionTreeClassifier) and not hasattr(obj, "monotonic_cst"):
+            obj.monotonic_cst = None
+
+        if obj.__class__.__module__.startswith("sklearn.") and getattr(obj, "n_jobs", None) == -1:
+            obj.n_jobs = 1
+
+        if isinstance(obj, dict):
+            children = obj.values()
+        elif isinstance(obj, (list, tuple, set)):
+            children = obj
+        else:
+            children = []
+            for attr_name in ("estimators_", "models", "steps", "calibrated_classifiers_"):
+                attr = getattr(obj, attr_name, None)
+                if attr is not None:
+                    children.append(attr)
+
+        for child in children:
+            cls._repair_sklearn_compatibility(child, seen)
 
     def _train_meta_model(self, X_meta: pd.DataFrame, y: pd.DataFrame,
                          X_meta_test: pd.DataFrame, y_test: pd.DataFrame) -> None:
@@ -420,6 +452,8 @@ class EnsembleModel:
             instance.feature_columns = model_data.get('feature_columns', [])
             instance.model_metadata = model_data.get('model_metadata', {})
             instance.is_trained = model_data.get('is_trained', False)
+            cls._repair_sklearn_compatibility(instance.models)
+            cls._repair_sklearn_compatibility(instance.meta_model)
 
             logger.info(f"Model loaded from {model_path}")
             return instance
@@ -512,6 +546,8 @@ class EnsembleModel:
             instance.is_v2 = True
             instance.v2_scaler = save_data.get('scaler')
             instance.v2_feature_names = save_data.get('feature_names', [])
+            cls._repair_sklearn_compatibility(instance.models)
+            cls._repair_sklearn_compatibility(instance.meta_model)
             
             logger.info(f"V2 production model loaded successfully from {model_path}")
             logger.info(f"Features: {len(instance.feature_columns)}")

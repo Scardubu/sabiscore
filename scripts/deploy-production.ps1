@@ -14,7 +14,7 @@ $BACKEND_SERVICE = "sabiscore-backend"
 Write-Host "[1/7] Running pre-deployment checks..." -ForegroundColor Yellow
 
 # Check if required tools are installed
-$tools = @("vercel", "git", "node", "npm")
+$tools = @("vercel", "git", "node", "pnpm")
 foreach ($tool in $tools) {
     if (!(Get-Command $tool -ErrorAction SilentlyContinue)) {
         Write-Host "Error: $tool is not installed" -ForegroundColor Red
@@ -42,7 +42,7 @@ Write-Host "Pre-deployment checks passed" -ForegroundColor Green
 Write-Host ""
 Write-Host "[2/7] Running tests..." -ForegroundColor Yellow
 
-npm run test -- --run --silent
+pnpm --filter "@sabiscore/web" test
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Tests failed! Aborting deployment." -ForegroundColor Red
     exit 1
@@ -54,7 +54,7 @@ Write-Host "All tests passed" -ForegroundColor Green
 Write-Host ""
 Write-Host "[3/7] Building frontend..." -ForegroundColor Yellow
 
-npm run build
+pnpm --filter "@sabiscore/web" build
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Frontend build failed! Aborting deployment." -ForegroundColor Red
     exit 1
@@ -118,15 +118,26 @@ Write-Host "[6/7] Running smoke tests..." -ForegroundColor Yellow
 # Test prediction API
 try {
     $testPayload = @{
-        homeTeam = "Test Home"
-        awayTeam = "Test Away"
-        homeForm = @(1, 1, 0)
-        awayForm = @(0, 0, 1)
-        homeXg = 1.5
-        awayXg = 1.2
+        match_id = "smoke-test"
+        home_team = "Test Home"
+        away_team = "Test Away"
+        competition = "EPL"
+        kickoff_utc = "2026-07-01T12:00:00Z"
+        model = @{
+            home_probability = 0.45
+            draw_probability = 0.28
+            away_probability = 0.27
+        }
+        market = @{
+            bookmaker = "smoke"
+            home_odds = 2.40
+            draw_odds = 3.40
+            away_odds = 3.20
+            captured_at = "2026-06-28T12:00:00Z"
+        }
     } | ConvertTo-Json
 
-    $predictionUrl = "$($env:NEXT_PUBLIC_API_URL)/api/predict"
+    $predictionUrl = "$($env:NEXT_PUBLIC_API_URL)/api/v1/predictions/analyze"
     $response = Invoke-WebRequest -Uri $predictionUrl -Method POST -Body $testPayload -ContentType "application/json" -TimeoutSec 15
     
     if ($response.StatusCode -eq 200) {
@@ -161,6 +172,6 @@ Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Yellow
 Write-Host "1. Monitor deployment at: https://vercel.com/dashboard" -ForegroundColor White
 Write-Host "2. Check logs: vercel logs" -ForegroundColor White
-Write-Host "3. Run load tests: npm run test:load" -ForegroundColor White
+Write-Host "3. Run web checks: pnpm --filter @sabiscore/web build" -ForegroundColor White
 Write-Host "4. Verify monitoring dashboard: $($env:NEXT_PUBLIC_API_URL)/monitoring" -ForegroundColor White
 Write-Host ""

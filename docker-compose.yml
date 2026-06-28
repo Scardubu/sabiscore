@@ -1,207 +1,103 @@
-version: '3.8'
-
 services:
-  # Backend API
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sabiscore}
+      POSTGRES_USER: ${POSTGRES_USER:-sabi}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sabiscore_dev_password}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sabi} -d ${POSTGRES_DB:-sabiscore}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
       target: production
     environment:
-      - DATABASE_URL=postgresql://sabi:${DB_PASSWORD}@postgres:5432/sabiscore
-      - REDIS_URL=redis://redis:6379/0
-      - ENVIRONMENT=${ENVIRONMENT}
-      - DEBUG=${DEBUG}
-      - SECRET_KEY=${SECRET_KEY}
-      - ALGORITHM=${ALGORITHM}
-      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES}
-      - FOOTBALL_DATA_API_KEY=${FOOTBALL_DATA_API_KEY}
-      - OPTA_API_KEY=${OPTA_API_KEY}
-      - MLFLOW_TRACKING_URI=http://mlflow:5000
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
-      - SENTRY_DSN=${SENTRY_DSN}
+      APP_ENV: ${APP_ENV:-development}
+      DEBUG: ${DEBUG:-false}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://sabi:sabiscore_dev_password@postgres:5432/sabiscore}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      SECRET_KEY: ${SECRET_KEY:-development-only-change-before-production}
+      PROVIDER_LIVE_TESTS: ${PROVIDER_LIVE_TESTS:-false}
+      ENABLE_ESPN_PROVIDER: ${ENABLE_ESPN_PROVIDER:-true}
+      ENABLE_FOOTBALL_DATA_PROVIDER: ${ENABLE_FOOTBALL_DATA_PROVIDER:-false}
+      ENABLE_API_FOOTBALL_PROVIDER: ${ENABLE_API_FOOTBALL_PROVIDER:-false}
+      ENABLE_SPORTMONKS_PROVIDER: ${ENABLE_SPORTMONKS_PROVIDER:-false}
+      ENABLE_THE_ODDS_API_PROVIDER: ${ENABLE_THE_ODDS_API_PROVIDER:-false}
+      FOOTBALL_DATA_API_KEY: ${FOOTBALL_DATA_API_KEY:-}
+      API_FOOTBALL_KEY: ${API_FOOTBALL_KEY:-}
+      SPORTMONKS_API_KEY: ${SPORTMONKS_API_KEY:-}
+      THE_ODDS_API_KEY: ${THE_ODDS_API_KEY:-}
     ports:
-      - "${API_PORT}:8000"
+      - "${API_PORT:-8000}:8000"
     volumes:
-      - ./models:/app/models
+      - ./models:/app/models:ro
+      - ./backend/models:/app/backend/models:ro
       - ./data:/app/data
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-      mlflow:
-        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health/live"]
       interval: 30s
-      timeout: 10s
+      timeout: 5s
       retries: 3
     restart: unless-stopped
 
-  # Frontend
-  frontend:
+  web:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/web/Dockerfile
       target: production
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:${API_PORT}
-      - NEXT_PUBLIC_ENV=${ENVIRONMENT}
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+      SABISCORE_BACKEND_URL: ${SABISCORE_BACKEND_URL:-http://backend:8000}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
     ports:
-      - "3000:3000"
+      - "${WEB_PORT:-3000}:3000"
     depends_on:
-      - backend
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
+      backend:
+        condition: service_healthy
     restart: unless-stopped
 
-  # Redis Cache
-  redis:
-    image: redis:7-alpine
-    command: redis-server --requirepass ${REDIS_PASSWORD}
+  scraper:
+    image: node:22-alpine
+    profiles: ["scraper"]
+    working_dir: /workspace
+    command: ["sh", "-lc", "corepack enable && pnpm --filter @sabiscore/scraper doctor"]
     volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-    restart: unless-stopped
-
-  # PostgreSQL Database
-  postgres:
-    image: postgres:15-alpine
+      - .:/workspace
     environment:
-      - POSTGRES_USER=sabi
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
-      - POSTGRES_DB=sabiscore
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sabi -d sabiscore"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
-  # MLflow for Model Registry
-  mlflow:
-    image: ghcr.io/mlflow/mlflow:latest
-    environment:
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
-      - MLFLOW_S3_ENDPOINT_URL=${MLFLOW_S3_ENDPOINT_URL}
-    command: >
-      mlflow server
-      --backend-store-uri postgresql://sabi:${DB_PASSWORD}@postgres:5432/sabiscore
-      --default-artifact-root s3://mlflow/
-      --host 0.0.0.0
-      --port 5000
-    ports:
-      - "5000:5000"
-    depends_on:
-      - postgres
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    restart: unless-stopped
-
-  # MinIO for Model Artifacts (S3-compatible)
-  minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
-    environment:
-      - MINIO_ROOT_USER=${AWS_ACCESS_KEY_ID}
-      - MINIO_ROOT_PASSWORD=${AWS_SECRET_ACCESS_KEY}
-    ports:
-      - "9000:9000"  # API
-      - "9001:9001"  # Console
-    volumes:
-      - minio_data:/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 20s
-      retries: 3
-    restart: unless-stopped
-
-  # Prometheus for Monitoring
-  prometheus:
-    image: prom/prometheus:latest
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--web.enable-lifecycle'
-    restart: unless-stopped
-
-  # Grafana for Visualization
-  grafana:
-    image: grafana/grafana:latest
-    ports:
-      - "3001:3000"
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_USERS_ALLOW_SIGN_UP=false
-    depends_on:
-      - prometheus
-    restart: unless-stopped
-      retries: 5
-
-  # WebSocket Service (FastAPI, Uvicorn)
-  ws:
-    build:
-      context: ./apps/ws
-      dockerfile: Dockerfile
-    environment:
-      - REDIS_URL=redis://redis:6379/1
-      - WS_PORT=8001
-    ports:
-      - "8001:8001"
+      NODE_ENV: production
     depends_on:
       redis:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/ws"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  # PostgreSQL Database
-  postgres:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: sabiscore
-      POSTGRES_USER: sabi
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sabi -d sabiscore"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
 volumes:
   postgres_data:

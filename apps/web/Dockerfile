@@ -5,15 +5,13 @@ FROM node:20-alpine AS base
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Install Turbo globally
-RUN npm install -g turbo
+RUN corepack enable
 
 # Dependencies stage
 FROM base AS deps
-COPY package*.json ./
-COPY turbo.json ./
-COPY apps/web/package*.json ./apps/web/
-RUN npm ci
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+COPY apps/web/package.json ./apps/web/
+RUN pnpm install --frozen-lockfile --filter @sabiscore/web...
 
 # Builder stage
 FROM base AS builder
@@ -24,8 +22,9 @@ COPY . .
 # Build the Next.js app
 ENV NEXT_TELEMETRY_DISABLED 1
 ENV NODE_ENV production
+ENV NEXT_STANDALONE true
 
-RUN turbo run build --filter=@sabiscore/web
+RUN pnpm --filter @sabiscore/web build
 
 # Production runner stage
 FROM node:20-alpine AS production

@@ -182,8 +182,8 @@ def main():
     if len(sys.argv) < 2:
         print("Usage: python scripts/validate_deployment.py <backend_url> [frontend_url]")
         print("\nExamples:")
-        print("  python scripts/validate_deployment.py https://sabiscore-api.onrender.com")
-        print("  python scripts/validate_deployment.py https://sabiscore-api.onrender.com https://sabiscore.vercel.app")
+        print("  python scripts/validate_deployment.py https://your-backend.example.com")
+        print("  python scripts/validate_deployment.py https://your-backend.example.com https://your-web.example.com")
         print("\nOptions:")
         print("  --poll    Poll until ready (max 20 attempts, 30s interval)")
         return 1

@@ -186,6 +186,198 @@ class APIError extends Error {
   }
 }
 
+export interface ApiFetchOptions extends RequestInit {
+  timeoutMs?: number;
+  retries?: number;
+}
+
+export async function apiFetch<T>(
+  path: string,
+  options: ApiFetchOptions = {},
+): Promise<T> {
+  const { timeoutMs = 8_000, retries = 2, ...requestOptions } = options;
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const headers = new Headers(requestOptions.headers);
+      headers.set("Accept", "application/json");
+      if (requestOptions.body && !headers.has("Content-Type")) {
+        headers.set("Content-Type", "application/json");
+      }
+
+      const response = await fetch(path, {
+        ...requestOptions,
+        headers,
+        signal: controller.signal,
+        cache: requestOptions.cache ?? "no-store",
+      });
+
+      if (!response.ok) {
+        let message = `HTTP ${response.status}`;
+        try {
+          const body = (await response.json()) as { detail?: string; error?: string; message?: string };
+          message = body.detail ?? body.error ?? body.message ?? message;
+        } catch {
+          // Keep the HTTP fallback.
+        }
+
+        const apiError = new APIError(message, response.status, "BACKEND_ERROR");
+        if (response.status >= 400 && response.status < 500) {
+          throw apiError;
+        }
+        lastError = apiError;
+      } else {
+        return (await response.json()) as T;
+      }
+    } catch (error) {
+      if (error instanceof APIError && error.status && error.status >= 400 && error.status < 500) {
+        throw error;
+      }
+      if (error instanceof Error && error.name === "AbortError") {
+        lastError = new APIError("Backend request timed out", 408, "TIMEOUT");
+      } else {
+        lastError = error;
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    if (attempt < retries) {
+      await new Promise((resolve) => setTimeout(resolve, 350 * 2 ** attempt));
+    }
+  }
+
+  if (lastError instanceof APIError) throw lastError;
+  if (lastError instanceof Error) throw new APIError(lastError.message, 503, "NETWORK_ERROR");
+  throw new APIError("Backend request failed", 503, "NETWORK_ERROR");
+}
+
+export interface ReadyCheckResponse {
+  status: "ok" | "not_ready" | string;
+  checks: Record<string, unknown>;
+  models_loaded: boolean;
+  leagues_loaded: string[];
+  required_leagues: string[];
+  model_error?: string | null;
+  timestamp: string;
+}
+
+export interface CertifiedPredictionRequest {
+  match_id: string;
+  home_team: string;
+  away_team: string;
+  competition: string;
+  kickoff_utc: string;
+  model: {
+    home_probability: number;
+    draw_probability: number;
+    away_probability: number;
+    model_version?: string;
+    calibration_method?: string;
+    calibration_validated?: boolean;
+    epistemic_uncertainty?: number;
+    aleatoric_uncertainty?: number;
+    confidence_tier?: "OK" | "LOW_EVIDENCE";
+  };
+  market?: {
+    bookmaker: string;
+    market_type?: "1X2";
+    home_odds: number;
+    draw_odds: number;
+    away_odds: number;
+    opening_home_odds?: number;
+    opening_draw_odds?: number;
+    opening_away_odds?: number;
+    captured_at: string;
+  } | null;
+  signals?: Record<string, unknown>;
+  freshness?: Record<string, number | null>;
+  source_status?: Record<string, string>;
+  data_gaps?: string[];
+  known_risks?: string[];
+}
+
+export interface CertifiedMarketEvaluation {
+  outcome: string;
+  market_label: "HOME_ML" | "DRAW_ML" | "AWAY_ML";
+  model_probability: number;
+  market_odds: number;
+  raw_implied_probability: number;
+  fair_market_probability: number;
+  edge: number;
+  edge_pct: number;
+  expected_value: number;
+  full_kelly: number;
+  stake_fraction: number;
+  confidence_adjusted_value: number;
+}
+
+export interface CertifiedMatchAnalysis {
+  decision_id?: string | null;
+  evaluation_at?: string | null;
+  analysis_mode: "VALUE_ANALYSIS" | "FORECAST_ONLY";
+  execution_eligible: boolean;
+  watchlist: boolean;
+  match_identifier: string;
+  match_id: string;
+  competition: string;
+  verdict: "HIGH_CONVICTION" | "ACTIONABLE" | "SPECULATIVE" | "HOLD" | "PARTIAL" | "NO_BET";
+  probabilities?: { home?: number | null; draw?: number | null; away?: number | null } | null;
+  best_market?: "HOME_ML" | "DRAW_ML" | "AWAY_ML" | null;
+  market_odds?: number | null;
+  fair_market_probability?: number | null;
+  edge_percentage_points?: number | null;
+  expected_value?: number | null;
+  confidence?: "HIGH" | "MEDIUM" | "LOW" | null;
+  confidence_adjusted_value?: number | null;
+  stake: string;
+  stake_fraction: number;
+  minimum_acceptable_odds?: number | null;
+  drivers: string[];
+  risks: string[];
+  invalidation_conditions: string[];
+  all_market_evaluations?: CertifiedMarketEvaluation[] | null;
+  data_gaps: string[];
+  data_freshness?: {
+    status: string;
+    market_captured_at?: string | null;
+    oldest_critical_input_seconds?: number | null;
+    lineup_status: string;
+  } | null;
+  calculation_audit?: {
+    bookmaker?: string | null;
+    market_overround?: number | null;
+    breakeven_odds?: number | null;
+    minimum_odds_for_target_ev?: number | null;
+    edge_preserving_minimum_odds?: number | null;
+    kelly_fraction: number;
+    kelly_cap: number;
+  } | null;
+  explanation: string;
+}
+
+export async function getBackendReadiness(): Promise<ReadyCheckResponse> {
+  return apiFetch<ReadyCheckResponse>("/api/health/ready", {
+    timeoutMs: 5_000,
+    retries: 1,
+  });
+}
+
+export async function analyzeCertifiedPrediction(
+  request: CertifiedPredictionRequest,
+): Promise<CertifiedMatchAnalysis> {
+  return apiFetch<CertifiedMatchAnalysis>("/api/v1/predictions/analyze", {
+    method: "POST",
+    body: JSON.stringify(request),
+    timeoutMs: 10_000,
+    retries: 1,
+  });
+}
+
 async function fetchWithTimeout(
   url: string,
   options: RequestInit = {},

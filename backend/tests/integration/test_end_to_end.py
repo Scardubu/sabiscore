@@ -13,7 +13,7 @@ from unittest.mock import Mock, patch, AsyncMock
 from httpx import AsyncClient
 
 # Import application components
-from src.main import app
+from src.api.main import app
 from src.data.aggregator import DataAggregator, EnhancedDataAggregator
 from src.services.prediction import PredictionService
 from src.schemas.prediction import MatchPredictionRequest

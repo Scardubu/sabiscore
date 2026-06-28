@@ -52,8 +52,8 @@ _using_fallback = False
 
 
 def _sqlite_fallback_allowed() -> bool:
-    """Return True only for isolated tests or explicit local opt-in."""
-    return settings.app_env == "test" or bool(settings.allow_sqlite_fallback)
+    """Return True only for explicit non-production insecure fallback opt-in."""
+    return settings.app_env != "production" and bool(settings.allow_sqlite_fallback)
 
 
 def _create_postgres_engine(url: str):
@@ -94,7 +94,10 @@ def _test_connection(eng) -> bool:
 # Initialize database engine with fallback
 if _sync_url.startswith("sqlite"):
     if not _sqlite_fallback_allowed():
-        raise RuntimeError("SQLite database URLs require APP_ENV=test or ALLOW_SQLITE_FALLBACK=true")
+        raise RuntimeError(
+            "SQLite database URLs require SABISCORE_ALLOW_INSECURE_FALLBACK=true "
+            "and APP_ENV must not be production"
+        )
     # SQLite-specific configuration
     engine = _create_sqlite_engine(_sync_url)
     _db_available = _test_connection(engine)

@@ -11,13 +11,34 @@ const withBundleAnalyzer =
       })
     : (config) => config;
 
+function csv(value) {
+  return String(value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function buildCsp() {
+  const backendUrl = process.env.SABISCORE_BACKEND_URL || 'http://localhost:8000';
+  return [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https://media.api-sports.io https://flagcdn.com",
+    "font-src 'self' data:",
+    `connect-src 'self' ${backendUrl}`,
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join('; ');
+}
+
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   compress: true,
   
-  // Disable standalone output to avoid EBUSY file locking issues on Windows
-  // output: 'standalone',
+  output: process.env.NEXT_STANDALONE === 'true' ? 'standalone' : undefined,
   
   // Silence workspace root warning
   // outputFileTracingRoot: path.join(__dirname, '../../'),
@@ -27,8 +48,7 @@ const nextConfig = {
     'http://127.0.0.1:3000',
     'http://127.0.0.1:*',
     'http://localhost:*',
-    // Handle Windows WSL/VM networking where dev server is exposed via LAN IP
-    'http://192.168.96.40:*',
+    ...csv(process.env.ALLOWED_DEV_ORIGINS),
   ],
   
   // Enable experimental features for edge optimization
@@ -66,7 +86,11 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: '**',
+        hostname: 'media.api-sports.io',
+      },
+      {
+        protocol: 'https',
+        hostname: 'flagcdn.com',
       },
     ],
   },
@@ -105,7 +129,7 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://sabiscore-api.onrender.com;"
+            value: buildCsp()
           },
         ],
       },
@@ -144,9 +168,8 @@ const nextConfig = {
     ]
   },
 
-  // Skip ESLint during production builds
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
   },
   
   // TypeScript errors during build
