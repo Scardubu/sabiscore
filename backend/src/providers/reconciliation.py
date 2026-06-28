@@ -1,4 +1,4 @@
-"""Canonical fixture reconciliation helpers.
+"""Canonical fixture and team identity reconciliation helpers.
 
 Reconciliation statuses (Section 8 of the production contract):
 
@@ -182,5 +182,95 @@ def reconcile_fixture(
         status="UNKNOWN",
         confidence=top_score,
         fixture_id=None,
+        reason="below_auto_accept_threshold",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Team identity reconciliation
+# ---------------------------------------------------------------------------
+#
+# Same status taxonomy and thresholds as fixture reconciliation, but scored on
+# name similarity alone — teams carry no kickoff signal to blend in.
+
+
+@dataclass(frozen=True)
+class TeamCandidate:
+    team_id: str
+    name: str
+
+
+@dataclass(frozen=True)
+class TeamReconciliationDecision:
+    status: str
+    """One of: VERIFIED | REQUIRES_REVIEW | CONFLICTING | UNKNOWN"""
+    confidence: float
+    team_id: str | None
+    """Populated only for VERIFIED. None for all other statuses."""
+    reason: str
+    review_candidate_id: str | None = None
+    """For REQUIRES_REVIEW: the candidate team_id that should be reviewed.
+    The caller must not use this as a resolved team_id without confirmation."""
+
+
+def reconcile_team(
+    provider_team_name: str,
+    candidates: list[TeamCandidate],
+    *,
+    auto_accept_threshold: float = AUTO_ACCEPT_THRESHOLD,
+    review_threshold: float = REVIEW_THRESHOLD,
+    ambiguity_band: float = AMBIGUITY_BAND,
+) -> TeamReconciliationDecision:
+    """Reconcile a provider team name against canonical/provider team candidates.
+
+    Returns a ``TeamReconciliationDecision`` whose ``status`` is one of:
+    VERIFIED | REQUIRES_REVIEW | CONFLICTING | UNKNOWN — same semantics as
+    ``reconcile_fixture`` (module docstring), applied to a single field
+    (team name) instead of a blended team+kickoff score.
+    """
+    scored: list[tuple[float, TeamCandidate]] = [
+        (round(_similarity(provider_team_name, candidate.name), 4), candidate) for candidate in candidates
+    ]
+    scored.sort(key=lambda item: item[0], reverse=True)
+
+    if not scored:
+        return TeamReconciliationDecision(
+            status="UNKNOWN",
+            confidence=0.0,
+            team_id=None,
+            reason="no_candidate",
+        )
+
+    top_score, top_candidate = scored[0]
+
+    if len(scored) > 1 and abs(top_score - scored[1][0]) < ambiguity_band:
+        return TeamReconciliationDecision(
+            status="CONFLICTING",
+            confidence=top_score,
+            team_id=None,
+            reason="ambiguous_candidate",
+        )
+
+    if top_score >= auto_accept_threshold:
+        return TeamReconciliationDecision(
+            status="VERIFIED",
+            confidence=top_score,
+            team_id=top_candidate.team_id,
+            reason="matched_by_name_similarity",
+        )
+
+    if top_score >= review_threshold:
+        return TeamReconciliationDecision(
+            status="REQUIRES_REVIEW",
+            confidence=top_score,
+            team_id=None,
+            reason="below_auto_accept_threshold_but_reviewable",
+            review_candidate_id=top_candidate.team_id,
+        )
+
+    return TeamReconciliationDecision(
+        status="UNKNOWN",
+        confidence=top_score,
+        team_id=None,
         reason="below_auto_accept_threshold",
     )

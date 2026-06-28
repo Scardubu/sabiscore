@@ -265,6 +265,7 @@ Always load `motion-performance-architect` first, then `motion-interaction-archi
 - All provider traffic proxied via `SABISCORE_BACKEND_URL` — zero direct provider calls from Next.js
 - `Cache-Control: no-store` on all evidence and decision endpoints
 - CSP must not contain `'unsafe-eval'` in production
+- CSP is set per-request in `apps/web/src/middleware.ts` with a `script-src` nonce + `'strict-dynamic'` — never move it back to a static `next.config.js` `headers()` value; Next.js's own inline bootstrap/RSC scripts require a per-request nonce to execute, which static config cannot provide (confirmed 2026-06-28: without the nonce, every page silently failed to hydrate under CSP enforcement — fixed this session)
 - Validate all proxy parameters with Zod before forwarding to backend
 - Language on the `/intelligence` page must remain quiet and analytical — no promotional betting copy
 - Prohibited UI terms: `lock`, `banker`, `guaranteed`, `sure bet`, `free money`, `execute immediately`
@@ -462,16 +463,20 @@ overrides all prior status docs — verify with a grep/read before acting.
 | Alembic-only | `core/database.py` raises `RuntimeError` on direct table-creation |
 | Health endpoints | `/health/live`, `/health/ready`, `/health` all present |
 | Gitleaks CI | `.github/workflows/ci.yml`, no `|| true` suppressions |
-| critical_gaps PARTIAL gate | `_apply_verdict_gate` (`betting_intelligence.py`) and `_evaluate_match` (`core_engine.py`) already gate `PARTIAL` on a pre-extracted `critical_gaps` list (CONFLICTING entries excluded via `_extract_critical_gaps`/`_critical_data_gaps`) plus an explicit CONFLICTING-freshness check; covered by `test_market_source_status_conflicting_forces_partial` and `test_advisory_only_signals_never_force_partial` in both test files. No `betting_intelligence_patch.md` file exists or is needed. |
+| CSP hydration fix | `apps/web/src/middleware.ts` generates a per-request `script-src` nonce + `'strict-dynamic'`; the prior static `next.config.js` CSP had no nonce, which silently broke client-side hydration on every page under real CSP enforcement (found 2026-06-28 via a clean headless-browser check, fixed same session). |
+| critical_gaps PARTIAL gate | `_apply_verdict_gate` (`betting_intelligence.py`) and `_evaluate_match` (`core_engine.py`) already gate `PARTIAL` on a pre-extracted `critical_gaps` list (CONFLICTING entries excluded via `_extract_critical_gaps`/`_critical_data_gaps`) plus an explicit CONFLICTING-freshness check; covered by `test_market_source_status_conflicting_forces_partial` and `test_advisory_only_signals_never_force_partial` in both test files. No `betting_intelligence_patch.md` file exists or is needed. Re-confirmed 2026-06-28 — claims to the contrary in circulating prompt drafts are stale. |
+| Canonical team-identity reconciliation | `providers/reconciliation.py` (`reconcile_team`), `db/models.py` (`ProviderTeamMapping`), `alembic/versions/0003_team_identity_reconciliation.py` | Same VERIFIED/REQUIRES_REVIEW/CONFLICTING/UNKNOWN taxonomy as fixture reconciliation, scored on name similarity only. Wired live into `orchestrator._resolve_team_statistics()` — resolves each fixture side's `api_football` team_id via `teams()` + `reconcile_team()` before calling `team_statistics()`; non-VERIFIED resolution yields a structured PARTIAL, never a guessed id. |
+| `api_football` provider adapter | `providers/api_football.py` | Fully operational: `injuries()`, `lineups()`, `teams()`, `team_statistics(team_id=...)`. No stub methods remain. |
+| Playwright `/intelligence` smoke gate | `playwright.config.ts`, `tests/e2e/intelligence.spec.ts` | Wired this session: `@playwright/test` added as a root devDependency (was referenced by `tests/e2e/sabiscore.spec.ts` but never installed), `mobile-chrome` project added alongside `chromium`, a `webServer` block starts `pnpm --filter @sabiscore/web start` automatically, and a backend-independent smoke spec covers both "desktop" and "mobile" release-gate names with one spec file. |
 
 ## Confirmed incomplete
 
 | Gap | Files | Action |
 |---|---|---|
-| Provider adapters (fdo, apif, sm) | `football_data_org.py`, `api_football.py`, `sportmonks.py` | Needs live keys + contracts; use `sabiscore-provider-adapter-architect` |
-| The Odds API normalization | `the_odds_api.py` | Fixed this session (per-bookmaker normalization, rejection logic) |
-| Evidence orchestrator multi-provider | `providers/orchestrator.py` | Fixed this session (graceful stubs for non-operational providers) |
-| REQUIRES_REVIEW reconciliation | `providers/reconciliation.py` | Fixed this session (0.68–0.94 confidence band) |
+| Provider adapters (fdo, sm) — live verification only | `football_data_org.py`, `sportmonks.py` | Code is operational (fixtures/standings, injuries/lineups); still needs a live API key to verify against the real upstream contract. Code-complete, not a stub gap. |
+| The Odds API normalization | `the_odds_api.py` | Fixed prior session (per-bookmaker normalization, rejection logic) |
+| Evidence orchestrator multi-provider | `providers/orchestrator.py` | Fixed prior session (graceful stubs for non-operational providers); team-identity resolution added 2026-06-28 |
+| REQUIRES_REVIEW reconciliation | `providers/reconciliation.py` | Fixed prior session (0.68–0.94 confidence band) |
 
 ---
 

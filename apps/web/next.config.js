@@ -18,20 +18,10 @@ function csv(value) {
     .filter(Boolean);
 }
 
-function buildCsp() {
-  const backendUrl = process.env.SABISCORE_BACKEND_URL || 'http://localhost:8000';
-  return [
-    "default-src 'self'",
-    "script-src 'self'",
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: https://media.api-sports.io https://flagcdn.com",
-    "font-src 'self' data:",
-    `connect-src 'self' ${backendUrl}`,
-    "frame-ancestors 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-  ].join('; ');
-}
+// Content-Security-Policy moved to src/middleware.ts: Next.js's own inline
+// bootstrap/RSC scripts need a per-request nonce that matches what was sent
+// in the response, which static next.config.js headers cannot produce. See
+// the middleware file's docstring for the bug this fixes.
 
 const nextConfig = {
   reactStrictMode: true,
@@ -118,14 +108,10 @@ const nextConfig = {
             value: 'strict-origin-when-cross-origin'
           },
           // X-XSS-Protection removed: deprecated and disabled by all modern browsers.
-          // CSP below is the active XSS defense.
+          // Content-Security-Policy is set per-request in src/middleware.ts (needs a nonce).
           {
             key: 'Permissions-Policy',
             value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()'
-          },
-          {
-            key: 'Content-Security-Policy',
-            value: buildCsp()
           },
         ],
       },

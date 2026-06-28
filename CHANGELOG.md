@@ -7,6 +7,44 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ---
 
+## Critical fix: production CSP was silently breaking client-side hydration on every page (2026-06-28)
+
+### Backend/frontend security — `script-src` nonce via middleware
+
+- **Found while building the Playwright `/intelligence` gate below:** a clean, extension-free headless Chromium run against the real `next start` production build showed `Executing inline script violates ... script-src 'self'` for every Next.js-emitted inline script, and the page never hydrated (confirmed via screenshot — solid background, zero content, despite a 200 response and full SSR markup in the initial HTML). This is the same failure class as the Kaspersky-flavored CSP errors raised earlier in this session — at the time those were diagnosed as purely an external Kaspersky-extension artifact; that diagnosis was incomplete. Kaspersky's CSP-merging was adding noise on top of a real, pre-existing bug: the app's own static CSP (`script-src 'self'`, set via `next.config.js` `headers()`) has no nonce/hash, and Next.js App Router's own internal bootstrap/RSC-payload inline scripts cannot satisfy `'self'` — they need a nonce. Per [Next's own CSP guide](https://nextjs.org/docs/app/guides/content-security-policy), a nonce can only be generated per-request, which static `next.config.js` headers cannot do. **This meant client-side hydration was broken on every page in any browser actually enforcing the CSP — i.e., real-world production traffic, not just this sandbox.**
+- **Fixed:** added `apps/web/src/middleware.ts` — generates a per-request nonce, builds the CSP with `script-src 'self' 'nonce-<value>' 'strict-dynamic'` (plus `object-src 'none'`, matching Next's documented pattern), and sets it on both the forwarded request headers (`x-nonce`) and the response, which Next.js reads to nonce its own inline scripts automatically. No other component needed changes — the app has zero custom `<Script>`/inline-script usage; every blocked script was Next.js's own.
+- **Removed:** the static `buildCsp()` function and the `Content-Security-Policy` header entry from `next.config.js` `headers()` — superseded by the middleware. All other directives (`style-src`, `img-src`, `font-src`, `connect-src` via `SABISCORE_BACKEND_URL`, `frame-ancestors`, `base-uri`, `form-action`) carried over unchanged; `style-src 'self' 'unsafe-inline'` was kept as-is (styled-jsx is used extensively across components — switching it to nonce-only is a separate, much larger change with lower payoff than the script-src fix, since CSS injection risk is far lower than script injection).
+- **Verified:** rebuilt (`next build`), confirmed `ƒ Middleware` now appears in the build output; a clean headless-browser check against the rebuilt app showed `CSP_ERRORS: 0` and the `<h1>Betting Intelligence</h1>` heading present and hydrated (previously: multiple CSP violations, zero rendered content). The pre-existing `tests/e2e/sabiscore.spec.ts` "shows offline banner" test's screenshot now shows a fully-rendered, fully-interactive age-verification modal — direct visual proof hydration works end to end, not just for `/intelligence`.
+
+---
+
+## Canonical team-identity reconciliation, api_football completion, Playwright /intelligence gate (2026-06-28)
+
+### Backend — canonical team-identity reconciliation (unblocks `api_football.team_statistics()`)
+
+- **Added:** `TeamCandidate`, `TeamReconciliationDecision`, `reconcile_team()` in `backend/src/providers/reconciliation.py` — same VERIFIED (≥0.94) / REQUIRES_REVIEW (0.68–0.94) / CONFLICTING (top-two within 0.03) / UNKNOWN taxonomy as `reconcile_fixture()`, scored on name similarity only (teams have no kickoff signal to blend in).
+- **Added:** `ProviderTeamMapping` ORM model (`backend/src/db/models.py`) and `backend/alembic/versions/0003_team_identity_reconciliation.py` — mirrors the existing `ProviderEventMapping`/`provider_event_mappings` pattern for fixtures. Verified clean `alembic upgrade head` and `alembic downgrade -1` against a throwaway SQLite database (no PostgreSQL available in this environment; `SABISCORE_ALLOW_INSECURE_FALLBACK=true` set explicitly for this verification only, never as a default).
+- **Implemented:** `backend/src/providers/api_football.py` — `teams()` (lists a competition's current-season teams for reconciliation candidates) and `team_statistics(team_id=..., competition=...)` (now a real `x-apisports-key` HTTP call with `TeamStatisticsRecord` normalization; was a deliberate stub). `team_statistics()` no longer has a stub path other than the explicit "team_id missing" guard.
+- **Wired:** `backend/src/providers/orchestrator.py` `_collect_prematch_enriched()` now resolves each fixture side's (home/away) API-Football `team_id` via `teams()` + `reconcile_team()` before calling `team_statistics()` (new `_resolve_team_statistics()` helper). A team name that doesn't reconcile to VERIFIED yields a structured PARTIAL (`team_identity_<status>` / `fixture_missing_team_name` / `team_list_unavailable`) — never a guessed team_id. Corrected the module's top docstring, which had been stale since the prior session (claimed fdo/api_football/sportmonks "have no operational HTTP methods").
+- **Added:** `backend/tests/providers/test_team_reconciliation.py` (5 tests — VERIFIED/REQUIRES_REVIEW/CONFLICTING/UNKNOWN), updated `test_api_football.py` (replaced the now-obsolete `test_team_statistics_is_explicit_stub` with 5 tests covering `teams()` and operational `team_statistics()`), added `backend/tests/providers/test_orchestrator_team_identity.py` (4 tests — the orchestrator's PREMATCH_ENRICHED team-resolution wiring; first test coverage for `EvidenceOrchestrator` of any kind).
+- **Verified:** full backend suite 916 passed / 7 skipped (pre-existing, unrelated skips), 0 regressions.
+
+### Frontend / tooling — Playwright `/intelligence` smoke gate wired end-to-end
+
+- **Investigated:** `tests/e2e/sabiscore.spec.ts` and `playwright.config.ts` already existed, but `@playwright/test` was never declared as a dependency anywhere in the monorepo — `npx playwright test` only ever worked by ad-hoc-fetching an unpinned copy. The "Playwright desktop/mobile smoke (/intelligence)" release gate in CLAUDE.md had no `/intelligence` spec and no mobile project either. None of this was a working gate before this session.
+- **Added:** `@playwright/test` as a root devDependency (pinned `^1.61.1`) and a root `test:e2e` script (`playwright test`).
+- **Added:** `mobile-chrome` Playwright project (`devices['Pixel 5']`) alongside the existing `chromium` project in `playwright.config.ts`; added a `webServer` block (`pnpm --filter @sabiscore/web start`, auto-reused outside CI) so the gate is self-sufficient instead of requiring a manually-started dev server.
+- **Added:** `tests/e2e/intelligence.spec.ts` — backend-independent smoke spec for `/intelligence` (heading, fixture-discovery panel, competition select, team search input, Analyze button, keyboard focus reachability). Runs under both projects, satisfying both named release gates with one spec file.
+- **Verified:** `pnpm exec playwright test tests/e2e/intelligence.spec.ts` — 4/4 passed (chromium + mobile-chrome × 2 tests) after the CSP fix above; all 4 failed before it (blank-page hydration failure, see above).
+- **Found, not fixed (pre-existing, out of this session's scope):** running the full `tests/e2e/` suite (`pnpm exec playwright test`) surfaces 3 pre-existing failures in `sabiscore.spec.ts` unrelated to the CSP fix or to canonical team-identity work: two require a live FastAPI backend (none running in this sandbox — expected), and "shows offline banner when backend unavailable" is blocked by a pre-existing age-verification modal that intercepts the page before the asserted "Connection Error" text becomes reachable in a fresh browser context with no cookies. The modal itself renders correctly (confirmed via screenshot) — further evidence the CSP/hydration fix works — the test simply doesn't dismiss it first.
+
+### Documentation
+
+- **Updated:** `CLAUDE.md` — corrected the "Confirmed incomplete" table: `api_football` is now fully operational (no stub methods remain); `football_data_org`/`sportmonks` are code-operational and only need live-key verification, not implementation; added the new canonical team-identity reconciliation row and the Playwright gate-wiring row to "Confirmed working."
+- **Updated:** `NEXUS.md` — corrected the stale "provider adapters (fdo/apif/sm) are stubs" routing note.
+
+---
+
 ## Chart consolidation, gate/adapter re-verification (2026-06-28)
 
 ### Frontend — chart.js removed, recharts is now the sole charting library

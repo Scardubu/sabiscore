@@ -180,6 +180,30 @@ class ProviderEventMapping(Base):
     checked_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
 
+class ProviderTeamMapping(Base):
+    __tablename__ = "provider_team_mappings"
+    __table_args__ = (
+        Index("ix_provider_team_provider_id", "provider", "provider_team_id"),
+        Index("ix_provider_team_canonical", "canonical_team_id"),
+        {"extend_existing": True},
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    provider: Mapped[str] = mapped_column(String, nullable=False)
+    provider_team_id: Mapped[str] = mapped_column(String, nullable=False)
+    provider_team_name: Mapped[str] = mapped_column(String, nullable=False)
+    canonical_team_id: Mapped[str | None] = mapped_column(
+        String,
+        ForeignKey("canonical_teams.id"),
+        nullable=True,
+    )
+    competition: Mapped[str] = mapped_column(String, nullable=False)
+    reconciliation_status: Mapped[str] = mapped_column(String, nullable=False)
+    reconciliation_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    evidence: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    checked_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
 class MarketSnapshot(Base):
     __tablename__ = "market_snapshots"
     __table_args__ = (

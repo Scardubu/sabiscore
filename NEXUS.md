@@ -606,7 +606,7 @@ If any system-level change is made:
 | TF.js browser model deleted | Frontend tasks: never re-add any `ml/` browser inference; route model calls to backend |
 | The Odds API: per-bookmaker normalization added | Market refresh tasks: `OddsMarketRecord` is the canonical shape; per-bookmaker, never combined |
 | Reconciliation REQUIRES_REVIEW added | Fixture identity tasks: handle 4 statuses (VERIFIED/REQUIRES_REVIEW/CONFLICTING/UNKNOWN) |
-| Provider adapters (fdo/apif/sm) are stubs | Evidence orchestration tasks: orchestrator returns PARTIAL for non-ESPN profiles; classify as advisory |
+| api_football is fully operational (injuries/lineups/teams/team_statistics); fdo + sportmonks are code-operational but unverified against live keys | Evidence orchestration tasks: PREMATCH_ENRICHED resolves team_id via `teams()` + `reconcile_team()` before calling `team_statistics()`; non-VERIFIED resolution and fdo/sportmonks's pending live verification still surface as PARTIAL/advisory, not a code stub |
 | critical_gaps PARTIAL gate: resolved | Both engines already gate `PARTIAL` on `critical_gaps` (CONFLICTING entries excluded) plus an explicit CONFLICTING-freshness check, tested in both `test_betting_intelligence_engine.py` and `test_core_engine.py`. No patch file exists or is needed — do not re-flag this as open. |
 
 ## ProviderStatus enum — actual values (use in all code, not documented preferences)

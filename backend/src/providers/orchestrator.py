@@ -17,12 +17,14 @@ Design constraints (Section 6 / verified ground truth 2026-06-28):
   - ESPN is SUPPLEMENTARY_ONLY, UNOFFICIAL_PUBLIC, KEYLESS.
     It may be used in DISCOVERY and PREMATCH_STANDARD as a low-cost corroborating
     source but must never be the sole provider for execution-eligible evidence.
-  - football_data_org, api_football, sportmonks currently have no operational
-    HTTP methods — `_safe_call()` detects this and emits a structured PARTIAL
-    result rather than raising. This keeps the orchestrator runnable end-to-end
-    today while the adapters are completed behind the provider-key gate.
-  - the_odds_api.odds() is operational but raw-passthrough only in the prior
-    stub — the upgraded version (this session) adds per-bookmaker normalization.
+  - football_data_org, api_football, sportmonks, and the_odds_api all have
+    operational HTTP methods now. `_safe_call()` still wraps every call so an
+    `AttributeError` (a genuinely unimplemented method) or network failure
+    degrades to a structured PARTIAL rather than propagating.
+  - api_football.team_statistics() needs a numeric team_id: PREMATCH_ENRICHED
+    resolves one per fixture side via api_football.teams() +
+    reconciliation.reconcile_team() (Section 8) before calling it. A team that
+    doesn't reconcile to VERIFIED yields a structured PARTIAL, never a guess.
   - Provider predictions must never enter the evidence pipeline.
   - concurrent=True on independent operations to bound wall-clock time.
 """
@@ -36,6 +38,7 @@ from enum import Enum
 from typing import Any, Callable, Coroutine
 
 from .base import ProviderResult, ProviderStatus, TrustTier
+from .reconciliation import TeamCandidate, reconcile_team
 from .registry import ProviderRegistry
 
 logger = logging.getLogger("sabiscore.providers.orchestrator")
@@ -200,14 +203,59 @@ class EvidenceOrchestrator:
         apif_tasks = [
             _safe_call(lambda a=apif, c=competition: a.injuries(competition=c), "api_football", "injuries"),
             _safe_call(lambda a=apif, c=competition: a.lineups(fixture_id=fixture.get("provider_event_id"), competition=c), "api_football", "lineups"),
-            _safe_call(lambda a=apif, c=competition: a.team_statistics(competition=c), "api_football", "team_statistics"),
+            _safe_call(lambda a=apif, c=competition: a.teams(competition=c), "api_football", "teams"),
         ]
         sm_tasks = [
             _safe_call(lambda s=sm, c=competition: s.injuries(competition=c), "sportmonks", "injuries"),
         ]
 
         results = list(await asyncio.gather(*(apif_tasks + sm_tasks)))
+        results.extend(await self._resolve_team_statistics(apif, results[2], fixture, competition))
         return results
+
+    async def _resolve_team_statistics(
+        self,
+        apif: Any,
+        teams_result: ProviderResult,
+        fixture: dict[str, Any],
+        competition: str,
+    ) -> list[ProviderResult]:
+        """Resolve the fixture's home/away team names to API-Football team_ids
+        via reconcile_team(), then fetch team_statistics() for each resolved
+        team. A team that doesn't reconcile to VERIFIED yields a structured
+        PARTIAL instead of a guessed team_id (Section 8: ambiguity fails closed).
+        """
+        candidates = [
+            TeamCandidate(team_id=str(record["team_id"]), name=record["name"])
+            for record in teams_result.records
+            if record.get("coherent") and record.get("team_id") is not None
+        ]
+
+        outcomes: list[ProviderResult] = []
+        for label, team_name in (("home", fixture.get("home_team")), ("away", fixture.get("away_team"))):
+            operation = f"team_statistics:{label}"
+            if not team_name:
+                outcomes.append(_stub_result("api_football", operation, "fixture_missing_team_name"))
+                continue
+            if not candidates:
+                outcomes.append(_stub_result("api_football", operation, "team_list_unavailable"))
+                continue
+
+            decision = reconcile_team(str(team_name), candidates)
+            if decision.status != "VERIFIED" or not decision.team_id:
+                outcomes.append(
+                    _stub_result("api_football", operation, f"team_identity_{decision.status.lower()}")
+                )
+                continue
+
+            result = await _safe_call(
+                lambda a=apif, tid=int(decision.team_id), c=competition: a.team_statistics(team_id=tid, competition=c),
+                "api_football",
+                operation,
+            )
+            outcomes.append(result)
+
+        return outcomes
 
     async def _collect_lineup_refresh(
         self, fixture: dict[str, Any], competition: str

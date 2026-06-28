@@ -1,9 +1,10 @@
 """API-Football authenticated enrichment provider.
 
-Operational client: injuries + lineups via x-apisports-key header auth.
-team_statistics() is a deliberate explicit stub — the real endpoint requires
-a team_id the orchestrator's PREMATCH_ENRICHED profile does not yet thread
-through (see comment on the method). Provider prediction/odds endpoints are
+Operational client: injuries, lineups, teams, and team_statistics via
+x-apisports-key header auth. team_statistics() requires a numeric API-Football
+team_id; the orchestrator resolves one from the fixture's home/away team names
+via teams() + reconciliation.reconcile_team() before calling it (see
+orchestrator._resolve_team_statistics). Provider prediction/odds endpoints are
 intentionally never called — SabiScore excludes provider predictions from
 its own model.
 """
@@ -65,6 +66,40 @@ class LineupRecord(BaseModel):
     role: str
     coherent: bool
     rejection_reason: str | None = None
+
+
+class TeamRecord(BaseModel):
+    provider: str = "api_football"
+    team_id: int | None = None
+    name: str
+    country: str | None = None
+    coherent: bool
+    rejection_reason: str | None = None
+
+
+class TeamStatisticsRecord(BaseModel):
+    provider: str = "api_football"
+    team_id: int | None = None
+    team_name: str
+    played: int | None = None
+    wins: int | None = None
+    draws: int | None = None
+    losses: int | None = None
+    goals_for: int | None = None
+    goals_against: int | None = None
+    form: str | None = None
+    clean_sheets: int | None = None
+    coherent: bool
+    rejection_reason: str | None = None
+
+
+def _dig(value: Any, *keys: str) -> Any:
+    current = value
+    for key in keys:
+        if not isinstance(current, dict):
+            return None
+        current = current.get(key)
+    return current
 
 
 class APIFootballProvider(BaseProvider):
@@ -173,18 +208,87 @@ class APIFootballProvider(BaseProvider):
             raw_snapshot_id=stable_hash(payload),
         )
 
-    async def team_statistics(self, *, competition: str) -> ProviderResult:
-        # ponytail: the real /teams/statistics endpoint requires a team_id;
-        # the orchestrator's PREMATCH_ENRICHED profile only threads
-        # `competition` through today. Upgrade once per-fixture team IDs are
-        # available to the orchestrator at this call site.
+    async def teams(self, *, competition: str) -> ProviderResult:
+        """List teams for a competition's current season — used by the
+        orchestrator to resolve a fixture's home/away team name to a numeric
+        API-Football team_id via reconciliation.reconcile_team() before
+        calling team_statistics()."""
+        guard = self._guard("teams")
+        if guard is not None:
+            return guard
+        league_id = _LEAGUE_IDS.get(competition.upper())
+        if league_id is None:
+            return self._unsupported_competition("teams", competition)
+
+        try:
+            payload, headers = await self._get_json(
+                f"{self.base_url}/teams",
+                headers={"x-apisports-key": self.api_key or ""},
+                params={"league": league_id, "season": _current_season()},
+            )
+        except Exception as exc:
+            return self._network_failure("teams", exc)
+
+        logical_error = self._logical_error("teams", payload)
+        if logical_error is not None:
+            return logical_error
+
+        raw_items = payload.get("response") if isinstance(payload, dict) else None
+        raw_items = raw_items if isinstance(raw_items, list) else []
+        records = [self._normalize_team(raw) for raw in raw_items]
+
+        return ProviderResult(
+            provider=self.provider_id,
+            operation="teams",
+            status=ProviderStatus.VERIFIED if records else ProviderStatus.PARTIAL,
+            trust_tier=self.trust_tier,
+            records=[r.model_dump(mode="json") for r in records],
+            quota=self._quota_from_headers(headers),
+            warnings=[f"rejected: {r.rejection_reason}" for r in records if not r.coherent],
+            raw_snapshot_id=stable_hash(payload),
+        )
+
+    async def team_statistics(self, *, team_id: int | None, competition: str) -> ProviderResult:
+        guard = self._guard("team_statistics")
+        if guard is not None:
+            return guard
+        if not team_id:
+            return ProviderResult(
+                provider=self.provider_id,
+                operation="team_statistics",
+                status=ProviderStatus.PARTIAL,
+                trust_tier=self.trust_tier,
+                warnings=["team_id_unresolved"],
+                error_code="team_id_required",
+            )
+        league_id = _LEAGUE_IDS.get(competition.upper())
+        if league_id is None:
+            return self._unsupported_competition("team_statistics", competition)
+
+        try:
+            payload, headers = await self._get_json(
+                f"{self.base_url}/teams/statistics",
+                headers={"x-apisports-key": self.api_key or ""},
+                params={"league": league_id, "season": _current_season(), "team": team_id},
+            )
+        except Exception as exc:
+            return self._network_failure("team_statistics", exc)
+
+        logical_error = self._logical_error("team_statistics", payload)
+        if logical_error is not None:
+            return logical_error
+
+        record = self._normalize_team_statistics(payload.get("response"), team_id=team_id)
+
         return ProviderResult(
             provider=self.provider_id,
             operation="team_statistics",
-            status=ProviderStatus.PARTIAL,
+            status=ProviderStatus.VERIFIED if record.coherent else ProviderStatus.PARTIAL,
             trust_tier=self.trust_tier,
-            warnings=["team_id_required_not_yet_passed_by_orchestrator"],
-            error_code="team_id_required",
+            records=[record.model_dump(mode="json")],
+            quota=self._quota_from_headers(headers),
+            warnings=[] if record.coherent else [f"rejected: {record.rejection_reason}"],
+            raw_snapshot_id=stable_hash(payload),
         )
 
     async def probe(self) -> ProviderStatus:
@@ -334,6 +438,46 @@ class APIFootballProvider(BaseProvider):
             player_id=player.get("id"),
             player_name=player_name,
             role=role,
+            coherent=True,
+        )
+
+    def _normalize_team(self, raw: dict[str, Any]) -> TeamRecord:
+        team = raw.get("team") if isinstance(raw, dict) else None
+        if not isinstance(team, dict) or not team.get("name"):
+            return TeamRecord(name="", coherent=False, rejection_reason="missing_field_team")
+        return TeamRecord(
+            team_id=team.get("id"),
+            name=str(team["name"]),
+            country=team.get("country"),
+            coherent=True,
+        )
+
+    def _normalize_team_statistics(self, raw: Any, *, team_id: int) -> TeamStatisticsRecord:
+        if not isinstance(raw, dict):
+            return TeamStatisticsRecord(
+                team_id=team_id, team_name="", coherent=False, rejection_reason="empty_response",
+            )
+        team = raw.get("team")
+        team_name = str(team.get("name") or "") if isinstance(team, dict) else ""
+        if not team_name:
+            return TeamStatisticsRecord(
+                team_id=team_id, team_name="", coherent=False, rejection_reason="missing_field_team",
+            )
+        fixtures = raw.get("fixtures")
+        goals = raw.get("goals")
+        clean_sheet = raw.get("clean_sheet")
+        return TeamStatisticsRecord(
+            team_id=team_id,
+            team_name=team_name,
+            played=_dig(fixtures, "played", "total"),
+            wins=_dig(fixtures, "wins", "total"),
+            draws=_dig(fixtures, "draws", "total"),
+            # API-Football's own schema spells this field "loses" (not "losses").
+            losses=_dig(fixtures, "loses", "total"),
+            goals_for=_dig(goals, "for", "total", "total"),
+            goals_against=_dig(goals, "against", "total", "total"),
+            form=raw.get("form"),
+            clean_sheets=_dig(clean_sheet, "total"),
             coherent=True,
         )
 

@@ -33,6 +33,7 @@
     "bump": "node scripts/bump-version.mjs",
     "status": "jq '.skills | group_by(.clusterName) | .[] | \"C\\(.[0].cluster) \\(.[0].clusterName): \\(length) skills\"' registry.json -r",
     "test": "turbo run test",
+    "test:e2e": "playwright test",
     "test:backend": "cd backend && python -m pytest tests -q --no-cov",
     "test:providers": "cd backend && python -m pytest tests/test_providers_gateway.py tests/test_secret_safety.py tests/test_database_migration_hardening.py -q --no-cov",
     "verify": "make verify",
@@ -43,6 +44,7 @@
     "docker:build": "docker-compose -f docker-compose.prod.yml build"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/typography": "^0.5.19",
     "@typescript-eslint/eslint-plugin": "^8.12.1",
     "@typescript-eslint/parser": "^8.12.1",
