@@ -50,8 +50,8 @@ PING: True
 
 ### API Configuration (Verified)
 ```
-Football Data API Key: A5xdvmmrzleh84xfpxs7bwev1g2ri6hfucwsi1um8uaq5dl04ro
-Status: Configured ✅
+Football Data API Key: [REDACTED - rotate in provider console]
+Status: Configured in backend secret store only
 ```
 
 ---

@@ -51,17 +51,17 @@ def _discover_model_artifacts() -> Dict[str, Any]:
     if explicit_model_path:
         candidates.append(Path(explicit_model_path))
 
-    files: list[str] = []
+    files: list[Path] = []
     for base in candidates:
         try:
             if base.is_file() and base.suffix in {".pkl", ".joblib"} and base.stat().st_size >= 10_240:
-                files.append(str(base))
+                files.append(base)
             elif base.exists() and base.is_dir():
                 for pattern in ("*.pkl", "*.joblib"):
                     for path in base.glob(pattern):
                         try:
                             if path.stat().st_size >= 10_240:
-                                files.append(str(path))
+                                files.append(path)
                         except Exception:
                             continue
         except Exception:
@@ -69,7 +69,7 @@ def _discover_model_artifacts() -> Dict[str, Any]:
 
     return {
         "count": len(files),
-        "files": sorted(set(files))[:20],
+        "artifact_names": sorted({path.name for path in files})[:20],
     }
 
 
@@ -178,16 +178,12 @@ def health_check() -> Dict[str, Any]:
             health_status["components"]["ml_models"] = {
                 "status": "healthy",
                 "message": f"Model artifacts available ({discovered['count']})",
-                "models_path": str(settings.models_path),
-                "phase7_models_path": str(settings.phase7_models_path),
-                "available_artifacts": discovered["files"],
+                "available_artifacts": discovered["artifact_names"],
             }
         else:
             health_status["components"]["ml_models"] = {
                 "status": "degraded",
                 "message": "No model artifacts found",
-                "models_path": str(settings.models_path),
-                "phase7_models_path": str(settings.phase7_models_path),
                 "available_artifacts": [],
             }
             degraded = True

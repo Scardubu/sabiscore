@@ -82,6 +82,11 @@ class CertifiedPredictionRequest(BaseModel):
     known_risks: list[str] = Field(default_factory=list)
 
 
+class CertifiedPredictionHealth(BaseModel):
+    status: Literal["ready"]
+    engine: Literal["betting_intelligence"]
+
+
 @router.post("/analyze", response_model=MatchAnalysisResult)
 async def analyze_prediction(
     request: CertifiedPredictionRequest,
@@ -95,6 +100,6 @@ async def analyze_prediction(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
-@router.get("/certified-health")
-async def certified_prediction_health() -> dict[str, str]:
-    return {"status": "ready", "engine": "betting_intelligence"}
+@router.get("/certified-health", response_model=CertifiedPredictionHealth)
+async def certified_prediction_health() -> CertifiedPredictionHealth:
+    return CertifiedPredictionHealth(status="ready", engine="betting_intelligence")

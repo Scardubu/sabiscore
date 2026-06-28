@@ -14,15 +14,20 @@ jobs:
   security:
     name: Secret Scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Secret scan
+      - name: Secret scan with Gitleaks
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: "false"
+          GITLEAKS_CONFIG: .gitleaks.toml
+          GITLEAKS_EXTRA_ARGS: "--redact --verbose"
 
   backend-quality:
     name: Backend Lint, Typecheck, Tests
@@ -75,11 +80,11 @@ jobs:
           pip install -r requirements.txt
           pip install ruff mypy
 
-      - name: Ruff
+      - name: Ruff before tests
         working-directory: backend
         run: ruff check src tests
 
-      - name: MyPy
+      - name: MyPy before tests
         working-directory: backend
         run: mypy src
 

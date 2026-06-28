@@ -1,6 +1,6 @@
 # SabiScore Production Setup Guide
 
-Last updated: 2026-06-27
+Last updated: 2026-06-28
 
 This is the authoritative setup and deployment guide for the finalized production shape.
 
@@ -24,12 +24,13 @@ MOCK_MODE=false
 ENABLE_LEGACY_INFERENCE=false
 SCRAPER_ALLOW_INSECURE_FALLBACK=false
 ALLOW_SQLITE_FALLBACK=false
+SABISCORE_ALLOW_INSECURE_FALLBACK=false
 PROVIDER_LIVE_TESTS=false
 ```
 
 Database tables are created by Alembic only. App import/startup does not call `Base.metadata.create_all()` or `Base.metadata.drop_all()`.
 
-SQLite fallback is permitted only for isolated tests or an explicit local development opt-in with `ALLOW_SQLITE_FALLBACK=true`. Production rejects SQLite fallback.
+SQLite fallback is permitted only for isolated tests or an explicit local development opt-in with `SABISCORE_ALLOW_INSECURE_FALLBACK=true` and a non-production `APP_ENV`. Production rejects SQLite fallback.
 
 ## Environment Matrix
 
@@ -46,6 +47,8 @@ Frontend/server variables:
 
 | Variable | Scope | Notes |
 |---|---|---|
+| `SABISCORE_DATABASE_URL` | Docker Compose backend | Optional compose override; defaults to the `postgres` service DNS name |
+| `SABISCORE_REDIS_URL` | Docker Compose backend | Optional compose override; defaults to the `redis` service DNS name |
 | `SABISCORE_BACKEND_URL` | Next.js server | Backend origin for proxy routes |
 | `NEXT_PUBLIC_APP_URL` | Browser-safe | Public app URL only |
 | `NEXT_PUBLIC_CURRENCY` | Browser-safe | Display currency |
@@ -58,6 +61,7 @@ Credential safety:
 
 - Keep `DATABASE_URL`, `REDIS_URL`, `SECRET_KEY`, `DB_PASSWORD`, and provider keys blank in committed templates.
 - Do not create `NEXT_PUBLIC_*` provider keys.
+- Rotate any provider key that ever appeared in historical documentation. The current tree is redacted; `.gitleaksignore` only suppresses known legacy fingerprints until a reviewed history rewrite is scheduled.
 - Run the focused safety gate before release:
 
 ```bash
@@ -65,7 +69,12 @@ cd backend
 python -m pytest tests/test_secret_safety.py tests/test_database_migration_hardening.py tests/test_providers_gateway.py -q --no-cov
 ```
 
-- CI runs Gitleaks with redacted output and full Git history through `.github/workflows/secret-scan.yml`.
+- CI runs Gitleaks with redacted output and full Git history before test jobs in `.github/workflows/ci.yml`.
+- Local release scans should use the installed Gitleaks binary before committing:
+
+```bash
+gitleaks detect --source . --redact --verbose
+```
 
 ## Install
 
@@ -148,6 +157,8 @@ GET /api/v1/providers/quota
 
 Provider output is redacted and returned in a standard envelope with trust tier, status, quota, warnings, snapshot hash, and acquired timestamp.
 
+Provider health distinguishes configuration from verification. With live provider probes disabled, enabled providers return `CONFIGURED_UNVERIFIED`, not `VERIFIED`. A provider reaches `VERIFIED` only after a provider-specific live probe or successful live data operation validates the upstream path.
+
 ## Intelligence Flow
 
 Fixture workflow:
@@ -178,6 +189,8 @@ Market rules:
 The `/intelligence` UI includes competition selection, team autocomplete, date filtering, fixture cards, readiness rail, odds auto-fill candidates, manual fallback, decision card, model-vs-market comparison, evidence passport, price window, source comparison drawer, and outage states.
 
 Language must remain quiet and analytical. Do not add promotional betting copy.
+
+The certified match dashboard renders backend-returned probabilities, edge, expected value, Kelly sizing, critical gaps, advisory gaps, conflicts, and decision identifiers. It must not recompute official verdicts, expected value, or stake sizing in the browser.
 
 ## Scraper Boundaries
 

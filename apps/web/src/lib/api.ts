@@ -6,7 +6,6 @@
 // NOTE: Vercel Hobby has 10s function timeout, so we use 8s to leave headroom
 const INSIGHTS_TIMEOUT_MS = Number(process.env.INSIGHTS_TIMEOUT_MS ?? process.env.NEXT_PUBLIC_INSIGHTS_TIMEOUT_MS ?? 8000);
 const INSIGHTS_MAX_RETRIES = Number(process.env.INSIGHTS_MAX_RETRIES ?? process.env.NEXT_PUBLIC_INSIGHTS_MAX_RETRIES ?? 0);
-const INSIGHTS_OFFLINE = (process.env.INSIGHTS_OFFLINE ?? process.env.NEXT_PUBLIC_INSIGHTS_OFFLINE) === "true";
 
 // Performance optimization: Enable connection reuse
 const ENABLE_KEEPALIVE = true;
@@ -195,6 +194,10 @@ export async function apiFetch<T>(
   path: string,
   options: ApiFetchOptions = {},
 ): Promise<T> {
+  if (!path.startsWith("/")) {
+    throw new APIError("Browser API calls must use same-origin backend proxy paths", 400, "INVALID_API_PATH");
+  }
+
   const { timeoutMs = 8_000, retries = 2, ...requestOptions } = options;
   let lastError: unknown;
 
@@ -340,6 +343,9 @@ export interface CertifiedMatchAnalysis {
   drivers: string[];
   risks: string[];
   invalidation_conditions: string[];
+  critical_gaps?: string[];
+  advisory_gaps?: string[];
+  conflicts?: string[];
   all_market_evaluations?: CertifiedMarketEvaluation[] | null;
   data_gaps: string[];
   data_freshness?: {
@@ -465,29 +471,6 @@ export async function getMatchInsights(
   matchup: string,
   league: string = "EPL"
 ): Promise<InsightsResponse> {
-  // Allow skipping upstream calls during local dev when the API is cold or unreachable
-  if (INSIGHTS_OFFLINE) {
-    return {
-      matchup,
-      league,
-      metadata: { matchup, league, home_team: matchup.split(" vs ")[0] || "Home", away_team: matchup.split(" vs ")[1] || "Away" },
-      predictions: { home_win_prob: 0.33, draw_prob: 0.33, away_win_prob: 0.34, prediction: "away", confidence: 0.51 },
-      xg_analysis: { home_xg: 1.2, away_xg: 1.3, total_xg: 2.5, xg_difference: -0.1 },
-      value_analysis: { bets: [], edges: {}, best_bet: null, summary: "Offline fallback mode" },
-      monte_carlo: { simulations: 0, distribution: {}, confidence_intervals: {} },
-      scenarios: [],
-      explanation: {},
-      risk_assessment: { risk_level: "unknown", confidence_score: 0, value_available: false, distribution: {}, recommendation: "offline" },
-      narrative: "Insights unavailable (offline mode)",
-      generated_at: new Date().toISOString(),
-      confidence_level: 0,
-      provenance: null,
-      uncertainty: null,
-      causal_summary: null,
-      rl_recommendation: null,
-    };
-  }
-
   try {
     const response = await fetchWithRetry(
       `/api/insights`,

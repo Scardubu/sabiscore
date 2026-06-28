@@ -299,6 +299,9 @@ class MatchAnalysisResult(BaseModel):
     drivers: List[str] = Field(default_factory=list)
     risks: List[str] = Field(default_factory=list)
     invalidation_conditions: List[str] = Field(default_factory=list)
+    critical_gaps: List[str] = Field(default_factory=list)
+    advisory_gaps: List[str] = Field(default_factory=list)
+    conflicts: List[str] = Field(default_factory=list)
 
     # All evaluated markets (for transparency)
     all_market_evaluations: Optional[List[Dict[str, Any]]] = None

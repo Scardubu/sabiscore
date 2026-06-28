@@ -4,64 +4,84 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-echo "SabiScore bootstrap"
-echo "==================="
+API_PORT="${API_PORT:-8000}"
+WEB_PORT="${WEB_PORT:-3000}"
+POSTGRES_PORT="${POSTGRES_PORT:-5432}"
+REDIS_PORT="${REDIS_PORT:-6379}"
+PYTHON_CMD="${PYTHON:-python}"
 
-if ! command -v pnpm >/dev/null 2>&1; then
-  echo "pnpm is required. Install it with corepack enable or your package manager." >&2
+echo "SabiScore production bootstrap"
+echo "=============================="
+
+require_tool() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "$1 is required." >&2
+    exit 1
+  fi
+}
+
+require_tool pnpm
+require_tool docker
+require_tool "$PYTHON_CMD"
+
+echo "[1/7] Verifying canonical workspace"
+if [ ! -f "apps/api/LEGACY_ARCHIVED" ] || [ ! -f "frontend/LEGACY_ARCHIVED" ]; then
+  echo "Legacy archive markers are required for apps/api and frontend." >&2
   exit 1
 fi
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "Docker is required for PostgreSQL and Redis." >&2
-  exit 1
-fi
-
-python_cmd="${PYTHON:-python}"
-if ! command -v "$python_cmd" >/dev/null 2>&1; then
-  echo "Python 3.11 is required." >&2
-  exit 1
-fi
-
-echo "[1/5] Installing workspace dependencies"
+echo "[2/7] Installing workspace dependencies"
 pnpm install --frozen-lockfile
 
-echo "[2/5] Preparing Python virtual environment"
+echo "[3/7] Preparing Python virtual environment"
 if [ ! -d ".venv" ]; then
-  "$python_cmd" -m venv .venv
+  "$PYTHON_CMD" -m venv .venv
 fi
 
 if [ -x ".venv/bin/python" ]; then
-  venv_python=".venv/bin/python"
+  VENV_PYTHON="$ROOT_DIR/.venv/bin/python"
 else
-  venv_python=".venv/Scripts/python.exe"
+  VENV_PYTHON="$ROOT_DIR/.venv/Scripts/python.exe"
 fi
-venv_python_abs="$ROOT_DIR/$venv_python"
 
-"$venv_python_abs" -m pip install --upgrade pip
-"$venv_python_abs" -m pip install -r backend/requirements.txt
+"$VENV_PYTHON" -m pip install --upgrade pip
+"$VENV_PYTHON" -m pip install -r backend/requirements.txt
 
-echo "[3/5] Starting PostgreSQL and Redis"
+echo "[4/7] Starting PostgreSQL and Redis"
 docker compose up -d postgres redis
 
-echo "[4/5] Running Alembic migrations"
+echo "[5/7] Running Alembic migrations"
 (
   cd backend
-  "$venv_python_abs" -m alembic upgrade head
+  "$VENV_PYTHON" -m alembic upgrade head
 )
 
-echo "[5/5] Bootstrap complete"
+echo "[6/7] Starting backend and web containers"
+docker compose up -d backend web
+
+echo "[7/7] Checking service endpoints"
+if command -v curl >/dev/null 2>&1; then
+  curl -fsS "http://localhost:${API_PORT}/health/live" >/dev/null
+  curl -fsS "http://localhost:${API_PORT}/health/ready" >/dev/null || {
+    echo "Readiness is not green yet. Check: docker compose logs backend" >&2
+    exit 1
+  }
+else
+  echo "curl not found; skipping endpoint smoke checks."
+fi
+
 cat <<SUMMARY
 
+Bootstrap complete.
+
 Local services:
-  Backend API: http://localhost:${API_PORT:-8000}
-  Web app:     http://localhost:${WEB_PORT:-3000}
-  PostgreSQL:  localhost:${POSTGRES_PORT:-5432}
-  Redis:       localhost:${REDIS_PORT:-6379}
+  Backend API: http://localhost:${API_PORT}
+  Web app:     http://localhost:${WEB_PORT}
+  PostgreSQL:  localhost:${POSTGRES_PORT}
+  Redis:       localhost:${REDIS_PORT}
 
-Run backend:
-  cd backend && "$venv_python_abs" -m uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
-
-Run web:
+Useful commands:
+  docker compose ps
+  docker compose logs -f backend
   pnpm --filter @sabiscore/web dev
 SUMMARY

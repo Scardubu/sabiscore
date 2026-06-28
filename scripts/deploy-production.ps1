@@ -13,6 +13,14 @@ $BACKEND_SERVICE = "sabiscore-backend"
 # Step 1: Pre-deployment checks
 Write-Host "[1/7] Running pre-deployment checks..." -ForegroundColor Yellow
 
+if (Test-Path "apps/api/LEGACY_ARCHIVED") {
+    Remove-Item -LiteralPath "apps/api" -Recurse -Force
+}
+
+if (Test-Path "frontend/LEGACY_ARCHIVED") {
+    Remove-Item -LiteralPath "frontend" -Recurse -Force
+}
+
 # Check if required tools are installed
 $tools = @("vercel", "git", "node", "pnpm")
 foreach ($tool in $tools) {

@@ -1,15 +1,17 @@
-"""Canonical SQLAlchemy model exports for the SabiScore backend.
+"""Typed SQLAlchemy model surface for the canonical SabiScore backend.
 
-The legacy application models still live in ``src.core.database`` and share
-the same ``Base`` metadata. New production hardening tables are declared here
-with SQLAlchemy 2.0 typed mappings so Alembic and runtime code use one metadata
-authority without duplicating tables.
+Alembic owns schema creation. This module exposes the legacy application tables
+plus SQLAlchemy 2.0 typed mappings for canonical identity, market, prediction,
+and provider-state tables used by the production API.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
+
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Index, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column
 
 from ..core.database import (  # noqa: F401
     Base,
@@ -27,17 +29,178 @@ from ..core.database import (  # noqa: F401
     Team,
     UserAccount,
     ValueBet,
-    CanonicalCompetition,
-    CanonicalFixture,
-    CanonicalTeam,
-    MarketSnapshot,
-    ProviderCapabilityRecord,
-    ProviderEventMapping,
-    ProviderQuotaObservation,
-    ProviderRequestSummary,
 )
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Index, Integer, String
-from sqlalchemy.orm import Mapped, mapped_column
+
+
+class ProviderRequestSummary(Base):
+    __tablename__ = "provider_request_summaries"
+    __table_args__ = (
+        Index("ix_provider_request_provider_time", "provider", "acquired_at"),
+        Index("ix_provider_request_status", "status"),
+        {"extend_existing": True},
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    provider: Mapped[str] = mapped_column(String, nullable=False)
+    operation: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False)
+    trust_tier: Mapped[str] = mapped_column(String, nullable=False)
+    acquired_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    provider_timestamp: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    quota_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    quota_remaining: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    quota_reset_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    quota_cost: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    warnings: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String, nullable=True)
+    raw_snapshot_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    response_hash: Mapped[str | None] = mapped_column(String, nullable=True)
+
+
+class ProviderCapabilityRecord(Base):
+    __tablename__ = "provider_capabilities"
+    __table_args__ = (
+        Index("ix_provider_capability_provider_comp", "provider", "competition"),
+        {"extend_existing": True},
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    provider: Mapped[str] = mapped_column(String, nullable=False)
+    competition: Mapped[str] = mapped_column(String, nullable=False)
+    season: Mapped[str | None] = mapped_column(String, nullable=True)
+    fixtures: Mapped[bool | None] = mapped_column(Boolean, default=False)
+    standings: Mapped[bool | None] = mapped_column(Boolean, default=False)
+    lineups: Mapped[bool | None] = mapped_column(Boolean, default=False)
+    injuries: Mapped[bool | None] = mapped_column(Boolean, default=False)
+    team_statistics: Mapped[bool | None] = mapped_column(Boolean, default=False)
+    player_statistics: Mapped[bool | None] = mapped_column(Boolean, default=False)
+    odds: Mapped[bool | None] = mapped_column(Boolean, default=False)
+    xg: Mapped[bool | None] = mapped_column(Boolean, default=False)
+    provider_predictions: Mapped[bool | None] = mapped_column(Boolean, default=False)
+    checked_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    notes: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+
+
+class ProviderQuotaObservation(Base):
+    __tablename__ = "provider_quota_observations"
+    __table_args__ = (
+        Index("ix_provider_quota_provider_time", "provider", "observed_at"),
+        {"extend_existing": True},
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    provider: Mapped[str] = mapped_column(String, nullable=False)
+    observed_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    quota_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    quota_remaining: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    quota_reset_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    quota_cost: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    source: Mapped[str | None] = mapped_column(String, nullable=True)
+
+
+class CanonicalCompetition(Base):
+    __tablename__ = "canonical_competitions"
+    __table_args__ = {"extend_existing": True}
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    coverage_tier: Mapped[str] = mapped_column(String, nullable=False, default="STANDARD")
+    active: Mapped[bool | None] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class CanonicalTeam(Base):
+    __tablename__ = "canonical_teams"
+    __table_args__ = (
+        Index("ix_canonical_teams_competition_name", "competition_id", "name"),
+        {"extend_existing": True},
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    competition_id: Mapped[str | None] = mapped_column(
+        String,
+        ForeignKey("canonical_competitions.id"),
+        nullable=True,
+    )
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    normalized_name: Mapped[str] = mapped_column(String, nullable=False)
+    country: Mapped[str | None] = mapped_column(String, nullable=True)
+    active: Mapped[bool | None] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class CanonicalFixture(Base):
+    __tablename__ = "canonical_fixtures"
+    __table_args__ = (
+        Index("ix_canonical_fixtures_comp_kickoff", "competition_id", "kickoff_utc"),
+        {"extend_existing": True},
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    competition_id: Mapped[str | None] = mapped_column(
+        String,
+        ForeignKey("canonical_competitions.id"),
+        nullable=True,
+    )
+    season: Mapped[str | None] = mapped_column(String, nullable=True)
+    home_team_id: Mapped[str | None] = mapped_column(String, ForeignKey("canonical_teams.id"), nullable=True)
+    away_team_id: Mapped[str | None] = mapped_column(String, ForeignKey("canonical_teams.id"), nullable=True)
+    kickoff_utc: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="scheduled")
+    venue_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    reconciliation_status: Mapped[str] = mapped_column(String, nullable=False, default="UNKNOWN")
+    reconciliation_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    evidence: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class ProviderEventMapping(Base):
+    __tablename__ = "provider_event_mappings"
+    __table_args__ = (
+        Index("ix_provider_event_provider_id", "provider", "provider_event_id"),
+        Index("ix_provider_event_fixture", "canonical_fixture_id"),
+        {"extend_existing": True},
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    provider: Mapped[str] = mapped_column(String, nullable=False)
+    provider_event_id: Mapped[str] = mapped_column(String, nullable=False)
+    canonical_fixture_id: Mapped[str | None] = mapped_column(
+        String,
+        ForeignKey("canonical_fixtures.id"),
+        nullable=True,
+    )
+    competition: Mapped[str] = mapped_column(String, nullable=False)
+    reconciliation_status: Mapped[str] = mapped_column(String, nullable=False)
+    reconciliation_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    evidence: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    checked_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
+class MarketSnapshot(Base):
+    __tablename__ = "market_snapshots"
+    __table_args__ = (
+        Index("ix_market_snapshots_fixture_time", "canonical_fixture_id", "captured_at"),
+        Index("ix_market_snapshots_bookmaker", "bookmaker"),
+        {"extend_existing": True},
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    canonical_fixture_id: Mapped[str] = mapped_column(String, ForeignKey("canonical_fixtures.id"), nullable=False)
+    provider: Mapped[str] = mapped_column(String, nullable=False)
+    bookmaker: Mapped[str] = mapped_column(String, nullable=False)
+    market_type: Mapped[str] = mapped_column(String, nullable=False, default="1X2")
+    home_odds: Mapped[float] = mapped_column(Float, nullable=False)
+    draw_odds: Mapped[float] = mapped_column(Float, nullable=False)
+    away_odds: Mapped[float] = mapped_column(Float, nullable=False)
+    provider_timestamp: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    captured_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    coherent: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    executable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    provenance: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
 
 class MatchPredictionLog(Base):
@@ -45,6 +208,7 @@ class MatchPredictionLog(Base):
     __table_args__ = (
         Index("ix_match_prediction_logs_match_time", "match_id", "created_at"),
         Index("ix_match_prediction_logs_fixture", "canonical_fixture_id"),
+        {"extend_existing": True},
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -71,6 +235,7 @@ class ProviderHealthLog(Base):
     __table_args__ = (
         Index("ix_provider_health_provider_time", "provider", "checked_at"),
         Index("ix_provider_health_status", "status"),
+        {"extend_existing": True},
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -92,6 +257,7 @@ class ProviderCapabilityObservation(Base):
             "competition",
             "checked_at",
         ),
+        {"extend_existing": True},
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -105,6 +271,7 @@ class ProviderCapabilityObservation(Base):
 
 class CircuitState(Base):
     __tablename__ = "circuit_state"
+    __table_args__ = {"extend_existing": True}
 
     provider: Mapped[str] = mapped_column(String, primary_key=True)
     open: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
@@ -114,6 +281,7 @@ class CircuitState(Base):
     retry_after: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     state_metadata: Mapped[dict[str, Any] | None] = mapped_column("metadata", JSON, nullable=True)
+
 
 __all__ = [
     "Base",
@@ -131,14 +299,14 @@ __all__ = [
     "Team",
     "UserAccount",
     "ValueBet",
+    "ProviderRequestSummary",
+    "ProviderCapabilityRecord",
+    "ProviderQuotaObservation",
     "CanonicalCompetition",
     "CanonicalFixture",
     "CanonicalTeam",
-    "MarketSnapshot",
-    "ProviderCapabilityRecord",
     "ProviderEventMapping",
-    "ProviderQuotaObservation",
-    "ProviderRequestSummary",
+    "MarketSnapshot",
     "MatchPredictionLog",
     "ProviderHealthLog",
     "ProviderCapabilityObservation",

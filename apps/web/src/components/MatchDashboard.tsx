@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
   BarChart3,
   CheckCircle2,
+  Copy,
   LineChart,
   ShieldCheck,
   WalletCards,
@@ -60,6 +61,7 @@ export function MatchDashboard({
   error?: string | null;
   onRefresh?: () => void;
 }) {
+  const [copiedDecisionId, setCopiedDecisionId] = useState(false);
   const probabilityRows = useMemo(() => {
     if (!analysis?.probabilities) return [];
     return [
@@ -68,6 +70,29 @@ export function MatchDashboard({
       { label: "Away", market: "AWAY_ML", probability: analysis.probabilities.away ?? 0 },
     ];
   }, [analysis]);
+
+  const backendGaps = useMemo(() => {
+    if (!analysis) {
+      return { critical: [], advisory: [], risk: [] };
+    }
+
+    return {
+      critical: [...(analysis.critical_gaps ?? []), ...(analysis.conflicts ?? [])],
+      advisory: analysis.advisory_gaps ?? [],
+      risk: [...analysis.risks, ...analysis.invalidation_conditions, ...analysis.data_gaps],
+    };
+  }, [analysis]);
+
+  async function copyDecisionId() {
+    if (!analysis?.decision_id) return;
+    try {
+      await navigator.clipboard.writeText(analysis.decision_id);
+      setCopiedDecisionId(true);
+      window.setTimeout(() => setCopiedDecisionId(false), 1600);
+    } catch {
+      setCopiedDecisionId(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -121,7 +146,27 @@ export function MatchDashboard({
           <div className="grid min-w-[220px] gap-2 text-sm">
             <Metric label="Match" value={analysis.match_identifier} />
             <Metric label="Stake" value={analysis.stake} />
-            <Metric label="Decision ID" value={analysis.decision_id ?? "Unavailable"} />
+            <Metric
+              label="Decision ID"
+              value={analysis.decision_id ?? "Unavailable"}
+              action={
+                analysis.decision_id ? (
+                  <button
+                    type="button"
+                    onClick={copyDecisionId}
+                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-white/10 text-slate-300 transition hover:border-emerald-300/50 hover:text-emerald-100 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+                    aria-label="Copy decision ID"
+                    title="Copy decision ID"
+                  >
+                    {copiedDecisionId ? (
+                      <CheckCircle2 className="h-4 w-4 text-emerald-300" aria-hidden="true" />
+                    ) : (
+                      <Copy className="h-4 w-4" aria-hidden="true" />
+                    )}
+                  </button>
+                ) : null
+              }
+            />
           </div>
         </div>
       </div>
@@ -194,10 +239,22 @@ export function MatchDashboard({
       <div className="grid gap-4 lg:grid-cols-2">
         <EvidenceList title="Drivers" items={analysis.drivers} empty="No verified drivers returned." />
         <EvidenceList
+          title="Critical gaps"
+          items={backendGaps.critical}
+          empty="No blocking provider conflicts returned."
+          tone="critical"
+        />
+        <EvidenceList
+          title="Advisory gaps"
+          items={backendGaps.advisory}
+          empty="No advisory data gaps returned."
+          tone="warning"
+        />
+        <EvidenceList
           title="Risks and invalidation"
-          items={[...analysis.risks, ...analysis.invalidation_conditions, ...analysis.data_gaps]}
+          items={backendGaps.risk}
           empty="No risk or gap metadata returned."
-          warning
+          tone="warning"
         />
       </div>
     </section>
@@ -224,11 +281,14 @@ function Panel({
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({ label, value, action }: { label: string; value: string; action?: React.ReactNode }) {
   return (
     <div className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
       <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-1 break-words text-sm font-semibold text-slate-100">{value}</p>
+      <div className="mt-1 flex min-w-0 items-center gap-2">
+        <p className="min-w-0 flex-1 break-words text-sm font-semibold text-slate-100">{value}</p>
+        {action}
+      </div>
     </div>
   );
 }
@@ -274,13 +334,19 @@ function EvidenceList({
   title,
   items,
   empty,
-  warning = false,
+  tone = "positive",
 }: {
   title: string;
   items: string[];
   empty: string;
-  warning?: boolean;
+  tone?: "positive" | "warning" | "critical";
 }) {
+  const toneClass = {
+    positive: "border-emerald-300/20 bg-emerald-300/10 text-emerald-100",
+    warning: "border-amber-300/20 bg-amber-300/10 text-amber-100",
+    critical: "border-rose-300/25 bg-rose-300/10 text-rose-100",
+  }[tone];
+
   return (
     <div className="rounded-md border border-white/10 bg-[#0b1714] p-4">
       <h3 className="text-sm font-semibold text-white">{title}</h3>
@@ -289,11 +355,7 @@ function EvidenceList({
           {items.map((item) => (
             <li
               key={item}
-              className={`rounded-md border px-3 py-2 text-sm ${
-                warning
-                  ? "border-amber-300/20 bg-amber-300/10 text-amber-100"
-                  : "border-emerald-300/20 bg-emerald-300/10 text-emerald-100"
-              }`}
+              className={`rounded-md border px-3 py-2 text-sm ${toneClass}`}
             >
               {item}
             </li>

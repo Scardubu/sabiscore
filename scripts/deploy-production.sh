@@ -24,6 +24,14 @@ BACKEND_SERVICE="sabiscore-backend"
 # Step 1: Pre-deployment checks
 echo -e "${YELLOW}[1/7] Running pre-deployment checks...${NC}"
 
+if [ -f "apps/api/LEGACY_ARCHIVED" ]; then
+    rm -rf apps/api
+fi
+
+if [ -f "frontend/LEGACY_ARCHIVED" ]; then
+    rm -rf frontend
+fi
+
 # Check if required tools are installed
 for tool in vercel git node pnpm; do
     if ! command -v $tool &> /dev/null; then

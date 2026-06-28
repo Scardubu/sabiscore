@@ -792,6 +792,10 @@ def analyze_match(
         if request.signals.sharp_market_signal == SharpSignalEnum.CONFLICTING:
             risks.append("Sharp market signal conflicts with model direction")
 
+    conflicts = _extract_conflicts(gaps, risks)
+    advisory_gaps = _extract_advisory_gaps(risks)
+    critical_gaps = _extract_critical_gaps(gaps)
+
     # Freshness block
     freshness_block = DataFreshness(
         status=market_freshness,
@@ -853,12 +857,35 @@ def analyze_match(
         drivers=drivers,
         risks=risks,
         invalidation_conditions=invalidation,
+        critical_gaps=critical_gaps,
+        advisory_gaps=advisory_gaps,
+        conflicts=conflicts,
         all_market_evaluations=all_evals,
         data_freshness=freshness_block,
         data_gaps=gaps,
         calculation_audit=calc_audit,
         explanation=explanation,
     )
+
+
+def _extract_critical_gaps(gaps: List[str]) -> List[str]:
+    return [gap for gap in gaps if not gap.startswith("CONFLICTING")]
+
+
+def _extract_advisory_gaps(risks: List[str]) -> List[str]:
+    advisory_markers = ("lineup", "absence", "ucl", "confidence tier")
+    return [
+        risk
+        for risk in risks
+        if any(marker in risk.lower() for marker in advisory_markers)
+        and "conflict" not in risk.lower()
+    ]
+
+
+def _extract_conflicts(gaps: List[str], risks: List[str]) -> List[str]:
+    conflicts = [gap for gap in gaps if gap.startswith("CONFLICTING")]
+    conflicts.extend(risk for risk in risks if "conflict" in risk.lower())
+    return list(dict.fromkeys(conflicts))
 
 
 def _build_explanation(

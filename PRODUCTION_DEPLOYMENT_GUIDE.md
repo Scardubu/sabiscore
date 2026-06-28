@@ -179,7 +179,7 @@ Cron routes check `Authorization: Bearer ${CRON_SECRET}` header.
 Test manually:
 
 ```bash
-curl -H "Authorization: Bearer your_cron_secret" \
+curl -H "Authorization: Bearer ${CRON_SECRET}" \
   https://your-app.vercel.app/api/cron/drift-check
 ```
 

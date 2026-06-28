@@ -35,6 +35,17 @@ async def test_espn_scoreboard_fails_closed_when_live_calls_disabled():
     assert "live_provider_calls_disabled" in result.warnings
 
 
+@pytest.mark.asyncio
+async def test_enabled_provider_health_is_configured_not_verified_without_live_probe():
+    provider = ESPNProvider(enabled=True, live_tests=False)
+
+    health = await provider.health()
+
+    assert health.status is ProviderStatus.CONFIGURED_UNVERIFIED
+    assert health.configured is True
+    assert "live_probe_not_run" in health.warnings
+
+
 def test_provider_registry_registers_canonical_provider_set():
     registry = build_provider_registry()
     provider_ids = {provider.provider_id for provider in registry.providers}

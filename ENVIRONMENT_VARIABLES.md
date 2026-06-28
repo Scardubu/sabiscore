@@ -825,7 +825,7 @@ curl -X POST https://discord.com/api/webhooks/YOUR_WEBHOOK \
 ```bash
 # Test API key
 curl https://api.football-data.org/v4/matches \
-  -H "X-Auth-Token: YOUR_API_KEY"
+  -H "X-Auth-Token: ${FOOTBALL_DATA_API_KEY}"
 ```
 
 **Solutions**:

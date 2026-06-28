@@ -105,7 +105,7 @@ This document summarizes the complete integration of the Ultra ML system into Sa
 ```bash
 curl -X POST https://api.sabiscore.com/api/v1/ultra/predict \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: your-api-key" \
+  -H "X-API-Key: ${SABISCORE_API_KEY}" \
   -d '{
     "features": {
       "match_id": "arsenal_chelsea_2024",

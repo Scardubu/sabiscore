@@ -19,5 +19,6 @@ paths = [
   '''package-lock\.json''',
   '''node_modules/''',
   '''\.venv/''',
+  '''apps/web/\.next/''',
   '''test-results/''',
 ]

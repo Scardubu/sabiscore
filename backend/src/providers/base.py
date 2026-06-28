@@ -25,9 +25,12 @@ SENSITIVE_QUERY_KEYS = {"api_key", "apikey", "key", "token", "auth", "authorizat
 
 class ProviderStatus(str, Enum):
     VERIFIED = "VERIFIED"
+    CONFIGURED_UNVERIFIED = "CONFIGURED_UNVERIFIED"
+    UNCONFIGURED = "UNCONFIGURED"
     PARTIAL = "PARTIAL"
     UNAVAILABLE = "UNAVAILABLE"
     RATE_LIMITED = "RATE_LIMITED"
+    CIRCUIT_OPEN = "CIRCUIT_OPEN"
     INVALID = "INVALID"
     CONFLICTING = "CONFLICTING"
 
@@ -171,16 +174,20 @@ class BaseProvider:
 
     async def health(self) -> ProviderHealth:
         warnings: list[str] = []
-        status = ProviderStatus.VERIFIED
         if not self.enabled:
             status = ProviderStatus.UNAVAILABLE
             warnings.append("provider_disabled")
         elif self.requires_key and not self.api_key:
-            status = ProviderStatus.UNAVAILABLE
+            status = ProviderStatus.UNCONFIGURED
             warnings.append("missing_backend_credential")
         elif self.breaker.open:
-            status = ProviderStatus.RATE_LIMITED
+            status = ProviderStatus.CIRCUIT_OPEN
             warnings.append("circuit_breaker_open")
+        elif self.live_tests:
+            status = await self.probe()
+        else:
+            status = ProviderStatus.CONFIGURED_UNVERIFIED
+            warnings.append("live_probe_not_run")
         return ProviderHealth(
             provider=self.provider_id,
             enabled=self.enabled,
@@ -189,6 +196,10 @@ class BaseProvider:
             trust_tier=self.trust_tier,
             warnings=warnings,
         )
+
+    async def probe(self) -> ProviderStatus:
+        """Provider-specific live probes should return VERIFIED only after network validation."""
+        return ProviderStatus.CONFIGURED_UNVERIFIED
 
     async def capabilities(self) -> list[ProviderCapability]:
         return []

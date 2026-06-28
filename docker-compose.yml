@@ -38,8 +38,8 @@ services:
     environment:
       APP_ENV: ${APP_ENV:-development}
       DEBUG: ${DEBUG:-false}
-      DATABASE_URL: ${DATABASE_URL:-postgresql://sabi:sabiscore_dev_password@postgres:5432/sabiscore}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      DATABASE_URL: ${SABISCORE_DATABASE_URL:-postgresql://sabi:sabiscore_dev_password@postgres:5432/sabiscore}
+      REDIS_URL: ${SABISCORE_REDIS_URL:-redis://redis:6379/0}
       SECRET_KEY: ${SECRET_KEY:-development-only-change-before-production}
       PROVIDER_LIVE_TESTS: ${PROVIDER_LIVE_TESTS:-false}
       ENABLE_ESPN_PROVIDER: ${ENABLE_ESPN_PROVIDER:-true}
@@ -85,19 +85,6 @@ services:
       backend:
         condition: service_healthy
     restart: unless-stopped
-
-  scraper:
-    image: node:22-alpine
-    profiles: ["scraper"]
-    working_dir: /workspace
-    command: ["sh", "-lc", "corepack enable && pnpm --filter @sabiscore/scraper doctor"]
-    volumes:
-      - .:/workspace
-    environment:
-      NODE_ENV: production
-    depends_on:
-      redis:
-        condition: service_healthy
 
 volumes:
   postgres_data:
