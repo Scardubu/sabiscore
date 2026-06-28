@@ -3,7 +3,6 @@ Model Registry with MLflow Integration
 Manages model versioning, tracking, and deployment lifecycle
 """
 
-import os
 import joblib
 import json
 import logging

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
@@ -92,7 +92,6 @@ async def get_calibration_stats(
 
         # Attempt to compute live ECE via the evaluation module if available
         try:
-            from ...models.evaluation.metrics import expected_calibration_error
             _ece_available = True
         except Exception:
             _ece_available = False

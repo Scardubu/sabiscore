@@ -34,8 +34,11 @@ AUTO_ACCEPT_THRESHOLD: float = 0.94
 REVIEW_THRESHOLD: float = 0.68
 """Confidence at or above which a single winner earns REQUIRES_REVIEW instead
 of UNKNOWN. Below this the match is too weak to queue for review.
-Tuned to capture common abbreviation patterns (e.g. "Man Utd" vs
-"Manchester United" scores ~0.71 with SequenceMatcher)."""
+Tuned to capture common single-field abbreviations with an otherwise exact
+match (e.g. "Man United" vs "Manchester United" with the away team and
+kickoff matching exactly scores ~0.90 with SequenceMatcher). Multi-field
+nicknames (e.g. "Spurs" for "Tottenham Hotspur") score much lower and need
+alias resolution, not threshold tuning, to be captured — not yet implemented."""
 
 AMBIGUITY_BAND: float = 0.03
 """Maximum gap between the top two candidates before the decision is CONFLICTING

@@ -13,28 +13,24 @@ This module wraps the existing EnsembleModel with stronger configs
 and calibration layers.
 """
 
-import hashlib
 import json
 import logging
-import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import joblib
 import numpy as np
 import pandas as pd
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.ensemble import (
-    GradientBoostingClassifier,
     RandomForestClassifier,
     StackingClassifier,
-    VotingClassifier,
 )
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, brier_score_loss, log_loss
-from sklearn.model_selection import StratifiedKFold, cross_val_predict, train_test_split
+from sklearn.model_selection import StratifiedKFold, train_test_split
 from tqdm import tqdm
 
 try:

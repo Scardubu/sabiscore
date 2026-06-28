@@ -3,12 +3,10 @@ Twitter (X) sentiment analyzer for real-time market sentiment and narrative trac
 Integrates with prediction pipeline to detect market overreactions.
 """
 
-import asyncio
 import logging
 from typing import Dict, List, Optional, Any
-from datetime import datetime, timedelta
+from datetime import datetime
 from dataclasses import dataclass
-import re
 
 logger = logging.getLogger(__name__)
 

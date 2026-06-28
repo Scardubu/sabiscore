@@ -15,14 +15,11 @@ Playwright or Selenium for full scraping. This module provides
 a fallback with simulated data for development.
 """
 
-import json
 import logging
 import random
 from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Optional
 
-import pandas as pd
 
 from .base_scraper import BaseScraper, CACHE_DIR, PROCESSED_DIR
 

@@ -15,8 +15,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...db.session import get_async_session
-from ...services.ultra_prediction_service import UltraPredictionService, get_ultra_prediction_service
-from ...schemas.prediction import MatchPredictionRequest, PredictionResponse
+from ...services.ultra_prediction_service import get_ultra_prediction_service
+from ...schemas.prediction import MatchPredictionRequest
 from ...core.cache import cache_manager
 
 logger = logging.getLogger(__name__)
@@ -412,7 +412,7 @@ async def clear_cache(
         # For Redis-backed cache, clear by pattern
         # For in-memory cache, clear all
         cleared = cache_manager.clear()
-        return {"message": f"Cache cleared successfully", "pattern": pattern}
+        return {"message": "Cache cleared successfully", "pattern": pattern}
     except Exception as e:
         logger.error(f"Cache clear error: {e}")
         raise HTTPException(

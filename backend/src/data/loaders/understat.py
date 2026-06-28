@@ -22,7 +22,6 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 from cachetools import TTLCache
 from sqlalchemy.orm import Session
 
-from ...core.config import settings
 from ...core.database import (
     Match,
     MatchStats,

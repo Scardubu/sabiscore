@@ -20,7 +20,6 @@ import json
 import logging
 import random
 from datetime import datetime
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .base_scraper import BaseScraper, CACHE_DIR, PROCESSED_DIR

@@ -7,8 +7,7 @@ Target: 71.8% accuracy, +₦58 avg CLV, 0.186 Brier score
 
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Tuple
-from datetime import datetime, timedelta
+from typing import Dict
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from xgboost import XGBClassifier
 from lightgbm import LGBMClassifier
@@ -16,7 +15,6 @@ from sklearn.calibration import CalibratedClassifierCV
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils.class_weight import compute_sample_weight
 import redis
-import json
 
 
 class BundesligaModel:

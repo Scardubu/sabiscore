@@ -15,7 +15,6 @@ from typing import Dict, List, Optional
 import aiohttp
 from bs4 import BeautifulSoup
 from tenacity import retry, stop_after_attempt, wait_exponential
-from sqlalchemy.orm import Session
 
 from ...core.config import settings
 from ...core.database import ScrapingLog, session_scope

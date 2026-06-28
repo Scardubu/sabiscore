@@ -16,15 +16,11 @@ Ethical Note:
 - Only scrapes publicly available information
 """
 
-import json
 import logging
-import re
 from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 from urllib.parse import urljoin
 
-import pandas as pd
 
 from .base_scraper import BaseScraper, CACHE_DIR, PROCESSED_DIR
 

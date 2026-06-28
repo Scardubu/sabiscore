@@ -16,11 +16,9 @@ Generates comprehensive feature vectors for ML models including:
 """
 
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
-import math
+from typing import Dict
 
 import numpy as np
-import pandas as pd
 from sqlalchemy import and_, desc
 from sqlalchemy.orm import Session
 
@@ -30,10 +28,8 @@ from ...core.database import (
     MatchEvent,
     OddsHistory,
     PlayerValuation,
-    Team,
     FeatureVector,
 )
-from ..utils.deduplication import calculate_season_string
 
 import logging
 

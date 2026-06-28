@@ -10,7 +10,6 @@ import redis
 import json
 import os
 from datetime import datetime, timedelta, timezone
-from sqlalchemy.orm import Session
 from typing import Dict, List
 import numpy as np
 

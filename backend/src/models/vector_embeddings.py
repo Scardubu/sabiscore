@@ -6,7 +6,6 @@ Uses sentence transformers to find historical analogs for novel situations.
 import logging
 from typing import Dict, List, Optional, Tuple, Any
 import numpy as np
-from datetime import datetime
 import pickle
 
 logger = logging.getLogger(__name__)

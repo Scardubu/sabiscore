@@ -6,7 +6,7 @@ Diverse model ensemble targeting 90%+ accuracy through complementary predictions
 
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Optional
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.linear_model import LogisticRegression
 from sklearn.calibration import CalibratedClassifierCV

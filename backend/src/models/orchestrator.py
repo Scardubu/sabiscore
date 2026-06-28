@@ -7,7 +7,7 @@ Handles training, caching, live calibration, and edge detection
 import redis
 import json
 import os
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 import pandas as pd

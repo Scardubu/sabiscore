@@ -394,7 +394,7 @@ def monitor_scraper(scraper_name: str) -> Callable:
             try:
                 result = await func(*args, **kwargs)
                 return result
-            except Exception as exc:
+            except Exception:
                 success = False
                 raise
             finally:
@@ -412,7 +412,7 @@ def monitor_scraper(scraper_name: str) -> Callable:
             try:
                 result = func(*args, **kwargs)
                 return result
-            except Exception as exc:
+            except Exception:
                 success = False
                 raise
             finally:

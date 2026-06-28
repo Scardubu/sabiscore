@@ -6,7 +6,7 @@ Integrates with ModelOrchestrator for production model deployment
 
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 import pickle
@@ -14,7 +14,7 @@ import json
 import hashlib
 from pathlib import Path
 
-from sklearn.model_selection import TimeSeriesSplit, GridSearchCV, RandomizedSearchCV
+from sklearn.model_selection import TimeSeriesSplit, GridSearchCV
 from sklearn.metrics import accuracy_score, brier_score_loss, log_loss, f1_score
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
@@ -24,7 +24,6 @@ from lightgbm import LGBMClassifier
 import optuna
 
 from ..models.match import Match
-from ..models.prediction import Prediction as PredictionModel
 from ..core.logging import get_logger
 
 logger = get_logger(__name__)

@@ -40,19 +40,18 @@ def test_aggregator_with_live_data():
         assert data["metadata"]["freshness"]["historical_stats"] is not None
 
 
-def test_aggregator_fallback_to_cache(mocker):
+def test_aggregator_fallback_to_cache():
     """Test fallback to cached data when scrapers fail."""
     # Setup cache mock
     cached_data = {
         "historical_stats": [{"home_team": "TeamA", "away_team": "TeamB"}],
         "metadata": {"cache": {"status": "cached", "cached_at": "2025-10-01"}}
     }
-    mocker.patch("src.data.aggregator.cache.get", return_value=cached_data)
-    mocker.patch("src.data.aggregator.cache.set", return_value=True)
-    
-    aggregator = DataAggregator("TeamA vs TeamB", "EPL")
-    data = aggregator.fetch_match_data()
-    
+    with patch("src.data.aggregator.cache.get", return_value=cached_data), \
+         patch("src.data.aggregator.cache.set", return_value=True):
+        aggregator = DataAggregator("TeamA vs TeamB", "EPL")
+        data = aggregator.fetch_match_data()
+
     assert data["metadata"]["cache"]["status"] == "cached"
     assert "cached_at" in data["metadata"]["cache"]
     assert isinstance(data["historical_stats"], pd.DataFrame)
@@ -118,18 +117,17 @@ def test_aggregator_empty_scrapers():
         assert isinstance(data["injuries"], pd.DataFrame)
 
 
-def test_aggregator_cache_usage(mocker):
+def test_aggregator_cache_usage():
     """Test aggregator properly uses cache."""
     # Setup cache mock
     cached_data = {
         "historical_stats": pd.DataFrame([{"home_team": "TeamA", "away_team": "TeamB"}]),
         "metadata": {"cache": {"status": "cached", "cached_at": "2025-10-01"}}
     }
-    mocker.patch("src.data.aggregator.cache.get", return_value=cached_data)
-    
-    aggregator = DataAggregator("TeamA vs TeamB", "EPL")
-    data = aggregator.fetch_match_data()
-    
+    with patch("src.data.aggregator.cache.get", return_value=cached_data):
+        aggregator = DataAggregator("TeamA vs TeamB", "EPL")
+        data = aggregator.fetch_match_data()
+
     assert data["metadata"]["cache"]["status"] == "cached"
     assert "cached_at" in data["metadata"]["cache"]
     assert isinstance(data["historical_stats"], pd.DataFrame)

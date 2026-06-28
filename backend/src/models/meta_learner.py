@@ -6,7 +6,7 @@ Stacks base model predictions using Logistic Regression for final ensemble outpu
 import pandas as pd
 import numpy as np
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict
 from sklearn.linear_model import LogisticRegression
 from .base_model import BaseModel
 

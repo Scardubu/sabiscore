@@ -1,8 +1,7 @@
 import pandas as pd
 import numpy as np
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 import logging
-import json
 
 try:
     import shap

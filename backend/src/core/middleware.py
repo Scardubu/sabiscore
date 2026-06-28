@@ -4,7 +4,7 @@ from fastapi import Request, Response
 from fastapi.routing import APIRoute
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
-from typing import Callable, Any
+from typing import Callable
 import re
 import time
 import logging

@@ -14,7 +14,7 @@ Values are normalized where applicable (0-1 scales or realistic ranges).
 """
 
 import hashlib
-from typing import Dict, Optional, Tuple
+from typing import Dict
 
 # Team ELO ratings (approximately based on clubelo.com data, scaled for the model)
 # Higher = stronger team, typical range 1300-2000

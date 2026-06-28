@@ -15,7 +15,7 @@ LeagueStanding data from the DB and applies UCL competition_stage multipliers.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Dict, List, Optional
 

@@ -31,17 +31,13 @@ import logging
 import threading
 import time
 from contextlib import nullcontext
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 import numpy as np
 
 from ..core.cache import cache_manager
 from ..core.config import settings
-from .feature_registry import (
-    CANONICAL_FEATURES_86,
-    active_canonical_features,
-)
 
 # ── Soft import: calibration module (requires scipy / sklearn) ─────────────────
 _apply_calibrator = None

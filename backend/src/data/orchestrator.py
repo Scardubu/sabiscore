@@ -6,16 +6,15 @@ Runs periodic scraping jobs, handles errors, and maintains data freshness
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 import json
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 import redis
 
 from .loaders.fbref import FBrefLoader
 from .loaders.understat import UnderstatLoader
 from ..core.config import settings
-from ..core.database import Match, Team, MatchStats, League
+from ..core.database import Match, Team, MatchStats
 from ..db.session import async_session_maker
 
 

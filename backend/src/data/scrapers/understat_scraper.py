@@ -21,10 +21,8 @@ Ethical Note:
 import json
 import logging
 import random
-import re
 from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from .base_scraper import BaseScraper, CACHE_DIR, PROCESSED_DIR
 

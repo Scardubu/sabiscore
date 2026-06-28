@@ -19,8 +19,6 @@ import aiohttp
 
 from ..core.redis import get_redis_client, CacheKeys
 from ..core.config import settings
-from ..connectors.opta import OptaConnector
-from ..connectors.betfair import BetfairConnector
 from ..models.edge_detector import EdgeDetector
 
 logger = logging.getLogger(__name__)

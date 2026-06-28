@@ -8,7 +8,7 @@ import json
 from ..models.ensemble import SabiScoreEnsemble
 from ..models.feature_registry import CANONICAL_FEATURES_68, DEFAULT_FEATURE_VALUES_68
 from ..data.aggregator import DataAggregator
-from ..data.team_database import get_team_stats, get_matchup_features, get_team_elo, get_team_squad_value
+from ..data.team_database import get_team_stats, get_matchup_features, get_team_elo
 # Avoid importing heavy transformer (sklearn/great_expectations) at module import time
 # We'll lazily import FeatureTransformer in __init__ and fall back to a minimal implementation
 from ..models.explainer import ModelExplainer

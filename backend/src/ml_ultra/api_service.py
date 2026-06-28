@@ -10,21 +10,19 @@ import json
 import logging
 import os
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from functools import wraps
 from typing import Dict, List, Optional, Any
 
 import redis.asyncio as redis
-from fastapi import FastAPI, HTTPException, Depends, Header, Request
+from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, validator
 import numpy as np
 import pandas as pd
 
 from .training_pipeline import ProductionMLPipeline
-from .feature_engineering import AdvancedFeatureEngineer
 
 # ============================================================================
 # CONFIGURATION

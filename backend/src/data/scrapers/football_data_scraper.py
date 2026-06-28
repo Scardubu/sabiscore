@@ -23,9 +23,6 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import pandas as pd
-import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
 from .base_scraper import BaseScraper, PROCESSED_DIR, CACHE_DIR
 

@@ -12,17 +12,16 @@ Run with: python -m backend.src.cli.preprocess_data
 
 import sys
 import logging
-from pathlib import Path
 from typing import List, Dict
 from datetime import datetime, timedelta
 
 import pandas as pd
 import numpy as np
-from sqlalchemy import and_, or_
+from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
 from ..core.logging import configure_logging
-from ..core.database import get_db, Match, MatchStats, League
+from ..core.database import get_db, Match, League
 from ..core.config import settings
 from ..data.enrichment.feature_engineer import FeatureEngineer
 

@@ -38,7 +38,6 @@ from ..schemas.betting_intelligence import (
     EvidenceTierEnum,
     FreshnessStatusEnum,
     LineupStatusEnum,
-    MarketEvaluation,
     MarketInput,
     MatchAnalysisRequest,
     MatchAnalysisResult,
@@ -501,7 +500,7 @@ def _build_invalidation_conditions(
 ) -> List[str]:
     """Build concrete invalidation conditions for the recommended position."""
     conditions = [
-        f"Price moves below minimum acceptable odds (see calculation_audit).",
+        "Price moves below minimum acceptable odds (see calculation_audit).",
         f"Edge falls below {min_actionable_edge * 100:.1f}pp after live odds refresh.",
         "Model probability changes materially after confirmed lineup ingestion.",
     ]

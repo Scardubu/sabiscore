@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-from typing import Dict, Optional
+from typing import Dict
 
 from ...services.rl_betting_agent import RLBettingAgent
 from ...schemas.prediction import RLRecommendation

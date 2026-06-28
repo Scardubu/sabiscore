@@ -11,13 +11,8 @@ Features:
 
 import asyncio
 from datetime import datetime
-from typing import Dict, Optional
-import json
 
-import websockets
-from tenacity import retry, stop_after_attempt, wait_exponential
 
-from ...core.config import settings
 
 import logging
 

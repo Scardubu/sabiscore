@@ -52,7 +52,7 @@ URL:     https://sabiscore-70xn1bfov-oversabis-projects.vercel.app
 Status:  ✅ Production
 Host:    Vercel Edge (300+ POPs)
 TTFB:    Target <45ms P50
-Stack:   Next.js 15 + React 19 + Tailwind
+Stack:   Next.js 15 + React 18 + Tailwind
 ```
 
 ### **Backend (Ready) ⏳**
@@ -239,7 +239,7 @@ start https://sabiscore.vercel.app
 
 ```yaml
 Frontend:
-  Framework:    Next.js 15 (App Router, React 19)
+  Framework:    Next.js 15 (App Router, React 18)
   Hosting:      Vercel Edge (300+ POPs)
   Styling:      Tailwind CSS + Shadcn/ui
   State:        TanStack Query + Zustand

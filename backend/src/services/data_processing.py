@@ -7,12 +7,10 @@ Optimized for <8ms Redis hits, 35ms PostgreSQL fallback, sub-150ms total TTFB
 import redis
 import json
 import os
-import pandas as pd
-import numpy as np
-from typing import Dict, List, Optional, Tuple
-from datetime import datetime, timedelta
+from typing import Dict, List, Optional
+from datetime import datetime
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_, func
+from sqlalchemy import and_, or_
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 

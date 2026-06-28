@@ -13,7 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...db.models import Match, Odds, Prediction
 from ...db.session import get_async_session
 from ...schemas.betting_intelligence import (
-    BatchAnalysisRequest,
     CompetitionEnum,
     EvidenceTierEnum,
     FreshnessInput,

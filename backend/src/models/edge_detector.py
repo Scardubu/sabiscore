@@ -11,8 +11,7 @@ Features:
 """
 
 import logging
-from typing import Dict, List, Optional, Tuple
-import numpy as np
+from typing import Dict, List, Optional
 from datetime import datetime
 
 logger = logging.getLogger(__name__)

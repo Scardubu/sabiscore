@@ -22,7 +22,6 @@ from sklearn.calibration import CalibratedClassifierCV
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils.class_weight import compute_sample_weight
 import redis
-import json
 
 class EredivisieModel:
     """

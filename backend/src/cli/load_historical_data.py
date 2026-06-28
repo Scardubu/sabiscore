@@ -20,7 +20,7 @@ from requests.exceptions import SSLError, RequestException
 from urllib3.util.retry import Retry
 import urllib3
 import uuid
-from typing import Dict, List
+from typing import Dict
 from sqlalchemy.orm import Session
 
 from ..core.logging import configure_logging

@@ -4,10 +4,9 @@ Generates synthetic samples to handle rare events and improve robustness.
 """
 
 import logging
-from typing import Dict, List, Optional, Tuple, Any
+from typing import List, Optional, Tuple
 import numpy as np
 import pandas as pd
-from datetime import datetime, timedelta
 import random
 
 logger = logging.getLogger(__name__)

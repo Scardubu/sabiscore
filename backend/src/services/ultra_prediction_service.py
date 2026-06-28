@@ -4,18 +4,16 @@ Integrates ml_ultra module with existing FastAPI prediction surface
 Target: 90%+ accuracy, <30ms latency
 """
 
-import asyncio
 import hashlib
 import logging
 import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.cache import cache_manager
-from ..core.config import settings
 from ..models.edge_detector import EdgeDetector
 from ..monitoring.metrics import metrics_collector
 from ..schemas.prediction import MatchPredictionRequest, PredictionResponse

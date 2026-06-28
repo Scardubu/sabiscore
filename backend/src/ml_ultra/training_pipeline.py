@@ -8,8 +8,7 @@ Target: 90%+ accuracy
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from typing import Dict, Optional, Tuple, Any
-from sklearn.model_selection import TimeSeriesSplit, train_test_split
+from typing import Dict, Optional, Tuple
 from sklearn.metrics import accuracy_score, log_loss, classification_report, confusion_matrix
 import warnings
 import logging
@@ -198,13 +197,13 @@ class ProductionMLPipeline:
         }
 
         # Print results
-        print(f"\n  FINAL RESULTS:")
+        print("\n  FINAL RESULTS:")
         print(f"  Accuracy: {accuracy:.4f} ({accuracy*100:.2f}%)")
         print(f"  Log Loss: {logloss:.4f}")
-        print(f"\n  Model Weights:")
+        print("\n  Model Weights:")
         for model, weight in model_weights.items():
             print(f"    {model}: {weight:.3f}")
-        print(f"\n  Per-Class Accuracy:")
+        print("\n  Per-Class Accuracy:")
         print(f"    Away Win: {metrics['per_class_accuracy']['away_win']:.2%}")
         print(f"    Draw: {metrics['per_class_accuracy']['draw']:.2%}")
         print(f"    Home Win: {metrics['per_class_accuracy']['home_win']:.2%}")
@@ -328,7 +327,7 @@ def main():
     metrics = pipeline.run_complete_pipeline()
 
     # Print summary
-    print(f"\n📊 Training Summary:")
+    print("\n📊 Training Summary:")
     print(f"   Accuracy: {metrics['accuracy']:.2%}")
     print(f"   Log Loss: {metrics['log_loss']:.4f}")
     print(f"   Features: {metrics['n_features']}")

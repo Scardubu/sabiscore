@@ -4,7 +4,7 @@ Defines interface for all prediction models in the ensemble
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any
 import pandas as pd
 import numpy as np
 from sklearn.metrics import accuracy_score, brier_score_loss, log_loss

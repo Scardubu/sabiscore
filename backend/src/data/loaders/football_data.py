@@ -11,7 +11,6 @@ Data sources:
 """
 
 import asyncio
-import csv
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -23,13 +22,11 @@ from sqlalchemy.orm import Session
 from tenacity import retry, stop_after_attempt, wait_exponential
 from tqdm import tqdm
 
-from ...core.config import settings
 from ...core.database import (
     League,
     Match,
     MatchStats,
     Odds,
-    OddsHistory,
     ScrapingLog,
     Team,
     session_scope,

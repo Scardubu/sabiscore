@@ -34,7 +34,6 @@ def weighted_form_features(
             "weighted_ppg": 1.0,
         }
 
-    import numpy as np
 
     n = len(results)
     weights = [alpha ** (n - 1 - i) for i in range(n)]

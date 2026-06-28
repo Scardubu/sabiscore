@@ -27,7 +27,7 @@ This is a polyglot monorepo. Product verticals use different stacks — never co
 | Job Queue | Redis (direct) + optional BullMQ bridge | BullMQ, ioredis |
 | DB | **PostgreSQL 16+** | PostgreSQL 16+ |
 | Cache | **Redis 7+** | Redis 7+ |
-| Frontend | **Next.js 15, React 19, Tailwind v4** | Next.js 15, React 19 |
+| Frontend | **Next.js 15, React 18, Tailwind v4** | Next.js 15, React 19 |
 | Mobile | — | Expo SDK 54, Reanimated v4, EAS |
 | Monorepo | **Turborepo, pnpm workspaces** | Turborepo, pnpm workspaces |
 | Auth | Next.js middleware + JWT (HS256, server-only) | Auth.js v5 |
@@ -244,7 +244,7 @@ Always load `motion-performance-architect` first, then `motion-interaction-archi
 - No unnecessary rewrites — optimize incrementally unless the system is broken
 - Preserve architecture unless an explicit rewrite is requested
 - Avoid overengineering — add complexity only when it earns its maintenance cost
-- Maintain Next.js 15 + React 19 compatibility at all times
+- Maintain Next.js 15 + React 18 compatibility at all times (apps/web is pinned to React 18.3.1 — do not bump to React 19 without an explicit, planned upgrade; it is not a drop-in change)
 - `maxTsServerMemory` must not exceed 3072 (half of 8GB system RAM)
 
 ## SabiScore Backend (Python / FastAPI)
@@ -462,6 +462,7 @@ overrides all prior status docs — verify with a grep/read before acting.
 | Alembic-only | `core/database.py` raises `RuntimeError` on direct table-creation |
 | Health endpoints | `/health/live`, `/health/ready`, `/health` all present |
 | Gitleaks CI | `.github/workflows/ci.yml`, no `|| true` suppressions |
+| critical_gaps PARTIAL gate | `_apply_verdict_gate` (`betting_intelligence.py`) and `_evaluate_match` (`core_engine.py`) already gate `PARTIAL` on a pre-extracted `critical_gaps` list (CONFLICTING entries excluded via `_extract_critical_gaps`/`_critical_data_gaps`) plus an explicit CONFLICTING-freshness check; covered by `test_market_source_status_conflicting_forces_partial` and `test_advisory_only_signals_never_force_partial` in both test files. No `betting_intelligence_patch.md` file exists or is needed. |
 
 ## Confirmed incomplete
 
@@ -471,7 +472,6 @@ overrides all prior status docs — verify with a grep/read before acting.
 | The Odds API normalization | `the_odds_api.py` | Fixed this session (per-bookmaker normalization, rejection logic) |
 | Evidence orchestrator multi-provider | `providers/orchestrator.py` | Fixed this session (graceful stubs for non-operational providers) |
 | REQUIRES_REVIEW reconciliation | `providers/reconciliation.py` | Fixed this session (0.68–0.94 confidence band) |
-| critical_gaps PARTIAL gate | `betting_intelligence.py`, `core_engine.py` | Apply patch spec in `betting_intelligence_patch.md` |
 
 ---
 

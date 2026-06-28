@@ -90,11 +90,19 @@ def test_unknown_on_no_candidates():
 
 
 def test_conflicting_on_ambiguous_candidates():
-    """Two very similar candidates within the ambiguity band → CONFLICTING."""
-    rec = _record(home="Arsenal FC", away="Chelsea FC")
+    """Two distinct, similarly-scored candidates within the ambiguity band → CONFLICTING.
+
+    An exact-string match isn't used here: scoring an exact match (1.0) against
+    a near-duplicate (~0.86) produces a ~0.14 gap, far wider than
+    AMBIGUITY_BAND (0.03), and correctly auto-resolves to VERIFIED — that is
+    not ambiguity. CONFLICTING requires two candidates whose scores are
+    genuinely close (here both abbreviate one field, on opposite sides, with
+    kickoffs nudged apart so the scores land within 0.01 of each other).
+    """
+    rec = _record(home="Nottingham Forest", away="Leicester City")
     cands = [
-        _candidate("fix-001", home="Arsenal", away="Chelsea"),
-        _candidate("fix-002", home="Arsenal FC", away="Chelsea FC"),
+        _candidate("fix-001", home="Nottm Forest", away="Leicester City", kickoff=_kickoff().replace(hour=18, minute=4)),
+        _candidate("fix-002", home="Nottingham Forest", away="Leicester"),
     ]
     decision = reconcile_fixture(rec, cands)
     assert decision.status == "CONFLICTING"

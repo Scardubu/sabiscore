@@ -17,10 +17,9 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Any
 from enum import Enum
 from dataclasses import dataclass, field
-from contextlib import asynccontextmanager
 
 from sqlalchemy.orm import Session
-from sqlalchemy import select, and_
+from sqlalchemy import and_
 
 logger = logging.getLogger(__name__)
 

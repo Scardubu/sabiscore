@@ -14,14 +14,10 @@ Exchange odds are typically sharper than bookmaker odds and provide
 additional signal for value bet detection.
 """
 
-import json
 import logging
 from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple
 
-import pandas as pd
-import requests
 
 from .base_scraper import BaseScraper, CACHE_DIR, PROCESSED_DIR
 

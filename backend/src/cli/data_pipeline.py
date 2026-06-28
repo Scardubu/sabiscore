@@ -180,7 +180,7 @@ def pipeline_status():
         matches_with_features = db_session.query(FeatureVector).count()
         total_odds = db_session.query(OddsHistory).count()
         
-        click.echo(f"Matches:")
+        click.echo("Matches:")
         click.echo(f"  Total: {total_matches}")
         click.echo(f"  Finished: {finished_matches}")
         click.echo(f"  With xG: {matches_with_xg}")
@@ -196,7 +196,7 @@ def pipeline_status():
         )
         
         if recent_logs:
-            click.echo(f"\nRecent scraping jobs:")
+            click.echo("\nRecent scraping jobs:")
             for log in recent_logs:
                 status_emoji = "✅" if log.status == "success" else "❌"
                 click.echo(f"  {status_emoji} {log.source} - {log.job_type} ({log.records_processed} records) - {log.timestamp.strftime('%Y-%m-%d %H:%M')}")

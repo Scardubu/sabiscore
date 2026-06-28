@@ -16,12 +16,10 @@ Ethical Note:
 - Only scrapes publicly available match information
 """
 
-import json
 import logging
 import random
-from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from datetime import datetime
+from typing import Dict, List, Optional
 
 from .base_scraper import BaseScraper, CACHE_DIR, PROCESSED_DIR
 

@@ -5,13 +5,12 @@ Odds endpoints for fetching and tracking betting odds
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc, and_
-from sqlalchemy.orm import selectinload
 from typing import Dict, List, Optional
 from datetime import datetime, timedelta
 import logging
 
 from ...db.session import get_async_session
-from ...db.models import Odds, Match
+from ...db.models import Odds
 from ...schemas.odds import OddsResponse, OddsCreate
 from ...core.cache import cache_manager
 

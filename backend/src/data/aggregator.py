@@ -3,7 +3,7 @@ import concurrent.futures
 import json
 import logging
 import time
-from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
+from typing import Any, Callable, Dict, List, Optional, Tuple
 from datetime import datetime, UTC
 
 import numpy as np
@@ -379,7 +379,6 @@ class DataAggregator:
 
     def fetch_team_stats(self) -> Dict[str, Dict[str, Any]]:
         """Fetch team statistics from Transfermarkt and enrich with team database values."""
-        from .team_database import get_team_elo, get_team_squad_value
         
         # Start with mock stats as base (has all required fields)
         base_stats = self._create_mock_team_stats()

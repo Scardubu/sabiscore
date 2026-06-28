@@ -3,11 +3,9 @@ import json
 import logging
 import os
 from datetime import datetime
-from pathlib import Path
 from typing import Dict, List, Any, Tuple
 
 import pandas as pd
-import numpy as np
 from tqdm import tqdm
 from sklearn.impute import SimpleImputer
 
@@ -133,7 +131,7 @@ class ModelTrainer:
             X_imputed = imputer.fit_transform(X)
             X = pd.DataFrame(X_imputed, columns=X.columns, index=X.index)
             
-            logger.info(f"Imputation complete - all NaN values filled")
+            logger.info("Imputation complete - all NaN values filled")
 
         # Normalize target encoding to numerical classes 0,1,2 regardless of source format
         target_mapping = {

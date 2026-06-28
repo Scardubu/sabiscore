@@ -27,7 +27,7 @@ import numpy as np
 import pandas as pd
 import joblib
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Any
 from datetime import datetime
 import json
 import warnings
@@ -35,12 +35,10 @@ warnings.filterwarnings('ignore')
 
 # ML imports
 from sklearn.model_selection import (
-    TimeSeriesSplit, 
-    cross_val_score,
-    cross_val_predict
+    TimeSeriesSplit
 )
-from sklearn.preprocessing import StandardScaler, LabelEncoder
-from sklearn.linear_model import LogisticRegression, RidgeClassifier
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import (
     RandomForestClassifier, 
     GradientBoostingClassifier,
@@ -48,11 +46,9 @@ from sklearn.ensemble import (
     VotingClassifier,
     StackingClassifier
 )
-from sklearn.calibration import CalibratedClassifierCV
 from sklearn.metrics import (
     accuracy_score, 
     log_loss,
-    brier_score_loss,
     classification_report,
     confusion_matrix
 )

@@ -23,11 +23,8 @@ import aiohttp
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
-import json
+from typing import List, Optional, Tuple
 import io
-import time
 
 # Set up logging without emojis for Windows compatibility
 logging.basicConfig(

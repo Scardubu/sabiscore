@@ -10,7 +10,7 @@ import asyncio
 import logging
 import numpy as np
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 from sklearn.linear_model import LogisticRegression
 from sklearn.isotonic import IsotonicRegression
 import redis.asyncio as redis

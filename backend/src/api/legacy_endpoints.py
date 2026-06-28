@@ -29,7 +29,6 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     # avoid importing heavy ML dependencies at import time during tests
-    from ..insights.engine import InsightsEngine  # pragma: no cover - only for type checking
     from ..models.ensemble import SabiScoreEnsemble  # pragma: no cover - only for type checking
 
 logger = logging.getLogger(__name__)
@@ -160,7 +159,7 @@ async def search_matches(
         cache.set(cache_key, payload, ttl=300)
         return results
 
-    except Exception as exc:
+    except Exception:
         logger.exception("Match search failed", extra={"query": query, "league": league})
         # Graceful degrade: return an empty list on backend errors to keep UX responsive
         return []
@@ -369,7 +368,6 @@ async def cache_metrics():
 @router.get("/metrics", include_in_schema=False)
 async def system_metrics(request: Request):
     """System-wide metrics for monitoring."""
-    from ..core.database import get_session
     from ..core.cache import cache
 
     try:

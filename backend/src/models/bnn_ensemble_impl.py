@@ -13,8 +13,8 @@ MC-Dropout fallback class included for use if EDL fails ECE ≤ 0.050 gate.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from dataclasses import dataclass
+from typing import List
 
 import torch
 import torch.nn as nn

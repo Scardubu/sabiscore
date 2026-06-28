@@ -98,7 +98,6 @@ async def readiness_check(
 
     # Check model loading status from app state
     try:
-        from fastapi import Request
         # Note: We can't access request context here easily without passing it through
         # For now, check if models directory exists and has artifacts
         models_path = settings.models_path

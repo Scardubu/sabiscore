@@ -3,7 +3,6 @@ Understat.com xG data scraper with Puppeteer cluster integration.
 Extracts shot-level xG data, xG chains, and expected threat (xT) maps.
 """
 
-import asyncio
 import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime

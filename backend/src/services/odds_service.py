@@ -1,6 +1,5 @@
 """Odds compatibility service backed by the provider gateway."""
 
-import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
@@ -9,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.cache import cache_manager
 from ..core.config import settings
-from ..db.models import Match, Odds
+from ..db.models import Odds
 from ..providers.base import ProviderStatus
 from ..providers.the_odds_api import TheOddsAPIProvider
 

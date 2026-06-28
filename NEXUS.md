@@ -335,7 +335,7 @@ Route to:
 Use the repo's stack to sharpen routing.
 
 **Frontend:**
-- Next.js App Router + React 19 → prefer `nextjs-performance-architect`
+- Next.js App Router + React 18 (apps/web is pinned to 18.3.1, not 19) → prefer `nextjs-performance-architect`
 - Design tokens / visual systems → prefer `design-token-system-architect`
 - Motion / transitions / gestures:
   - Strategy/budget → prefer `motion-performance-architect`
@@ -538,7 +538,7 @@ Followed by:
 - No unnecessary rewrites — optimize incrementally unless the system is broken
 - Preserve architecture unless an explicit rewrite is requested
 - Avoid overengineering — add complexity only when it earns its maintenance cost
-- Maintain Next.js 15 + React 19 compatibility at all times
+- Maintain Next.js 15 + React 18 compatibility at all times (apps/web is pinned to React 18.3.1 — do not bump to React 19 without an explicit, planned upgrade; it is not a drop-in change)
 - Prefer RSC + streaming patterns over client-side data fetching
 - Effect-TS Layer discipline is mandatory for all backend services
 - BullMQ workers must use separate `ioredis` connections per role (Queue / Worker / QueueEvents)
@@ -607,7 +607,7 @@ If any system-level change is made:
 | The Odds API: per-bookmaker normalization added | Market refresh tasks: `OddsMarketRecord` is the canonical shape; per-bookmaker, never combined |
 | Reconciliation REQUIRES_REVIEW added | Fixture identity tasks: handle 4 statuses (VERIFIED/REQUIRES_REVIEW/CONFLICTING/UNKNOWN) |
 | Provider adapters (fdo/apif/sm) are stubs | Evidence orchestration tasks: orchestrator returns PARTIAL for non-ESPN profiles; classify as advisory |
-| critical_gaps PARTIAL gate: open question | Betting engine audit tasks: apply patch in `betting_intelligence_patch.md`; test advisory-only case |
+| critical_gaps PARTIAL gate: resolved | Both engines already gate `PARTIAL` on `critical_gaps` (CONFLICTING entries excluded) plus an explicit CONFLICTING-freshness check, tested in both `test_betting_intelligence_engine.py` and `test_core_engine.py`. No patch file exists or is needed — do not re-flag this as open. |
 
 ## ProviderStatus enum — actual values (use in all code, not documented preferences)
 

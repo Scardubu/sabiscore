@@ -20,7 +20,6 @@ from sqlalchemy.orm import Session
 
 from ...core.config import settings
 from ...core.database import (
-    Player,
     PlayerValuation,
     ScrapingLog,
     session_scope,

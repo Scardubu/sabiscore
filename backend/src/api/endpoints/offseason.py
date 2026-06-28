@@ -12,8 +12,8 @@ when the boundary is ambiguous.
 
 from __future__ import annotations
 
-from datetime import date, timedelta
-from typing import Dict, Optional, Tuple
+from datetime import date
+from typing import Dict, Tuple
 
 from fastapi import APIRouter
 

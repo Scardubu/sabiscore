@@ -160,7 +160,7 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
         try:
             response = await call_next(request)
             return response
-        except Exception as exc:  # pragma: no cover - safety net
+        except Exception:  # pragma: no cover - safety net
             logger.exception("Unhandled application error", extra={"path": request.url.path})
             return JSONResponse(
                 status_code=500,

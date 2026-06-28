@@ -3,11 +3,9 @@ FBref.com scouting report scraper for advanced tactical metrics.
 Extracts pressing intensity, progressive carries, defensive actions, and more.
 """
 
-import asyncio
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Dict, Optional, Any
 from datetime import datetime
-import re
 
 logger = logging.getLogger(__name__)
 

@@ -23,10 +23,9 @@ from typing import Dict, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 
-from ..core.config import settings
 from ..core.cache import cache_manager
 from ..db.session import get_db_session
-from ..db.models import Match, Odds, Team, MatchStats
+from ..db.models import Match, Odds, MatchStats
 from ..monitoring.metrics import metrics_collector
 
 # Import all 7 ethical scrapers (WhoScored removed due to 403 blocks)

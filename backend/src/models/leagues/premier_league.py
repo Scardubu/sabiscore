@@ -7,8 +7,7 @@ Target: 76.2% accuracy, +4.1₵ CLV, 0.178 Brier score
 
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Tuple
-from datetime import datetime, timedelta
+from typing import Dict
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from xgboost import XGBClassifier
 from lightgbm import LGBMClassifier

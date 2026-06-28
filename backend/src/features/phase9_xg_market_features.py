@@ -33,7 +33,6 @@ from __future__ import annotations
 import math
 from typing import Any, Mapping
 
-import numpy as np
 import pandas as pd
 
 from ..connectors.odds_market import (
