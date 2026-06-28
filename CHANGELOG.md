@@ -7,6 +7,38 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ---
 
+## Operational provider adapters, real frontend tests, repo hygiene (2026-06-28)
+
+### Backend — provider adapters (football-data.org, API-Football, Sportmonks)
+
+- **Implemented:** `backend/src/providers/football_data_org.py` — `fixtures()` and `standings()` are now operational (`X-Auth-Token` header auth, `_normalize_match`/`_normalize_standings_row` helpers that return `coherent=False` + `rejection_reason` on malformed input instead of raising), plus `probe()` and quota extraction from `X-Requests-Available-Minute`. Previously only a static `capabilities()` stub.
+- **Implemented:** `backend/src/providers/api_football.py` — `injuries()` and `lineups()` are operational (`x-apisports-key` header auth, checks the `errors` field even on HTTP 200 per the API's logical-error envelope). `team_statistics()` is a deliberate, explicit stub (`error_code="team_id_required"`) since the orchestrator's `PREMATCH_ENRICHED` profile doesn't yet thread a per-fixture `team_id` through — upgrade path noted inline.
+- **Implemented:** `backend/src/providers/sportmonks.py` — `injuries()` and `lineups()` are operational (query-param `api_token` auth, contrasting the other two providers' header auth; quota read from the response body's `rate_limit` object, not headers).
+- **Unchanged by design:** `orchestrator.py`, `the_odds_api.py`, and all `ENABLE_*_PROVIDER` flags — the orchestrator already called these methods via its `_safe_call()` graceful-degradation wrapper; it now simply stops hitting the `AttributeError` → stub branch.
+- **Added:** `backend/tests/providers/conftest.py` — shared `httpx.MockTransport` fixture (new pattern in this repo) — plus `test_football_data_org.py`, `test_api_football.py`, `test_sportmonks.py` (29 tests: happy path, malformed-record rejection, rate-limit, disabled/unconfigured guards with zero network calls, provider-specific auth assertions).
+- **Verified:** full backend suite 902 passed / 7 skipped (was 873 passed baseline), 0 regressions.
+
+### Frontend — real component test suite
+
+- **Added:** `vitest` + `@testing-library/react` + `jsdom` to `apps/web` (first real test runner in the monorepo — `globals: true` required because `@testing-library/jest-dom`'s matcher registration and RTL's auto-cleanup both assume Jest-style globals).
+- **Changed:** `apps/web/package.json` `"test"` now runs `vitest run`; the prior asset-only validator is preserved unchanged as `"test:assets"`.
+- **Added:** component tests for `confidence-meter.tsx`, `betting/kelly-stake-card.tsx`, `match-intelligence-card.tsx` (14 tests) — including a regression guard locking in the 4.2-percentage-point value-bet edge threshold in `match-intelligence-card.tsx`.
+- **Known gap (not addressed this round):** verdict-vocabulary/prohibited-term assertions and the two largest dashboard components (`betting-intelligence-dashboard.tsx`, `full-analysis-dashboard.tsx`) have no test coverage yet.
+
+### Repository hygiene
+
+- **Added:** `backend/requirements-dev.txt` (`mypy`, `ruff`) — CI's ad-hoc `pip install ruff mypy` step now installs from this file so local dev and CI match.
+- **Removed:** cosmetic `version: '3.9'` key from `docker-compose.prod.yml` and `docker-compose.monitoring.yml` (Compose v2 deprecation warning).
+- **Archived:** 49 stale root-level status/deployment-summary/planning documents (e.g. `*_COMPLETE.md`, `*_FINAL.md`, `READY_FOR_PRODUCTION.md`, `QUICK_START.md`, an orphaned root `requirements.txt` unreferenced by any Dockerfile/CI/script) moved to `docs/archive/` — confirmed zero references from README.md, CLAUDE.md, NEXUS.md, package.json scripts, or CI workflows before moving. Root now contains only `README.md`, `CLAUDE.md`, `NEXUS.md`, `CHANGELOG.md`. `docs/SABISCORE_PRODUCTION_SETUP_GUIDE.md` remains the sole authoritative setup/ops guide.
+- **Corrected:** a stale doc pointer in `verify_production_env.ps1` (`ENVIRONMENT_VARIABLES.md` → `docs/SABISCORE_PRODUCTION_SETUP_GUIDE.md`).
+
+### Investigated, not changed
+
+- The certification doc's claim that the `critical_gaps` PARTIAL gate is unfixed (`betting_intelligence_patch.md`) is stale — both `betting_intelligence.py` and `core_engine.py` already gate `PARTIAL` on a pre-extracted `critical_gaps` list (CONFLICTING entries excluded), tested in both engine test files. No patch needed; CLAUDE.md's "verified ground truth" section was already correct.
+- `chart.js`/`react-chartjs-2` and `recharts` are both used — in some cases in the same file (`MatchDashboard.tsx`, `rolling-accuracy-chart.tsx`). Flagged per the certification doc's "choose one charting system" guidance but not consolidated this round — doing so safely requires re-implementing and visually re-verifying multiple charts, which is a separately-scoped UI task, not a quick win.
+
+---
+
 ## Core Engine v2.1 production endpoint and docs (2026-06-25)
 
 ### Backend

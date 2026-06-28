@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   # Next.js Web App (6 replicas for load balancing)
   web:

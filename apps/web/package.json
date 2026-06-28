@@ -11,7 +11,8 @@
     "lint": "eslint src --ext .ts,.tsx --max-warnings 0",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
     "typecheck": "tsc --noEmit",
-    "test": "node ./scripts/validate-assets.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "test:assets": "node ./scripts/validate-assets.js",
     "test:e2e": "powershell -ExecutionPolicy Bypass -File ./run-e2e-tests.ps1",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
@@ -45,19 +46,24 @@
   },
   "devDependencies": {
     "@next/bundle-analyzer": "^15.5.6",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.0.1",
     "@types/node": "^22.8.6",
     "@types/offscreencanvas": "^2019.7.3",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@types/seedrandom": "^3.0.8",
+    "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
     "cssnano": "^7.1.2",
     "eslint": "^8.57.1",
     "eslint-config-next": "^15.0.3",
+    "jsdom": "^25.0.1",
     "postcss": "^8.4.47",
     "prettier": "^3.3.3",
     "tailwindcss": "3.4.14",
     "tailwindcss-animate": "^1.0.7",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
   }
 }

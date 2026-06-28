@@ -479,7 +479,7 @@ if ($script:FailCount -eq 0) {
     Write-Host "  Critical Issues:" -ForegroundColor Cyan
     Write-Host "     • $($script:FailCount) critical checks failed" -ForegroundColor White
     Write-Host "     • Review errors above and address before deployment" -ForegroundColor White
-    Write-Host "     • Refer to ENVIRONMENT_VARIABLES.md for detailed setup guide" -ForegroundColor White
+    Write-Host "     • Refer to docs/SABISCORE_PRODUCTION_SETUP_GUIDE.md for detailed setup guide" -ForegroundColor White
 }
 
 Write-Host ""
