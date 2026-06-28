@@ -5,6 +5,7 @@
   "type": "module",
   "description": "Edge-first Next.js 15 + FastAPI monorepo powering Sabiscore, plus SCAR skill-suite validation and management tooling",
   "license": "MIT",
+  "packageManager": "pnpm@11.8.0",
   "engines": {
     "node": ">=22 <25",
     "pnpm": ">=8.0.0 <12.0.0"

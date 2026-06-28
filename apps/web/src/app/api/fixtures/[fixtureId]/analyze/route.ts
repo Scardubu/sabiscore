@@ -3,11 +3,12 @@ import { proxyFixtureRequest } from "../../proxy";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { fixtureId: string } },
+  { params }: { params: Promise<{ fixtureId: string }> },
 ) {
+  const { fixtureId } = await params;
   return proxyFixtureRequest(
     req,
-    `/api/v1/fixtures/${encodeURIComponent(params.fixtureId)}/analyze`,
+    `/api/v1/fixtures/${encodeURIComponent(fixtureId)}/analyze`,
     { method: "POST" },
   );
 }

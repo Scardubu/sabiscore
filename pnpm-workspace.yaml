@@ -3,3 +3,7 @@ packages:
   - apps/scraper
   - apps/ws
   - packages/*
+allowBuilds:
+  esbuild: true
+  sharp: true
+  unrs-resolver: true
