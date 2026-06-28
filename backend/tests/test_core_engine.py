@@ -112,6 +112,42 @@ def test_high_conviction_is_allowed_for_clean_tier_one_fixture():
     assert result.stake == "2.5u"
 
 
+def test_advisory_lineup_and_sharp_signal_do_not_force_partial():
+    match = _base_match(
+        signals={
+            "lineup_status": "PROVISIONAL",
+            "sharp_market_signal": "CONFLICTING",
+            "confirmed_absences": ["Rotation risk"],
+        }
+    )
+
+    result = _analyze(match).matches[0]
+
+    assert result.verdict != "PARTIAL"
+    assert result.data_gaps == []
+    assert any("Lineup status" in risk for risk in result.risks)
+    assert any("Sharp market signal" in risk for risk in result.risks)
+
+
+def test_critical_source_data_gap_still_forces_partial():
+    match = _base_match(source_status={"market": "DATA_GAP"})
+
+    result = _analyze(match).matches[0]
+
+    assert result.verdict == "PARTIAL"
+    assert "DATA_GAP: market" in result.data_gaps
+
+
+def test_conflicting_source_status_remains_fail_closed():
+    match = _base_match(source_status={"market": "CONFLICTING"})
+
+    result = _analyze(match).matches[0]
+
+    assert result.verdict == "PARTIAL"
+    assert result.data_freshness.status == "CONFLICTING"
+    assert "CONFLICTING:market" in result.data_gaps
+
+
 def test_ucl_soft_coverage_caps_high_conviction_to_actionable():
     match = _base_match(competition="UCL")
 

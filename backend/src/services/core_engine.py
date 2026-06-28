@@ -172,7 +172,8 @@ def _evaluate_match(match: CoreMatchInput) -> CoreMatchOutput:
         lineup_status=signals.lineup_status if signals else None,
     )
 
-    if data_gaps:
+    critical_gaps = _critical_data_gaps(data_gaps)
+    if critical_gaps or freshness_status == "CONFLICTING":
         return _build_output(
             match=match,
             verdict="PARTIAL",
@@ -399,6 +400,14 @@ def _collect_source_status_gaps(source_status, gaps: list[str]) -> None:
             gaps.append(f"CONFLICTING:{field}")
         elif status_value == "STALE":
             gaps.append(f"DATA_GAP: STALE:{field}")
+
+
+def _critical_data_gaps(gaps: list[str]) -> list[str]:
+    return [gap for gap in gaps if not _is_non_critical_gap(gap)]
+
+
+def _is_non_critical_gap(gap: str) -> bool:
+    return gap.startswith("CONFLICTING")
 
 
 def _probabilities_output(match: CoreMatchInput) -> CoreProbabilitiesOutput:

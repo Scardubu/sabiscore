@@ -18,6 +18,7 @@ from src.schemas.betting_intelligence import (
     CompetitionEnum,
     EvidenceTierEnum,
     FreshnessInput,
+    FreshnessStatusEnum,
     LineupStatusEnum,
     MarketInput,
     MatchAnalysisRequest,
@@ -33,6 +34,7 @@ from src.services.betting_intelligence import (
     MAX_KELLY_CAP,
     MIN_ACTIONABLE_EDGE,
     HIGH_CONVICTION_EDGE,
+    _apply_verdict_gate,
     _rank_top_opportunities,
     _compute_devig,
     _expected_value,
@@ -197,6 +199,40 @@ class TestPartialGate:
         result = analyze_match(req)
         assert result.verdict == VerdictEnum.PARTIAL
 
+    def test_no_critical_gaps_does_not_trigger_partial_gate(self):
+        verdict = _apply_verdict_gate(
+            critical_gaps=[],
+            competition=CompetitionEnum.EPL,
+            model=_model(home=0.65, draw=0.20, away=0.15),
+            market=_market(home=1.80, draw=3.50, away=4.50),
+            market_freshness=FreshnessStatusEnum.FRESH,
+            best_ev=0.17,
+            best_edge=0.12,
+            best_stake_fraction=0.01,
+            sharp_signal=SharpSignalEnum.NEUTRAL,
+            lineup_status=LineupStatusEnum.CONFIRMED,
+            kickoff_utc=None,
+        )
+
+        assert verdict in (VerdictEnum.ACTIONABLE, VerdictEnum.HIGH_CONVICTION)
+
+    def test_critical_gap_still_forces_partial_gate(self):
+        verdict = _apply_verdict_gate(
+            critical_gaps=["DATA_GAP: model_probabilities"],
+            competition=CompetitionEnum.EPL,
+            model=_model(home=0.65, draw=0.20, away=0.15),
+            market=_market(home=1.80, draw=3.50, away=4.50),
+            market_freshness=FreshnessStatusEnum.FRESH,
+            best_ev=0.17,
+            best_edge=0.12,
+            best_stake_fraction=0.01,
+            sharp_signal=SharpSignalEnum.NEUTRAL,
+            lineup_status=LineupStatusEnum.CONFIRMED,
+            kickoff_utc=None,
+        )
+
+        assert verdict == VerdictEnum.PARTIAL
+
     def test_market_source_status_data_gap_forces_partial(self):
         req = _request(source_status_market=SourceStatusEnum.DATA_GAP)
         result = analyze_match(req)
@@ -207,6 +243,8 @@ class TestPartialGate:
         result = analyze_match(req)
         assert result.verdict == VerdictEnum.PARTIAL
         assert any("CONFLICTING" in g for g in result.data_gaps)
+        assert result.critical_gaps == []
+        assert result.conflicts == ["CONFLICTING: market_odds"]
 
     def test_partial_stake_is_pass(self):
         req = _request(model=None)

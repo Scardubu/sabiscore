@@ -177,6 +177,8 @@ POST /api/v1/fixtures/{fixture_id}/analyze
 
 The strict betting engine remains the only source of verdict, expected value, edge, and Kelly stake sizing. UCL fixtures cannot become `HIGH_CONVICTION`.
 
+Only critical gaps force a `PARTIAL` verdict: missing/invalid required model probabilities, unresolved fixture identity, missing coherent 1X2 market data for value analysis, or stale required inputs. Advisory gaps and risks such as provisional lineups, optional injury context, or low-confidence contextual signals may reduce confidence or hold promotion, but they do not trigger `PARTIAL` by themselves. Conflicting source evidence remains fail-closed and is reported separately from critical gaps.
+
 Market rules:
 
 - Analysis uses one bookmaker's coherent 1X2 snapshot.

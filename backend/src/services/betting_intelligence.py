@@ -390,7 +390,7 @@ def _evaluate_all_outcomes(
 
 
 def _apply_verdict_gate(
-    data_gaps: List[str],
+    critical_gaps: List[str],
     competition: CompetitionEnum,
     model: Optional[ModelInput],
     market: Optional[MarketInput],
@@ -408,7 +408,7 @@ def _apply_verdict_gate(
 ) -> VerdictEnum:
     """Apply verdict gates in strict precedence order (Section 6 of contract).
 
-    Gate 1: PARTIAL - any critical input missing, invalid, stale, or conflicting.
+    Gate 1: PARTIAL - any critical input missing, invalid, or stale.
     Gate 2: NO_BET  - reliable data but no positive value.
     Gate 3: HOLD    - positive value exists but execution blocked.
     Gate 4: SPECULATIVE - sub-threshold positive edge.
@@ -416,7 +416,9 @@ def _apply_verdict_gate(
     Gate 6: HIGH_CONVICTION - strongest evidence, all gates + UCL exclusion.
     """
     # -- Gate 1: PARTIAL ------------------------------------------------------
-    if data_gaps:
+    # Only critical gaps trigger PARTIAL here. CONFLICTING entries remain a
+    # separate evidence state and must be filtered by the caller before this gate.
+    if critical_gaps:
         return VerdictEnum.PARTIAL
 
     if model is None or market is None:
@@ -637,9 +639,10 @@ def analyze_match(
     best_ev = best_eval["expected_value"] if best_eval else -1.0
     best_edge = best_eval["edge"] if best_eval else -1.0
     best_stake_fraction = best_eval["stake_fraction"] if best_eval else 0.0
+    critical_gaps = _extract_critical_gaps(gaps)
 
     verdict = _apply_verdict_gate(
-        data_gaps=gaps,
+        critical_gaps=critical_gaps,
         competition=request.competition,
         model=model,
         market=market,
@@ -794,7 +797,6 @@ def analyze_match(
 
     conflicts = _extract_conflicts(gaps, risks)
     advisory_gaps = _extract_advisory_gaps(risks)
-    critical_gaps = _extract_critical_gaps(gaps)
 
     # Freshness block
     freshness_block = DataFreshness(
