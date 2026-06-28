@@ -320,4 +320,8 @@ class BatchAnalysisResponse(BaseModel):
     engine_version: str = "1.1.0"
     generated_at: datetime
     top_opportunities: List[str] = Field(default_factory=list)
+    batch_watchlist: List[str] = Field(
+        default_factory=list,
+        description="Match IDs with SPECULATIVE verdict — watchlist only, never top_opportunities.",
+    )
     matches: List[MatchAnalysisResult] = Field(default_factory=list)

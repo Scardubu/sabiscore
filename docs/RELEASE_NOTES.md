@@ -1,5 +1,88 @@
 # SabiScore Release Notes
 
+## v5.5.0 — Betting engine watchlist fix, provider gateway lifespan, dead ML code removal (2026-06-28)
+
+### Overview
+
+Production-finalization pass: fixed a betting-engine rule violation present in both
+live analysis engines, moved the provider gateway onto the FastAPI lifespan instead
+of per-request construction, removed orphaned browser-side TensorFlow.js code, and
+fixed an N+1 query on the upcoming-fixtures endpoint. No math, verdict cascade, or
+API route shapes changed beyond the additive fields below.
+
+### Backend changes
+
+**`backend/src/services/betting_intelligence.py`, `backend/src/schemas/betting_intelligence.py`**
+
+- `_rank_top_opportunities` now returns `(top_opportunities, batch_watchlist)`
+  instead of mixing `SPECULATIVE` into `top_opportunities`. `SPECULATIVE` is
+  watchlist-only, per the existing CLAUDE.md rule that was not actually enforced
+  in code.
+- `BatchAnalysisResponse` gained `batch_watchlist: List[str]`.
+
+**`backend/src/services/core_engine.py`, `backend/src/schemas/core_engine.py`**
+
+- Same fix applied to the second, independent live engine (`core_engine`),
+  which had the identical bug. `CoreMatchOutput` gained `watchlist: bool`;
+  `CoreEngineResponse` gained `batch_watchlist: List[str]`.
+
+**`backend/src/providers/base.py`, `backend/src/providers/registry.py`, `backend/src/api/main.py`**
+
+- `BaseProvider` accepts an optional injected `http_client`; `_get_json` uses
+  it when present and falls back to a per-call client only when a provider is
+  constructed directly (CLI tools, tests).
+- `build_provider_registry(http_client=...)` threads the shared client to all
+  five providers. New `get_provider_registry(request)` FastAPI dependency
+  reads `request.app.state.provider_registry`.
+- App lifespan now creates one `httpx.AsyncClient` + provider registry at
+  startup (`app.state.http_client`, `app.state.provider_registry`) and closes
+  the client at shutdown, instead of each provider opening its own client per
+  request.
+- `backend/src/api/endpoints/providers.py` and the `/fixtures/{id}/refresh`
+  route in `backend/src/api/endpoints/fixtures.py` now take the registry via
+  `Depends(get_provider_registry)` instead of calling `build_provider_registry()`
+  fresh per request.
+
+**`backend/src/api/endpoints/fixtures.py`**
+
+- `GET /api/v1/fixtures/upcoming` batch-fetches latest prediction/odds per
+  fixture in two queries instead of two queries per fixture (N+1).
+
+**`backend/tests/test_phase1_fixes.py`**
+
+- Fixed three tests in `TestBUG002TFJSDisconnection` that hardcoded an
+  absolute path from a different machine (`/home/scar/...`), making them fail
+  on any other checkout. Now resolved relative to the repo root.
+
+### Frontend changes
+
+- Removed `apps/web/src/lib/ml/` (TensorFlow.js ensemble engine, training
+  adapter, free-training pipeline) and the three components that imported
+  them (`ml-training-dashboard.tsx`, `components/predictions/complete-prediction-flow.tsx`,
+  `components/examples/complete-prediction-flow.tsx`). All were confirmed
+  unreachable from any production route — zero imports outside the deleted
+  set. `/dev/train-tfjs` (the disabled-state page) is untouched and unaffected.
+- `apps/web/src/lib/betting-intelligence-api.ts`: added `batch_watchlist?: string[]`
+  to the `BatchAnalysisResponse` TS type to match the backend contract.
+
+### Verification
+
+- Backend: `python -m pytest tests/ --no-cov` — 830 passed, 7 skipped
+  (pre-existing/environmental), 0 regressions.
+- Frontend lint/typecheck/build could not be run cleanly in this environment
+  (no network access to the npm registry; some packages relocated under
+  `node_modules/.ignored/` pre-existing this change). Verified manually
+  instead: zero remaining references to any deleted file anywhere in
+  `apps/web/src`.
+
+### Deferred (not in this pass)
+
+- Real operational HTTP methods for football-data.org, API-Football,
+  Sportmonks, and The Odds API adapters (currently capability-only stubs) —
+  needs live API contracts/credentials.
+- Evidence-orchestrator multi-provider dispatch (currently ESPN-only across
+  all six profiles).
+
 ## v5.4.0 — Phase 8 Sprint 4 Phase 1: Real-data enrichment & DATA_GAP integrity (2026-06-11)
 
 ### Overview

@@ -960,27 +960,22 @@ def _build_explanation(
 # ---------------------------------------------------------------------------
 
 
-def _rank_top_opportunities(results: List[MatchAnalysisResult]) -> List[str]:
-    """Select up to 3 top opportunities from qualifying verdicts.
+def _rank_top_opportunities(results: List[MatchAnalysisResult]) -> Tuple[List[str], List[str]]:
+    """Select up to 3 top opportunities, plus a separate SPECULATIVE watchlist.
 
-    Qualifying verdicts: HIGH_CONVICTION, ACTIONABLE, SPECULATIVE.
-    PARTIAL, HOLD, NO_BET are excluded.
+    top_opportunities: HIGH_CONVICTION, ACTIONABLE only — capped at 3.
+    batch_watchlist: SPECULATIVE only — never mixed into top_opportunities, uncapped.
+    PARTIAL, HOLD, NO_BET are excluded from both.
 
-    Tie-breakers (deterministic):
+    Tie-breakers (deterministic), applied identically to both lists:
       1. Higher EV
       2. Lower epistemic uncertainty (not directly available here - use CAV as proxy)
       3. Higher CAV (confidence-adjusted value)
       4. Stable lexical match_id
     """
-    qualifying = [
-        r for r in results
-        if r.verdict in (VerdictEnum.HIGH_CONVICTION, VerdictEnum.ACTIONABLE, VerdictEnum.SPECULATIVE)
-        and r.confidence_adjusted_value is not None
-        and r.confidence_adjusted_value > 0
-    ]
 
-    qualifying.sort(
-        key=lambda r: (
+    def _sort_key(r: MatchAnalysisResult):
+        return (
             -(r.confidence_adjusted_value or 0),
             -(r.expected_value or 0),
             r.data_freshness.oldest_critical_input_seconds
@@ -988,9 +983,20 @@ def _rank_top_opportunities(results: List[MatchAnalysisResult]) -> List[str]:
             else 10**12,
             r.match_id,
         )
-    )
 
-    return [r.match_id for r in qualifying[:3]]
+    def _qualifies(r: MatchAnalysisResult) -> bool:
+        return r.confidence_adjusted_value is not None and r.confidence_adjusted_value > 0
+
+    top = [
+        r for r in results
+        if r.verdict in (VerdictEnum.HIGH_CONVICTION, VerdictEnum.ACTIONABLE) and _qualifies(r)
+    ]
+    watchlist = [r for r in results if r.verdict == VerdictEnum.SPECULATIVE and _qualifies(r)]
+
+    top.sort(key=_sort_key)
+    watchlist.sort(key=_sort_key)
+
+    return [r.match_id for r in top[:3]], [r.match_id for r in watchlist]
 
 
 def analyze_batch(
@@ -1020,7 +1026,7 @@ def analyze_batch(
         )
         results.append(result)
 
-    top_opps = _rank_top_opportunities(results)
+    top_opps, batch_watchlist = _rank_top_opportunities(results)
 
     return BatchAnalysisResponse(
         contract_version=CONTRACT_VERSION,
@@ -1028,5 +1034,6 @@ def analyze_batch(
         engine_version=request.engine_version,
         generated_at=evaluation_at,
         top_opportunities=top_opps,
+        batch_watchlist=batch_watchlist,
         matches=results,
     )

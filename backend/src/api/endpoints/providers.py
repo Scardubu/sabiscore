@@ -5,16 +5,18 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from ...providers import build_provider_registry
+from ...providers import ProviderRegistry
+from ...providers.registry import get_provider_registry
 
 router = APIRouter(prefix="/providers", tags=["providers"])
 
 
 @router.get("")
-async def list_providers() -> dict[str, Any]:
-    registry = build_provider_registry()
+async def list_providers(
+    registry: ProviderRegistry = Depends(get_provider_registry),
+) -> dict[str, Any]:
     providers = []
     for provider in registry.list():
         health = await provider.health()
@@ -33,8 +35,10 @@ async def list_providers() -> dict[str, Any]:
 
 
 @router.get("/health")
-async def providers_health(provider: str | None = Query(default=None)) -> dict[str, Any]:
-    registry = build_provider_registry()
+async def providers_health(
+    provider: str | None = Query(default=None),
+    registry: ProviderRegistry = Depends(get_provider_registry),
+) -> dict[str, Any]:
     try:
         rows = [await registry.get(provider).health()] if provider else await registry.health()
     except KeyError as exc:
@@ -46,8 +50,10 @@ async def providers_health(provider: str | None = Query(default=None)) -> dict[s
 
 
 @router.get("/capabilities")
-async def providers_capabilities(provider: str | None = Query(default=None)) -> dict[str, Any]:
-    registry = build_provider_registry()
+async def providers_capabilities(
+    provider: str | None = Query(default=None),
+    registry: ProviderRegistry = Depends(get_provider_registry),
+) -> dict[str, Any]:
     try:
         rows = await registry.get(provider).capabilities() if provider else await registry.capabilities()
     except KeyError as exc:
@@ -59,8 +65,10 @@ async def providers_capabilities(provider: str | None = Query(default=None)) -> 
 
 
 @router.get("/quota")
-async def providers_quota(provider: str | None = Query(default=None)) -> dict[str, Any]:
-    registry = build_provider_registry()
+async def providers_quota(
+    provider: str | None = Query(default=None),
+    registry: ProviderRegistry = Depends(get_provider_registry),
+) -> dict[str, Any]:
     try:
         if provider:
             quotas = {provider: await registry.get(provider).quota()}

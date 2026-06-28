@@ -176,3 +176,31 @@ def test_top_opportunities_excludes_pass_verdicts_and_limits_to_three():
     assert response.top_opportunities == ["action-4", "action-3", "action-2"]
     assert "partial" not in response.top_opportunities
     assert "no-bet" not in response.top_opportunities
+
+
+def test_speculative_routed_to_batch_watchlist_not_top_opportunities():
+    # Sub-threshold positive edge (~2pp, below the 4.2pp actionable floor) with a
+    # confirming sharp signal -> SPECULATIVE, never top_opportunities.
+    speculative = _base_match(
+        match_id="speculative-1",
+        model={
+            "home_probability": 0.518778,
+            "draw_probability": 0.283398,
+            "away_probability": 0.197824,
+        },
+    )
+    actionable = _base_match(match_id="action-1")
+
+    response = _analyze(speculative, actionable)
+    speculative_result = next(m for m in response.matches if m.match_id == "speculative-1")
+    actionable_result = next(m for m in response.matches if m.match_id == "action-1")
+
+    assert speculative_result.verdict == "SPECULATIVE"
+    assert speculative_result.watchlist is True
+    assert actionable_result.verdict in ("ACTIONABLE", "HIGH_CONVICTION")
+    assert actionable_result.watchlist is False
+
+    assert "speculative-1" in response.batch_watchlist
+    assert "speculative-1" not in response.top_opportunities
+    assert "action-1" in response.top_opportunities
+    assert "action-1" not in response.batch_watchlist

@@ -202,6 +202,7 @@ export interface BatchAnalysisResponse {
   engine_version: string;
   generated_at: string;
   top_opportunities: string[];
+  batch_watchlist?: string[];
   matches: MatchAnalysisResult[];
 }
 

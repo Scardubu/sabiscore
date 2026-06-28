@@ -159,6 +159,8 @@ Provider output is redacted and returned in a standard envelope with trust tier,
 
 Provider health distinguishes configuration from verification. With live provider probes disabled, enabled providers return `CONFIGURED_UNVERIFIED`, not `VERIFIED`. A provider reaches `VERIFIED` only after a provider-specific live probe or successful live data operation validates the upstream path.
 
+The provider registry and its shared `httpx.AsyncClient` are created once in the FastAPI lifespan (`app.state.provider_registry`, `app.state.http_client`) and injected into every request via `Depends(get_provider_registry)` — never instantiated per request. CLI tools and tests may still call `build_provider_registry()` directly without a client; providers fall back to an ad-hoc per-call client in that case.
+
 ## Intelligence Flow
 
 Fixture workflow:
@@ -184,7 +186,7 @@ Market rules:
 
 ## Web
 
-`apps/web` must not call provider hosts directly and must not import TensorFlow.js for production inference/training. Next.js server routes proxy the backend using `SABISCORE_BACKEND_URL`.
+`apps/web` must not call provider hosts directly and must not import TensorFlow.js for production inference/training. Next.js server routes proxy the backend using `SABISCORE_BACKEND_URL`. The browser-side TensorFlow.js modules (`lib/ml/`) and their unreachable demo components have been removed from the tree entirely — `/dev/train-tfjs` is a static disabled-state page with no client-side model code behind it.
 
 The `/intelligence` UI includes competition selection, team autocomplete, date filtering, fixture cards, readiness rail, odds auto-fill candidates, manual fallback, decision card, model-vs-market comparison, evidence passport, price window, source comparison drawer, and outage states.
 

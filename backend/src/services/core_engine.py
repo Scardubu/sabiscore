@@ -67,25 +67,34 @@ def analyze_core_matches(matches: Iterable[CoreMatchInput]) -> CoreEngineRespons
     evaluated_pairs = [(match, _evaluate_match(match)) for match in matches]
     evaluated = [output for _, output in evaluated_pairs]
 
-    opportunity_verdicts = {"HIGH_CONVICTION", "ACTIONABLE", "SPECULATIVE"}
-    opportunities = [
+    def _rank_key(pair):
+        source, output = pair
+        return (
+            -output.confidence_adjusted_value,
+            -(output.expected_value or 0.0),
+            _epistemic_for_match(source),
+            _market_age_for_match(source),
+            output.match_id or "",
+        )
+
+    top_verdicts = {"HIGH_CONVICTION", "ACTIONABLE"}
+    top_pairs = [
         (source, output)
         for source, output in evaluated_pairs
-        if output.verdict in opportunity_verdicts and output.best_market is not None
+        if output.verdict in top_verdicts and output.best_market is not None
     ]
-    opportunities.sort(
-        key=lambda pair: (
-            -pair[1].confidence_adjusted_value,
-            -(pair[1].expected_value or 0.0),
-            _epistemic_for_match(pair[0]),
-            _market_age_for_match(pair[0]),
-            pair[1].match_id or "",
-        )
-    )
+    watchlist_pairs = [
+        (source, output)
+        for source, output in evaluated_pairs
+        if output.verdict == "SPECULATIVE" and output.best_market is not None
+    ]
+    top_pairs.sort(key=_rank_key)
+    watchlist_pairs.sort(key=_rank_key)
 
     return CoreEngineResponse(
         generated_at=generated_at,
-        top_opportunities=[output.match_id for _, output in opportunities[:3] if output.match_id],
+        top_opportunities=[output.match_id for _, output in top_pairs[:3] if output.match_id],
+        batch_watchlist=[output.match_id for _, output in watchlist_pairs if output.match_id],
         matches=evaluated,
     )
 
@@ -664,6 +673,7 @@ def _build_output(
         competition=match.competition,
         kickoff_utc=match.kickoff_utc,
         verdict=verdict,  # type: ignore[arg-type]
+        watchlist=verdict == "SPECULATIVE",
         probabilities=probabilities,
         best_market=candidate.market if candidate else None,
         market_odds=_round_or_none(candidate.odds if candidate else None),

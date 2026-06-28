@@ -5,6 +5,9 @@ from __future__ import annotations
 import asyncio
 from typing import Iterable
 
+import httpx
+from fastapi import Request
+
 from ..core.config import settings
 from .api_football import APIFootballProvider
 from .base import ProviderCapability, ProviderHealth, ProviderQuota
@@ -44,29 +47,54 @@ class ProviderRegistry:
         return {"providers": reports}
 
 
-def build_provider_registry() -> ProviderRegistry:
+def build_provider_registry(http_client: httpx.AsyncClient | None = None) -> ProviderRegistry:
+    """Build the canonical provider set.
+
+    `http_client` should be the single application-lifespan client (see
+    `app.state.http_client` in `api/main.py`) so providers share one pooled
+    connection instead of opening a new client per request. Left optional so
+    tests and CLI tools can construct a registry without a running app.
+    """
     return ProviderRegistry(
         [
-            ESPNProvider(enabled=settings.enable_espn_provider, live_tests=settings.provider_live_tests),
+            ESPNProvider(
+                enabled=settings.enable_espn_provider,
+                live_tests=settings.provider_live_tests,
+                http_client=http_client,
+            ),
             FootballDataOrgProvider(
                 api_key=settings.football_data_api_key,
                 enabled=settings.enable_football_data_provider,
                 live_tests=settings.provider_live_tests,
+                http_client=http_client,
             ),
             APIFootballProvider(
                 api_key=settings.api_football_key,
                 enabled=settings.enable_api_football_provider,
                 live_tests=settings.provider_live_tests,
+                http_client=http_client,
             ),
             SportmonksProvider(
                 api_key=settings.sportmonks_api_key,
                 enabled=settings.enable_sportmonks_provider,
                 live_tests=settings.provider_live_tests,
+                http_client=http_client,
             ),
             TheOddsAPIProvider(
                 api_key=settings.the_odds_api_key,
                 enabled=settings.enable_the_odds_api_provider,
                 live_tests=settings.provider_live_tests,
+                http_client=http_client,
             ),
         ]
     )
+
+
+def get_provider_registry(request: Request) -> ProviderRegistry:
+    """FastAPI dependency returning the lifespan-owned registry from app.state.
+
+    Use via `Depends(get_provider_registry)` in endpoints instead of calling
+    `build_provider_registry()` directly, so requests share the one pooled
+    httpx client created at startup.
+    """
+    return request.app.state.provider_registry

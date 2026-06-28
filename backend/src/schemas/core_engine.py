@@ -121,6 +121,7 @@ class CoreMatchOutput(BaseModel):
     competition: Optional[str]
     kickoff_utc: Optional[datetime]
     verdict: Verdict
+    watchlist: bool = False
     probabilities: CoreProbabilitiesOutput
     best_market: Optional[Literal["HOME_ML", "DRAW_ML", "AWAY_ML"]]
     market_odds: Optional[float]
@@ -147,6 +148,7 @@ class CoreEngineResponse(BaseModel):
     engine_version: Literal["2.1.0-prod"] = "2.1.0-prod"
     generated_at: datetime
     top_opportunities: List[str]
+    batch_watchlist: List[str] = Field(default_factory=list)
     matches: List[CoreMatchOutput]
 
 

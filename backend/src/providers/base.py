@@ -162,11 +162,21 @@ class BaseProvider:
     timeout_seconds = 8.0
     max_retries = 2
 
-    def __init__(self, *, api_key: str | None = None, enabled: bool = False, live_tests: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        api_key: str | None = None,
+        enabled: bool = False,
+        live_tests: bool = False,
+        http_client: httpx.AsyncClient | None = None,
+    ) -> None:
         self.api_key = api_key
         self.enabled = enabled
         self.live_tests = live_tests
         self.breaker = CircuitBreaker()
+        # Lifespan-owned client when injected by the registry; falls back to a
+        # per-call client only when constructed directly (e.g. unit tests).
+        self._http_client = http_client
 
     @property
     def configured(self) -> bool:
@@ -239,8 +249,16 @@ class BaseProvider:
         last_exc: Exception | None = None
         for attempt in range(self.max_retries + 1):
             try:
-                async with httpx.AsyncClient(timeout=httpx.Timeout(self.timeout_seconds)) as client:
-                    response = await client.get(url, headers=dict(headers or {}), params=params)
+                if self._http_client is not None:
+                    response = await self._http_client.get(
+                        url,
+                        headers=dict(headers or {}),
+                        params=params,
+                        timeout=httpx.Timeout(self.timeout_seconds),
+                    )
+                else:
+                    async with httpx.AsyncClient(timeout=httpx.Timeout(self.timeout_seconds)) as client:
+                        response = await client.get(url, headers=dict(headers or {}), params=params)
                 if response.status_code == 429:
                     self.breaker.record_failure()
                     raise RuntimeError("rate_limited")

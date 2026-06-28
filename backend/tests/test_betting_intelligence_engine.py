@@ -676,8 +676,43 @@ class TestBatchAnalysis:
             assert match_result.verdict in (
                 VerdictEnum.HIGH_CONVICTION,
                 VerdictEnum.ACTIONABLE,
-                VerdictEnum.SPECULATIVE,
             )
+
+    def test_speculative_excluded_from_top_opportunities_routed_to_watchlist(self):
+        speculative = analyze_match(
+            _request(
+                match_id="match-speculative",
+                model=_model(home=0.46, draw=0.32, away=0.22, epistemic=0.02),
+                market=_market(home=2.20, draw=3.10, away=4.20),
+            )
+        )
+        actionable = analyze_match(
+            _request(
+                match_id="match-actionable",
+                model=_model(home=0.65, draw=0.20, away=0.15),
+                market=_market(home=1.80, draw=3.50, away=4.50),
+            )
+        )
+        partial = analyze_match(_request(match_id="match-partial-2", model=None))
+
+        assert speculative.verdict == VerdictEnum.SPECULATIVE
+        assert actionable.verdict in (VerdictEnum.ACTIONABLE, VerdictEnum.HIGH_CONVICTION)
+        assert partial.verdict == VerdictEnum.PARTIAL
+
+        # Default test signals carry no contextual fields, so completeness (and
+        # therefore confidence_adjusted_value) is 0 for both — set explicitly to
+        # confirm the qualifying filter routes by verdict, not just by CAV.
+        speculative.confidence_adjusted_value = 0.01
+        actionable.confidence_adjusted_value = 0.05
+
+        top, watchlist = _rank_top_opportunities([speculative, actionable, partial])
+
+        assert "match-speculative" in watchlist
+        assert "match-speculative" not in top
+        assert "match-actionable" in top
+        assert "match-actionable" not in watchlist
+        assert "match-partial-2" not in top
+        assert "match-partial-2" not in watchlist
 
     def test_batch_engine_version_preserved(self):
         batch = BatchAnalysisRequest(
@@ -717,9 +752,11 @@ class TestBatchAnalysis:
         lower_cav_actionable.confidence_adjusted_value = 0.04
         lower_cav_actionable.expected_value = 0.12
 
-        ranked = _rank_top_opportunities([lower_cav_actionable, high_cav_speculative])
+        top, watchlist = _rank_top_opportunities([lower_cav_actionable, high_cav_speculative])
 
-        assert ranked[:2] == ["speculative-higher-cav", "actionable-lower-cav"]
+        # SPECULATIVE never enters top_opportunities, regardless of CAV ranking.
+        assert top == ["actionable-lower-cav"]
+        assert watchlist == ["speculative-higher-cav"]
 
 
 # ---------------------------------------------------------------------------

@@ -171,13 +171,20 @@ class TestBUG002TFJSDisconnection:
     BUG-002: Verify TypeScript prediction route proxies to FastAPI backend
     """
 
+    @staticmethod
+    def _predict_route_path():
+        # Repo-root-relative so this test isn't tied to one developer's machine.
+        from pathlib import Path
+
+        return (
+            Path(__file__).resolve().parents[2]
+            / "apps" / "web" / "src" / "app" / "api" / "predict" / "route.ts"
+        )
+
     def test_predict_route_proxies_to_backend(self):
         """Verify /api/predict route uses backend URL"""
-        import re
-        
-        with open('/home/scar/Documents/sabiscore/apps/web/src/app/api/predict/route.ts', 'r') as f:
-            content = f.read()
-        
+        content = self._predict_route_path().read_text()
+
         assert 'resolveBackendBaseUrl()' in content, \
             "predict/route.ts does not call resolveBackendBaseUrl()"
         assert '/api/v1/predictions/predict' in content, \
@@ -187,17 +194,15 @@ class TestBUG002TFJSDisconnection:
 
     def test_no_tfjs_in_prediction_endpoint(self):
         """Verify TFJSEnsembleEngine not used in prediction endpoint"""
-        with open('/home/scar/Documents/sabiscore/apps/web/src/app/api/predict/route.ts', 'r') as f:
-            content = f.read()
-        
+        content = self._predict_route_path().read_text()
+
         assert 'TFJSEnsembleEngine' not in content, \
             "predict/route.ts incorrectly uses TFJSEnsembleEngine"
 
     def test_backend_health_check_endpoint_exists(self):
         """Verify prediction route can check backend health"""
-        with open('/home/scar/Documents/sabiscore/apps/web/src/app/api/predict/route.ts', 'r') as f:
-            content = f.read()
-        
+        content = self._predict_route_path().read_text()
+
         assert '/api/v1/health' in content, \
             "predict/route.ts missing health check endpoint"
 

@@ -1,5 +1,6 @@
 import json
 from contextlib import asynccontextmanager
+import httpx
 from fastapi import FastAPI
 import logging
 from .middleware import setup_middleware
@@ -10,6 +11,7 @@ from ..core.config import settings
 from ..core.cache import cache
 from ..core.model_fetcher import DEFAULT_LEAGUES, load_ensemble_per_league
 from ..db.session import init_db, close_db
+from ..providers import build_provider_registry
 import os
 from datetime import datetime, timezone
 
@@ -104,7 +106,15 @@ async def lifespan(app: FastAPI):
     app.state.model_load_error_message = None
     app.state.model_load_in_progress = True
     app.state.model_load_attempts = 0
-    
+
+    # Provider gateway: one lifespan-owned httpx client + registry, shared by
+    # every request instead of opened per-call (CLAUDE.md provider gateway rule).
+    app.state.http_client = httpx.AsyncClient(
+        timeout=httpx.Timeout(8.0),
+        limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
+    )
+    app.state.provider_registry = build_provider_registry(http_client=app.state.http_client)
+
     # Initialize async database
     try:
         await init_db()
@@ -142,7 +152,13 @@ async def lifespan(app: FastAPI):
         logger.info("Async database closed")
     except Exception:
         logger.exception("Shutdown: failed to close async database")
-    
+
+    try:
+        await app.state.http_client.aclose()
+        logger.info("Provider HTTP client closed")
+    except Exception:
+        logger.exception("Shutdown: failed to close provider HTTP client")
+
     logger.info("SabiScore API shutdown complete")
 
 def _resolve_active_leagues() -> tuple[str, ...]:

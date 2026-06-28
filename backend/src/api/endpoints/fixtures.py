@@ -27,7 +27,8 @@ from ...schemas.betting_intelligence import (
     SourceStatusInput,
 )
 from ...services.betting_intelligence import analyze_match
-from ...providers import build_provider_registry
+from ...providers import ProviderRegistry
+from ...providers.registry import get_provider_registry
 from ...providers.orchestrator import EvidenceOrchestrator, EvidenceProfile
 
 
@@ -426,11 +427,35 @@ async def fixtures_upcoming(
         query = query.where(Match.league_id == competition)
     result = await db.execute(query)
     fixtures = result.scalars().all()
+    fixture_ids = [str(fixture.id) for fixture in fixtures]
+
+    # Batch-fetch latest prediction/odds per fixture instead of one query pair
+    # per row (N+1). Rows are ordered match_id, then newest-first within each
+    # match_id, so the first row seen per match_id via setdefault is the latest.
+    predictions_by_fixture: Dict[str, Prediction] = {}
+    odds_by_fixture: Dict[str, Odds] = {}
+    if fixture_ids:
+        pred_result = await db.execute(
+            select(Prediction)
+            .where(Prediction.match_id.in_(fixture_ids))
+            .order_by(Prediction.match_id, desc(Prediction.created_at), desc(Prediction.id))
+        )
+        for prediction_row in pred_result.scalars().all():
+            predictions_by_fixture.setdefault(prediction_row.match_id, prediction_row)
+
+        odds_result = await db.execute(
+            select(Odds)
+            .where(Odds.match_id.in_(fixture_ids))
+            .order_by(Odds.match_id, desc(Odds.timestamp), desc(Odds.id))
+        )
+        for odds_row in odds_result.scalars().all():
+            odds_by_fixture.setdefault(odds_row.match_id, odds_row)
 
     rows: List[FixtureSummary] = []
     for fixture in fixtures:
-        prediction = await _latest_prediction(db, str(fixture.id))
-        odds = await _latest_odds(db, str(fixture.id))
+        fixture_id = str(fixture.id)
+        prediction = predictions_by_fixture.get(fixture_id)
+        odds = odds_by_fixture.get(fixture_id)
         rows.append(_fixture_summary(fixture, odds, prediction))
     return UpcomingFixturesResponse(fixtures=rows, total=len(rows))
 
@@ -449,9 +474,10 @@ async def refresh_fixture_evidence(
     fixture_id: str,
     payload: RefreshEvidenceRequest,
     db: AsyncSession = Depends(get_async_session),
+    registry: ProviderRegistry = Depends(get_provider_registry),
 ) -> RefreshEvidenceResponse:
     fixture = await _get_fixture_or_404(db, fixture_id)
-    orchestrator = EvidenceOrchestrator(build_provider_registry())
+    orchestrator = EvidenceOrchestrator(registry)
     results = await orchestrator.collect(
         {
             "fixture_id": fixture_id,
