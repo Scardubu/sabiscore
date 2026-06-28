@@ -105,7 +105,7 @@ Conditional:
   backend-domain-model-architect    (provider gateway domain model)
 
 ESPN-specific guards (apply when the target is the ESPN provider):
-  - Trust tier is UNOFFICIAL_PUBLIC, keyless; confirm no ESPN[_]API[_]KEY exists
+  - Trust tier is UNOFFICIAL_PUBLIC, keyless — confirm no ESPN_API_KEY exists
   - Egress allowlist must permit BOTH site.api.espn.com AND sports.core.api.espn.com
   - Standings MUST use /apis/v2/ (the /apis/site/v2/ path returns a stub)
   - Exactly 7 canonical competitions; unsupported slugs fail closed
@@ -232,7 +232,10 @@ Load the selected skills and begin implementation.
 - [ ] Does this touch the betting engine? Confirm: `evaluation_at` injected, UCL cap in place, SPECULATIVE → watchlist only, only `critical_gaps` force PARTIAL
 - [ ] Does this touch credentials? Confirm: no `NEXT_PUBLIC_*` provider keys, no ESPN API key variable, Gitleaks CI gate active
 - [ ] Does this change observability? Confirm: new spans/metrics added where required, no silent regressions
-- [ ] Does this touch the ESPN provider? Confirm: keyless (no `ESPN[_]API[_]KEY`), allowlist permits both `site.api.espn.com` and `sports.core.api.espn.com`, standings use `/apis/v2/` not `/apis/site/v2/`, exactly 7 competitions, `provider_timestamp=None` for scoreboards, supplementary-only (never a `critical_gap`)
+- [ ] Does this touch a provider status match? Confirm: using ACTUAL enum values from `base.py`, not documented preferred names (`PARTIAL` not `DEGRADED`, `INVALID` not `SCHEMA_INVALID`, no `DISABLED` enum value)
+- [ ] Does this touch the ESPN provider? Confirm: keyless (no `ESPN_API_KEY`), allowlist permits both `site.api.espn.com` and `sports.core.api.espn.com`, standings use `/apis/v2/` not `/apis/site/v2/`, exactly 7 competitions, `provider_timestamp=None` for scoreboards, supplementary-only (never a `critical_gap`)
+- [ ] Does this touch betting engine verdict/Kelly/watchlist/evaluation_at? Confirm: changes applied to BOTH `betting_intelligence.py` AND `core_engine.py` — they share no code and drift silently
+- [ ] Does this touch reconciliation? Confirm: REQUIRES_REVIEW status implemented (0.68–0.94 confidence band); `review_candidate_id` set but `fixture_id` is None for REQUIRES_REVIEW
 - [ ] Does this touch scraper? Confirm: no probability/verdict/Kelly calculations in `apps/scraper`
 
 **Do not implement before the Skill Trace Block is complete.**

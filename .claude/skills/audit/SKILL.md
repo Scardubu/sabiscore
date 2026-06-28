@@ -168,7 +168,7 @@ For each dimension identified in Phase 1, apply the full audit protocol below.
 ```
 [ ] Run: git log --all -p -- '*.env*' | grep -iE "(api_key|password|secret|token)" | head -20
 [ ] Run: grep -rn "NEXT_PUBLIC_.*KEY\|NEXT_PUBLIC_.*TOKEN\|NEXT_PUBLIC_.*SECRET" apps/web/
-[ ] Run: grep -rn "ESPN[_]API[_]KEY" . --include="*.py" --include="*.ts" --include="*.env*"
+[ ] Run: grep -rn "ESPN_API_KEY" . --include="*.py" --include="*.ts" --include="*.env*"
 [ ] No real credentials in any committed file (must be empty placeholders)
 [ ] DATABASE_URL, REDIS_URL, SECRET_KEY, DB_PASSWORD blank in all committed .env.example files
 [ ] Gitleaks CI gate present (.github/workflows/secret-scan.yml or equivalent)

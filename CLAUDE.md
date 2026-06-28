@@ -360,7 +360,7 @@ No live provider quota may be consumed in default CI (`PROVIDER_LIVE_TESTS=false
 | `npm lockfile` | Stale — pnpm is canonical | Delete; use `pnpm-lock.yaml` only |
 | `Base.metadata.create_all()` | Runtime schema creation | Replace with Alembic migrations |
 | Direct browser odds fetching | Security violation | Route through backend proxy |
-| `ESPN[_]API[_]KEY` variable | ESPN is keyless | Remove entirely |
+| `ESPN_API_KEY` variable | ESPN is keyless | Remove entirely |
 
 ---
 
@@ -373,7 +373,7 @@ rediscovers them the hard way.
 
 ## Trust & scope (immutable)
 
-- Trust tier: `UNOFFICIAL_PUBLIC`. **Keyless**; there is no `ESPN[_]API[_]KEY`.
+- Trust tier: `UNOFFICIAL_PUBLIC`. **Keyless** — there is no `ESPN_API_KEY`.
 - Role: fixture discovery, scoreboard, event status, standings **corroboration**.
 - ESPN is the lowest-precedence evidence source and can **never alone** establish
   critical odds, lineup, injury, probability, or execution evidence.
@@ -442,3 +442,63 @@ The upstream Public-ESPN-API is a Django documentation project. SabiScore does
 **not** depend on it or copy its Django/Celery service. We extract endpoint
 intelligence (slugs, domain quirks) only. `docs/sports/soccer.md` in that repo is
 the authoritative slug catalogue if a new competition is ever considered.
+
+---
+
+# VERIFIED GROUND TRUTH (2026-06-28)
+
+This section is the authoritative record of confirmed states. Repository code
+overrides all prior status docs — verify with a grep/read before acting.
+
+## Confirmed working (do not re-implement)
+
+| Component | Notes |
+|---|---|
+| SPECULATIVE → watchlist | `batch_watchlist` in both `betting_intelligence.py` AND `core_engine.py` |
+| Provider gateway lifespan | `app.state.http_client` + `app.state.provider_registry`; `Depends(get_provider_registry)` |
+| TF.js browser model | `apps/web/src/lib/ml/` deleted; three dependent components removed |
+| N+1 on upcoming fixtures | Two batched queries in `GET /api/v1/fixtures/upcoming` |
+| Legacy paths | `apps/api/` and `frontend/` absent from CI, docker-compose, workspace |
+| Alembic-only | `core/database.py` raises `RuntimeError` on direct table-creation |
+| Health endpoints | `/health/live`, `/health/ready`, `/health` all present |
+| Gitleaks CI | `.github/workflows/ci.yml`, no `|| true` suppressions |
+
+## Confirmed incomplete
+
+| Gap | Files | Action |
+|---|---|---|
+| Provider adapters (fdo, apif, sm) | `football_data_org.py`, `api_football.py`, `sportmonks.py` | Needs live keys + contracts; use `sabiscore-provider-adapter-architect` |
+| The Odds API normalization | `the_odds_api.py` | Fixed this session (per-bookmaker normalization, rejection logic) |
+| Evidence orchestrator multi-provider | `providers/orchestrator.py` | Fixed this session (graceful stubs for non-operational providers) |
+| REQUIRES_REVIEW reconciliation | `providers/reconciliation.py` | Fixed this session (0.68–0.94 confidence band) |
+| critical_gaps PARTIAL gate | `betting_intelligence.py`, `core_engine.py` | Apply patch spec in `betting_intelligence_patch.md` |
+
+---
+
+# PROVIDERSTAT US — ACTUAL ENUM (NOT DOCUMENTED NAMES)
+
+The actual `ProviderStatus` enum in `backend/src/providers/base.py`:
+
+| Documented (preferred) | Actual code |
+|---|---|
+| `DISABLED` | (absent) — disabled → `UNAVAILABLE` + `provider_disabled` warning |
+| `DEGRADED` | `PARTIAL` |
+| `SCHEMA_INVALID` | `INVALID` |
+| `CONFIGURED_UNVERIFIED` | `CONFIGURED_UNVERIFIED` |
+| All others | Match exactly |
+
+Always grep `base.py` before writing code that pattern-matches provider status.
+
+---
+
+# DUAL-ENGINE RULE (NON-NEGOTIABLE)
+
+`betting_intelligence.py` and `core_engine.py` are independent implementations.
+**Any change to verdict gates, ranking, Kelly, or watchlist MUST be applied to BOTH.**
+
+```bash
+git diff --name-only | grep -E "betting_intelligence|core_engine"
+# Must show BOTH files after any engine change
+```
+
+Use `sabiscore-betting-engine-auditor` skill for all betting engine work.

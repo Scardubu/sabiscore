@@ -49,6 +49,9 @@ Classify every incoming task. A task may map to multiple types; resolve the full
 | **Real-Time Systems** | "WebSocket", "SSE", "live updates", "presence", "optimistic UI", "agent status", "job progress" |
 | **Data Visualization** | "chart", "graph", "dashboard data", "recharts", "D3", "SabiScore display", "analytics UI" |
 | **Nigerian Fintech Compliance** | "TaxBridge", "FIRS", "VAT", "CIT", "WHT", "e-invoicing", "NRS 2026", "VAIDS", "BVN", "NIN", "NIBSS" |
+| **SabiScore Provider Gateway** | "ESPN", "ESPN standings", "ESPN slug", "scoreboard", "provider health", "API-Football", "Sportmonks", "football-data.org", "The Odds API", "circuit breaker", "provider quota", "egress allowlist", "multi-domain provider" |
+| **SabiScore Betting Engine** | "verdict", "HIGH_CONVICTION", "ACTIONABLE", "SPECULATIVE", "HOLD", "PARTIAL", "NO_BET", "Kelly", "edge", "expected value", "de-vig", "overround", "betting_intelligence", "core_engine" |
+| **SabiScore Evidence** | "evidence profile", "DISCOVERY", "PREMATCH_STANDARD", "PREMATCH_ENRICHED", "LINEUP_REFRESH", "MARKET_REFRESH", "FORECAST_ONLY", "critical gap", "advisory gap", "evidence passport", "fixture reconciliation", "canonical fixture" |
 | **Mobile / Native** | "Expo", "React Native", "EAS", "Reanimated", "New Architecture" |
 | **Testing** | "test", "Vitest", "Playwright", "MSW", "coverage", "e2e", "unit" |
 | **Observability** | "OTel", "trace", "span", "metrics", "log", "Grafana", "Jaeger", "SigNoz" |
@@ -360,6 +363,9 @@ Use the repo's stack to sharpen routing.
 **Verticals:**
 - TaxBridge tax rules, FIRS, compliance → prefer `nigerian-fintech-compliance-architect`
 - SabiScore ML display → prefer `data-visualization-architect` + `real-time-systems-architect`
+- SabiScore provider gateway (ESPN/API-Football/etc.) → prefer `backend-systems-auditor` + `api-automation-architect` + `opentelemetry-observability-architect`
+- SabiScore betting engine (verdict/Kelly/EV) → prefer `backend-domain-model-architect` + `backend-systems-auditor` + `testing-strategy-architect`
+- SabiScore evidence orchestration → prefer `backend-domain-model-architect` + `api-automation-architect`
 - Shipping safety / rollback → prefer `release-incident-operations-architect`
 
 ---
@@ -543,6 +549,40 @@ Followed by:
 
 ---
 
+# SABISCORE PROVIDER OPERATIONAL KNOWLEDGE
+
+When routing any task that touches `backend/src/providers/`, NEXUS must surface
+these provider facts in the Risk line of the trace block so they are not
+rediscovered the hard way. Verified against the upstream Public-ESPN-API
+reference project (a read-only documentation source, not a dependency).
+
+## ESPN (UNOFFICIAL_PUBLIC, keyless, supplementary-only)
+
+| Concern | Rule |
+|---|---|
+| Auth | Keyless — there is no `ESPN_API_KEY`. Flag any code that adds one. |
+| Hosts | Allowlist must permit BOTH `site.api.espn.com` and `sports.core.api.espn.com`. |
+| Scoreboard | `…/apis/site/v2/sports/soccer/{slug}/scoreboard` |
+| Standings | `…/apis/v2/sports/soccer/{slug}/standings` — the `/apis/site/v2/` path returns a **stub** `{"fullViewLink": {...}}`. |
+| Competitions | Exactly 7: `eng.1, esp.1, ita.1, ger.1, fra.1, ned.1, uefa.champions`. Others fail closed. |
+| Timestamps | Scoreboards carry no content timestamp → `provider_timestamp=None`; freshness from `acquired_at`. Never set `provider_timestamp` to kickoff. |
+| Evidence role | Lowest precedence. Never a `critical_gap` source for odds/lineup/injury/probability. |
+| Polling | Reasonable cadence only. No 8-second feed, no low-latency guarantee. |
+| Failure mode | Schema drift → `SCHEMA_INVALID`, fail closed, record breaker schema failure. No fabricated fixtures. |
+
+## Provider gateway invariants (all providers)
+
+- One application-lifespan `httpx.AsyncClient`, DI'd — never per-request.
+- Circuit breaker distinguishes network / rate-limit / auth / client / server /
+  schema failures; honors `Retry-After`; half-open recovery; shared across workers.
+- Provider status taxonomy: disabled ≠ unconfigured ≠ configured ≠ healthy ≠
+  degraded ≠ rate-limited ≠ schema-invalid ≠ unavailable ≠ circuit-open.
+  HEALTHY only after a successful probe.
+- Standard redacted envelope: trust tier, status, quota, warnings, snapshot hash,
+  acquired_at, correlation_id.
+
+---
+
 # OBSERVABILITY RULE
 
 If any system-level change is made:
@@ -552,3 +592,44 @@ If any system-level change is made:
 - Ensure no silent regressions — what breaks without a visible signal?
 - Real-time connections: WebSocket/SSE connection counts must be bounded and metered
 - Agent invocations: SwarmX LLM calls must emit token-usage metrics per agent role
+
+---
+
+# VERIFIED COMPONENT STATE (2026-06-28 — override all prior docs)
+
+## Routing implications from verified ground truth
+
+| Verified fact | NEXUS routing implication |
+|---|---|
+| SPECULATIVE → watchlist fixed in BOTH engines | Betting engine tasks: load `sabiscore-betting-engine-auditor` → always confirms both files |
+| Provider gateway lifespan implemented | Provider tasks: use `Depends(get_provider_registry)` in endpoint — never call `build_provider_registry()` directly from endpoints |
+| TF.js browser model deleted | Frontend tasks: never re-add any `ml/` browser inference; route model calls to backend |
+| The Odds API: per-bookmaker normalization added | Market refresh tasks: `OddsMarketRecord` is the canonical shape; per-bookmaker, never combined |
+| Reconciliation REQUIRES_REVIEW added | Fixture identity tasks: handle 4 statuses (VERIFIED/REQUIRES_REVIEW/CONFLICTING/UNKNOWN) |
+| Provider adapters (fdo/apif/sm) are stubs | Evidence orchestration tasks: orchestrator returns PARTIAL for non-ESPN profiles; classify as advisory |
+| critical_gaps PARTIAL gate: open question | Betting engine audit tasks: apply patch in `betting_intelligence_patch.md`; test advisory-only case |
+
+## ProviderStatus enum — actual values (use in all code, not documented preferences)
+
+```python
+# backend/src/providers/base.py — actual ProviderStatus enum values
+ProviderStatus.VERIFIED              # healthy probe succeeded
+ProviderStatus.CONFIGURED_UNVERIFIED # enabled + key present, not yet probed
+ProviderStatus.UNCONFIGURED          # key required but absent
+ProviderStatus.PARTIAL               # ← what docs call DEGRADED
+ProviderStatus.UNAVAILABLE           # network error, disabled (+ provider_disabled warning)
+ProviderStatus.RATE_LIMITED          # 429 received
+ProviderStatus.CIRCUIT_OPEN          # breaker tripped
+ProviderStatus.INVALID               # ← what docs call SCHEMA_INVALID
+ProviderStatus.CONFLICTING           # provider-level conflict state
+# DISABLED does not exist as an enum value
+```
+
+## New skills added this session
+
+Route to these when the corresponding intent is detected:
+
+| Skill | Trigger signals |
+|---|---|
+| `sabiscore-betting-engine-auditor` | "verdict", "Kelly", "SPECULATIVE", "watchlist", "PARTIAL gate", "dual engine", "betting_intelligence", "core_engine" |
+| `sabiscore-provider-adapter-architect` | "complete adapter", "implement fixtures()", "provider stub", "operational method", "provider capabilities to live" |
