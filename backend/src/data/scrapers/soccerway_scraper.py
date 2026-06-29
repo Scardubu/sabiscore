@@ -107,7 +107,8 @@ class SoccerwayScraper(BaseScraper):
         data_type: str,
         league: str
     ) -> Dict:
-        raise RuntimeError("Synthetic scraper fallback removed; verified source data required")
+        logger.warning("Soccerway data unavailable for %s (%s)", league, data_type)
+        return {}
     
     def _unavailable_standings(self, league: str) -> Dict:
         raise RuntimeError("Synthetic scraper fallback removed; verified source data required")
