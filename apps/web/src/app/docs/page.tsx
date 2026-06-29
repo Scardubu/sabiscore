@@ -1,296 +1,104 @@
-"use client";
+import Link from "next/link";
+import { AlertTriangle, ArrowLeft, BarChart3, BookOpen, Database, Gauge, ShieldCheck } from "lucide-react";
+import { VERDICT_PRESENTATION, VERDICT_SEQUENCE } from "@/lib/verdict-presentation";
 
-import Link from 'next/link';
-import { FeatureFlag, useFeatureFlag } from '@/lib/feature-flags';
-import { cn } from '@/lib/utils';
+const PROVIDERS = [
+  ["ESPN", "Fixtures, results, and broad match context"],
+  ["FBRef", "Team, referee, and tactical evidence"],
+  ["SofaScore", "Lineups, availability, and live match context"],
+  ["Understat", "Expected-goals evidence"],
+  ["Transfermarkt", "Squad availability and contribution context"],
+] as const;
+
+export const metadata = {
+  title: "Methodology",
+  description: "How SabiScore gathers evidence, calibrates probabilities, assigns verdicts, and limits staking guidance.",
+};
 
 export default function DocsPage() {
-  const premiumVisualsEnabled = useFeatureFlag(FeatureFlag.PREMIUM_VISUAL_HIERARCHY);
-
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 to-slate-900 text-white">
-      <div className="container mx-auto px-4 py-16">
-        {/* Header */}
-        <div className="mb-12">
-          <Link
-            href="/"
-            className={cn(
-              "inline-flex items-center mb-8 transition-colors",
-              premiumVisualsEnabled
-                ? "text-cyan-400 hover:text-cyan-300"
-                : "text-indigo-400 hover:text-indigo-300"
-            )}
-          >
-            ← Back to Home
-          </Link>
-          <div className="flex items-center gap-4">
-            <h1 className={cn(
-              "text-5xl font-bold mb-4",
-              premiumVisualsEnabled && "bg-gradient-to-r from-cyan-400 to-indigo-400 bg-clip-text text-transparent"
-            )}>
-              Documentation
-            </h1>
-            {premiumVisualsEnabled && (
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold uppercase text-slate-300">
-                Premium Docs
-              </span>
-            )}
-          </div>
-          <p className="text-xl text-slate-400">
-            Learn how to use Sabiscore to maximize your betting edge
-          </p>
+    <div className="mx-auto max-w-6xl space-y-12 pb-16">
+      <header className="rounded-3xl border border-white/10 bg-[linear-gradient(145deg,#0e201b,#091310)] p-6 sm:p-10">
+        <Link href="/" className="inline-flex min-h-11 items-center gap-2 rounded-xl text-sm font-bold text-emerald-300 hover:text-emerald-200"><ArrowLeft className="h-4 w-4" aria-hidden="true" />Back home</Link>
+        <div className="mt-5 max-w-3xl">
+          <p className="text-xs font-bold uppercase tracking-[0.22em] text-emerald-300">Methodology and safeguards</p>
+          <h1 className="mt-3 text-4xl font-black tracking-tight text-white sm:text-5xl">Understand every number before acting on it.</h1>
+          <p className="mt-5 text-base leading-7 text-slate-300">SabiScore is designed to withhold a recommendation when verified evidence is incomplete. This page explains the contracts behind the interface without publishing unsupported performance claims.</p>
         </div>
+      </header>
 
-        {/* Content Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Getting Started */}
-          <div className={cn(
-            "rounded-xl p-8 border",
-            premiumVisualsEnabled
-              ? "glass-card border-white/10 bg-slate-950/70 shadow-[0_15px_45px_rgba(8,14,35,0.55)]"
-              : "bg-slate-800/50 border-slate-700/50"
-          )}>
-            <h2 className={cn(
-              "text-2xl font-bold mb-4",
-              premiumVisualsEnabled ? "text-cyan-400" : "text-indigo-400"
-            )}>
-              Getting Started
-            </h2>
-            <ul className="space-y-3 text-slate-300">
-              <li>• Create an account to access predictions</li>
-              <li>• Review match predictions and value bets</li>
-              <li>• Set up bankroll management</li>
-              <li>• Track your betting performance</li>
-            </ul>
-          </div>
+      <section className="grid gap-5 md:grid-cols-3" aria-label="Core methodology">
+        <MethodCard icon={Database} title="Evidence first">Five provider profiles are queried independently. Availability, freshness, and source conflicts remain visible in the result.</MethodCard>
+        <MethodCard icon={BarChart3} title="Calibrated probabilities">Model probabilities are calibrated per league and compared with multiplicatively de-vigged market probabilities.</MethodCard>
+        <MethodCard icon={ShieldCheck} title="Fail closed">Unavailable features, incoherent odds, stale critical inputs, or gate failures produce a pass state rather than an estimate.</MethodCard>
+      </section>
 
-          {/* Key Metrics */}
-          <div className={cn(
-            "rounded-xl p-8 border",
-            premiumVisualsEnabled
-              ? "glass-card border-white/10 bg-slate-950/70 shadow-[0_15px_45px_rgba(8,14,35,0.55)]"
-              : "bg-slate-800/50 border-slate-700/50"
-          )}>
-            <h2 className={cn(
-              "text-2xl font-bold mb-4",
-              premiumVisualsEnabled ? "text-cyan-400" : "text-indigo-400"
-            )}>
-              Key Metrics
-            </h2>
-            <ul className="space-y-3 text-slate-300">
-              <li>• <strong>Edge %</strong>: Your advantage over bookmaker odds</li>
-              <li>• <strong>Confidence</strong>: Model certainty (0-100%)</li>
-              <li>• <strong>Kelly</strong>: Recommended stake size</li>
-              <li>• <strong>CLV</strong>: Closing Line Value tracking</li>
-            </ul>
-          </div>
+      <section aria-labelledby="verdict-heading">
+        <SectionHeading eyebrow="Decision language" title="Six verdicts, ordered from incomplete to highest conviction" id="verdict-heading" />
+        <div className="mt-6 overflow-hidden rounded-2xl border border-white/10">
+          {VERDICT_SEQUENCE.map((verdict, index) => {
+            const item = VERDICT_PRESENTATION[verdict];
+            return (
+              <article key={verdict} className="grid gap-3 border-b border-white/10 bg-white/[0.025] p-5 last:border-b-0 md:grid-cols-[52px_220px_1fr] md:items-center">
+                <span className="grid h-10 w-10 place-items-center rounded-full border border-white/10 text-sm font-black text-slate-400">{index + 1}</span>
+                <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{verdict}</p><h3 className="mt-1 font-bold text-white">{item.label}</h3></div>
+                <p className="text-sm leading-6 text-slate-400">{item.summary}</p>
+              </article>
+            );
+          })}
+        </div>
+      </section>
 
-          {/* Model Performance */}
-          <div className={cn(
-            "rounded-xl p-8 border",
-            premiumVisualsEnabled
-              ? "glass-card border-white/10 bg-slate-950/70 shadow-[0_15px_45px_rgba(8,14,35,0.55)]"
-              : "bg-slate-800/50 border-slate-700/50"
-          )}>
-            <h2 className={cn(
-              "text-2xl font-bold mb-4",
-              premiumVisualsEnabled ? "text-cyan-400" : "text-indigo-400"
-            )}>
-              Model Performance
-            </h2>
-            <ul className="space-y-3 text-slate-300">
-              <li>• <strong>~53%</strong> 3-way accuracy (Phase 8 Ensemble, walk-forward validated)</li>
-              <li>• <strong>RPS ≤ 0.21</strong> release gate — ranked probability score vs market</li>
-              <li>• <strong>+6–10%</strong> average edge on value bets when detected</li>
-              <li>• CLV computed against closing-line implied probability only</li>
-            </ul>
-          </div>
+      <section className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
+        <div>
+          <SectionHeading eyebrow="Evidence panel" title="What the five sources contribute" id="providers-heading" />
+          <p className="mt-4 text-sm leading-6 text-slate-400">A source can be live, stale, unavailable, or conflicting. Single-provider evidence cannot promote a verdict above HOLD.</p>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-5">
+          <dl className="space-y-4">
+            {PROVIDERS.map(([name, description]) => <div key={name} className="grid gap-1 border-b border-white/10 pb-4 last:border-0 last:pb-0 sm:grid-cols-[150px_1fr]"><dt className="font-bold text-white">{name}</dt><dd className="text-sm leading-6 text-slate-400">{description}</dd></div>)}
+          </dl>
+        </div>
+      </section>
 
-          {/* Technical Stack */}
-          <div className={cn(
-            "rounded-xl p-8 border",
-            premiumVisualsEnabled
-              ? "glass-card border-white/10 bg-slate-950/70 shadow-[0_15px_45px_rgba(8,14,35,0.55)]"
-              : "bg-slate-800/50 border-slate-700/50"
-          )}>
-            <h2 className={cn(
-              "text-2xl font-bold mb-4",
-              premiumVisualsEnabled ? "text-cyan-400" : "text-indigo-400"
-            )}>
-              Technical Stack
-            </h2>
-            <ul className="space-y-3 text-slate-300">
-              <li>• <strong>Models</strong>: Phase 8 Ensemble (RF, XGB, LightGBM + isotonic calibration)</li>
-              <li>• <strong>Features</strong>: 86 Phase 8 signals (form, Pi-ratings, Berrar, market drift)</li>
-              <li>• <strong>Data</strong>: 10.7k+ real historical matches, no synthetic injection</li>
-              <li>• <strong>Update</strong>: Live enrichment every 180 s; off-season notice when no fixtures</li>
-            </ul>
-          </div>
+      <section aria-labelledby="market-heading">
+        <SectionHeading eyebrow="Market math" title="How value and stake guidance are calculated" id="market-heading" />
+        <div className="mt-6 grid gap-5 md:grid-cols-2">
+          <Definition term="Bookmaker implied probability">The reciprocal of decimal odds. The three outcomes are normalized using multiplicative de-vig before comparison.</Definition>
+          <Definition term="Edge">SabiScore calibrated probability minus the bookmaker fair probability for the same outcome.</Definition>
+          <Definition term="Expected value">The average theoretical return per unit staked at the current verified price. It is not a promised return.</Definition>
+          <Definition term="Quarter-Kelly">One quarter of the Kelly fraction is the display default. No surfaced suggestion may exceed 5% of bankroll.</Definition>
+          <Definition term="Closing-line value">Recorded only after a verified Pinnacle closing price exists. It is never estimated from an unrelated quality score.</Definition>
+          <Definition term="RPS and ECE">Ranked Probability Score is the primary model-selection metric. Expected Calibration Error triggers league recalibration above 0.03.</Definition>
+        </div>
+      </section>
 
-          {/* Sprint 4 What's New */}
-          <div className={cn(
-            "rounded-xl p-8 border md:col-span-2",
-            premiumVisualsEnabled
-              ? "glass-card border-white/10 bg-slate-950/70 shadow-[0_15px_45px_rgba(8,14,35,0.55)]"
-              : "bg-slate-800/50 border-slate-700/50"
-          )}>
-            <div className="flex items-center gap-3 mb-4">
-              <h2 className={cn(
-                "text-2xl font-bold",
-                premiumVisualsEnabled ? "text-cyan-400" : "text-indigo-400"
-              )}>
-                Sprint 4 — What&apos;s New
-              </h2>
-              <span className="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-0.5 text-xs font-semibold text-emerald-300 uppercase tracking-wider">
-                2026-06-11
-              </span>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2 text-slate-300 text-sm">
-              <div className="space-y-1">
-                <p className="font-semibold text-slate-200">Phase 1 — BNN deployment safety</p>
-                <p className="text-slate-400">Soft-loading wrapper splits torch implementation from the FastAPI boot path. Backend starts cleanly on Render without GPU wheels.</p>
-              </div>
-              <div className="space-y-1">
-                <p className="font-semibold text-slate-200">Phase 2 — 86-dim retrain scaffold</p>
-                <p className="text-slate-400">Auto-detects Phase 8 feature availability. Recency-weighted training (half-life 2 seasons), RPS ≤ 0.210 walk-forward gate.</p>
-              </div>
-              <div className="space-y-1">
-                <p className="font-semibold text-slate-200">Phase 3 — Per-league calibration</p>
-                <p className="text-slate-400">Isotonic (≥ 2 000 rows) or Platt scaling per league. Ensemble diversity diagnostics prune redundant base learners when draw-F1 is non-degrading.</p>
-              </div>
-              <div className="space-y-1">
-                <p className="font-semibold text-slate-200">Phase 4 — UCL stage coverage</p>
-                <p className="text-slate-400"><code className="text-sky-400">competition_stage</code> field surfaced on every fixture — Group · R16 · QF · SF · Final — with colour-coded badges in the match list.</p>
-              </div>
-              <div className="space-y-1">
-                <p className="font-semibold text-slate-200">Phase 5 — CLV pre-match UX</p>
-                <p className="text-slate-400">CLV label now carries a tooltip explaining it is computed at match end against the Pinnacle closing line. Drift Δ serves as the pre-match market intelligence proxy.</p>
-              </div>
-              <div className="space-y-1">
-                <p className="font-semibold text-slate-200">Phase 6 — Interface polish</p>
-                <p className="text-slate-400">Mobile hamburger nav, Upcoming Fixtures on the premium home page, Phase 8 panel de-duplicated header, off-season notice wired for both home states.</p>
-              </div>
-            </div>
-          </div>
-
-          {/* API Access */}
-          <div className={cn(
-            "rounded-xl p-8 border md:col-span-2",
-            premiumVisualsEnabled
-              ? "glass-card border-white/10 bg-slate-950/70 shadow-[0_15px_45px_rgba(8,14,35,0.55)]"
-              : "bg-slate-800/50 border-slate-700/50"
-          )}>
-            <h2 className={cn(
-              "text-2xl font-bold mb-4",
-              premiumVisualsEnabled ? "text-cyan-400" : "text-indigo-400"
-            )}>
-              API Reference
-            </h2>
-            <div className="space-y-4 text-slate-300">
-              <p>
-                SabiScore exposes a versioned REST API. All routes are prefixed <code className="text-sky-400">/api/v1</code>.
-              </p>
-              <div className="bg-slate-900/50 rounded-lg p-4 font-mono text-sm space-y-3">
-                <div>
-                  <div className="mb-1 text-green-400"># Upcoming matches with predictions + value bets</div>
-                  <div>GET /api/v1/upcoming/matches?league=EPL&amp;days_ahead=7&amp;limit=20</div>
-                </div>
-                <div>
-                  <div className="mb-1 text-green-400"># All upcoming fixtures (merged, all leagues)</div>
-                  <div>GET /api/v1/upcoming/all?days=7</div>
-                </div>
-                <div>
-                  <div className="mb-1 text-green-400"># Full match analysis (edge quality, CLV evidence, uncertainty)</div>
-                  <div>GET /api/v1/matches/upcoming/:matchId/full-analysis?league=EPL</div>
-                </div>
-                <div>
-                  <div className="mb-1 text-green-400"># Phase 8 feature intelligence for a match</div>
-                  <div>GET /api/v1/features/phase8?match_id=:id&amp;league=EPL</div>
-                </div>
-                <div>
-                  <div className="mb-1 text-green-400"># Team rolling form + H2H + upcoming fixtures</div>
-                  <div>GET /api/v1/teams/:slug/intelligence</div>
-                </div>
-                <div>
-                  <div className="mb-1 text-green-400"># League off-season status &amp; next season start</div>
-                  <div>GET /api/v1/leagues/:league/offseason-status</div>
-                </div>
-                <div>
-                  <div className="mb-1 text-green-400"># Model health &amp; feature freshness</div>
-                  <div>GET /api/v1/health/ready</div>
-                </div>
-              </div>
-              <div className="text-sm text-slate-400 space-y-1.5">
-                <p>
-                  <strong className="text-slate-300">Key response fields:</strong>{" "}
-                  <code className="text-sky-400">edge_quality_score</code> (0–1 composite),{" "}
-                  <code className="text-sky-400">competition_stage</code> (UCL group/r16/qf/sf/final),{" "}
-                  <code className="text-sky-400">clv_pct</code> (null pre-match; computed against closing odds at kick-off),{" "}
-                  <code className="text-sky-400">closing_line_convergence_delta</code> (pre-match market drift proxy),{" "}
-                  <code className="text-sky-400">data_gaps</code> (features defaulted due to missing live data),{" "}
-                  <code className="text-sky-400">offseason</code> + <code className="text-sky-400">next_season_start</code> (off-season fixture state).
-                </p>
-                <p>
-                  <strong className="text-slate-300">Data integrity guardrails:</strong>{" "}
-                  <code className="text-sky-400">shot_quality_diff</code> is permanently DATA_GAP until StatsBomb ATE ≥ 0.02 is confirmed.
-                  No synthetic data is injected to mask missing live inputs (Guardrail 1).
-                  CLV is always computed against the <em>closing</em> implied probability, never the opening line (Guardrail 11).
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Support */}
-          <div className={cn(
-            "rounded-xl p-8 border md:col-span-2",
-            premiumVisualsEnabled
-              ? "glass-card border-white/10 bg-slate-950/70 shadow-[0_15px_45px_rgba(8,14,35,0.55)]"
-              : "bg-slate-800/50 border-slate-700/50"
-          )}>
-            <h2 className={cn(
-              "text-2xl font-bold mb-4",
-              premiumVisualsEnabled ? "text-cyan-400" : "text-indigo-400"
-            )}>
-              Support & Resources
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <h3 className="font-semibold mb-2 text-slate-200">Community</h3>
-                <p className="text-sm text-slate-400">
-                  Join our Discord for tips, strategies, and support from fellow bettors.
-                </p>
-              </div>
-              <div>
-                <h3 className="font-semibold mb-2 text-slate-200">Updates</h3>
-                <p className="text-sm text-slate-400">
-                  Follow us on Twitter for model updates, performance reports, and feature releases.
-                </p>
-              </div>
-              <div>
-                <h3 className="font-semibold mb-2 text-slate-200">Contact</h3>
-                <p className="text-sm text-slate-400">
-                  Email support@sabiscore.com for technical issues or partnership inquiries.
-                </p>
-              </div>
-            </div>
+      <section className="rounded-3xl border border-amber-400/20 bg-amber-400/[0.06] p-6 sm:p-8" aria-labelledby="responsible-heading">
+        <div className="flex gap-4">
+          <AlertTriangle className="mt-1 h-6 w-6 shrink-0 text-amber-300" aria-hidden="true" />
+          <div>
+            <h2 id="responsible-heading" className="text-xl font-black text-white">Responsible use</h2>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">Betting involves financial risk. Treat every stake as expendable, respect local laws, set firm deposit and time limits, and stop when betting stops being recreational. A NO_BET verdict is a valid and often valuable outcome.</p>
           </div>
         </div>
+      </section>
 
-        {/* CTA */}
-        <div className="mt-12 text-center">
-          <Link
-            href="/match"
-            className={cn(
-              "inline-block px-8 py-4 font-semibold rounded-xl transition-all duration-200 hover:scale-105",
-              premiumVisualsEnabled
-                ? "bg-gradient-to-r from-cyan-400 to-indigo-500 text-slate-950 shadow-[0_10px_30px_rgba(0,212,255,0.35)] hover:shadow-[0_15px_40px_rgba(0,212,255,0.5)]"
-                : "bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40"
-            )}
-          >
-            Start Using Sabiscore
-          </Link>
-        </div>
+      <div className="flex flex-wrap gap-3">
+        <Link href="/intelligence" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-300 px-5 py-3 font-bold text-slate-950 hover:bg-emerald-200"><Gauge className="h-4 w-4" aria-hidden="true" />Open intelligence</Link>
+        <Link href="/" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/10 px-5 py-3 font-bold text-white hover:border-white/25"><BookOpen className="h-4 w-4" aria-hidden="true" />Return home</Link>
       </div>
     </div>
   );
+}
+
+function SectionHeading({ eyebrow, title, id }: { eyebrow: string; title: string; id: string }) {
+  return <div><p className="text-xs font-bold uppercase tracking-[0.22em] text-emerald-300">{eyebrow}</p><h2 id={id} className="mt-2 text-3xl font-black tracking-tight text-white">{title}</h2></div>;
+}
+
+function MethodCard({ icon: Icon, title, children }: { icon: typeof Database; title: string; children: React.ReactNode }) {
+  return <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-6"><Icon className="h-6 w-6 text-emerald-300" aria-hidden="true" /><h2 className="mt-5 text-xl font-bold text-white">{title}</h2><p className="mt-3 text-sm leading-6 text-slate-400">{children}</p></article>;
+}
+
+function Definition({ term, children }: { term: string; children: React.ReactNode }) {
+  return <article className="rounded-2xl border border-white/10 bg-white/[0.025] p-5"><h3 className="font-bold text-white">{term}</h3><p className="mt-2 text-sm leading-6 text-slate-400">{children}</p></article>;
 }
