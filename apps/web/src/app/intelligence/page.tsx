@@ -5,8 +5,13 @@ export const metadata = {
   description: "Verified evidence, calibrated 1X2 probabilities, market value, and responsible staking guidance.",
 };
 
-export default function IntelligencePage({ searchParams }: { searchParams?: { league?: string } }) {
-  const requestedLeague = typeof searchParams?.league === "string" ? searchParams.league : "EPL";
+export default async function IntelligencePage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ league?: string }>;
+}) {
+  const params = searchParams ? await searchParams : {};
+  const requestedLeague = typeof params.league === "string" ? params.league : "EPL";
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-5">
