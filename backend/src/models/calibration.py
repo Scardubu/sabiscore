@@ -211,7 +211,7 @@ def apply_calibrator(
 
     Returns renormalised probabilities [n_samples, n_classes].
     """
-    n_classes = y_proba.shape[1]
+    y_proba.shape[1]
 
     if method == "temperature":
         t = float(calibrators)  # type: ignore[arg-type]

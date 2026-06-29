@@ -597,7 +597,7 @@ class TestAllOutcomeEvaluation:
         )
         result = analyze_match(req)
         if result.edge is not None and result.market_odds is not None and result.fair_market_probability is not None:
-            raw_implied = 1 / result.market_odds
+            1 / result.market_odds
             # Edge should use fair_market (de-vigged) not raw implied
             assert abs(result.edge - (result.probabilities.home - result.fair_market_probability)) < 0.01
 
@@ -617,7 +617,6 @@ class TestDeViggedEdge:
         if result.fair_market_probability is not None:
             _, fh, fd, fa = _compute_devig(1.80, 3.50, 5.00)
             # Fair probability should match de-vig result
-            expected_fair = fh  # best market would be home given high home prob
             # Allow some tolerance since best market selection varies
             assert 0 < result.fair_market_probability < 1.0
 

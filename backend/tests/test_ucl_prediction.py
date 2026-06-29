@@ -76,7 +76,7 @@ def test_ucl_candidate_paths_use_generic_model(tmp_path):
     UCL model loading path must include sabiscore_production_v2.joblib.
     We verify by creating a minimal mock settings and inspecting the candidates.
     """
-    service = PredictionService()
+    PredictionService()
     # Reconstruct what _get_ensemble_for_league would look for
     _backend_models = settings.models_path.parent / "backend" / "models"
     ucl_candidates = [

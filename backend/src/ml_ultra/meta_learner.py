@@ -235,7 +235,7 @@ class DiverseEnsemble(BaseEstimator, ClassifierMixin):
         # Extract coefficients from meta-learner
         coef = self.meta_learner.coef_
         n_classes = coef.shape[0]
-        n_models = len(self.models)
+        len(self.models)
 
         weights = {}
         for idx, name in enumerate(self.models.keys()):

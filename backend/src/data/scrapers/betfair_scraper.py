@@ -86,13 +86,7 @@ class BetfairExchangeScraper(BaseScraper):
         Requires valid API key and session token.
         """
         # API endpoint for exchange odds
-        api_url = "https://api.betfair.com/exchange/betting/rest/v1.0/listMarketCatalogue/"
         
-        headers = {
-            "X-Application": self.api_key,
-            "X-Authentication": self.session_token,
-            "Content-Type": "application/json",
-        }
         
         # This is a placeholder - actual implementation would need proper
         # market ID lookup and price fetching

@@ -248,7 +248,6 @@ class FBrefScoutingScraper:
                     import json
                     return json.loads(cached)
             
-            url = f"{self.BASE_URL}/en/matches/{match_id}"
             
             # Placeholder data
             data = {

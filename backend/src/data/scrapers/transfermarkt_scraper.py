@@ -139,17 +139,11 @@ class TransfermarktScraper(BaseScraper):
         
         if any(t.lower() in team.lower() for t in top_teams):
             tier = "top"
-            base_squad_value = 900  # millions
-            avg_player_value = 45
         elif any(t.lower() in team.lower() for t in ["Aston Villa", "Newcastle", 
                  "Tottenham", "Atletico", "Dortmund", "Milan", "Napoli"]):
             tier = "upper"
-            base_squad_value = 500
-            avg_player_value = 25
         else:
             tier = "mid"
-            base_squad_value = 250
-            avg_player_value = 12
         
         # Generate player values
         squad = self._simulate_squad(team, tier, multiplier)

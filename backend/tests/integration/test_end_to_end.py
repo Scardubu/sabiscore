@@ -334,12 +334,12 @@ class TestPerformance:
         # First call - might be slow
         start = time.time()
         data1 = aggregator.fetch_match_data()
-        first_call = time.time() - start
+        time.time() - start
         
         # Second call - should be cached
         start = time.time()
         data2 = aggregator.fetch_match_data()
-        second_call = time.time() - start
+        time.time() - start
         
         # Cache hit should be faster
         # (This is a weak assertion since first call might also be fast)
