@@ -35,9 +35,14 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Coroutine
+from typing import Any, Callable, Coroutine, cast
 
+from .api_football import APIFootballProvider
 from .base import ProviderResult, ProviderStatus, TrustTier
+from .espn import ESPNProvider
+from .football_data_org import FootballDataOrgProvider
+from .sportmonks import SportmonksProvider
+from .the_odds_api import TheOddsAPIProvider
 from .reconciliation import TeamCandidate, reconcile_team
 from .registry import ProviderRegistry
 
@@ -158,8 +163,8 @@ class EvidenceOrchestrator:
         ESPN provides keyless scoreboard discovery. football_data_org provides
         the official fixture list (when configured). Results run concurrently.
         """
-        espn = self.registry.get("espn")
-        fdo = self.registry.get("football_data_org")
+        espn = cast(ESPNProvider, self.registry.get("espn"))
+        fdo = cast(FootballDataOrgProvider, self.registry.get("football_data_org"))
 
         tasks = [
             _safe_call(lambda e=espn, c=competition: e.scoreboard(c), "espn", "scoreboard"),
@@ -176,8 +181,8 @@ class EvidenceOrchestrator:
         Primary: football_data_org (official, authenticated).
         Supplementary: ESPN (keyless corroboration, standings check).
         """
-        fdo = self.registry.get("football_data_org")
-        espn = self.registry.get("espn")
+        fdo = cast(FootballDataOrgProvider, self.registry.get("football_data_org"))
+        espn = cast(ESPNProvider, self.registry.get("espn"))
 
         tasks = [
             _safe_call(lambda f=fdo, c=competition: f.fixtures(competition=c), "football_data_org", "fixtures"),
@@ -197,8 +202,8 @@ class EvidenceOrchestrator:
 
         Provider predictions from either source are explicitly excluded.
         """
-        apif = self.registry.get("api_football")
-        sm = self.registry.get("sportmonks")
+        apif = cast(APIFootballProvider, self.registry.get("api_football"))
+        sm = cast(SportmonksProvider, self.registry.get("sportmonks"))
 
         apif_tasks = [
             _safe_call(lambda a=apif, c=competition: a.injuries(competition=c), "api_football", "injuries"),
@@ -215,7 +220,7 @@ class EvidenceOrchestrator:
 
     async def _resolve_team_statistics(
         self,
-        apif: Any,
+        apif: APIFootballProvider,
         teams_result: ProviderResult,
         fixture: dict[str, Any],
         competition: str,
@@ -265,8 +270,8 @@ class EvidenceOrchestrator:
         Primary: api_football (confirmed lineups, availability changes).
         Optional: sportmonks (expected vs confirmed cross-check).
         """
-        apif = self.registry.get("api_football")
-        sm = self.registry.get("sportmonks")
+        apif = cast(APIFootballProvider, self.registry.get("api_football"))
+        sm = cast(SportmonksProvider, self.registry.get("sportmonks"))
         fixture_id = fixture.get("provider_event_id") or fixture.get("fixture_id")
 
         tasks = [
@@ -288,7 +293,7 @@ class EvidenceOrchestrator:
         Per Section 6: one bookmaker's coherent snapshot per analysis.
         Mixed-bookmaker records are rejected by the_odds_api.odds() internally.
         """
-        odds_api = self.registry.get("the_odds_api")
+        odds_api = cast(TheOddsAPIProvider, self.registry.get("the_odds_api"))
         canonical_lookup = (
             {fixture.get("provider_event_id", ""): canonical_fixture_id}
             if canonical_fixture_id
@@ -312,8 +317,8 @@ class EvidenceOrchestrator:
         No market source is requested. Missing market is an advisory gap only,
         not critical, for FORECAST_ONLY (execution_eligible remains False).
         """
-        fdo = self.registry.get("football_data_org")
-        espn = self.registry.get("espn")
+        fdo = cast(FootballDataOrgProvider, self.registry.get("football_data_org"))
+        espn = cast(ESPNProvider, self.registry.get("espn"))
 
         tasks = [
             _safe_call(lambda f=fdo, c=competition: f.fixtures(competition=c), "football_data_org", "fixtures"),
