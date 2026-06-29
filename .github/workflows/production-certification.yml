@@ -51,8 +51,8 @@ jobs:
       ALLOW_SQLITE_FALLBACK: "false"
       DATABASE_URL: postgresql://sabi:test_password@127.0.0.1:5432/sabiscore_test
       REDIS_URL: redis://127.0.0.1:6379/0
-      SECRET_KEY: CHANGE_ME_CI_ONLY_SECRET_KEY_32_CHARS
-      BACKEND_TOKEN: CHANGE_ME_CI_ONLY_BACKEND_TOKEN
+      SECRET_KEY: ci-test-secret-not-for-production
+      BACKEND_TOKEN: ci-test-token-not-for-production
       SABISCORE_BACKEND_URL: http://127.0.0.1:8000
       NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
       PROVIDER_LIVE_TESTS: "false"
@@ -92,8 +92,16 @@ jobs:
       - name: Install Playwright Chromium
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Run canonical production gate
-        run: make verify
+      - name: Capture canonical production gate
+        id: verify
+        continue-on-error: true
+        run: |
+          set +e
+          set -o pipefail
+          make verify 2>&1 | tee /tmp/make-verify.log
+          status=${PIPESTATUS[0]}
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
 
       - name: Upload verification artifacts
         if: always()
@@ -102,6 +110,11 @@ jobs:
           name: production-certification-${{ github.sha }}
           if-no-files-found: ignore
           path: |
+            /tmp/make-verify.log
             backend/artifacts/openapi.json
             playwright-report/
             test-results/
+
+      - name: Enforce canonical production gate
+        if: steps.verify.outputs.status != '0'
+        run: exit 1
