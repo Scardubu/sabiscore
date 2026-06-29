@@ -1,8 +1,6 @@
 name: Apply certification workspace
 
 on:
-  push:
-    branches: [codex/final-production-certification]
   pull_request:
     branches: [master]
     types: [opened, synchronize, reopened]
@@ -12,7 +10,7 @@ permissions:
 
 jobs:
   apply:
-    if: github.event_name == 'pull_request' || github.ref_name == 'codex/final-production-certification'
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,8 +39,8 @@ jobs:
           tar -xzf /tmp/certification-files.tgz
           test -f backend/tests/test_web_security_config.py
           test -f .github/workflows/production-certification.yml
+          rm -f .github/workflows/production-certification.yml
           rm -rf .certification
-          rm -f .github/workflows/apply-certification-workspace.yml
 
       - name: Commit and push reviewed source files
         run: |
@@ -50,5 +48,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git diff --cached --quiet || git commit -m "feat: complete production certification workflow"
+          git diff --cached --quiet || git commit -m "feat: complete production certification source hardening"
           git push origin HEAD:codex/final-production-certification
