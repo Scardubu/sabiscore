@@ -22,9 +22,11 @@ This document records the evidence-backed state of the `codex/final-production-c
 - Intentional compatibility/bootstrap imports are documented instead of globally ignored.
 - The enabled production runtime graph has an explicit MyPy manifest covering API startup, fixture intelligence, schemas, verdict services, and provider orchestration.
 - Core odds, provider registry, betting-intelligence, and provider-orchestration type contracts are explicit without changing public runtime behavior.
+- Runtime and Alembic now normalize plain PostgreSQL URLs to the installed Psycopg 3 driver, with regression coverage for plain, async, explicit, and SQLite URLs.
 
 ## Active certification work
 
-- The clean production-manifest MyPy run, Alembic upgrade, and full backend tests are the next mandatory gates.
+- Alembic upgrade and the full backend test suite are the next mandatory gates after the Psycopg 3 fix.
 - OpenAPI checks, Docker Compose startup/image builds, and Playwright desktop/mobile smoke tests remain gate-blocking until verified green.
+- Vercel Git integration is temporarily build-rate-limited after the rapid certification commit sequence; the last pre-limit canonical build was green.
 - The branch must not be merged to `master` while any critical or high-severity gate is red or unverified.
