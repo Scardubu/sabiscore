@@ -24,10 +24,11 @@ This document records the evidence-backed state of the `codex/final-production-c
 - Core odds, provider registry, betting-intelligence, and provider-orchestration type contracts are explicit without changing public runtime behavior.
 - Runtime and Alembic normalize plain PostgreSQL URLs to the installed Psycopg 3 driver, with regression coverage for plain, async, explicit, and SQLite URLs.
 - Revision 0003 widens Alembic's internal version column before recording its long revision identifier, with ordering regression coverage.
+- Alembic upgrade reaches head successfully on PostgreSQL 15.
 
 ## Active certification work
 
-- Alembic upgrade and the full backend test suite are the next mandatory gates after the revision-length fix.
+- The full backend test suite is the next mandatory gate now that migration and test-runner prerequisites pass.
 - OpenAPI checks, Docker Compose startup/image builds, and Playwright desktop/mobile smoke tests remain gate-blocking until verified green.
 - Vercel Git integration is temporarily build-rate-limited after the rapid certification commit sequence; the last pre-limit canonical build was green.
 - The branch must not be merged to `master` while any critical or high-severity gate is red or unverified.
