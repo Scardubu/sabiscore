@@ -66,3 +66,21 @@ def test_sqlite_fallback_requires_explicit_opt_in_outside_tests(monkeypatch):
     assert settings.app_env == "development"
     assert settings.database_url.startswith("sqlite")
     assert settings.allow_sqlite_fallback is False
+
+def test_sync_database_url_uses_installed_psycopg3_driver():
+    from src.core.database_url import get_sync_database_url
+
+    assert get_sync_database_url("postgresql://user:pass@db/app") == (
+        "postgresql+psycopg://user:pass@db/app"
+    )
+    assert get_sync_database_url("postgres://user:pass@db/app") == (
+        "postgresql+psycopg://user:pass@db/app"
+    )
+    assert get_sync_database_url("postgresql+asyncpg://user:pass@db/app") == (
+        "postgresql+psycopg://user:pass@db/app"
+    )
+    assert get_sync_database_url("postgresql+psycopg://user:pass@db/app") == (
+        "postgresql+psycopg://user:pass@db/app"
+    )
+    assert get_sync_database_url("sqlite+aiosqlite:///local.db") == "sqlite:///local.db"
+
