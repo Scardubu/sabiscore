@@ -24,7 +24,7 @@ import hashlib
 import json
 import math
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 from ..schemas.betting_intelligence import (
     AnalysisModeEnum,
@@ -379,7 +379,7 @@ def _evaluate_all_outcomes(
         })
 
     # Sort by confidence-adjusted value descending (best market first)
-    results.sort(key=lambda r: r["confidence_adjusted_value"], reverse=True)
+    results.sort(key=lambda r: cast(float, r["confidence_adjusted_value"]), reverse=True)
     return results
 
 
@@ -600,12 +600,12 @@ def analyze_match(
     # Validate overround integrity
     if market is not None and not market_gaps:
         try:
-            overround, fair_h, fair_d, fair_a = _compute_devig(
+            validation_overround, _, _, _ = _compute_devig(
                 market.home_odds, market.draw_odds, market.away_odds
             )
-            if overround > float(policy["max_market_overround"]) or overround < float(policy["min_market_overround"]):
+            if validation_overround > float(policy["max_market_overround"]) or validation_overround < float(policy["min_market_overround"]):
                 gaps.append(
-                    f"DATA_GAP: market_overround_outside_integrity_limits ({overround:.4f})"
+                    f"DATA_GAP: market_overround_outside_integrity_limits ({validation_overround:.4f})"
                 )
                 market = None
         except ValueError as exc:
@@ -684,7 +684,12 @@ def analyze_match(
             away=model.away_probability,
         )
 
-    if verdict not in (VerdictEnum.PARTIAL, VerdictEnum.NO_BET, VerdictEnum.HOLD) and best_eval:
+    if (
+        verdict not in (VerdictEnum.PARTIAL, VerdictEnum.NO_BET, VerdictEnum.HOLD)
+        and best_eval
+        and model is not None
+        and market is not None
+    ):
         best_market_field = best_eval["market_label"]
         market_odds_field = best_eval["market_odds"]
         raw_implied_field = best_eval["raw_implied_probability"]
