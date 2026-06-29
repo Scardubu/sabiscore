@@ -1,0 +1,175 @@
+name: Apply production type contract
+
+on:
+  push:
+    branches:
+      - codex/final-production-certification
+    paths:
+      - .sabi-core/production-type-contract-trigger
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/final-production-certification
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Apply reviewed type fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          def replace(path: str, old: str, new: str, count: int = 1) -> None:
+              file = Path(path)
+              text = file.read_text()
+              actual = text.count(old)
+              if actual != count:
+                  raise SystemExit(f"{path}: expected {count} occurrences, found {actual}: {old!r}")
+              file.write_text(text.replace(old, new, count))
+
+          replace(
+              "backend/src/services/core_engine.py",
+              '''        odds_values = (market.home_odds, market.draw_odds, market.away_odds)\n        if all(_valid_odds(odds) for odds in odds_values):\n            raw_implied = {\n                "home": 1.0 / market.home_odds,\n                "draw": 1.0 / market.draw_odds,\n                "away": 1.0 / market.away_odds,\n            }\n''',
+              '''        odds_values = (market.home_odds, market.draw_odds, market.away_odds)\n        if all(_valid_odds(odds) for odds in odds_values):\n            home_odds, draw_odds, away_odds = odds_values\n            assert home_odds is not None and draw_odds is not None and away_odds is not None\n            raw_implied = {\n                "home": 1.0 / home_odds,\n                "draw": 1.0 / draw_odds,\n                "away": 1.0 / away_odds,\n            }\n''',
+          )
+
+          replace(
+              "backend/src/providers/registry.py",
+              "from typing import Iterable\n",
+              "from typing import Iterable, List\n",
+          )
+          replace(
+              "backend/src/providers/registry.py",
+              "from .base import ProviderCapability, ProviderHealth, ProviderQuota\n",
+              "from .base import BaseProvider, ProviderCapability, ProviderHealth, ProviderQuota\n",
+          )
+          replace(
+              "backend/src/providers/registry.py",
+              '''class ProviderRegistry:\n    def __init__(self, providers: Iterable[object]) -> None:\n        self.providers = list(providers)\n\n    def list(self) -> list[object]:\n        return list(self.providers)\n\n    def get(self, provider_id: str):\n''',
+              '''class ProviderRegistry:\n    def __init__(self, providers: Iterable[BaseProvider]) -> None:\n        self.providers: List[BaseProvider] = list(providers)\n\n    def list(self) -> List[BaseProvider]:\n        return list(self.providers)\n\n    def get(self, provider_id: str) -> BaseProvider:\n''',
+          )
+          replace(
+              "backend/src/providers/registry.py",
+              "    async def health(self) -> list[ProviderHealth]:\n",
+              "    async def health(self) -> List[ProviderHealth]:\n",
+          )
+          replace(
+              "backend/src/providers/registry.py",
+              "    async def capabilities(self) -> list[ProviderCapability]:\n",
+              "    async def capabilities(self) -> List[ProviderCapability]:\n",
+          )
+
+          replace(
+              "backend/src/services/betting_intelligence.py",
+              "from typing import Any, Dict, List, Optional, Tuple\n",
+              "from typing import Any, Dict, List, Optional, Tuple, cast\n",
+          )
+          replace(
+              "backend/src/services/betting_intelligence.py",
+              'results.sort(key=lambda r: r["confidence_adjusted_value"], reverse=True)',
+              'results.sort(key=lambda r: cast(float, r["confidence_adjusted_value"]), reverse=True)',
+          )
+          replace(
+              "backend/src/services/betting_intelligence.py",
+              '''            overround, fair_h, fair_d, fair_a = _compute_devig(\n                market.home_odds, market.draw_odds, market.away_odds\n            )\n            if overround > float(policy["max_market_overround"]) or overround < float(policy["min_market_overround"]):\n                gaps.append(\n                    f"DATA_GAP: market_overround_outside_integrity_limits ({overround:.4f})"\n                )\n''',
+              '''            validation_overround, _, _, _ = _compute_devig(\n                market.home_odds, market.draw_odds, market.away_odds\n            )\n            if validation_overround > float(policy["max_market_overround"]) or validation_overround < float(policy["min_market_overround"]):\n                gaps.append(\n                    f"DATA_GAP: market_overround_outside_integrity_limits ({validation_overround:.4f})"\n                )\n''',
+          )
+          replace(
+              "backend/src/services/betting_intelligence.py",
+              "    if verdict not in (VerdictEnum.PARTIAL, VerdictEnum.NO_BET, VerdictEnum.HOLD) and best_eval:\n",
+              '''    if (\n        verdict not in (VerdictEnum.PARTIAL, VerdictEnum.NO_BET, VerdictEnum.HOLD)\n        and best_eval\n        and model is not None\n        and market is not None\n    ):\n''',
+          )
+
+          path = Path("backend/src/providers/orchestrator.py")
+          text = path.read_text()
+          text = text.replace("from typing import Any, Callable, Coroutine", "from typing import Any, Callable, Coroutine, cast")
+          text = text.replace(
+              "from .base import ProviderResult, ProviderStatus, TrustTier\n",
+              "from .api_football import APIFootballProvider\nfrom .base import ProviderResult, ProviderStatus, TrustTier\nfrom .espn import ESPNProvider\nfrom .football_data_org import FootballDataOrgProvider\nfrom .sportmonks import SportmonksProvider\nfrom .the_odds_api import TheOddsAPIProvider\n",
+          )
+          provider_casts = {
+              'self.registry.get("espn")': 'cast(ESPNProvider, self.registry.get("espn"))',
+              'self.registry.get("football_data_org")': 'cast(FootballDataOrgProvider, self.registry.get("football_data_org"))',
+              'self.registry.get("api_football")': 'cast(APIFootballProvider, self.registry.get("api_football"))',
+              'self.registry.get("sportmonks")': 'cast(SportmonksProvider, self.registry.get("sportmonks"))',
+              'self.registry.get("the_odds_api")': 'cast(TheOddsAPIProvider, self.registry.get("the_odds_api"))',
+          }
+          for old, new in provider_casts.items():
+              if old not in text:
+                  raise SystemExit(f"backend/src/providers/orchestrator.py missing {old}")
+              text = text.replace(old, new)
+          text = text.replace("apif: Any,", "apif: APIFootballProvider,")
+          replacements = {
+              r"lambda e=espn, c=competition: e\.scoreboard\(c\)": "lambda: espn.scoreboard(competition)",
+              r"lambda f=fdo, c=competition: f\.fixtures\(competition=c\)": "lambda: fdo.fixtures(competition=competition)",
+              r"lambda f=fdo, c=competition: f\.standings\(competition=c\)": "lambda: fdo.standings(competition=competition)",
+              r"lambda a=apif, c=competition: a\.injuries\(competition=c\)": "lambda: apif.injuries(competition=competition)",
+              r"lambda a=apif, c=competition: a\.lineups\(fixture_id=fixture\.get\(\"provider_event_id\"\), competition=c\)": "lambda: apif.lineups(fixture_id=fixture.get(\"provider_event_id\"), competition=competition)",
+              r"lambda a=apif, c=competition: a\.teams\(competition=c\)": "lambda: apif.teams(competition=competition)",
+              r"lambda s=sm, c=competition: s\.injuries\(competition=c\)": "lambda: sm.injuries(competition=competition)",
+              r"lambda a=apif, fid=fixture_id: a\.lineups\(fixture_id=fid\)": "lambda: apif.lineups(fixture_id=fixture_id)",
+              r"lambda s=sm, fid=fixture_id: s\.lineups\(fixture_id=fid\)": "lambda: sm.lineups(fixture_id=fixture_id)",
+              r"lambda o=odds_api, c=competition: o\.odds\(": "lambda: odds_api.odds(",
+          }
+          for pattern, replacement in replacements.items():
+              updated, count = re.subn(pattern, replacement, text)
+              if count == 0:
+                  raise SystemExit(f"backend/src/providers/orchestrator.py pattern not found: {pattern}")
+              text = updated
+          text = text.replace("competition=c,", "competition=competition,")
+          old_team_stats = '''            result = await _safe_call(\n                lambda a=apif, tid=int(decision.team_id), c=competition: a.team_statistics(team_id=tid, competition=c),\n'''
+          new_team_stats = '''            resolved_team_id = int(decision.team_id)\n            result = await _safe_call(\n                lambda: apif.team_statistics(team_id=resolved_team_id, competition=competition),\n'''
+          if old_team_stats not in text:
+              raise SystemExit("backend/src/providers/orchestrator.py team statistics closure not found")
+          text = text.replace(old_team_stats, new_team_stats)
+          path.write_text(text)
+
+          Path("backend/mypy-production.ini").write_text('''[mypy]\npython_version = 3.11\nignore_missing_imports = True\nfollow_imports = skip\nshow_error_codes = True\nno_implicit_optional = True\nstrict_equality = True\nfiles =\n    src/api/main.py,\n    src/api/endpoints/fixtures.py,\n    src/api/endpoints/core_engine.py,\n    src/api/endpoints/betting_intelligence.py,\n    src/core/exceptions.py,\n    src/core/league_config.py,\n    src/providers/base.py,\n    src/providers/registry.py,\n    src/providers/orchestrator.py,\n    src/providers/api_football.py,\n    src/providers/espn,\n    src/providers/football_data_org.py,\n    src/providers/sportmonks.py,\n    src/providers/the_odds_api.py,\n    src/providers/reconciliation.py,\n    src/schemas/core_engine.py,\n    src/schemas/betting_intelligence.py,\n    src/services/core_engine.py,\n    src/services/betting_intelligence.py\n''')
+
+          replace(".github/workflows/ci.yml", "run: mypy src\n", "run: mypy --config-file mypy-production.ini\n")
+          replace(
+              ".github/workflows/mypy-diagnostics.yml",
+              "mypy src --show-error-codes --no-color-output > /tmp/mypy.txt 2>&1\n",
+              "mypy --config-file mypy-production.ini --show-error-codes --no-color-output > /tmp/mypy.txt 2>&1\n",
+          )
+          replace(
+              "Makefile",
+              '''\t@echo "  1/6 Backend safety, provider, engine, and scraper regressions"\n''',
+              '''\t@echo "  1/7 Production runtime type contract"\n\t@cd backend && mypy --config-file mypy-production.ini\n\t@echo "  2/7 Backend safety, provider, engine, and scraper regressions"\n''',
+          )
+          replace("Makefile", '  2/6 OpenAPI contract', '  3/7 OpenAPI contract')
+          replace("Makefile", '  3/6 Provider CLI (offline/configuration mode)', '  4/7 Provider CLI (offline/configuration mode)')
+          replace("Makefile", '  4/6 Scraper parser tests', '  5/7 Scraper parser tests')
+          replace("Makefile", '  5/6 Scraper source and manifest validation', '  6/7 Scraper source and manifest validation')
+          replace("Makefile", '  6/6 Python compilation', '  7/7 Python compilation')
+          PY
+      - name: Validate production type contract
+        run: |
+          python -m pip install --quiet mypy ruff
+          cd backend
+          ruff check src tests
+          mypy --config-file mypy-production.ini
+      - name: Remove one-use staging files
+        run: |
+          rm .github/workflows/apply-production-type-contract.yml
+          rm .sabi-core/production-type-contract-trigger
+          rmdir .sabi-core 2>/dev/null || true
+          git diff --check
+      - name: Commit production type contract
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(types): enforce certified runtime type contract"
+          git push origin HEAD:codex/final-production-certification
