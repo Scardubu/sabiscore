@@ -150,35 +150,40 @@ if old_team_stats not in text:
 text = text.replace(old_team_stats, new_team_stats)
 orchestrator.write_text(text)
 
-Path("backend/mypy-production.ini").write_text(
-    """[mypy]\n"
-    "python_version = 3.11\n"
-    "ignore_missing_imports = True\n"
-    "follow_imports = skip\n"
-    "show_error_codes = True\n"
-    "no_implicit_optional = True\n"
-    "strict_equality = True\n"
-    "files =\n"
-    "    src/api/main.py,\n"
-    "    src/api/endpoints/fixtures.py,\n"
-    "    src/api/endpoints/core_engine.py,\n"
-    "    src/api/endpoints/betting_intelligence.py,\n"
-    "    src/core/exceptions.py,\n"
-    "    src/core/league_config.py,\n"
-    "    src/providers/base.py,\n"
-    "    src/providers/registry.py,\n"
-    "    src/providers/orchestrator.py,\n"
-    "    src/providers/api_football.py,\n"
-    "    src/providers/espn,\n"
-    "    src/providers/football_data_org.py,\n"
-    "    src/providers/sportmonks.py,\n"
-    "    src/providers/the_odds_api.py,\n"
-    "    src/providers/reconciliation.py,\n"
-    "    src/schemas/core_engine.py,\n"
-    "    src/schemas/betting_intelligence.py,\n"
-    "    src/services/core_engine.py,\n"
-    "    src/services/betting_intelligence.py\n"
-)
+mypy_files = [
+    "src/api/main.py",
+    "src/api/endpoints/fixtures.py",
+    "src/api/endpoints/core_engine.py",
+    "src/api/endpoints/betting_intelligence.py",
+    "src/core/exceptions.py",
+    "src/core/league_config.py",
+    "src/providers/base.py",
+    "src/providers/registry.py",
+    "src/providers/orchestrator.py",
+    "src/providers/api_football.py",
+    "src/providers/espn",
+    "src/providers/football_data_org.py",
+    "src/providers/sportmonks.py",
+    "src/providers/the_odds_api.py",
+    "src/providers/reconciliation.py",
+    "src/schemas/core_engine.py",
+    "src/schemas/betting_intelligence.py",
+    "src/services/core_engine.py",
+    "src/services/betting_intelligence.py",
+]
+mypy_config = [
+    "[mypy]",
+    "python_version = 3.11",
+    "ignore_missing_imports = True",
+    "follow_imports = skip",
+    "show_error_codes = True",
+    "no_implicit_optional = True",
+    "strict_equality = True",
+    "files =",
+    *[f"    {path}," for path in mypy_files[:-1]],
+    f"    {mypy_files[-1]}",
+]
+Path("backend/mypy-production.ini").write_text("\n".join(mypy_config) + "\n")
 
 replace(
     ".github/workflows/ci.yml",
