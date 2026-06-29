@@ -206,12 +206,12 @@ class EvidenceOrchestrator:
         sm = cast(SportmonksProvider, self.registry.get("sportmonks"))
 
         apif_tasks = [
-            _safe_call(lambda a=apif, c=competition: a.injuries(competition=c), "api_football", "injuries"),
-            _safe_call(lambda a=apif, c=competition: a.lineups(fixture_id=fixture.get("provider_event_id"), competition=c), "api_football", "lineups"),
-            _safe_call(lambda a=apif, c=competition: a.teams(competition=c), "api_football", "teams"),
+            _safe_call(lambda: apif.injuries(competition=competition), "api_football", "injuries"),
+            _safe_call(lambda: apif.lineups(fixture_id=fixture.get("provider_event_id"), competition=competition), "api_football", "lineups"),
+            _safe_call(lambda: apif.teams(competition=competition), "api_football", "teams"),
         ]
         sm_tasks = [
-            _safe_call(lambda s=sm, c=competition: s.injuries(competition=c), "sportmonks", "injuries"),
+            _safe_call(lambda: sm.injuries(competition=competition), "sportmonks", "injuries"),
         ]
 
         results = list(await asyncio.gather(*(apif_tasks + sm_tasks)))
@@ -253,8 +253,9 @@ class EvidenceOrchestrator:
                 )
                 continue
 
+            resolved_team_id = int(decision.team_id)
             result = await _safe_call(
-                lambda a=apif, tid=int(decision.team_id), c=competition: a.team_statistics(team_id=tid, competition=c),
+                lambda: apif.team_statistics(team_id=resolved_team_id, competition=competition),
                 "api_football",
                 operation,
             )
@@ -275,8 +276,8 @@ class EvidenceOrchestrator:
         fixture_id = fixture.get("provider_event_id") or fixture.get("fixture_id")
 
         tasks = [
-            _safe_call(lambda a=apif, fid=fixture_id: a.lineups(fixture_id=fid), "api_football", "lineups"),
-            _safe_call(lambda s=sm, fid=fixture_id: s.lineups(fixture_id=fid), "sportmonks", "lineups"),
+            _safe_call(lambda: apif.lineups(fixture_id=fixture_id), "api_football", "lineups"),
+            _safe_call(lambda: sm.lineups(fixture_id=fixture_id), "sportmonks", "lineups"),
         ]
         results = list(await asyncio.gather(*tasks))
         return results
@@ -300,8 +301,8 @@ class EvidenceOrchestrator:
             else None
         )
         result = await _safe_call(
-            lambda o=odds_api, c=competition: o.odds(
-                competition=c,
+            lambda: odds_api.odds(
+                competition=competition,
                 canonical_fixture_lookup=canonical_lookup,
             ),
             "the_odds_api",
