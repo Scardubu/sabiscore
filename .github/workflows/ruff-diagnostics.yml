@@ -1,0 +1,22 @@
+name: Ruff Diagnostics
+
+on:
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  ruff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Ruff only
+        run: python -m pip install --quiet ruff
+      - name: Report Ruff diagnostics
+        working-directory: backend
+        run: ruff check src tests --output-format=concise
