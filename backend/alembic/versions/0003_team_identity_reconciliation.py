@@ -18,6 +18,16 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Alembic creates version_num as VARCHAR(32). This revision identifier is
+    # longer, so widen the internal version table before Alembic records it.
+    op.alter_column(
+        "alembic_version",
+        "version_num",
+        existing_type=sa.String(length=32),
+        type_=sa.String(length=128),
+        existing_nullable=False,
+    )
+
     op.create_table(
         "provider_team_mappings",
         sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
