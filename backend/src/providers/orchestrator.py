@@ -167,8 +167,8 @@ class EvidenceOrchestrator:
         fdo = cast(FootballDataOrgProvider, self.registry.get("football_data_org"))
 
         tasks = [
-            _safe_call(lambda e=espn, c=competition: e.scoreboard(c), "espn", "scoreboard"),
-            _safe_call(lambda f=fdo, c=competition: f.fixtures(competition=c), "football_data_org", "fixtures"),
+            _safe_call(lambda: espn.scoreboard(competition), "espn", "scoreboard"),
+            _safe_call(lambda: fdo.fixtures(competition=competition), "football_data_org", "fixtures"),
         ]
         results = list(await asyncio.gather(*tasks))
         return results
@@ -185,9 +185,9 @@ class EvidenceOrchestrator:
         espn = cast(ESPNProvider, self.registry.get("espn"))
 
         tasks = [
-            _safe_call(lambda f=fdo, c=competition: f.fixtures(competition=c), "football_data_org", "fixtures"),
-            _safe_call(lambda f=fdo, c=competition: f.standings(competition=c), "football_data_org", "standings"),
-            _safe_call(lambda e=espn, c=competition: e.scoreboard(c), "espn", "scoreboard"),
+            _safe_call(lambda: fdo.fixtures(competition=competition), "football_data_org", "fixtures"),
+            _safe_call(lambda: fdo.standings(competition=competition), "football_data_org", "standings"),
+            _safe_call(lambda: espn.scoreboard(competition), "espn", "scoreboard"),
         ]
         results = list(await asyncio.gather(*tasks))
         return results
@@ -321,8 +321,8 @@ class EvidenceOrchestrator:
         espn = cast(ESPNProvider, self.registry.get("espn"))
 
         tasks = [
-            _safe_call(lambda f=fdo, c=competition: f.fixtures(competition=c), "football_data_org", "fixtures"),
-            _safe_call(lambda e=espn, c=competition: e.scoreboard(c), "espn", "scoreboard"),
+            _safe_call(lambda: fdo.fixtures(competition=competition), "football_data_org", "fixtures"),
+            _safe_call(lambda: espn.scoreboard(competition), "espn", "scoreboard"),
         ]
         results = list(await asyncio.gather(*tasks))
         return results
