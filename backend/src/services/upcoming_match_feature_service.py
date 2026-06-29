@@ -252,7 +252,7 @@ class UpcomingMatchFeatureProjector:
             "away_team_id": away_team_id,
             "features_68": features_array,
             "features_58": features_array[: len(CANONICAL_FEATURES_58)],
-            "features_dict": {f: float(features_array[i]) for i, f in enumerate(self.canonical_features)},
+            "features_dict": {f: round(float(features_array[i]), 6) for i, f in enumerate(self.canonical_features)},
             "data_gaps": sorted(set(data_gaps)),
             "data_quality": data_quality,
         }
