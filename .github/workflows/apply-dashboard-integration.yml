@@ -1,0 +1,54 @@
+name: Apply reviewed frontend integration
+
+on:
+  push:
+    branches:
+      - codex/final-production-certification
+    paths:
+      - .sabi-core/dashboard-integration.patch
+      - .github/workflows/apply-dashboard-integration.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-dashboard-integration
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out certification branch
+        uses: actions/checkout@v4
+        with:
+          ref: codex/final-production-certification
+          fetch-depth: 0
+
+      - name: Verify reviewed patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "ba7b9bc09aa3c6f6d9869807b5f5c545251c430bf4e7b460d49d863d9c0468d8  .sabi-core/dashboard-integration.patch" | sha256sum --check --strict
+          git apply --check .sabi-core/dashboard-integration.patch
+
+      - name: Apply and remove staging files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git apply .sabi-core/dashboard-integration.patch
+          rm .sabi-core/dashboard-integration.patch
+          rm .github/workflows/apply-dashboard-integration.yml
+          rmdir .sabi-core 2>/dev/null || true
+          git diff --check
+
+      - name: Commit reviewed dashboard integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(web): integrate canonical verdict dashboard"
+          git push origin HEAD:codex/final-production-certification

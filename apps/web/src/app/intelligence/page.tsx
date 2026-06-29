@@ -25,7 +25,7 @@ export default async function IntelligencePage({
           <p className="rounded-full border border-white/10 px-3 py-2 text-xs font-bold text-slate-400">Requested league: {requestedLeague.replaceAll("_", " ")}</p>
         </div>
       </section>
-      <BettingIntelligenceDashboard />
+      <BettingIntelligenceDashboard initialCompetition={requestedLeague} />
     </div>
   );
 }

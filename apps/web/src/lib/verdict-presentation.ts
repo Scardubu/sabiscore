@@ -15,6 +15,7 @@ export interface VerdictPresentation {
   badgeClass: string;
   icon: "incomplete" | "skip" | "monitor" | "risk" | "value" | "conviction";
   pulse: boolean;
+  tone: "partial" | "pass" | "neutral" | "watch" | "positive";
 }
 
 export const VERDICT_PRESENTATION: Record<ProductionVerdict, VerdictPresentation> = {
@@ -24,6 +25,7 @@ export const VERDICT_PRESENTATION: Record<ProductionVerdict, VerdictPresentation
     badgeClass: "border-slate-500/40 bg-slate-500/10 text-slate-200",
     icon: "incomplete",
     pulse: false,
+    tone: "partial",
   },
   NO_BET: {
     label: "Skip This Match",
@@ -31,6 +33,7 @@ export const VERDICT_PRESENTATION: Record<ProductionVerdict, VerdictPresentation
     badgeClass: "border-rose-500/40 bg-rose-500/10 text-rose-200",
     icon: "skip",
     pulse: false,
+    tone: "pass",
   },
   HOLD: {
     label: "Monitor Closely",
@@ -38,6 +41,7 @@ export const VERDICT_PRESENTATION: Record<ProductionVerdict, VerdictPresentation
     badgeClass: "border-amber-400/40 bg-amber-400/10 text-amber-100",
     icon: "monitor",
     pulse: false,
+    tone: "neutral",
   },
   SPECULATIVE: {
     label: "Risky — Small Stake Only",
@@ -45,6 +49,7 @@ export const VERDICT_PRESENTATION: Record<ProductionVerdict, VerdictPresentation
     badgeClass: "border-orange-400/40 bg-orange-400/10 text-orange-100",
     icon: "risk",
     pulse: false,
+    tone: "watch",
   },
   ACTIONABLE: {
     label: "Good Value",
@@ -52,6 +57,7 @@ export const VERDICT_PRESENTATION: Record<ProductionVerdict, VerdictPresentation
     badgeClass: "border-emerald-400/40 bg-emerald-400/10 text-emerald-100",
     icon: "value",
     pulse: false,
+    tone: "positive",
   },
   HIGH_CONVICTION: {
     label: "Bet Now",
@@ -59,6 +65,7 @@ export const VERDICT_PRESENTATION: Record<ProductionVerdict, VerdictPresentation
     badgeClass: "border-lime-300/50 bg-lime-300/15 text-lime-100",
     icon: "conviction",
     pulse: true,
+    tone: "positive",
   },
 };
 
