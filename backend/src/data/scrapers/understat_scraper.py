@@ -111,7 +111,7 @@ class UnderstatScraper(BaseScraper):
                 return cached
         
         # For development, use simulated data
-        data = self._simulate_xg_data(team, league, season)
+        data = self._unavailable_xg_data(team, league, season)
         
         # Cache result
         self.xg_cache[cache_key] = data
@@ -119,101 +119,24 @@ class UnderstatScraper(BaseScraper):
         
         return data
     
-    def _simulate_xg_data(
+    def _unavailable_xg_data(
         self,
         team: str,
         league: str,
         season: str
     ) -> Dict:
-        """Simulate realistic xG data."""
-        # Team strength affects xG generation
-        team_strength = self._get_team_strength(team)
-        
-        # Simulate season averages
-        xg_per_game = 1.5 * team_strength  # Top teams ~2.0, weak teams ~1.0
-        xga_per_game = 1.2 / team_strength  # Top teams ~0.9, weak teams ~1.6
-        
-        # Simulate recent matches
-        recent_matches = self._simulate_recent_matches(team, xg_per_game, xga_per_game)
-        
-        # Calculate running averages
-        avg_xg = sum(m["xg"] for m in recent_matches) / len(recent_matches)
-        avg_xga = sum(m["xga"] for m in recent_matches) / len(recent_matches)
-        
-        return {
-            "team": team,
-            "league": league,
-            "season": season,
-            "stats": {
-                "matches_played": 20,
-                "xg_total": round(xg_per_game * 20, 2),
-                "xga_total": round(xga_per_game * 20, 2),
-                "xg_per_game": round(xg_per_game, 2),
-                "xga_per_game": round(xga_per_game, 2),
-                "xg_difference": round(xg_per_game - xga_per_game, 2),
-                "npxg_per_game": round(xg_per_game * 0.85, 2),  # Non-penalty xG
-            },
-            "recent_form": {
-                "last_5_xg_avg": round(avg_xg, 2),
-                "last_5_xga_avg": round(avg_xga, 2),
-                "xg_trend": self._calculate_trend(recent_matches, "xg"),
-                "xga_trend": self._calculate_trend(recent_matches, "xga"),
-            },
-            "recent_matches": recent_matches,
-            "shot_quality": {
-                "avg_xg_per_shot": round(random.uniform(0.08, 0.14), 3),
-                "shots_per_game": round(random.uniform(10, 16), 1),
-                "big_chances_per_game": round(random.uniform(1.5, 3.5), 1),
-            },
-            "timestamp": datetime.now().isoformat(),
-            "source": "understat",
-            "simulated": True,
-        }
+        raise RuntimeError("Synthetic scraper fallback removed; verified source data required")
     
     def _get_team_strength(self, team: str) -> float:
-        """Get team strength multiplier."""
-        top_teams = {
-            "Man City": 1.4, "Arsenal": 1.35, "Liverpool": 1.30,
-            "Chelsea": 1.15, "Tottenham": 1.10, "Newcastle": 1.10,
-            "Real Madrid": 1.40, "Barcelona": 1.35,
-            "Bayern Munich": 1.45, "Dortmund": 1.20,
-            "PSG": 1.40, "Inter": 1.25, "Juventus": 1.20,
-        }
-        
-        for known_team, strength in top_teams.items():
-            if known_team.lower() in team.lower():
-                return strength
-        
-        return random.uniform(0.85, 1.05)
+        raise RuntimeError("Synthetic scraper fallback removed; verified source data required")
     
-    def _simulate_recent_matches(
+    def _unavailable_recent_matches(
         self,
         team: str,
         base_xg: float,
         base_xga: float
     ) -> List[Dict]:
-        """Simulate last 5 matches with xG data."""
-        matches = []
-        
-        for i in range(5):
-            xg = max(0.2, base_xg * random.uniform(0.6, 1.5))
-            xga = max(0.2, base_xga * random.uniform(0.6, 1.5))
-            goals = max(0, round(xg + random.uniform(-0.8, 0.8)))
-            goals_against = max(0, round(xga + random.uniform(-0.8, 0.8)))
-            
-            matches.append({
-                "match_num": 20 - i,
-                "xg": round(xg, 2),
-                "xga": round(xga, 2),
-                "goals": goals,
-                "goals_against": goals_against,
-                "xg_diff": round(xg - goals, 2),  # Positive = underperforming
-                "xga_diff": round(xga - goals_against, 2),
-                "shots": random.randint(8, 18),
-                "shots_against": random.randint(6, 15),
-            })
-        
-        return matches
+        raise RuntimeError("Synthetic scraper fallback removed; verified source data required")
     
     def _calculate_trend(
         self,
