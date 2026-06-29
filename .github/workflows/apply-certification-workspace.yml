@@ -38,7 +38,9 @@ jobs:
           tar -tzf /tmp/certification-files.tgz
           tar -xzf /tmp/certification-files.tgz
           test -f backend/tests/test_web_security_config.py
+          test -f .github/workflows/ci.yml
           test -f .github/workflows/production-certification.yml
+          git checkout HEAD -- .github/workflows/ci.yml
           rm -f .github/workflows/production-certification.yml
           rm -rf .certification
 
