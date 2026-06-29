@@ -1,6 +1,8 @@
 name: SABI-CORE temporary source export
 
 on:
+  pull_request:
+    branches: [master]
   push:
     branches:
       - codex/final-production-certification
