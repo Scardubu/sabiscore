@@ -16,8 +16,6 @@ a fallback with simulated data for development.
 """
 
 import logging
-import random
-from datetime import datetime
 from typing import Dict, List, Optional
 
 

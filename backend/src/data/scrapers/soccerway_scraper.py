@@ -17,7 +17,6 @@ Ethical Note:
 """
 
 import logging
-from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from urllib.parse import urljoin
 

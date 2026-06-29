@@ -20,7 +20,6 @@ Ethical Note:
 
 import json
 import logging
-import random
 from datetime import datetime
 from typing import Dict, List, Optional
 

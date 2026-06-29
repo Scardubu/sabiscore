@@ -17,8 +17,6 @@ Ethical Note:
 """
 
 import logging
-import random
-from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
 from .base_scraper import BaseScraper, CACHE_DIR, PROCESSED_DIR
