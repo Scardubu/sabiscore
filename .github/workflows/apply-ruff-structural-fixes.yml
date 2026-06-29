@@ -1,0 +1,146 @@
+name: Apply Ruff structural fixes
+
+on:
+  push:
+    branches:
+      - codex/final-production-certification
+    paths:
+      - .sabi-core/ruff-structural-trigger
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/final-production-certification
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Apply reviewed structural fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace(path: str, old: str, new: str, count: int = 1) -> None:
+              file = Path(path)
+              text = file.read_text()
+              actual = text.count(old)
+              if actual != count:
+                  raise SystemExit(f"{path}: expected {count} occurrences, found {actual}: {old!r}")
+              file.write_text(text.replace(old, new, count))
+
+          replace("backend/src/api/endpoints/__init__.py", "from typing import List\n", "")
+          replace("backend/src/cli/preprocess_data.py", "league_ids = [l.id for l in leagues]", "league_ids = [league.id for league in leagues]")
+          replace(
+              "backend/src/core/model_fetcher.py",
+              "from ..models.ensemble import SabiScoreEnsemble\n",
+              "from ..models.ensemble import SabiScoreEnsemble  # noqa: E402\n",
+          )
+          replace(
+              "backend/src/data/loaders/__init__.py",
+              "from .football_data_api import FootballDataAPIClient\n",
+              "from .football_data_api import FootballDataAPIClient  # noqa: E402\n",
+          )
+          replace(
+              "backend/src/data/loaders/fbref.py",
+              "        except:\n            pass\n",
+              "        except (AttributeError, IndexError, TypeError, ValueError):\n            pass\n",
+              4,
+          )
+          replace(
+              "backend/src/ml_ultra/feature_engineering.py",
+              "            except:\n                return 0\n",
+              "            except (TypeError, ValueError, np.linalg.LinAlgError):\n                return 0\n",
+          )
+          replace(
+              "backend/src/ml_ultra/production_ml_model.py",
+              "import warnings\nwarnings.filterwarnings('ignore')\n\n# ML imports\n",
+              "import warnings\n\n# ML imports\n",
+          )
+          replace(
+              "backend/src/ml_ultra/production_ml_model.py",
+              "except ImportError:\n    HAS_CATBOOST = False\n\nlogger = logging.getLogger(__name__)\n",
+              "except ImportError:\n    HAS_CATBOOST = False\n\nwarnings.filterwarnings(\"ignore\")\n\nlogger = logging.getLogger(__name__)\n",
+          )
+          replace(
+              "backend/src/ml_ultra/training_pipeline.py",
+              "warnings.filterwarnings('ignore')\n\nfrom .meta_learner import DiverseEnsemble\nfrom .feature_engineering import AdvancedFeatureEngineer\n\nlogger = logging.getLogger(__name__)\n",
+              "from .meta_learner import DiverseEnsemble\nfrom .feature_engineering import AdvancedFeatureEngineer\n\nwarnings.filterwarnings(\"ignore\")\n\nlogger = logging.getLogger(__name__)\n",
+          )
+          replace(
+              "backend/src/models/orchestrator.py",
+              "                except:\n                    continue\n",
+              "                except (AttributeError, KeyError, TypeError, ValueError):\n                    continue\n",
+          )
+          replace(
+              "backend/src/services/data_processing.py",
+              "            if not home_stats: continue # Skip if no stats\n",
+              "            if not home_stats:\n                continue  # Skip if no stats\n",
+          )
+          replace(
+              "backend/src/services/data_processing.py",
+              "            if not away_stats: continue # Skip if no stats (assuming away team stats exist)\n",
+              "            if not away_stats:\n                continue  # Skip if no stats (assuming away team stats exist)\n",
+          )
+          replace(
+              "backend/src/services/data_processing.py",
+              "            if not target_stats: continue\n",
+              "            if not target_stats:\n                continue\n",
+          )
+          replace(
+              "backend/src/services/ultra_prediction_service.py",
+              "        from ..ml_ultra.ultra_predictor import UltraPredictor, LegacyPredictorAdapter\n",
+              "        from ..ml_ultra.ultra_predictor import UltraPredictor\n",
+          )
+          replace(
+              "backend/src/tasks/background.py",
+              "            except:\n                continue\n",
+              "            except (redis.RedisError, TypeError, ValueError):\n                continue\n",
+          )
+          replace(
+              "backend/tests/test_calibration.py",
+              "from src.models.calibration import (\n",
+              "from src.models.calibration import (  # noqa: E402\n",
+          )
+          replace(
+              "backend/tests/test_phase1_fixes.py",
+              "        except:\n            pytest.skip(\"Redis not available for league model tests\")\n",
+              "        except redis.RedisError:\n            pytest.skip(\"Redis not available for league model tests\")\n",
+          )
+          replace(
+              "backend/tests/test_type_f_verdict.py",
+              "from src.services.intelligence_synthesizer import MatchActionability\n",
+              "from src.services.intelligence_synthesizer import MatchActionability  # noqa: E402\n",
+          )
+          PY
+
+      - name: Enforce Ruff
+        run: |
+          python -m pip install --quiet ruff
+          cd backend
+          ruff check src tests
+
+      - name: Remove one-use staging files
+        run: |
+          rm .github/workflows/apply-ruff-structural-fixes.yml
+          rm .sabi-core/ruff-structural-trigger
+          rmdir .sabi-core 2>/dev/null || true
+          git diff --check
+
+      - name: Commit fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(backend): resolve Ruff structural violations"
+          git push origin HEAD:codex/final-production-certification
