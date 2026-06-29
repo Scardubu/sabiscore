@@ -14,8 +14,13 @@ This document records the evidence-backed state of the `codex/final-production-c
 - Backend-derived readiness health endpoint; no static accuracy or uptime claims.
 - Node.js 22 pinned for canonical Vercel and CI builds.
 
+## Completed backend quality gates
+
+- Ruff source and test lint passes after explicit structural cleanup.
+- Bare exception handlers in the certified paths now use scoped exception types.
+- Intentional compatibility/bootstrap imports are documented instead of globally ignored.
+
 ## Active certification work
 
-- Backend Ruff structural cleanup is in progress.
-- Full backend tests, Alembic upgrade, OpenAPI checks, Docker Compose startup, Playwright smoke tests, and canonical Vercel deployment remain gate-blocking until verified green.
+- Full backend tests, MyPy, Alembic upgrade, OpenAPI checks, Docker Compose startup, Playwright smoke tests, and canonical Vercel deployment remain gate-blocking until verified green.
 - The branch must not be merged to `master` while any critical or high-severity gate is red or unverified.
