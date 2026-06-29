@@ -85,7 +85,7 @@ jobs:
 
       - name: MyPy before tests
         working-directory: backend
-        run: mypy src
+        run: mypy --config-file mypy-production.ini
 
       - name: Alembic upgrade
         working-directory: backend
