@@ -24,7 +24,7 @@ apps/web/.env*.local
 
 # Python backend — exclude to prevent Vercel Python runtime detection.
 # Without these exclusions Vercel installs nvidia-nccl-cu12 (289 MB), xgboost,
-# scipy, playwright etc. during the Next.js build.  Backend runs on Render only.
+# scipy, playwright etc. during the Next.js build. Backend runs on Render only.
 apps/api/
 apps/ws/
 backend/
@@ -32,7 +32,9 @@ requirements.txt
 requirements-ml-ultra.txt
 requirements.min.txt
 
-/scripts/
+# Keep the canonical-project selector available to Vercel's Ignored Build Step.
+/scripts/*
+!/scripts/vercel-ignore-build.mjs
 /tests/
 /data/
 /models/
