@@ -1,0 +1,43 @@
+name: MyPy Diagnostics
+
+on:
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  mypy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+      - name: Capture MyPy diagnostics
+        id: mypy
+        working-directory: backend
+        continue-on-error: true
+        run: |
+          set +e
+          mypy src --show-error-codes --no-color-output > /tmp/mypy.txt 2>&1
+          status=$?
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          cat /tmp/mypy.txt
+      - name: Upload MyPy diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mypy-diagnostics
+          path: /tmp/mypy.txt
+          if-no-files-found: error
+      - name: Enforce MyPy result
+        if: steps.mypy.outputs.status != '0'
+        run: exit 1
