@@ -1,6 +1,7 @@
 # SabiScore Production Certification Status
 
 Last updated: 2026-06-29
+Certification run: final backend verification
 
 This document records the evidence-backed state of the `codex/final-production-certification` branch. It must not be interpreted as a release declaration until every mandatory gate is green.
 
