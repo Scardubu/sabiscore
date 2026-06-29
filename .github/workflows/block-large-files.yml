@@ -4,25 +4,53 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
   push:
-    branches: [ main, develop ]
+    branches: [main, master, develop]
+
+permissions:
+  contents: read
 
 jobs:
   scan:
+    name: Reject newly introduced files over 10 MB
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Find large files
+      - name: Find newly added or modified large files
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+          CURRENT_SHA: ${{ github.sha }}
         run: |
-          echo "Scanning for files > 10MB..."
-          set -e
-          LARGE_FILES=$(git ls-tree -r --long HEAD | awk '$4 > 10485760 {print $0}') || true
-          if [ -n "$LARGE_FILES" ]; then
-            echo "Found files larger than 10MB:" >&2
-            git ls-tree -r --long HEAD | awk '$4 > 10485760 {print $0}' >&2
-            exit 1
+          set -euo pipefail
+          limit=10485760
+
+          if [[ "$EVENT_NAME" == "pull_request" && -n "${PR_BASE_SHA:-}" ]]; then
+            base="$PR_BASE_SHA"
+          elif [[ -n "${PUSH_BEFORE_SHA:-}" && "$PUSH_BEFORE_SHA" != "0000000000000000000000000000000000000000" ]]; then
+            base="$PUSH_BEFORE_SHA"
           else
-            echo "No large files found."
+            base="$(git rev-parse HEAD^)"
           fi
+
+          echo "Scanning added or modified files between $base and $CURRENT_SHA for files > 10 MB..."
+          mapfile -t changed_files < <(git diff --name-only --diff-filter=AM -z "$base" "$CURRENT_SHA" | tr '\0' '\n')
+
+          oversized=0
+          for path in "${changed_files[@]}"; do
+            [[ -n "$path" && -f "$path" ]] || continue
+            size=$(stat -c '%s' "$path")
+            if (( size > limit )); then
+              printf 'File exceeds 10 MB: %s (%s bytes)\n' "$path" "$size" >&2
+              oversized=1
+            fi
+          done
+
+          if (( oversized != 0 )); then
+            exit 1
+          fi
+
+          echo "No newly added or modified files exceed 10 MB."
