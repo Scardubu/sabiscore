@@ -15,15 +15,16 @@ This document records the evidence-backed state of the `codex/final-production-c
 - Node.js 22 pinned for canonical Vercel and CI builds.
 - Canonical Vercel preview, web lint, typecheck, tests, and optimized build pass.
 
-## Completed backend quality gates
+## Completed backend quality work
 
 - Ruff source and test lint passes after explicit structural cleanup.
 - Bare exception handlers in the certified paths now use scoped exception types.
 - Intentional compatibility/bootstrap imports are documented instead of globally ignored.
-- MyPy diagnostics are captured as a downloadable CI artifact while remaining gate-blocking.
+- The enabled production runtime graph has an explicit MyPy manifest covering API startup, fixture intelligence, schemas, verdict services, and provider orchestration.
+- Core odds, provider registry, betting-intelligence, and provider-orchestration type contracts are explicit without changing public runtime behavior.
 
 ## Active certification work
 
-- MyPy type errors are the current backend veto.
-- Full backend tests, Alembic upgrade, OpenAPI checks, Docker Compose startup, and Playwright smoke tests remain gate-blocking until verified green.
+- The clean production-manifest MyPy run, Alembic upgrade, and full backend tests are the next mandatory gates.
+- OpenAPI checks, Docker Compose startup/image builds, and Playwright desktop/mobile smoke tests remain gate-blocking until verified green.
 - The branch must not be merged to `master` while any critical or high-severity gate is red or unverified.
