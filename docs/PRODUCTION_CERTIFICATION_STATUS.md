@@ -27,10 +27,11 @@ This document records the evidence-backed state of the `codex/final-production-c
 - Alembic upgrade reaches head successfully on PostgreSQL 15.
 - Legacy scraper fallbacks now stop when verified source data is unavailable.
 - API-facing feature dictionaries normalize float32 values to six decimals while preserving float32 model arrays.
+- Scraper import cleanup is applied after removing obsolete fallback code.
 
 ## Active certification work
 
-- The clean full backend suite is the next mandatory gate after the two final test corrections.
+- The clean full backend suite is the next mandatory gate after the final lint cleanup.
 - OpenAPI checks, Docker Compose startup/image builds, and Playwright desktop/mobile smoke tests remain gate-blocking until verified green.
 - Vercel Git integration is temporarily build-rate-limited after the rapid certification commit sequence; the last pre-limit canonical build was green.
 - The branch must not be merged to `master` while any critical or high-severity gate is red or unverified.
