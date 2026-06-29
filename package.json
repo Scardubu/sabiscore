@@ -34,6 +34,8 @@
     "status": "jq '.skills | group_by(.clusterName) | .[] | \"C\\(.[0].cluster) \\(.[0].clusterName): \\(length) skills\"' registry.json -r",
     "test": "turbo run test",
     "test:e2e": "playwright test",
+    "test:e2e:smoke": "playwright test tests/e2e/intelligence.spec.ts",
+    "test:e2e:full": "playwright test",
     "test:backend": "cd backend && python -m pytest tests -q --no-cov",
     "test:providers": "cd backend && python -m pytest tests/test_providers_gateway.py tests/test_secret_safety.py tests/test_database_migration_hardening.py -q --no-cov",
     "verify": "make verify",
@@ -41,9 +43,7 @@
     "clean": "turbo run clean && rm -rf node_modules",
     "docker:up": "docker-compose -f docker-compose.prod.yml up -d",
     "docker:down": "docker-compose -f docker-compose.prod.yml down",
-    "docker:build": "docker-compose -f docker-compose.prod.yml build",
-    "test:e2e:smoke": "playwright test tests/e2e/intelligence.spec.ts",
-    "test:e2e:full": "playwright test"
+    "docker:build": "docker-compose -f docker-compose.prod.yml build"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
@@ -54,7 +54,7 @@
     "ajv-cli": "^5.0.0",
     "ajv-formats": "^3.0.1",
     "eslint": "^8.57.1",
-    "eslint-config-next": "^15.5.6",
+    "eslint-config-next": "^15.0.3",
     "eslint-config-prettier": "^9.1.0",
     "markdownlint-cli2": "^0.17.2",
     "prettier": "^3.3.3",
@@ -67,9 +67,12 @@
   },
   "dependencies": {
     "@vercel/speed-insights": "^1.2.0",
-    "next": "^15.5.6",
+    "next": "^15.1.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hot-toast": "^2.4.1"
+  },
+  "optionalDependencies": {
+    "@next/swc-win32-x64-msvc": "^16.1.1"
   }
 }
