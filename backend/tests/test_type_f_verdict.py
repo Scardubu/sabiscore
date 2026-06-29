@@ -286,7 +286,7 @@ class TestDataPropagation:
 # ---------------------------------------------------------------------------
 
 
-from src.services.intelligence_synthesizer import MatchActionability
+from src.services.intelligence_synthesizer import MatchActionability  # noqa: E402
 
 
 def _actionability(

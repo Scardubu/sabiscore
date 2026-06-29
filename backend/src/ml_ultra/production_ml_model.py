@@ -31,7 +31,6 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime
 import json
 import warnings
-warnings.filterwarnings('ignore')
 
 # ML imports
 from sklearn.model_selection import (
@@ -71,6 +70,8 @@ try:
     HAS_CATBOOST = True
 except ImportError:
     HAS_CATBOOST = False
+
+warnings.filterwarnings("ignore")
 
 logger = logging.getLogger(__name__)
 

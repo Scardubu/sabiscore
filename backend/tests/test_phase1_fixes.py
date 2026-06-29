@@ -90,7 +90,7 @@ class TestBUG001DrawCalibration:
         try:
             redis_client = redis.Redis(host='localhost', port=6379, decode_responses=True)
             redis_client.ping()
-        except:
+        except redis.RedisError:
             pytest.skip("Redis not available for league model tests")
         
         for LeagueModel in league_models:

@@ -28,7 +28,7 @@ _ml_ultra_available = False
 try:
     from ..ml_ultra import is_ultra_available
     if is_ultra_available():
-        from ..ml_ultra.ultra_predictor import UltraPredictor, LegacyPredictorAdapter
+        from ..ml_ultra.ultra_predictor import UltraPredictor
         from ..ml_ultra.feature_engineering import AdvancedFeatureEngineer
         _ml_ultra_available = True
 except ImportError as e:
