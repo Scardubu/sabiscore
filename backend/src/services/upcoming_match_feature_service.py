@@ -781,10 +781,10 @@ class UpcomingMatchFeatureProjector:
         else:
             stats["home_form_10"] = stats.get("home_form_5", 0.5)
 
-        stats["home_goals_per_match_5"] = (
+        stats["home_goals_per_match_5"] = float(
             np.mean(goals_for[:5]) if len(goals_for) >= 5 else np.mean(goals_for) if goals_for else 1.5
         )
-        stats["home_goals_conceded_per_match_5"] = (
+        stats["home_goals_conceded_per_match_5"] = float(
             np.mean(goals_against[:5]) if len(goals_against) >= 5 else np.mean(goals_against) if goals_against else 1.2
         )
 
@@ -803,7 +803,7 @@ class UpcomingMatchFeatureProjector:
         )
 
         gd = [f - a for f, a in zip(goals_for[:5], goals_against[:5])]
-        stats["home_gd_avg_5"] = np.mean(gd) if gd else 0.0
+        stats["home_gd_avg_5"] = float(np.mean(gd)) if gd else 0.0
         if len(gd) >= 2:
             try:
                 trend = np.polyfit(range(len(gd)), gd, 1)[0]
@@ -813,8 +813,10 @@ class UpcomingMatchFeatureProjector:
 
         xg_values = await self._get_team_xg(team_id, db, recent_matches)
         if xg_values:
-            stats["home_xg_avg_5"] = np.mean(xg_values[:5])
-            stats["home_xg_consistency"] = np.std(xg_values[:5]) if len(xg_values) >= 5 else 0.75
+            stats["home_xg_avg_5"] = float(np.mean(xg_values[:5]))
+            stats["home_xg_consistency"] = (
+                float(np.std(xg_values[:5])) if len(xg_values) >= 5 else 0.75
+            )
 
         return stats if stats else None
 

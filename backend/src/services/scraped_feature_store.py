@@ -172,9 +172,12 @@ class ScrapedTeamFormStore:
             "goals_against_avg",
             "goal_difference_avg",
         )
-        values = {field: _finite_number(item, field) for field in numeric_fields}
-        if any(value is None for value in values.values()):
-            return None
+        values: dict[str, float] = {}
+        for field in numeric_fields:
+            value = _finite_number(item, field)
+            if value is None:
+                return None
+            values[field] = value
 
         count_fields = ("matches_sampled", "wins", "draws", "losses")
         if any(not values[field].is_integer() for field in count_fields):
