@@ -87,9 +87,28 @@ jobs:
         working-directory: backend
         run: mypy --config-file mypy-production.ini
 
-      - name: Alembic upgrade
+      - name: Capture Alembic upgrade diagnostics
+        id: alembic
         working-directory: backend
-        run: alembic upgrade head
+        continue-on-error: true
+        run: |
+          set +e
+          alembic upgrade head > /tmp/alembic.txt 2>&1
+          status=$?
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          cat /tmp/alembic.txt
+
+      - name: Upload Alembic diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alembic-diagnostics
+          path: /tmp/alembic.txt
+          if-no-files-found: error
+
+      - name: Enforce Alembic result
+        if: steps.alembic.outputs.status != '0'
+        run: exit 1
 
       - name: Backend tests
         working-directory: backend
