@@ -140,7 +140,10 @@ const nextConfig = {
 
   // Rewrites for API proxy
   async rewrites() {
-    const apiBaseUrl = process.env.SABISCORE_BACKEND_URL || 'http://localhost:8000';
+    const apiBaseUrl = process.env.SABISCORE_BACKEND_URL || (process.env.NODE_ENV === 'production' ? null : 'http://localhost:8000');
+    if (!apiBaseUrl) {
+      throw new Error('SABISCORE_BACKEND_URL is required for production builds');
+    }
     
     return [
       {

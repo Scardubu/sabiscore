@@ -5,30 +5,18 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-
-const BACKEND_URL =
-  process.env.SABISCORE_BACKEND_URL ??
-  "http://localhost:8000";
-
-const BACKEND_TOKEN = process.env.BACKEND_TOKEN;
+import { proxyHeaders, resolveBackendBaseUrl } from "@/lib/proxy-utils";
 
 async function proxyToBackend(
   req: NextRequest,
   path: string,
   body: string,
 ): Promise<NextResponse> {
-  const url = `${BACKEND_URL}${path}`;
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (BACKEND_TOKEN) {
-    headers["Authorization"] = `Bearer ${BACKEND_TOKEN}`;
-  }
-
   try {
+    const url = `${resolveBackendBaseUrl()}${path}`;
     const backendRes = await fetch(url, {
       method: req.method,
-      headers,
+      headers: proxyHeaders(),
       body: req.method !== "GET" ? body : undefined,
       // 15s timeout for analysis
       signal: AbortSignal.timeout(15_000),

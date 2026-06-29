@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Base stage with dependencies
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
@@ -23,11 +23,13 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED 1
 ENV NODE_ENV production
 ENV NEXT_STANDALONE true
+ARG SABISCORE_BACKEND_URL=http://api:8000
+ENV SABISCORE_BACKEND_URL=${SABISCORE_BACKEND_URL}
 
 RUN pnpm --filter @sabiscore/web build
 
 # Production runner stage
-FROM node:20-alpine AS production
+FROM node:22-alpine AS production
 WORKDIR /app
 
 ENV NODE_ENV production

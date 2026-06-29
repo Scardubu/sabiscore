@@ -5,19 +5,11 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { proxyHeaders, resolveBackendBaseUrl } from "@/lib/proxy-utils";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
-
-function resolveBackendBaseUrl(): string {
-  const configured =
-    process.env.SABISCORE_BACKEND_URL;
-  if (configured && configured.trim().length > 0) {
-    return configured.replace(/\/+$/, "");
-  }
-  return "http://127.0.0.1:8000";
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,14 +22,9 @@ export async function GET(request: NextRequest) {
     url.searchParams.set("days", days);
     url.searchParams.set("limit", limit);
 
-    const backendToken = process.env.BACKEND_TOKEN || "development-token";
     const response = await fetch(url.toString(), {
       method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${backendToken}`,
-        "User-Agent": "SabiScore/2.0",
-      },
+      headers: proxyHeaders(),
       cache: "no-store",
     });
 

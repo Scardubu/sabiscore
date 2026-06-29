@@ -3,22 +3,13 @@ import { NextResponse, type NextRequest } from "next/server";
 /**
  * Per-request CSP with a script-src nonce.
  *
- * Next.js App Router ships its own inline bootstrap/RSC-payload scripts on
- * every page. A static `script-src 'self'` CSP (the previous approach, set
- * via next.config.js `headers()`) has no way to allowlist those — Next.js
- * can only match its own inline scripts to a nonce it reads off the request,
- * which requires a per-request value, which static config can't produce.
- * Without the nonce, every page silently fails to hydrate in any browser
- * that actually enforces the CSP (confirmed via a clean, extension-free
- * headless Chromium run against the production build: hydration never ran,
- * page stayed blank, console showed "Executing inline script violates ...
- * script-src 'self'" for each Next.js-emitted inline script).
- *
- * See: https://nextjs.org/docs/app/guides/content-security-policy
+ * Next.js App Router emits inline bootstrap/RSC scripts. The nonce is forwarded
+ * on the request so Next.js can attach it to those scripts, then returned in the
+ * response CSP. Browser data access remains same-origin: Next.js API routes are
+ * the only public gateway to the FastAPI backend and provider credentials.
  */
 export function middleware(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
-  const backendUrl = process.env.SABISCORE_BACKEND_URL || "http://localhost:8000";
 
   const csp = [
     "default-src 'self'",
@@ -26,7 +17,7 @@ export function middleware(request: NextRequest) {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https://media.api-sports.io https://flagcdn.com",
     "font-src 'self' data:",
-    `connect-src 'self' ${backendUrl}`,
+    "connect-src 'self'",
     "object-src 'none'",
     "frame-ancestors 'none'",
     "base-uri 'self'",
@@ -44,9 +35,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Skip static assets and image optimization — they don't render HTML
-    // that needs a CSP nonce, and excluding them keeps middleware off the
-    // hot path for every chunk/font/icon request.
     "/((?!_next/static|_next/image|favicon.ico|apple-icon|icon).*)",
   ],
 };

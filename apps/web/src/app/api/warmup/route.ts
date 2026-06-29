@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { resolveBackendBaseUrl } from "@/lib/proxy-utils";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const BACKEND_URL =
-  process.env.SABISCORE_BACKEND_URL ??
-  "http://localhost:8000";
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
@@ -16,7 +13,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const response = await fetch(`${BACKEND_URL}/health/ready`, {
+    const response = await fetch(`${resolveBackendBaseUrl()}/health/ready`, {
       signal: AbortSignal.timeout(15_000),
       headers: { "Content-Type": "application/json" },
     });

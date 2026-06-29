@@ -6,19 +6,23 @@
  * These helpers prevent raw HTML from leaking into client error messages.
  */
 
-export const BACKEND_TOKEN =
-  process.env.BACKEND_TOKEN || "development-token";
-
 /**
  * Resolve the upstream backend base URL from environment variables.
  * Falls back to localhost for local development.
  */
 export function resolveBackendBaseUrl(): string {
-  const configured = process.env.SABISCORE_BACKEND_URL;
-  if (configured && configured.trim().length > 0) {
-    return configured.replace(/\/+$/, "");
+  const configured = process.env.SABISCORE_BACKEND_URL?.trim();
+  if (configured) {
+    const parsed = new URL(configured);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      throw new Error('SABISCORE_BACKEND_URL must use http or https');
+    }
+    return parsed.origin + parsed.pathname.replace(/\/+$/, '');
   }
-  return "http://127.0.0.1:8000";
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('SABISCORE_BACKEND_URL is required in production');
+  }
+  return 'http://127.0.0.1:8000';
 }
 
 /**
@@ -58,10 +62,14 @@ export const ERROR_CACHE_HEADERS: HeadersInit = {
  * Standard headers added to every proxied backend request.
  */
 export function proxyHeaders(): HeadersInit {
-  return {
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Accept: "application/json",
-    Authorization: `Bearer ${BACKEND_TOKEN}`,
     "User-Agent": "SabiScore-Proxy/2.0",
   };
+  const backendToken = process.env.BACKEND_TOKEN?.trim();
+  if (backendToken) {
+    headers.Authorization = `Bearer ${backendToken}`;
+  }
+  return headers;
 }
