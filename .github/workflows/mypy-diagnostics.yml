@@ -27,7 +27,7 @@ jobs:
         continue-on-error: true
         run: |
           set +e
-          mypy src --show-error-codes --no-color-output > /tmp/mypy.txt 2>&1
+          mypy --config-file mypy-production.ini --show-error-codes --no-color-output > /tmp/mypy.txt 2>&1
           status=$?
           echo "status=$status" >> "$GITHUB_OUTPUT"
           cat /tmp/mypy.txt
