@@ -9,8 +9,6 @@ Run with: pytest tests/test_prediction_pipeline.py -v --run-integration
 Skip by default in CI: these tests require external resources.
 """
 
-import asyncio
-import json
 import logging
 import os
 

@@ -1,10 +1,9 @@
 """Tests for Redis-backed cache with fallback."""
-import time
 from unittest.mock import MagicMock, patch
 import pytest
 import redis
 
-from src.core.cache import RedisCache, CacheMetrics
+from src.core.cache import RedisCache
 
 
 @pytest.fixture

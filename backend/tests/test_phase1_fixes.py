@@ -6,7 +6,6 @@ Test date: May 30, 2026
 import pytest
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import train_test_split
 from sklearn.datasets import make_classification
 from sklearn.calibration import CalibratedClassifierCV
 

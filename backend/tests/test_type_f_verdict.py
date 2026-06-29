@@ -22,7 +22,6 @@ import pytest
 from src.services.intelligence_synthesizer import (
     EnsemblePrediction,
     IntelligenceSynthesizer,
-    OddsEdge,
 )
 from src.data.elo_engine import EloContext
 from src.models.causal_selector import CausalFeatureResult

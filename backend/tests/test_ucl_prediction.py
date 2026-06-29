@@ -10,10 +10,9 @@ UCL facts (from ground truth):
 
 from __future__ import annotations
 
-import pytest
 
 from src.core.config import settings
-from src.core.league_config import LEAGUE_BY_ID, allows_low_evidence, get_league_profile
+from src.core.league_config import allows_low_evidence, get_league_profile
 from src.schemas.prediction import LeagueCode
 from src.services.prediction import PredictionService
 

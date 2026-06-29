@@ -9,7 +9,6 @@ Run with:
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 import pytest
 
@@ -24,7 +23,6 @@ from src.schemas.betting_intelligence import (
     MatchAnalysisRequest,
     ModelInput,
     SharpSignalEnum,
-    SignalsInput,
     SourceStatusInput,
     SourceStatusEnum,
     VerdictEnum,
@@ -33,7 +31,6 @@ from src.services.betting_intelligence import (
     KELLY_FRACTION,
     MAX_KELLY_CAP,
     MIN_ACTIONABLE_EDGE,
-    HIGH_CONVICTION_EDGE,
     _apply_verdict_gate,
     _rank_top_opportunities,
     _compute_devig,

@@ -1,5 +1,4 @@
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 def test_engine_basic_flow():
     """Test core engine workflow with minimal mocks"""
