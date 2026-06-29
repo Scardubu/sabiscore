@@ -3,16 +3,21 @@ name: Apply certification workspace
 on:
   push:
     branches: [codex/final-production-certification]
+  pull_request:
+    branches: [master]
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: write
 
 jobs:
   apply:
+    if: github.event_name == 'pull_request' || github.ref_name == 'codex/final-production-certification'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: codex/final-production-certification
           fetch-depth: 0
 
       - name: Apply reviewed certification files
