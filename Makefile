@@ -93,7 +93,9 @@ validate-strict: check-tools ## Validate registry AND verify all skill files exi
 
 verify-core: ## Run deterministic SabiScore checks without live providers or Docker
 	@echo "  SabiScore deterministic verification"
-	@echo "  1/6 Backend safety, provider, engine, and scraper regressions"
+	@echo "  1/7 Production runtime type contract"
+	@cd backend && mypy --config-file mypy-production.ini
+	@echo "  2/7 Backend safety, provider, engine, and scraper regressions"
 	@cd backend && PYTHONPATH=. DEBUG=false ALLOW_SQLITE_FALLBACK=true python -m pytest -q \
 	  tests/test_secret_safety.py \
 	  tests/test_database_migration_hardening.py \
@@ -105,15 +107,15 @@ verify-core: ## Run deterministic SabiScore checks without live providers or Doc
 	  tests/test_no_synthetic_scrapers.py \
 	  tests/test_web_security_config.py \
 	  tests/test_scrapers.py --no-cov
-	@echo "  2/6 OpenAPI contract"
+	@echo "  3/7 OpenAPI contract"
 	@cd backend && timeout 90s env PYTHONPATH=. DEBUG=false ALLOW_SQLITE_FALLBACK=true python scripts/verify_openapi.py
-	@echo "  3/6 Provider CLI (offline/configuration mode)"
+	@echo "  4/7 Provider CLI (offline/configuration mode)"
 	@cd backend && timeout 60s env PYTHONPATH=. DEBUG=false PROVIDER_LIVE_TESTS=false python -m src.cli providers doctor >/dev/null
-	@echo "  4/6 Scraper parser tests"
+	@echo "  5/7 Scraper parser tests"
 	@node --test apps/scraper/tests/*.test.mjs
-	@echo "  5/6 Scraper source and manifest validation"
+	@echo "  6/7 Scraper source and manifest validation"
 	@node apps/scraper/src/cli.mjs validate
-	@echo "  6/6 Python compilation"
+	@echo "  7/7 Python compilation"
 	@python -m compileall -q backend/src backend/scripts
 
 verify: ## Run every SabiScore production release gate; requires pnpm, Postgres, Docker, browsers, and gitleaks
