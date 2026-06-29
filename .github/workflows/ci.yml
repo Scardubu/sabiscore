@@ -110,9 +110,28 @@ jobs:
         if: steps.alembic.outputs.status != '0'
         run: exit 1
 
-      - name: Backend tests
+      - name: Capture backend test diagnostics
+        id: pytest
         working-directory: backend
-        run: pytest tests -q --no-cov
+        continue-on-error: true
+        run: |
+          set +e
+          pytest tests -q --no-cov > /tmp/pytest.txt 2>&1
+          status=$?
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          cat /tmp/pytest.txt
+
+      - name: Upload backend test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-diagnostics
+          path: /tmp/pytest.txt
+          if-no-files-found: error
+
+      - name: Enforce backend test result
+        if: steps.pytest.outputs.status != '0'
+        run: exit 1
 
   web-quality:
     name: Web Lint, Typecheck, Build
