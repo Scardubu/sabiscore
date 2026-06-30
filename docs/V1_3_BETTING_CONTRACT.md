@@ -11,6 +11,15 @@ This document records the public decision contract enforced by the certification
 - `HIGH_CONVICTION` requires at least four independent provider owners in addition to every existing mathematical, freshness, calibration, uncertainty, lineup, and league gate.
 - ESPN is supplementary discovery/corroboration evidence and cannot independently authorize execution.
 
+## Evidence collection
+
+- The explicit `PRODUCTION_CYCLE` runs the standard, enriched, and market profiles concurrently.
+- Provider quota accounting, retries, and circuit breakers remain owned by each adapter.
+- Fixture evidence is stored in the existing cache layer for six hours and keyed by fixture ID.
+- Only `VERIFIED` observations containing at least one normalized record count toward source diversity.
+- Empty, unavailable, rate-limited, unconfigured, partial, invalid, or circuit-open results remain visible but never count as verified evidence.
+- Refreshing evidence is an explicit user or orchestrator action; it is not hidden background polling.
+
 ## Staking
 
 - Public staking uses Quarter-Kelly only.
