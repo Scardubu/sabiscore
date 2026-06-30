@@ -1,23 +1,13 @@
 import { NextResponse } from "next/server";
-
-const BACKEND_URL =
-  process.env.SABISCORE_BACKEND_URL ??
-  "http://localhost:8000";
-
-const BACKEND_TOKEN = process.env.BACKEND_TOKEN;
+import { proxyHeaders, resolveBackendBaseUrl } from "@/lib/proxy-utils";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(): Promise<NextResponse> {
-  const headers: Record<string, string> = { Accept: "application/json" };
-  if (BACKEND_TOKEN) {
-    headers.Authorization = `Bearer ${BACKEND_TOKEN}`;
-  }
-
   try {
-    const backendRes = await fetch(`${BACKEND_URL}/api/v1/betting-intelligence/policy`, {
-      headers,
+    const backendRes = await fetch(`${resolveBackendBaseUrl()}/api/v1/betting-intelligence/policy`, {
+      headers: proxyHeaders(),
       cache: "no-store",
       signal: AbortSignal.timeout(10_000),
     });

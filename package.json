@@ -7,7 +7,7 @@
   "license": "MIT",
   "packageManager": "pnpm@11.8.0",
   "engines": {
-    "node": ">=22 <25",
+    "node": "22.x",
     "pnpm": ">=8.0.0 <12.0.0"
   },
   "scripts": {
@@ -34,6 +34,8 @@
     "status": "jq '.skills | group_by(.clusterName) | .[] | \"C\\(.[0].cluster) \\(.[0].clusterName): \\(length) skills\"' registry.json -r",
     "test": "turbo run test",
     "test:e2e": "playwright test",
+    "test:e2e:smoke": "playwright test tests/e2e/intelligence.spec.ts",
+    "test:e2e:full": "playwright test",
     "test:backend": "cd backend && python -m pytest tests -q --no-cov",
     "test:providers": "cd backend && python -m pytest tests/test_providers_gateway.py tests/test_secret_safety.py tests/test_database_migration_hardening.py -q --no-cov",
     "verify": "make verify",

@@ -253,7 +253,7 @@ class BaseScraper(ABC):
         if elapsed < self.rate_limit_delay:
             sleep_time = self.rate_limit_delay - elapsed
             # Add jitter for more natural timing
-            jitter = random.uniform(0, 0.5 * self.rate_limit_delay)
+            jitter = random.random() * (0.5 * self.rate_limit_delay)
             total_sleep = sleep_time + jitter
             logger.debug(f"Rate limiting: sleeping {total_sleep:.2f}s")
             time.sleep(total_sleep)

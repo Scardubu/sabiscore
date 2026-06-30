@@ -196,34 +196,49 @@ Language must remain quiet and analytical. Do not add promotional betting copy.
 
 The certified match dashboard renders backend-returned probabilities, edge, expected value, Kelly sizing, critical gaps, advisory gaps, conflicts, and decision identifiers. It must not recompute official verdicts, expected value, or stake sizing in the browser.
 
-## Scraper Boundaries
+## Scraper Boundaries And Activated Data Flow
 
 `apps/scraper` may acquire permitted open/batch data, write immutable raw snapshots, produce processed files, write manifests, and validate parsers. It must not calculate predictions, verdicts, EV, Kelly stakes, or user-facing decisions.
 
+The reviewed keyless Football-Data CSV path now produces three distinct artifact classes:
+
+```bash
+pnpm --filter @sabiscore/scraper scrape:fixtures -- --competition EPL --season 2425
+pnpm --filter @sabiscore/scraper scrape:results -- --competition EPL --season 2425
+pnpm --filter @sabiscore/scraper scrape:metrics -- --competition EPL --season 2425
+```
+
+Outputs are written atomically under `data/processed/node-scraper/` with immutable manifests under `data/manifests/node-scraper/`. Team-form projections include only completed-match evidence and are consumed by `backend/src/services/scraped_feature_store.py` when database form data is unavailable. Historical market columns remain training/audit evidence and are explicitly non-executable.
+
+Legacy Betfair, Flashscore, OddsPortal, Soccerway, Transfermarkt, Understat, and WhoScored compatibility modules no longer generate random odds, xG, scores, lineups, ratings, form, or squad values. They return reviewed local snapshots or fail closed. Dynamic/Puppeteer acquisition remains disabled until a source-specific terms, robots, parser, and operational review is approved.
+
 ## Release Gates
+
+Run deterministic offline checks first:
+
+```bash
+make verify-core
+```
+
+This runs focused backend safety/provider/engine/scraper regressions, OpenAPI validation, the provider doctor in offline mode, scraper parser and manifest checks, and Python compilation.
+
+Run the full production certification gate in an environment with pnpm, PostgreSQL, Docker, Playwright browsers, and Gitleaks:
 
 ```bash
 make verify
 ```
 
-The target runs:
+The full target additionally requires:
 
-- secret/public-provider scans and database migration hardening checks;
-- provider gateway tests;
-- backend regression tests;
-- provider CLI doctor;
-- scraper tests;
-- web lint;
-- web typecheck;
-- web tests;
-- web build.
+- a real Gitleaks scan;
+- the complete backend suite;
+- Alembic upgrade and schema drift validation;
+- web lint, typecheck, component tests, and production build;
+- Docker Compose validation and image builds;
+- Playwright desktop/mobile smoke tests;
+- final OpenAPI regeneration.
 
-Additional deployment gates:
-
-- Alembic upgrade against a fresh database;
-- OpenAPI validation;
-- Docker Compose config/build validation;
-- Playwright desktop/mobile `/intelligence` smoke where browser tooling is available.
+No material gate is suppressed with `|| true`. A skipped or unavailable dependency prevents production certification and must be reported.
 
 ## Rollback
 
@@ -237,3 +252,56 @@ Additional deployment gates:
 - Live provider tests are opt-in with `PROVIDER_LIVE_TESTS=false` by default.
 - Provider quotas are observed and exposed but require provider-specific headers for exact remaining/reset values.
 - Legacy code remains for compatibility, but production entrypoints are canonicalized to `backend`, `apps/web`, and `apps/scraper`.
+
+## Final certification workflow
+
+### Canonical Vercel project
+
+The canonical frontend project is `sabiscore` (`prj_OZ9E1XDcZMO1G5Zdhj4Dq6OeSzjo`), which owns `sabiscore.vercel.app`. The repository-level ignored-build command automatically skips the duplicate `web` and `sabiscore-web` projects. This is non-destructive: the legacy projects remain available for rollback but no longer perform duplicate builds.
+
+`SABISCORE_BACKEND_URL` is server-only and must resolve to the deployed FastAPI origin. The checked-in Vercel configuration uses `https://sabiscore-api.onrender.com`; replace that value in both `vercel.json` files if the backend moves. Browser CSP remains `connect-src 'self'` because provider and backend traffic is proxied by Next.js server routes.
+
+### Scraped feature activation
+
+Run the reviewed static-source pipeline before prediction refreshes:
+
+```bash
+pnpm --filter @sabiscore/scraper scrape:results
+```
+
+Artifacts are written under `data/processed/node-scraper/`. `ScrapedTeamFormStore` validates the artifact schema, result counts, PPG arithmetic, goal-difference arithmetic, source date, team identity, competition, and prediction cutoff. The canonical projector uses this real data only when database match history is unavailable; unresolved fields remain explicit `DATA_GAP` values.
+
+### Complete release gate
+
+Requirements: Python 3.11, Node 22, pnpm 11.8, Docker with Compose, PostgreSQL, Redis, and Chromium dependencies. Then run:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r backend/requirements-dev.txt
+corepack enable
+corepack prepare pnpm@11.8.0 --activate
+pnpm install --frozen-lockfile
+pnpm exec playwright install --with-deps chromium
+cp .env.production.example .env.production
+# Fill DATABASE_URL, REDIS_URL, SECRET_KEY, BACKEND_TOKEN, and provider keys.
+make verify
+```
+
+The same command runs in `.github/workflows/production-certification.yml` for every pull request and push to `master`. Live provider calls remain disabled; enable and verify them separately with controlled quotas.
+
+### Backend artifact path in containers
+
+The backend reads scraper projections from `SCRAPER_PROCESSED_ROOT`. For the
+committed production Compose topology this is `/app/data/processed/node-scraper`,
+backed by the read-only `./data:/app/data` mount. For non-container deployments,
+set the variable to an absolute persistent-disk path or keep the canonical
+repository layout so automatic discovery resolves `data/processed/node-scraper`.
+
+### Non-destructive Vercel consolidation
+
+Do not delete the `web` or `sabiscore-web` projects until DNS, aliases, and
+rollback retention have been reviewed in the Vercel dashboard. The committed
+ignored-build script makes `sabiscore` the only project that builds new Git
+commits; the other projects remain inert rollback references. After one stable
+release, archive or delete the duplicates manually in Vercel Project Settings.

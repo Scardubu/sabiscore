@@ -7,7 +7,6 @@ import time
 import json
 from pathlib import Path
 from datetime import datetime
-from pydantic import ValidationError
 
 from ..core.database import (
     get_db,
@@ -20,7 +19,6 @@ from ..core.config import settings
 from ..schemas.requests import InsightsRequest
 from ..schemas.responses import (
     ErrorResponse,
-    InsightsResponse,
     MatchSearchResponse,
     HealthResponse,
     CacheMetricsResponse,
@@ -164,141 +162,21 @@ async def search_matches(
         # Graceful degrade: return an empty list on backend errors to keep UX responsive
         return []
 
-@router.post("/insights", response_model=InsightsResponse)
+@router.post("/insights", deprecated=True)
 async def generate_insights(
     request: Request,
     body: InsightsRequest,
     db: Session = Depends(get_db),
 ):
-    """
-    Generate comprehensive betting insights for a match.
-    
-    This endpoint analyzes a specific matchup and provides:
-    - Win/draw/loss probabilities with confidence scores
-    - Expected goals (xG) analysis
-    - Value betting opportunities with Kelly criterion stakes
-    - Monte Carlo simulation results with scenario analysis
-    - Risk assessment and recommendations
-    - AI-generated narrative explanation
-    
-    Args:
-        body: Match details including matchup (e.g., "Arsenal vs Chelsea") and league (e.g., "EPL")
-    
-    Returns:
-        Comprehensive insights including predictions, betting analysis, and risk assessment
-    
-    Raises:
-        400: Invalid input parameters
-        503: Prediction model unavailable
-        500: Internal server error during insights generation
-    """
-    start_time = time.time()
+    """Retired legacy endpoint; use the certified betting-intelligence API."""
+    del request, body, db
+    raise _http_error(
+        410,
+        "This legacy insights endpoint is disabled because it could not enforce "
+        "the zero-fabrication contract. Use /api/v1/betting-intelligence/analyze.",
+        "LEGACY_INSIGHTS_DISABLED",
+    )
 
-    try:
-        # Validate input parameters
-        if not body.matchup or not body.matchup.strip():
-            raise _http_error(400, "Matchup parameter is required and cannot be empty", "INVALID_MATCHUP")
-        
-        if " vs " not in body.matchup and " v " not in body.matchup:
-            raise _http_error(
-                400, 
-                "Matchup must be in format 'Team1 vs Team2' or 'Team1 v Team2'", 
-                "INVALID_MATCHUP_FORMAT"
-            )
-        
-        league = body.league or "EPL"
-        valid_leagues = ["EPL", "La Liga", "Serie A", "Bundesliga", "Ligue 1", "Eredivisie"]
-        if league not in valid_leagues:
-            logger.warning(f"Unknown league '{league}', proceeding with fallback")
-        
-        # Check cache first (cache key based on normalized matchup and league)
-        cache_key = f"insights:{body.matchup.lower().strip()}:{league.lower()}"
-        cached_insights = cache.get(cache_key)
-        if cached_insights is not None:
-            logger.info(
-                "insights_cache_hit",
-                extra={"matchup": body.matchup, "league": league, "cache_key": cache_key}
-            )
-            try:
-                # Coerce cached payload into schema to prevent MagicMock or non-serializable leaks
-                if isinstance(cached_insights, InsightsResponse):
-                    return cached_insights
-                coerced = InsightsResponse(**cached_insights)
-                return coerced
-            except Exception:
-                # Purge bad cache entry and continue to regenerate
-                cache.delete(cache_key)
-        
-        # Load model
-        model = _load_model_from_app(request)
-        if model is None:
-            logger.error("Prediction model unavailable", extra={"matchup": body.matchup, "league": league})
-            raise _http_error(503, "Prediction model unavailable - please try again later", "MODEL_UNAVAILABLE")
-
-    # Reuse explicitly assigned insights engine (tests may provide mocked engine)
-        engine = None
-        if hasattr(model, "__dict__"):
-            engine = model.__dict__.get("engine")
-
-        if not engine or not hasattr(engine, "generate_match_insights"):
-            # Lazy import to avoid heavy ML imports during test collection
-            from ..insights.engine import InsightsEngine  # local import
-
-            engine = InsightsEngine(model=model)
-            setattr(model, "engine", engine)
-        
-        # Generate insights
-        insights = engine.generate_match_insights(
-            matchup=body.matchup,
-            league=league,
-        )
-
-        # Validate and cache the results (TTL: 1 hour for match insights)
-        try:
-            model = insights if isinstance(insights, InsightsResponse) else InsightsResponse(**insights)
-            cache.set(cache_key, model.model_dump(mode="json"), ttl=3600)
-        except Exception as cache_exc:
-            logger.warning(f"Failed to cache insights: {cache_exc}")
-
-        processing_time = time.time() - start_time
-        logger.info(
-            "insights_generated_successfully",
-            extra={
-                "matchup": body.matchup, 
-                "league": league, 
-                "duration_ms": round(processing_time * 1000, 2),
-                "confidence": insights.get("confidence_level", 0),
-                "cached": False
-            },
-        )
-
-        try:
-            return model
-        except NameError:
-            # If validation above failed unexpectedly, return a coerced model here
-            try:
-                return InsightsResponse(**insights)
-            except ValidationError as ve:
-                raise _http_error(500, f"Insights validation error: {ve}", "INSIGHTS_VALIDATION_ERROR")
-
-    except HTTPException:
-        raise
-    except ValueError as exc:
-        # Handle validation errors from downstream components
-        logger.warning(f"Validation error: {str(exc)}", extra={"matchup": body.matchup, "league": body.league})
-        raise _http_error(400, f"Invalid input: {str(exc)}", "VALIDATION_ERROR") from exc
-    except Exception as exc:
-        processing_time = time.time() - start_time
-        logger.exception(
-            "Insights generation failed", 
-            extra={
-                "matchup": body.matchup, 
-                "league": body.league,
-                "duration_ms": round(processing_time * 1000, 2),
-                "error_type": type(exc).__name__
-            }
-        )
-        raise _http_error(500, "Failed to generate insights - internal server error", "INSIGHTS_ERROR") from exc
 
 @router.get("/models/status")
 async def model_status(league: Optional[str] = None):

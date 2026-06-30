@@ -20,7 +20,7 @@ async def main():
     logger.info("=== SabiScore Data Ingestion Service ===")
     
     # Setup signal handlers for graceful shutdown
-    loop = asyncio.get_running_loop()
+    asyncio.get_running_loop()
     
     def shutdown_handler(sig, frame):
         logger.info(f"Received signal {sig}, shutting down...")

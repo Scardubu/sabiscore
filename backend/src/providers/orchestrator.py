@@ -35,9 +35,14 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Coroutine
+from typing import Any, Callable, Coroutine, cast
 
+from .api_football import APIFootballProvider
 from .base import ProviderResult, ProviderStatus, TrustTier
+from .espn import ESPNProvider
+from .football_data_org import FootballDataOrgProvider
+from .sportmonks import SportmonksProvider
+from .the_odds_api import TheOddsAPIProvider
 from .reconciliation import TeamCandidate, reconcile_team
 from .registry import ProviderRegistry
 
@@ -53,6 +58,7 @@ class EvidenceProfile(str, Enum):
     LINEUP_REFRESH = "LINEUP_REFRESH"
     MARKET_REFRESH = "MARKET_REFRESH"
     FORECAST_ONLY = "FORECAST_ONLY"
+    PRODUCTION_CYCLE = "PRODUCTION_CYCLE"
 
 
 def _stub_result(provider: str, operation: str, reason: str) -> ProviderResult:
@@ -144,11 +150,36 @@ class EvidenceOrchestrator:
             return await self._collect_market_refresh(fixture, competition, canonical_fixture_id)
         if profile == EvidenceProfile.FORECAST_ONLY:
             return await self._collect_forecast_only(fixture, competition)
+        if profile == EvidenceProfile.PRODUCTION_CYCLE:
+            return await self._collect_production_cycle(
+                fixture, competition, canonical_fixture_id
+            )
         return [_stub_result("orchestrator", profile.value, f"unknown_profile_{profile}")]
 
     # ------------------------------------------------------------------ #
     # Profile implementations                                              #
     # ------------------------------------------------------------------ #
+
+    async def _collect_production_cycle(
+        self,
+        fixture: dict[str, Any],
+        competition: str,
+        canonical_fixture_id: str | None,
+    ) -> list[ProviderResult]:
+        """Run the explicit user-triggered full evidence cycle concurrently.
+
+        This is not used for background polling. It fans out across the standard,
+        enriched, and market profiles while preserving each provider's quota and
+        circuit-breaker behavior. Missing credentials remain structured gaps.
+        """
+        groups = await asyncio.gather(
+            self._collect_prematch_standard(fixture, competition),
+            self._collect_prematch_enriched(fixture, competition),
+            self._collect_market_refresh(
+                fixture, competition, canonical_fixture_id
+            ),
+        )
+        return [result for group in groups for result in group]
 
     async def _collect_discovery(
         self, fixture: dict[str, Any], competition: str
@@ -158,12 +189,12 @@ class EvidenceOrchestrator:
         ESPN provides keyless scoreboard discovery. football_data_org provides
         the official fixture list (when configured). Results run concurrently.
         """
-        espn = self.registry.get("espn")
-        fdo = self.registry.get("football_data_org")
+        espn = cast(ESPNProvider, self.registry.get("espn"))
+        fdo = cast(FootballDataOrgProvider, self.registry.get("football_data_org"))
 
         tasks = [
-            _safe_call(lambda e=espn, c=competition: e.scoreboard(c), "espn", "scoreboard"),
-            _safe_call(lambda f=fdo, c=competition: f.fixtures(competition=c), "football_data_org", "fixtures"),
+            _safe_call(lambda: espn.scoreboard(competition), "espn", "scoreboard"),
+            _safe_call(lambda: fdo.fixtures(competition=competition), "football_data_org", "fixtures"),
         ]
         results = list(await asyncio.gather(*tasks))
         return results
@@ -176,13 +207,13 @@ class EvidenceOrchestrator:
         Primary: football_data_org (official, authenticated).
         Supplementary: ESPN (keyless corroboration, standings check).
         """
-        fdo = self.registry.get("football_data_org")
-        espn = self.registry.get("espn")
+        fdo = cast(FootballDataOrgProvider, self.registry.get("football_data_org"))
+        espn = cast(ESPNProvider, self.registry.get("espn"))
 
         tasks = [
-            _safe_call(lambda f=fdo, c=competition: f.fixtures(competition=c), "football_data_org", "fixtures"),
-            _safe_call(lambda f=fdo, c=competition: f.standings(competition=c), "football_data_org", "standings"),
-            _safe_call(lambda e=espn, c=competition: e.scoreboard(c), "espn", "scoreboard"),
+            _safe_call(lambda: fdo.fixtures(competition=competition), "football_data_org", "fixtures"),
+            _safe_call(lambda: fdo.standings(competition=competition), "football_data_org", "standings"),
+            _safe_call(lambda: espn.scoreboard(competition), "espn", "scoreboard"),
         ]
         results = list(await asyncio.gather(*tasks))
         return results
@@ -197,16 +228,16 @@ class EvidenceOrchestrator:
 
         Provider predictions from either source are explicitly excluded.
         """
-        apif = self.registry.get("api_football")
-        sm = self.registry.get("sportmonks")
+        apif = cast(APIFootballProvider, self.registry.get("api_football"))
+        sm = cast(SportmonksProvider, self.registry.get("sportmonks"))
 
         apif_tasks = [
-            _safe_call(lambda a=apif, c=competition: a.injuries(competition=c), "api_football", "injuries"),
-            _safe_call(lambda a=apif, c=competition: a.lineups(fixture_id=fixture.get("provider_event_id"), competition=c), "api_football", "lineups"),
-            _safe_call(lambda a=apif, c=competition: a.teams(competition=c), "api_football", "teams"),
+            _safe_call(lambda: apif.injuries(competition=competition), "api_football", "injuries"),
+            _safe_call(lambda: apif.lineups(fixture_id=fixture.get("provider_event_id"), competition=competition), "api_football", "lineups"),
+            _safe_call(lambda: apif.teams(competition=competition), "api_football", "teams"),
         ]
         sm_tasks = [
-            _safe_call(lambda s=sm, c=competition: s.injuries(competition=c), "sportmonks", "injuries"),
+            _safe_call(lambda: sm.injuries(competition=competition), "sportmonks", "injuries"),
         ]
 
         results = list(await asyncio.gather(*(apif_tasks + sm_tasks)))
@@ -215,7 +246,7 @@ class EvidenceOrchestrator:
 
     async def _resolve_team_statistics(
         self,
-        apif: Any,
+        apif: APIFootballProvider,
         teams_result: ProviderResult,
         fixture: dict[str, Any],
         competition: str,
@@ -248,8 +279,9 @@ class EvidenceOrchestrator:
                 )
                 continue
 
+            resolved_team_id = int(decision.team_id)
             result = await _safe_call(
-                lambda a=apif, tid=int(decision.team_id), c=competition: a.team_statistics(team_id=tid, competition=c),
+                lambda: apif.team_statistics(team_id=resolved_team_id, competition=competition),
                 "api_football",
                 operation,
             )
@@ -265,13 +297,13 @@ class EvidenceOrchestrator:
         Primary: api_football (confirmed lineups, availability changes).
         Optional: sportmonks (expected vs confirmed cross-check).
         """
-        apif = self.registry.get("api_football")
-        sm = self.registry.get("sportmonks")
+        apif = cast(APIFootballProvider, self.registry.get("api_football"))
+        sm = cast(SportmonksProvider, self.registry.get("sportmonks"))
         fixture_id = fixture.get("provider_event_id") or fixture.get("fixture_id")
 
         tasks = [
-            _safe_call(lambda a=apif, fid=fixture_id: a.lineups(fixture_id=fid), "api_football", "lineups"),
-            _safe_call(lambda s=sm, fid=fixture_id: s.lineups(fixture_id=fid), "sportmonks", "lineups"),
+            _safe_call(lambda: apif.lineups(fixture_id=fixture_id), "api_football", "lineups"),
+            _safe_call(lambda: sm.lineups(fixture_id=fixture_id), "sportmonks", "lineups"),
         ]
         results = list(await asyncio.gather(*tasks))
         return results
@@ -288,15 +320,15 @@ class EvidenceOrchestrator:
         Per Section 6: one bookmaker's coherent snapshot per analysis.
         Mixed-bookmaker records are rejected by the_odds_api.odds() internally.
         """
-        odds_api = self.registry.get("the_odds_api")
+        odds_api = cast(TheOddsAPIProvider, self.registry.get("the_odds_api"))
         canonical_lookup = (
             {fixture.get("provider_event_id", ""): canonical_fixture_id}
             if canonical_fixture_id
             else None
         )
         result = await _safe_call(
-            lambda o=odds_api, c=competition: o.odds(
-                competition=c,
+            lambda: odds_api.odds(
+                competition=competition,
                 canonical_fixture_lookup=canonical_lookup,
             ),
             "the_odds_api",
@@ -312,12 +344,12 @@ class EvidenceOrchestrator:
         No market source is requested. Missing market is an advisory gap only,
         not critical, for FORECAST_ONLY (execution_eligible remains False).
         """
-        fdo = self.registry.get("football_data_org")
-        espn = self.registry.get("espn")
+        fdo = cast(FootballDataOrgProvider, self.registry.get("football_data_org"))
+        espn = cast(ESPNProvider, self.registry.get("espn"))
 
         tasks = [
-            _safe_call(lambda f=fdo, c=competition: f.fixtures(competition=c), "football_data_org", "fixtures"),
-            _safe_call(lambda e=espn, c=competition: e.scoreboard(c), "espn", "scoreboard"),
+            _safe_call(lambda: fdo.fixtures(competition=competition), "football_data_org", "fixtures"),
+            _safe_call(lambda: espn.scoreboard(competition), "espn", "scoreboard"),
         ]
         results = list(await asyncio.gather(*tasks))
         return results

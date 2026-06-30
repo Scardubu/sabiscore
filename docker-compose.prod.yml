@@ -2,9 +2,11 @@ services:
   # Next.js Web App (6 replicas for load balancing)
   web:
     build:
-      context: ./apps/web
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/web/Dockerfile
       target: production
+      args:
+        SABISCORE_BACKEND_URL: http://api:8000
     image: sabiscore-web:latest
     deploy:
       replicas: 6
@@ -26,7 +28,8 @@ services:
         order: start-first
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=http://api:8000/api/v1
+      - SABISCORE_BACKEND_URL=http://api:8000
+      - NEXT_PUBLIC_API_URL=/api
     ports:
       - "3000:3000"
     depends_on:
@@ -75,6 +78,7 @@ services:
       - DEBUG=False
       - DATABASE_URL=postgresql://sabi:${DB_PASSWORD:-sabiscore_prod_2025}@postgres:5432/sabiscore
       - REDIS_URL=redis://redis:6379/0
+      - SCRAPER_PROCESSED_ROOT=/app/data/processed/node-scraper
       - SECRET_KEY=${SECRET_KEY:-change-me-in-production-min-32-chars-required}
       - LOG_LEVEL=INFO
       - ENABLE_SECURITY_HEADERS=True

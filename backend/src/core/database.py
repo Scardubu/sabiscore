@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session, relationship, sessionmaker, declarative_base
 from sqlalchemy.pool import QueuePool
 
 from .config import settings
+from .database_url import get_sync_database_url
 
 import logging
 
@@ -31,20 +32,8 @@ logger = logging.getLogger(__name__)
 Base = declarative_base()
 
 
-def _get_sync_database_url(url: str) -> str:
-    """
-    Convert async database URL to sync URL for synchronous engine.
-    Handles aiosqlite -> sqlite, asyncpg -> psycopg, etc.
-    """
-    if "+aiosqlite" in url:
-        return url.replace("+aiosqlite", "")
-    if "+asyncpg" in url:
-        return url.replace("+asyncpg", "+psycopg")
-    return url
-
-
 # Get sync-compatible database URL
-_sync_url = _get_sync_database_url(settings.database_url)
+_sync_url = get_sync_database_url(settings.database_url)
 
 # Flag to track database availability
 _db_available = True

@@ -7,14 +7,12 @@ Tests the complete flow from data acquisition to prediction delivery.
 """
 
 import pytest
-import asyncio
-from datetime import datetime
-from unittest.mock import Mock, patch, AsyncMock
+from unittest.mock import Mock, patch
 from httpx import AsyncClient
 
 # Import application components
 from src.api.main import app
-from src.data.aggregator import DataAggregator, EnhancedDataAggregator
+from src.data.aggregator import DataAggregator
 from src.services.prediction import PredictionService
 from src.schemas.prediction import MatchPredictionRequest
 
@@ -336,12 +334,12 @@ class TestPerformance:
         # First call - might be slow
         start = time.time()
         data1 = aggregator.fetch_match_data()
-        first_call = time.time() - start
+        time.time() - start
         
         # Second call - should be cached
         start = time.time()
         data2 = aggregator.fetch_match_data()
-        second_call = time.time() - start
+        time.time() - start
         
         # Cache hit should be faster
         # (This is a weak assertion since first call might also be fast)

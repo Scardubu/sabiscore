@@ -411,7 +411,7 @@ async def clear_cache(
     try:
         # For Redis-backed cache, clear by pattern
         # For in-memory cache, clear all
-        cleared = cache_manager.clear()
+        cache_manager.clear()
         return {"message": "Cache cleared successfully", "pattern": pattern}
     except Exception as e:
         logger.error(f"Cache clear error: {e}")

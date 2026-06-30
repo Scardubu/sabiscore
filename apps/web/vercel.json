@@ -6,18 +6,21 @@
   "devCommand": "pnpm dev",
   "installCommand": "pnpm install --frozen-lockfile",
   "outputDirectory": ".next",
-  "ignoreCommand": "exit 1",
+  "ignoreCommand": "node ../../scripts/vercel-ignore-build.mjs",
   "build": {
     "env": {
       "NEXT_TELEMETRY_DISABLED": "1",
-      "NODE_OPTIONS": "--max-old-space-size=8192"
+      "NODE_OPTIONS": "--max-old-space-size=8192",
+      "SABISCORE_BACKEND_URL": "https://sabiscore-api.onrender.com",
+      "NEXT_PUBLIC_APP_URL": "https://sabiscore.vercel.app"
     }
   },
   "env": {
-    "NEXT_PUBLIC_APP_URL": "https://sabiscore.com",
+    "NEXT_PUBLIC_APP_URL": "https://sabiscore.vercel.app",
     "NEXT_PUBLIC_CURRENCY": "NGN",
     "NEXT_PUBLIC_CURRENCY_SYMBOL": "NGN",
-    "NEXT_PUBLIC_BASE_BANKROLL": "10000"
+    "NEXT_PUBLIC_BASE_BANKROLL": "10000",
+    "SABISCORE_BACKEND_URL": "https://sabiscore-api.onrender.com"
   },
   "headers": [
     {

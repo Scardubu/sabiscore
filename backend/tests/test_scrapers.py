@@ -6,7 +6,7 @@ Tests for the enhanced scraping infrastructure.
 """
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock
 from datetime import datetime
 from typing import Any, Dict, Optional
 
@@ -107,26 +107,16 @@ class TestBetfairScraper:
     """Tests for Betfair exchange scraper."""
     
     def test_exchange_odds_structure(self):
-        """Test exchange odds response structure."""
+        """Unconfigured exchange access must not invent odds."""
         scraper = BetfairExchangeScraper()
-        
-        odds = scraper.get_match_odds("Arsenal", "Chelsea", "EPL")
-        
-        assert odds is not None
-        assert "match" in odds
-        # API returns "markets" not "odds"
-        assert "markets" in odds
-        assert "match_odds" in odds["markets"]
+
+        assert scraper.get_match_odds("Arsenal", "Chelsea", "EPL") is None
     
     def test_spread_calculation(self):
-        """Test back/lay spread calculation."""
+        """Unavailable exchange prices must produce no derived features."""
         scraper = BetfairExchangeScraper()
-        
-        features = scraper.calculate_exchange_features("Liverpool", "Man City", "EPL")
-        
-        assert "home_back" in features
-        assert "home_lay" in features
-        assert features["home_lay"] >= features["home_back"]
+
+        assert scraper.calculate_exchange_features("Liverpool", "Man City", "EPL") == {}
 
 
 # NOTE: WhoScored scraper removed due to bot blocking - form features now sourced from Understat
@@ -136,95 +126,58 @@ class TestSoccerwayScraper:
     """Tests for Soccerway standings scraper."""
     
     def test_standings_structure(self):
-        """Test league standings response structure."""
+        """Unavailable standings must return an empty result."""
         scraper = SoccerwayScraper()
-        
-        standings = scraper.get_standings("EPL")
-        
-        assert standings is not None
-        assert "standings" in standings
-        assert len(standings["standings"]) == 20  # EPL has 20 teams
-        
-        first_team = standings["standings"][0]
-        assert "position" in first_team
-        assert "points" in first_team
-        assert "goal_difference" in first_team
+
+        assert scraper.get_standings("EPL") == {}
     
     def test_position_features(self):
-        """Test position-based feature calculation."""
+        """Unavailable standings must not produce position features."""
         scraper = SoccerwayScraper()
-        
-        features = scraper.calculate_position_features("Arsenal", "Chelsea", "EPL")
-        
-        assert "home_position" in features
-        assert "away_position" in features
-        assert 1 <= features["home_position"] <= 20
+
+        assert scraper.calculate_position_features("Arsenal", "Chelsea", "EPL") == {}
 
 
 class TestTransfermarktScraper:
     """Tests for Transfermarkt market value scraper."""
     
     def test_team_valuation_structure(self):
-        """Test team valuation response structure."""
+        """Unavailable squad values must not be estimated."""
         scraper = TransfermarktScraper()
-        
-        valuation = scraper.get_team_valuation("Arsenal", "EPL")
-        
-        assert valuation is not None
-        assert "total_squad_value" in valuation
-        assert "squad" in valuation
-        assert valuation["total_squad_value"] > 0
+
+        assert scraper.get_team_valuation("Arsenal", "EPL") is None
     
     def test_value_features(self):
-        """Test value-based feature calculation."""
+        """Unavailable squad values must produce no derived features."""
         scraper = TransfermarktScraper()
-        
-        features = scraper.calculate_value_features("Man City", "Chelsea", "EPL")
-        
-        assert "home_value_share" in features
-        assert "value_ratio" in features
-        assert 0 < features["home_value_share"] < 1
+
+        assert scraper.calculate_value_features("Man City", "Chelsea", "EPL") == {}
 
 
 class TestOddsPortalScraper:
     """Tests for OddsPortal historical odds scraper."""
     
     def test_odds_structure(self):
-        """Test historical odds response structure."""
+        """Unavailable historical prices must not be fabricated."""
         scraper = OddsPortalScraper()
-        
-        odds = scraper.get_match_odds("Arsenal", "Chelsea", "EPL")
-        
-        assert odds is not None
-        assert "opening_odds" in odds
-        assert "closing_odds" in odds
-        assert "bookmaker_odds" in odds
-        assert "best_odds" in odds
+
+        assert scraper.get_match_odds("Arsenal", "Chelsea", "EPL") is None
     
     def test_odds_features(self):
-        """Test odds-based feature calculation."""
+        """Unavailable historical prices must produce no derived features."""
         scraper = OddsPortalScraper()
-        
-        features = scraper.calculate_odds_features("Liverpool", "Man United", "EPL")
-        
-        assert "odds_home" in features
-        assert "prob_home" in features
-        assert 0 < features["prob_home"] < 1
+
+        assert scraper.calculate_odds_features("Liverpool", "Man United", "EPL") == {}
 
 
 class TestUnderstatScraper:
     """Tests for Understat xG scraper."""
     
     def test_xg_structure(self):
-        """Test xG data response structure."""
+        """Unavailable expected-goals evidence must not be estimated."""
         scraper = UnderstatScraper()
-        
-        xg_data = scraper.get_team_xg("Arsenal", "EPL")
-        
-        assert xg_data is not None
-        assert "stats" in xg_data
-        assert "xg_per_game" in xg_data["stats"]
-        assert "xga_per_game" in xg_data["stats"]
+
+        assert scraper.get_team_xg("Arsenal", "EPL") is None
     
     def test_xg_prediction(self):
         """Test match xG prediction."""
@@ -237,14 +190,10 @@ class TestUnderstatScraper:
         assert prediction["home_xg"] > 0
     
     def test_xg_features(self):
-        """Test xG-based feature calculation."""
+        """Unavailable expected-goals evidence must produce no derived features."""
         scraper = UnderstatScraper()
-        
-        features = scraper.calculate_xg_features("Liverpool", "Man City", "EPL")
-        
-        assert "home_xg_pg" in features
-        assert "away_xg_pg" in features
-        assert features["home_xg_pg"] > 0
+
+        assert scraper.calculate_xg_features("Liverpool", "Man City", "EPL") == {}
 
 
 class TestFlashscoreScraper:
@@ -265,14 +214,10 @@ class TestFlashscoreScraper:
         # If None, test still passes - just no live match data
     
     def test_h2h_features(self):
-        """Test head-to-head feature calculation."""
+        """Unavailable head-to-head evidence must produce no derived features."""
         scraper = FlashscoreScraper()
-        
-        features = scraper.calculate_h2h_features("Arsenal", "Chelsea")
-        
-        assert "h2h_home_win_rate" in features
-        assert "h2h_total_matches" in features
-        assert 0 <= features["h2h_home_win_rate"] <= 1
+
+        assert scraper.calculate_h2h_features("Arsenal", "Chelsea") == {}
 
 
 class TestDataAggregator:

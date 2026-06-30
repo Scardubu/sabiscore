@@ -1,5 +1,5 @@
 // SabiScore Strict Betting Intelligence API Types
-// Contract version: 1.1.0
+// Contract version: 1.3.0
 // Generated: 2026-06-25
 
 // --- Enums -------------------------------------------------------------------
@@ -26,6 +26,13 @@ export type BestMarket = "HOME_ML" | "DRAW_ML" | "AWAY_ML";
 export type ConfidenceLabel = "HIGH" | "MEDIUM" | "LOW";
 
 export type EvidenceTier = "OK" | "LOW_EVIDENCE";
+
+export type EvidenceProvider =
+  | "ESPN"
+  | "FOOTBALL_DATA_ORG"
+  | "API_FOOTBALL"
+  | "SPORTMONKS"
+  | "THE_ODDS_API";
 
 export type SourceStatus = "VERIFIED" | "STALE" | "CONFLICTING" | "DATA_GAP";
 
@@ -98,6 +105,7 @@ export interface MatchAnalysisRequest {
   signals?: SignalsInput;
   freshness?: FreshnessInput;
   source_status?: SourceStatusInput;
+  verified_evidence_providers?: EvidenceProvider[];
   data_gaps?: string[];
   known_risks?: string[];
 }
@@ -150,7 +158,6 @@ export interface MarketEvaluation {
   edge: number;
   edge_pct: number;
   expected_value: number;
-  full_kelly: number;
   stake_fraction: number;
   confidence_adjusted_value: number;
 }
@@ -164,6 +171,8 @@ export interface MatchAnalysisResult {
   execution_eligible?: boolean;
   watchlist?: boolean;
   source_summary?: Record<string, unknown>;
+  verified_evidence_providers?: EvidenceProvider[];
+  independent_source_count?: number;
   input_hash?: string | null;
   policy_hash?: string | null;
   minimum_acceptable_odds_method?: string | null;
@@ -219,6 +228,12 @@ export interface EnginePolicy {
     kelly_fraction: number;
     max_kelly_cap: number;
     speculative_stake_cap: number;
+    source_diversity?: {
+      minimum_for_execution: number;
+      minimum_for_high_conviction: number;
+      single_provider_ceiling: Verdict;
+    };
+    staking_display?: string;
     minimum_acceptable_odds_method?: string;
     target_expected_value?: number;
     verdict_precedence: Verdict[];
@@ -265,6 +280,8 @@ export interface FixtureEvidenceResponse {
   retrieval_timeline: Array<Record<string, unknown>>;
   readiness: Array<Record<string, unknown>>;
   source_comparison: Array<Record<string, unknown>>;
+  verified_evidence_providers: EvidenceProvider[];
+  provider_evidence: Array<Record<string, unknown>>;
 }
 
 export interface ManualOddsSnapshotRequest {
@@ -489,7 +506,7 @@ export async function getFixtureEvidence(fixtureId: string): Promise<FixtureEvid
 
 export async function refreshFixtureEvidence(
   fixtureId: string,
-  profile = "PREMATCH_STANDARD",
+  profile = "PRODUCTION_CYCLE",
 ): Promise<RefreshEvidenceResponse> {
   return apiFetch<RefreshEvidenceResponse>(
     `/api/fixtures/${encodeURIComponent(fixtureId)}/refresh`,

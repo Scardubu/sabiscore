@@ -246,7 +246,7 @@ def compute_market_features(
     closing = normalize_decimal_odds(closing_odds or {})
 
     current_implied = implied_probabilities(current) if current else {}
-    opening_implied = implied_probabilities(opening) if opening else {}
+    implied_probabilities(opening) if opening else {}
     closing_implied = implied_probabilities(closing) if closing else {}
 
     features: dict[str, float | None] = {}

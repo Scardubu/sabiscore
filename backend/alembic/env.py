@@ -9,6 +9,7 @@ from sqlalchemy import engine_from_config, pool
 
 from src.core.config import settings
 from src.core.database import Base
+from src.core.database_url import get_sync_database_url
 from src.db import models as _db_models  # noqa: F401
 
 config = context.config
@@ -19,16 +20,8 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
-def _sync_database_url(url: str) -> str:
-    if "+aiosqlite" in url:
-        return url.replace("+aiosqlite", "")
-    if "+asyncpg" in url:
-        return url.replace("+asyncpg", "+psycopg")
-    return url
-
-
 def run_migrations_offline() -> None:
-    url = _sync_database_url(settings.database_url)
+    url = get_sync_database_url(settings.database_url)
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -43,7 +36,7 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     section = config.get_section(config.config_ini_section, {})
-    section["sqlalchemy.url"] = _sync_database_url(settings.database_url)
+    section["sqlalchemy.url"] = get_sync_database_url(settings.database_url)
 
     connectable = engine_from_config(
         section,

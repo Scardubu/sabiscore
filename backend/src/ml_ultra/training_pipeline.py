@@ -15,10 +15,10 @@ import logging
 import json
 from datetime import datetime
 
-warnings.filterwarnings('ignore')
-
 from .meta_learner import DiverseEnsemble
 from .feature_engineering import AdvancedFeatureEngineer
+
+warnings.filterwarnings("ignore")
 
 logger = logging.getLogger(__name__)
 

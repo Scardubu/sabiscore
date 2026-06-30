@@ -178,7 +178,6 @@ class UltraPredictor:
                 'model_path': self.model_path
             }
         
-        ensemble = self.pipeline.ensemble
         
         return {
             'loaded': True,

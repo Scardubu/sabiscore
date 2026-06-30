@@ -4,6 +4,7 @@ from src.providers.espn import ESPN_LEAGUE_SLUGS, ESPNProvider
 from src.providers.base import ProviderResult, ProviderStatus, TrustTier
 from src.providers.reconciliation import FixtureCandidate, reconcile_fixture
 from src.providers.registry import build_provider_registry
+from src.providers.orchestrator import EvidenceOrchestrator, EvidenceProfile
 
 
 def test_espn_gateway_is_keyless_supplementary_and_covers_supported_slugs():
@@ -161,3 +162,58 @@ def test_reconciliation_unknown_only_when_no_candidate_exists():
     assert decision.status == "UNKNOWN"
     assert decision.fixture_id is None
     assert decision.reason == "no_candidate"
+
+
+@pytest.mark.asyncio
+async def test_production_cycle_fans_out_across_profile_groups(monkeypatch):
+    registry = build_provider_registry()
+    orchestrator = EvidenceOrchestrator(registry)
+
+    async def standard(_fixture, _competition):
+        return [
+            ProviderResult(
+                provider="football_data_org",
+                operation="standings",
+                status=ProviderStatus.VERIFIED,
+                trust_tier=TrustTier.OFFICIAL_AUTHENTICATED,
+                records=[{"position": 1}],
+            )
+        ]
+
+    async def enriched(_fixture, _competition):
+        return [
+            ProviderResult(
+                provider="api_football",
+                operation="injuries",
+                status=ProviderStatus.VERIFIED,
+                trust_tier=TrustTier.OFFICIAL_AUTHENTICATED,
+                records=[{"player": "A"}],
+            )
+        ]
+
+    async def market(_fixture, _competition, _canonical_fixture_id):
+        return [
+            ProviderResult(
+                provider="the_odds_api",
+                operation="odds",
+                status=ProviderStatus.VERIFIED,
+                trust_tier=TrustTier.OFFICIAL_AUTHENTICATED,
+                records=[{"bookmaker": "Pinnacle"}],
+            )
+        ]
+
+    monkeypatch.setattr(orchestrator, "_collect_prematch_standard", standard)
+    monkeypatch.setattr(orchestrator, "_collect_prematch_enriched", enriched)
+    monkeypatch.setattr(orchestrator, "_collect_market_refresh", market)
+
+    results = await orchestrator.collect(
+        {"competition": "EPL"},
+        EvidenceProfile.PRODUCTION_CYCLE,
+        canonical_fixture_id="fixture-1",
+    )
+
+    assert [result.provider for result in results] == [
+        "football_data_org",
+        "api_football",
+        "the_odds_api",
+    ]

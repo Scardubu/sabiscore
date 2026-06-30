@@ -87,7 +87,7 @@ class DataPreprocessor:
             logger.warning(f"No leagues found matching {league_names}")
             return self._generate_mock_dataset(league_code)
         
-        league_ids = [l.id for l in leagues]
+        league_ids = [league.id for league in leagues]
         
         matches = (
             self.db_session.query(Match)

@@ -18,7 +18,6 @@ Ethical Note:
 
 import json
 import logging
-import random
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -108,7 +107,7 @@ class TransfermarktScraper(BaseScraper):
                     return cached
         
         # Simulate data for development
-        data = self._simulate_team_valuation(team, league)
+        data = self._unavailable_team_valuation(team, league)
         
         # Cache the result
         self.market_values[cache_key] = data
@@ -116,112 +115,20 @@ class TransfermarktScraper(BaseScraper):
         
         return data
     
-    def _simulate_team_valuation(
+    def _unavailable_team_valuation(
         self,
         team: str,
         league: str
     ) -> Dict:
-        """Simulate realistic team valuation data."""
-        # Base values by league (in millions EUR)
-        league_multipliers = {
-            "EPL": 1.3,
-            "La Liga": 1.0,
-            "Serie A": 0.85,
-            "Bundesliga": 0.9,
-            "Ligue 1": 0.7,
-        }
-        
-        multiplier = league_multipliers.get(league, 1.0)
-        
-        # Simulate squad based on team "tier"
-        top_teams = ["Man City", "Arsenal", "Liverpool", "Chelsea", "Real Madrid", 
-                     "Barcelona", "Bayern Munich", "PSG", "Inter", "Juventus"]
-        
-        if any(t.lower() in team.lower() for t in top_teams):
-            tier = "top"
-            base_squad_value = 900  # millions
-            avg_player_value = 45
-        elif any(t.lower() in team.lower() for t in ["Aston Villa", "Newcastle", 
-                 "Tottenham", "Atletico", "Dortmund", "Milan", "Napoli"]):
-            tier = "upper"
-            base_squad_value = 500
-            avg_player_value = 25
-        else:
-            tier = "mid"
-            base_squad_value = 250
-            avg_player_value = 12
-        
-        # Generate player values
-        squad = self._simulate_squad(team, tier, multiplier)
-        total_value = sum(p["market_value"] for p in squad)
-        
-        return {
-            "team": team,
-            "league": league,
-            "tier": tier,
-            "total_squad_value": round(total_value, 2),
-            "average_player_value": round(total_value / len(squad), 2),
-            "squad_size": len(squad),
-            "most_valuable_player": max(squad, key=lambda x: x["market_value"]),
-            "squad": squad,
-            "value_trend": random.choice(["increasing", "stable", "decreasing"]),
-            "timestamp": datetime.now().isoformat(),
-            "source": "transfermarkt",
-            "simulated": True,
-        }
+        raise RuntimeError("Synthetic scraper fallback removed; verified source data required")
     
-    def _simulate_squad(
+    def _unavailable_squad(
         self,
         team: str,
         tier: str,
         multiplier: float
     ) -> List[Dict]:
-        """Simulate squad with realistic value distribution."""
-        positions = {
-            "GK": 2,
-            "CB": 4,
-            "LB": 2,
-            "RB": 2,
-            "CDM": 3,
-            "CM": 4,
-            "CAM": 2,
-            "LW": 2,
-            "RW": 2,
-            "ST": 3,
-        }
-        
-        # Base values by tier (in millions)
-        tier_values = {
-            "top": {"star": 80, "starter": 50, "rotation": 25, "backup": 10},
-            "upper": {"star": 50, "starter": 30, "rotation": 15, "backup": 5},
-            "mid": {"star": 25, "starter": 15, "rotation": 8, "backup": 3},
-        }
-        
-        values = tier_values.get(tier, tier_values["mid"])
-        squad = []
-        
-        for position, count in positions.items():
-            for i in range(count):
-                if i == 0:
-                    role = "star" if position in ["ST", "CAM", "CB"] else "starter"
-                elif i == 1:
-                    role = "starter"
-                else:
-                    role = "rotation" if i < 3 else "backup"
-                
-                base_value = values[role]
-                # Add some randomness
-                value = base_value * multiplier * random.uniform(0.7, 1.3)
-                
-                squad.append({
-                    "position": position,
-                    "role": role,
-                    "market_value": round(value, 2),
-                    "age": random.randint(19, 34),
-                    "contract_until": random.randint(2025, 2029),
-                })
-        
-        return squad
+        raise RuntimeError("Synthetic scraper fallback removed; verified source data required")
     
     def _parse_data(self, content: Dict) -> Dict:
         """Parse valuation data."""

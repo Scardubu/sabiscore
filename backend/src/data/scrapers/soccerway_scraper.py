@@ -17,7 +17,6 @@ Ethical Note:
 """
 
 import logging
-from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from urllib.parse import urljoin
 
@@ -90,7 +89,7 @@ class SoccerwayScraper(BaseScraper):
             return self._parse_data(html, data_type, league)
         
         # Fallback to simulated data
-        return self._simulate_data(data_type, league)
+        return self._unavailable_data(data_type, league)
     
     def _parse_data(
         self,
@@ -101,119 +100,24 @@ class SoccerwayScraper(BaseScraper):
         """Parse HTML content from Soccerway."""
         # TODO: Implement BeautifulSoup parsing for production
         # For now, return simulated data structure
-        return self._simulate_data(data_type, league)
+        return self._unavailable_data(data_type, league)
     
-    def _simulate_data(
+    def _unavailable_data(
         self,
         data_type: str,
         league: str
     ) -> Dict:
-        """Simulate Soccerway data for development."""
-        if data_type == "standings":
-            return self._simulate_standings(league)
-        elif data_type == "fixtures":
-            return self._simulate_fixtures(league)
-        elif data_type == "results":
-            return self._simulate_results(league)
+        logger.warning("Soccerway data unavailable for %s (%s)", league, data_type)
         return {}
     
-    def _simulate_standings(self, league: str) -> Dict:
-        """Simulate league standings."""
-        teams = self._get_league_teams(league)
-        
-        standings = []
-        for i, team in enumerate(teams, 1):
-            played = 20  # Mid-season
-            wins = max(0, int(20 - i * 0.8) + (i % 3))
-            draws = 5 + (i % 4)
-            losses = played - wins - draws
-            
-            goals_for = int(40 - i * 1.5) + (i % 5)
-            goals_against = int(15 + i * 1.2)
-            
-            standings.append({
-                "position": i,
-                "team": team,
-                "played": played,
-                "wins": wins,
-                "draws": draws,
-                "losses": losses,
-                "goals_for": goals_for,
-                "goals_against": goals_against,
-                "goal_difference": goals_for - goals_against,
-                "points": wins * 3 + draws,
-                "form": self._simulate_form_string(),
-            })
-        
-        return {
-            "league": league,
-            "season": "2024-25",
-            "standings": standings,
-            "timestamp": datetime.now().isoformat(),
-            "source": "soccerway",
-        }
+    def _unavailable_standings(self, league: str) -> Dict:
+        raise RuntimeError("Synthetic scraper fallback removed; verified source data required")
     
-    def _simulate_fixtures(self, league: str) -> Dict:
-        """Simulate upcoming fixtures."""
-        teams = self._get_league_teams(league)
-        fixtures = []
-        
-        base_date = datetime.now()
-        for i in range(10):
-            home_idx = (i * 2) % len(teams)
-            away_idx = (i * 2 + 1) % len(teams)
-            
-            match_date = base_date + timedelta(days=i // 2, hours=15 + (i % 3) * 2)
-            
-            fixtures.append({
-                "date": match_date.strftime("%Y-%m-%d"),
-                "time": match_date.strftime("%H:%M"),
-                "home_team": teams[home_idx],
-                "away_team": teams[away_idx],
-                "venue": f"{teams[home_idx]} Stadium",
-                "matchday": 21 + (i // 10),
-            })
-        
-        return {
-            "league": league,
-            "season": "2024-25",
-            "fixtures": fixtures,
-            "timestamp": datetime.now().isoformat(),
-            "source": "soccerway",
-        }
+    def _unavailable_fixtures(self, league: str) -> Dict:
+        raise RuntimeError("Synthetic scraper fallback removed; verified source data required")
     
-    def _simulate_results(self, league: str) -> Dict:
-        """Simulate recent results."""
-        teams = self._get_league_teams(league)
-        results = []
-        
-        base_date = datetime.now()
-        for i in range(10):
-            home_idx = (i * 2 + 3) % len(teams)
-            away_idx = (i * 2 + 4) % len(teams)
-            
-            match_date = base_date - timedelta(days=i // 2 + 1)
-            
-            home_goals = max(0, 2 - (i % 3))
-            away_goals = max(0, 1 + (i % 2))
-            
-            results.append({
-                "date": match_date.strftime("%Y-%m-%d"),
-                "home_team": teams[home_idx],
-                "away_team": teams[away_idx],
-                "home_goals": home_goals,
-                "away_goals": away_goals,
-                "result": self._get_result(home_goals, away_goals),
-                "matchday": 20 - (i // 10),
-            })
-        
-        return {
-            "league": league,
-            "season": "2024-25",
-            "results": results,
-            "timestamp": datetime.now().isoformat(),
-            "source": "soccerway",
-        }
+    def _unavailable_results(self, league: str) -> Dict:
+        raise RuntimeError("Synthetic scraper fallback removed; verified source data required")
     
     def _get_league_teams(self, league: str) -> List[str]:
         """Get list of teams for a league."""
@@ -256,11 +160,8 @@ class SoccerwayScraper(BaseScraper):
         }
         return teams_by_league.get(league, teams_by_league["EPL"])
     
-    def _simulate_form_string(self) -> str:
-        """Simulate last 5 match form string (WDLWW format)."""
-        import random
-        results = ["W", "D", "L"]
-        return "".join(random.choices(results, weights=[0.4, 0.3, 0.3], k=5))
+    def _unavailable_form_string(self) -> str:
+        raise RuntimeError("Synthetic scraper fallback removed; verified source data required")
     
     def _get_result(self, home: int, away: int) -> str:
         """Get match result string."""

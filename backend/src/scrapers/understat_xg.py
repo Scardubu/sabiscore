@@ -280,7 +280,6 @@ class UnderstatXGScraper:
         Returns:
             Dict containing season xG stats
         """
-        url = f"{self.BASE_URL}/team/{team_name}/{season}"
         
         try:
             # Check cache

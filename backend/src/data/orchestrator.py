@@ -291,7 +291,10 @@ class DataPipelineOrchestrator:
                                 )
                                 session.add(home_stats)
                             
-                            home_stats.expected_goals = match_data.get("home_xg", 0.0)
+                            home_xg = match_data.get("home_xg")
+                            if home_xg is None:
+                                raise ValueError("Understat record missing home_xg")
+                            home_stats.expected_goals = float(home_xg)
                             
                             # Away team stats
                             away_stats_stmt = select(MatchStats).where(
@@ -310,7 +313,10 @@ class DataPipelineOrchestrator:
                                 )
                                 session.add(away_stats)
                             
-                            away_stats.expected_goals = match_data.get("away_xg", 0.0)
+                            away_xg = match_data.get("away_xg")
+                            if away_xg is None:
+                                raise ValueError("Understat record missing away_xg")
+                            away_stats.expected_goals = float(away_xg)
                             
                             written += 1
                             
@@ -351,10 +357,16 @@ class DataPipelineOrchestrator:
                 for team_name, metrics in teams.items():
                     try:
                         cache_key = f"fbref_tactical:{team_name}:{season}"
+                        required_metrics = ("possession", "ppda", "press_success")
+                        missing_metrics = [name for name in required_metrics if metrics.get(name) is None]
+                        if missing_metrics:
+                            raise ValueError(
+                                f"FBRef record missing required metrics: {', '.join(missing_metrics)}"
+                            )
                         cache_value = json.dumps({
-                            "possession_avg": metrics.get("possession", 50.0),
-                            "ppda": metrics.get("ppda", 10.0),
-                            "pressure_success_pct": metrics.get("press_success", 30.0)
+                            "possession_avg": float(metrics["possession"]),
+                            "ppda": float(metrics["ppda"]),
+                            "pressure_success_pct": float(metrics["press_success"]),
                         })
                         
                         # Cache for 24 hours (tactical metrics are slow-changing)

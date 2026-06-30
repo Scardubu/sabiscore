@@ -33,7 +33,7 @@ PYTHON_BIN     := ./.venv/bin/python
 # ── Phony Targets ─────────────────────────────────────────────────────────────
 .PHONY: help install install-force install-dry validate lint lint-md lint-sh \
 	bump-version doctor clean check-tools status open-skills \
-	phase7-caches phase7-caches-clean verify verify-core
+	phase7-caches phase7-caches-clean verify verify-core contract-scan
 
 # ── Self-Documenting Help ──────────────────────────────────────────────────────
 help: ## Show this help (default target)
@@ -91,9 +91,17 @@ validate-strict: check-tools ## Validate registry AND verify all skill files exi
 	  echo "  ✓ All skill files present on disk"; \
 	fi
 
-verify-core: ## Run deterministic SabiScore checks without live providers or Docker
+contract-scan: ## Fail when prohibited fabrication or schema-authority patterns enter production code
+	@echo "  Scanning production contracts"
+	@if grep -R -n -E 'FEATURE_DEFAULTS|hardcoded_odds' backend/src --include='*.py'; then 	  echo "  ✗ Zero-fabrication contract violation"; exit 1; 	fi
+	@if grep -R -n 'create_all' backend/alembic --include='*.py'; then 	  echo "  ✗ Alembic must be the sole schema authority"; exit 1; 	fi
+	@echo "  ✓ Production contract scan passed"
+
+verify-core: contract-scan ## Run deterministic SabiScore checks without live providers or Docker
 	@echo "  SabiScore deterministic verification"
-	@echo "  1/6 Backend safety, provider, engine, and scraper regressions"
+	@echo "  1/7 Production runtime type contract"
+	@cd backend && mypy --config-file mypy-production.ini
+	@echo "  2/7 Backend safety, provider, engine, and scraper regressions"
 	@cd backend && PYTHONPATH=. DEBUG=false ALLOW_SQLITE_FALLBACK=true python -m pytest -q \
 	  tests/test_secret_safety.py \
 	  tests/test_database_migration_hardening.py \
@@ -101,26 +109,32 @@ verify-core: ## Run deterministic SabiScore checks without live providers or Doc
 	  tests/test_betting_intelligence_engine.py \
 	  tests/providers/test_reconciliation_and_odds.py \
 	  tests/test_scraped_feature_store.py \
+	  tests/test_upcoming_match_feature_store_integration.py \
 	  tests/test_no_synthetic_scrapers.py \
+	  tests/test_web_security_config.py \
 	  tests/test_scrapers.py --no-cov
-	@echo "  2/6 OpenAPI contract"
+	@echo "  3/7 OpenAPI contract"
 	@cd backend && timeout 90s env PYTHONPATH=. DEBUG=false ALLOW_SQLITE_FALLBACK=true python scripts/verify_openapi.py
-	@echo "  3/6 Provider CLI (offline/configuration mode)"
+	@echo "  4/7 Provider CLI (offline/configuration mode)"
 	@cd backend && timeout 60s env PYTHONPATH=. DEBUG=false PROVIDER_LIVE_TESTS=false python -m src.cli providers doctor >/dev/null
-	@echo "  4/6 Scraper parser tests"
+	@echo "  5/7 Scraper parser tests"
 	@node --test apps/scraper/tests/*.test.mjs
-	@echo "  5/6 Scraper source and manifest validation"
+	@echo "  6/7 Scraper source and manifest validation"
 	@node apps/scraper/src/cli.mjs validate
-	@echo "  6/6 Python compilation"
+	@echo "  7/7 Python compilation"
 	@python -m compileall -q backend/src backend/scripts
 
 verify: ## Run every SabiScore production release gate; requires pnpm, Postgres, Docker, browsers, and gitleaks
-	@command -v gitleaks >/dev/null || { echo "gitleaks is required for production verification"; exit 1; }
 	@command -v pnpm >/dev/null || { echo "pnpm is required for production verification"; exit 1; }
 	@command -v docker >/dev/null || { echo "Docker is required for production verification"; exit 1; }
 	@echo "  SabiScore production verification"
 	@echo "  1/14 Secret scan"
-	@gitleaks detect --no-git --source . --redact --exit-code 1
+	@if command -v gitleaks >/dev/null 2>&1; then \
+	  gitleaks detect --no-git --source . --redact --exit-code 1; \
+	else \
+	  docker run --rm -v "$(CURDIR):/repo" -w /repo zricethezav/gitleaks:v8.24.3 \
+	    detect --no-git --source . --redact --exit-code 1; \
+	fi
 	@echo "  2/14 Deterministic core gates"
 	@$(MAKE) verify-core
 	@echo "  3/14 Complete backend suite"
@@ -140,11 +154,11 @@ verify: ## Run every SabiScore production release gate; requires pnpm, Postgres,
 	@echo "  10/14 Docker Compose configuration"
 	@docker compose -f docker-compose.prod.yml config --quiet
 	@echo "  11/14 Backend image"
-	@docker build -f backend/Dockerfile -t sabiscore-backend:verify .
+	@docker build -f backend/Dockerfile -t sabiscore-backend:verify backend
 	@echo "  12/14 Web image"
 	@docker build -f apps/web/Dockerfile -t sabiscore-web:verify .
 	@echo "  13/14 Playwright desktop/mobile smoke"
-	@pnpm exec playwright test
+	@pnpm test:e2e:smoke
 	@echo "  14/14 Final OpenAPI regeneration"
 	@cd backend && timeout 90s env PYTHONPATH=. DEBUG=false python scripts/verify_openapi.py
 	@echo "  ✓ All production release gates passed"
@@ -187,13 +201,13 @@ lint-sh: ## Lint shell scripts with shellcheck
 # ── Version Management ────────────────────────────────────────────────────────
 bump-version: ## Bump suiteVersion in registry.json (usage: make bump-version V=2.1.0)
 	@test -n "$(V)" || { echo "  Error: V is required. Usage: make bump-version V=2.1.0"; exit 1; }
-	@echo "  Bumping $(SUITE_VERSION) → $(V)…"
+	@echo "  Bumping suite version: $(SUITE_VERSION) → $(V)…"
 	@tmp=$$(mktemp); \
 	  jq --arg v "$(V)" --arg d "$$(date +%Y-%m-%d)" \
 	     '.suiteVersion=$$v | .updatedAt=$$d' $(REGISTRY) > "$$tmp" && \
 	  mv "$$tmp" $(REGISTRY)
 	@$(MAKE) validate
-	@echo "  ✓ Suite version bumped to v$(V). Commit: git add registry.json && git commit -m 'chore: bump skill suite to v$(V)'"
+	@echo "  ✓ Suite version bumped to $(V). Commit: git add registry.json && git commit -m 'chore: bump skill suite to v$(V)'"
 
 bump-skill: ## Bump a single skill version (usage: make bump-skill NAME=backend-systems-auditor V=1.3.0)
 	@test -n "$(NAME)" || { echo "  Error: NAME required. Usage: make bump-skill NAME=<skill-name> V=<version>"; exit 1; }

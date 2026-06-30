@@ -130,7 +130,7 @@ class FBrefLoader:
                     metrics["possession_pct"] = float(cells[0].text.strip() or "0")
                     metrics["touches"] = int(cells[1].text.strip() or "0")
                     break
-        except:
+        except (AttributeError, IndexError, TypeError, ValueError):
             pass
         return metrics
     
@@ -146,7 +146,7 @@ class FBrefLoader:
                     metrics["pass_completion_pct"] = float(cells[1].text.strip() or "0")
                     metrics["progressive_passes"] = int(cells[3].text.strip() or "0")
                     break
-        except:
+        except (AttributeError, IndexError, TypeError, ValueError):
             pass
         return metrics
     
@@ -162,7 +162,7 @@ class FBrefLoader:
                     metrics["shots_on_target"] = int(cells[1].text.strip() or "0")
                     metrics["shot_accuracy_pct"] = float(cells[2].text.strip() or "0")
                     break
-        except:
+        except (AttributeError, IndexError, TypeError, ValueError):
             pass
         return metrics
     
@@ -178,7 +178,7 @@ class FBrefLoader:
                     metrics["interceptions"] = int(cells[1].text.strip() or "0")
                     metrics["pressures"] = int(cells[3].text.strip() or "0")
                     break
-        except:
+        except (AttributeError, IndexError, TypeError, ValueError):
             pass
         return metrics
 

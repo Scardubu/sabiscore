@@ -15,10 +15,9 @@ from src.providers.reconciliation import (
     AUTO_ACCEPT_THRESHOLD,
     REVIEW_THRESHOLD,
     FixtureCandidate,
-    ReconciliationDecision,
     reconcile_fixture,
 )
-from src.providers.the_odds_api import OddsMarketRecord, TheOddsAPIProvider
+from src.providers.the_odds_api import TheOddsAPIProvider
 
 UTC = timezone.utc
 

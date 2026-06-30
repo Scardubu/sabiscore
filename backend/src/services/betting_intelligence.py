@@ -24,7 +24,7 @@ import hashlib
 import json
 import math
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 from ..schemas.betting_intelligence import (
     AnalysisModeEnum,
@@ -55,8 +55,8 @@ from ..schemas.betting_intelligence import (
 
 MIN_ACTIONABLE_EDGE: float = 0.042        # 4.2 percentage points de-vigged
 HIGH_CONVICTION_EDGE: float = 0.062       # max(MIN_ACTIONABLE_EDGE + 0.02, 0.06)
-KELLY_FRACTION: float = 0.125             # one-eighth Kelly
-MAX_KELLY_CAP: float = 0.025              # 2.5% of bankroll
+KELLY_FRACTION: float = 0.25              # Quarter-Kelly public default
+MAX_KELLY_CAP: float = 0.05               # hard 5% bankroll ceiling
 MARKET_FRESH_SECONDS: int = 900           # 15 min
 MARKET_RECENT_SECONDS: int = 3600         # 60 min
 MODEL_FEATURES_FRESH_SECONDS: int = 3600  # LIVE_THRESHOLD_SECONDS default
@@ -65,8 +65,8 @@ MAX_MARKET_OVERROUND: float = 1.20        # reject >120% book
 MIN_MARKET_OVERROUND: float = 0.90        # reject <90% book (integrity)
 SPECULATIVE_STAKE_CAP: float = 0.0025     # 0.25u cap for SPECULATIVE
 DEFAULT_TARGET_EXPECTED_VALUE: float = 0.0
-CONTRACT_VERSION: str = "1.2.0"
-POLICY_VERSION: str = "1.0"
+CONTRACT_VERSION: str = "1.3.0"
+POLICY_VERSION: str = "1.1"
 
 
 # ---------------------------------------------------------------------------
@@ -373,13 +373,12 @@ def _evaluate_all_outcomes(
             "edge": round(edge, 6),
             "edge_pct": round(edge * 100, 4),
             "expected_value": round(ev, 6),
-            "full_kelly": round(fk, 6),
             "stake_fraction": round(stake_frac, 6),
             "confidence_adjusted_value": round(cav, 8),
         })
 
     # Sort by confidence-adjusted value descending (best market first)
-    results.sort(key=lambda r: r["confidence_adjusted_value"], reverse=True)
+    results.sort(key=lambda r: cast(float, r["confidence_adjusted_value"]), reverse=True)
     return results
 
 
@@ -404,6 +403,7 @@ def _apply_verdict_gate(
     evaluation_at: Optional[datetime] = None,
     min_actionable_edge: float = MIN_ACTIONABLE_EDGE,
     high_conviction_edge: float = HIGH_CONVICTION_EDGE,
+    independent_source_count: int = 0,
 ) -> VerdictEnum:
     """Apply verdict gates in strict precedence order (Section 6 of contract).
 
@@ -435,6 +435,12 @@ def _apply_verdict_gate(
         return VerdictEnum.NO_BET
 
     # -- Gate 3: HOLD ---------------------------------------------------------
+    # Unknown ownership is incomplete; one independent owner is capped at HOLD.
+    if independent_source_count <= 0:
+        return VerdictEnum.PARTIAL
+    if independent_source_count == 1:
+        return VerdictEnum.HOLD
+
     tier_low = model.confidence_tier == EvidenceTierEnum.LOW_EVIDENCE
     cal_unvalidated = not model.calibration_validated
     market_stale = market_freshness == FreshnessStatusEnum.STALE
@@ -478,6 +484,7 @@ def _apply_verdict_gate(
         and not high_epistemic
         and market_freshness == FreshnessStatusEnum.FRESH
         and has_causal_support
+        and independent_source_count >= 4
         and sharp_signal in (SharpSignalEnum.CONFIRMING, SharpSignalEnum.NEUTRAL, SharpSignalEnum.UNKNOWN)
     ):
         return VerdictEnum.HIGH_CONVICTION
@@ -575,6 +582,10 @@ def analyze_match(
     gaps: List[str] = list(request.data_gaps)  # start with caller-declared gaps
     model = request.model
     market = request.market
+    verified_providers = list(dict.fromkeys(request.verified_evidence_providers))
+    independent_source_count = len(verified_providers)
+    if model is not None and market is not None and independent_source_count == 0:
+        gaps.append("DATA_GAP: evidence_provider_provenance")
 
     # -- Model validation -----------------------------------------------------
     model_gaps = _evaluate_model_freshness(
@@ -600,12 +611,12 @@ def analyze_match(
     # Validate overround integrity
     if market is not None and not market_gaps:
         try:
-            overround, fair_h, fair_d, fair_a = _compute_devig(
+            validation_overround, _, _, _ = _compute_devig(
                 market.home_odds, market.draw_odds, market.away_odds
             )
-            if overround > float(policy["max_market_overround"]) or overround < float(policy["min_market_overround"]):
+            if validation_overround > float(policy["max_market_overround"]) or validation_overround < float(policy["min_market_overround"]):
                 gaps.append(
-                    f"DATA_GAP: market_overround_outside_integrity_limits ({overround:.4f})"
+                    f"DATA_GAP: market_overround_outside_integrity_limits ({validation_overround:.4f})"
                 )
                 market = None
         except ValueError as exc:
@@ -656,6 +667,7 @@ def analyze_match(
         evaluation_at=evaluation_at,
         min_actionable_edge=min_edge,
         high_conviction_edge=high_conviction_edge,
+        independent_source_count=independent_source_count,
     )
 
     # -- Build result ----------------------------------------------------------
@@ -684,7 +696,12 @@ def analyze_match(
             away=model.away_probability,
         )
 
-    if verdict not in (VerdictEnum.PARTIAL, VerdictEnum.NO_BET, VerdictEnum.HOLD) and best_eval:
+    if (
+        verdict not in (VerdictEnum.PARTIAL, VerdictEnum.NO_BET, VerdictEnum.HOLD)
+        and best_eval
+        and model is not None
+        and market is not None
+    ):
         best_market_field = best_eval["market_label"]
         market_odds_field = best_eval["market_odds"]
         raw_implied_field = best_eval["raw_implied_probability"]
@@ -784,6 +801,10 @@ def analyze_match(
 
     # Risks
     risks: List[str] = list(request.known_risks[:3])
+    if independent_source_count == 1:
+        risks.append("Single-provider evidence caps the verdict at HOLD.")
+    elif 1 < independent_source_count < 4:
+        risks.append("Fewer than four independent providers prevents HIGH_CONVICTION.")
     if not risks:
         if request.signals.confirmed_absences:
             risks.append(
@@ -832,7 +853,11 @@ def analyze_match(
             "market": request.source_status.market.value,
             "team_metrics": request.source_status.team_metrics.value,
             "availability": request.source_status.availability.value,
+            "providers": [provider.value for provider in verified_providers],
+            "independent_source_count": independent_source_count,
         },
+        verified_evidence_providers=verified_providers,
+        independent_source_count=independent_source_count,
         input_hash=input_hash,
         policy_hash=policy_hash,
         minimum_acceptable_odds_method=minimum_method,

@@ -2,9 +2,9 @@ name: CI - Canonical Platform
 
 on:
   push:
-    branches: [main, develop, "feat/**"]
+    branches: [master, main, develop, "feat/**"]
   pull_request:
-    branches: [main, develop]
+    branches: [master, main, develop]
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -85,15 +85,53 @@ jobs:
 
       - name: MyPy before tests
         working-directory: backend
-        run: mypy src
+        run: mypy --config-file mypy-production.ini
 
-      - name: Alembic upgrade
+      - name: Capture Alembic upgrade diagnostics
+        id: alembic
         working-directory: backend
-        run: alembic upgrade head
+        continue-on-error: true
+        run: |
+          set +e
+          alembic upgrade head > /tmp/alembic.txt 2>&1
+          status=$?
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          cat /tmp/alembic.txt
 
-      - name: Backend tests
+      - name: Upload Alembic diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alembic-diagnostics
+          path: /tmp/alembic.txt
+          if-no-files-found: error
+
+      - name: Enforce Alembic result
+        if: steps.alembic.outputs.status != '0'
+        run: exit 1
+
+      - name: Capture backend test diagnostics
+        id: pytest
         working-directory: backend
-        run: pytest tests -q --no-cov
+        continue-on-error: true
+        run: |
+          set +e
+          pytest tests -q --no-cov > /tmp/pytest.txt 2>&1
+          status=$?
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          cat /tmp/pytest.txt
+
+      - name: Upload backend test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-diagnostics
+          path: /tmp/pytest.txt
+          if-no-files-found: error
+
+      - name: Enforce backend test result
+        if: steps.pytest.outputs.status != '0'
+        run: exit 1
 
   web-quality:
     name: Web Lint, Typecheck, Build
@@ -109,7 +147,7 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 11.8.0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4

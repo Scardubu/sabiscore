@@ -29,7 +29,6 @@ Coverage:
 """
 from __future__ import annotations
 
-import asyncio
 from dataclasses import fields
 from typing import Any, Dict
 from unittest.mock import MagicMock, patch

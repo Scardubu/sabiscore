@@ -39,8 +39,41 @@ from ..models.feature_registry import (
     active_default_feature_values,
 )
 from .odds_service import OddsService
+from .scraped_feature_store import ScrapedTeamFormStore
 
 logger = logging.getLogger(__name__)
+
+
+def _canonical_form_features(stats: Dict[str, float], side: str) -> Dict[str, float]:
+    """Map real database/scraper form statistics into the canonical model schema."""
+    prefix = "home" if side == "home" else "away"
+    ppg = float(stats.get("ppg_5", float(stats.get("home_form_5", 0.0)) * 3.0))
+    wins = float(stats.get("wins_5", round(float(stats.get("home_win_rate_5", 0.0)) * 5.0)))
+    draws = float(stats.get("draws_5", 0.0))
+    losses = float(stats.get("losses_5", max(0.0, 5.0 - wins - draws)))
+    goals_for = float(stats.get("goals_for_avg_5", stats.get("home_goals_per_match_5", 0.0)))
+    goals_against = float(stats.get("goals_against_avg_5", stats.get("home_goals_conceded_per_match_5", 0.0)))
+    gd = float(stats.get("gd_avg_5", stats.get("home_gd_avg_5", goals_for - goals_against)))
+
+    if prefix == "home":
+        return {
+            "home_form_last5_home": ppg,
+            "home_wins_last5_home": wins,
+            "home_draws_last5_home": draws,
+            "home_losses_last5_home": losses,
+            "home_goals_for_avg": goals_for,
+            "home_goals_against_avg": goals_against,
+            "home_gd_recent": gd,
+        }
+    return {
+        "away_form_last5_away": ppg,
+        "away_wins_last5_away": wins,
+        "away_draws_last5_away": draws,
+        "away_losses_last5_away": losses,
+        "away_goals_for_avg": goals_for,
+        "away_goals_against_avg": goals_against,
+        "away_gd_recent": gd,
+    }
 
 
 class UpcomingMatchFeatureProjector:
@@ -65,6 +98,7 @@ class UpcomingMatchFeatureProjector:
             parquet_path=settings.berrar_ratings_parquet_path
         )
         self.odds_service = OddsService()
+        self.scraped_form_store = ScrapedTeamFormStore()
 
     async def project_match_features(
         self,
@@ -110,17 +144,58 @@ class UpcomingMatchFeatureProjector:
 
         home_stats = await self._get_team_stats(home_team_id, db, match_date)
         away_stats = await self._get_team_stats(away_team_id, db, match_date)
+        feature_sources: Dict[str, str] = {}
+        league = str(match_dict.get("league") or "EPL").upper()
+
+        if home_stats is None:
+            scraped = self.scraped_form_store.get_team_form(
+                competition=league,
+                team=str(match_dict["home_team"]),
+                information_cutoff=match_date,
+            )
+            if scraped is not None:
+                home_stats = scraped.to_projection_stats()
+                feature_sources["home_form"] = f"node-scraper:{scraped.source_file.name}"
+        else:
+            feature_sources["home_form"] = "database"
+
+        if away_stats is None:
+            scraped = self.scraped_form_store.get_team_form(
+                competition=league,
+                team=str(match_dict["away_team"]),
+                information_cutoff=match_date,
+            )
+            if scraped is not None:
+                away_stats = scraped.to_projection_stats()
+                feature_sources["away_form"] = f"node-scraper:{scraped.source_file.name}"
+        else:
+            feature_sources["away_form"] = "database"
 
         features_dict = dict(self.defaults)
-        defaults_count = len(self.defaults)
+        resolved_features: set[str] = set()
 
         if home_stats:
-            features_dict.update(home_stats)
-            defaults_count -= sum(1 for k in home_stats if k in self.defaults)
+            mapped = _canonical_form_features(home_stats, "home")
+            features_dict.update(mapped)
+            resolved_features.update(mapped)
 
         if away_stats:
-            features_dict.update(away_stats)
-            defaults_count -= sum(1 for k in away_stats if k in self.defaults)
+            mapped = _canonical_form_features(away_stats, "away")
+            features_dict.update(mapped)
+            resolved_features.update(mapped)
+
+        if home_stats and away_stats:
+            derived = {
+                "total_goals_expected": features_dict["home_goals_for_avg"] + features_dict["away_goals_for_avg"],
+                "combined_attack": features_dict["home_goals_for_avg"] + features_dict["away_goals_for_avg"],
+                "combined_defense_weakness": features_dict["home_goals_against_avg"] + features_dict["away_goals_against_avg"],
+                "home_attack_vs_away_defense": features_dict["home_goals_for_avg"] - features_dict["away_goals_against_avg"],
+                "away_attack_vs_home_defense": features_dict["away_goals_for_avg"] - features_dict["home_goals_against_avg"],
+            }
+            features_dict.update(derived)
+            resolved_features.update(derived)
+
+        defaults_count = max(0, len(self.defaults) - len(resolved_features))
 
         features_array = np.array(
             [features_dict.get(f, self.defaults.get(f, 0.0)) for f in self.canonical_features],
@@ -129,7 +204,7 @@ class UpcomingMatchFeatureProjector:
 
         data_gaps = [
             feature for feature in self.canonical_features
-            if feature not in features_dict or features_dict.get(feature) in (None, 0.0)
+            if feature not in resolved_features
         ]
 
         # Preserve DATA_GAP semantics for Phase 7 tactical features that require
@@ -166,6 +241,7 @@ class UpcomingMatchFeatureProjector:
             else 0.0,
             "defaults_used_count": max(0, defaults_count),
             "is_synthetic": home_stats is None or away_stats is None,
+            "feature_sources": feature_sources,
         }
 
         return {
@@ -176,7 +252,7 @@ class UpcomingMatchFeatureProjector:
             "away_team_id": away_team_id,
             "features_68": features_array,
             "features_58": features_array[: len(CANONICAL_FEATURES_58)],
-            "features_dict": {f: float(features_array[i]) for i, f in enumerate(self.canonical_features)},
+            "features_dict": {f: round(float(features_array[i]), 6) for i, f in enumerate(self.canonical_features)},
             "data_gaps": sorted(set(data_gaps)),
             "data_quality": data_quality,
         }
@@ -678,6 +754,19 @@ class UpcomingMatchFeatureProjector:
             else:
                 points.append(0)
 
+        recent_points = points[:5]
+        recent_goals_for = goals_for[:5]
+        recent_goals_against = goals_against[:5]
+        sample_size = len(recent_points)
+        if sample_size:
+            stats["ppg_5"] = sum(recent_points) / sample_size
+            stats["wins_5"] = float(sum(1 for p in recent_points if p == 3))
+            stats["draws_5"] = float(sum(1 for p in recent_points if p == 1))
+            stats["losses_5"] = float(sum(1 for p in recent_points if p == 0))
+            stats["goals_for_avg_5"] = float(np.mean(recent_goals_for))
+            stats["goals_against_avg_5"] = float(np.mean(recent_goals_against))
+            stats["gd_avg_5"] = stats["goals_for_avg_5"] - stats["goals_against_avg_5"]
+
         if len(points) >= 5:
             stats["home_form_5"] = sum(points[:5]) / 15.0
             stats["home_win_rate_5"] = sum(1 for p in points[:5] if p == 3) / 5.0
@@ -692,10 +781,10 @@ class UpcomingMatchFeatureProjector:
         else:
             stats["home_form_10"] = stats.get("home_form_5", 0.5)
 
-        stats["home_goals_per_match_5"] = (
+        stats["home_goals_per_match_5"] = float(
             np.mean(goals_for[:5]) if len(goals_for) >= 5 else np.mean(goals_for) if goals_for else 1.5
         )
-        stats["home_goals_conceded_per_match_5"] = (
+        stats["home_goals_conceded_per_match_5"] = float(
             np.mean(goals_against[:5]) if len(goals_against) >= 5 else np.mean(goals_against) if goals_against else 1.2
         )
 
@@ -714,7 +803,7 @@ class UpcomingMatchFeatureProjector:
         )
 
         gd = [f - a for f, a in zip(goals_for[:5], goals_against[:5])]
-        stats["home_gd_avg_5"] = np.mean(gd) if gd else 0.0
+        stats["home_gd_avg_5"] = float(np.mean(gd)) if gd else 0.0
         if len(gd) >= 2:
             try:
                 trend = np.polyfit(range(len(gd)), gd, 1)[0]
@@ -724,8 +813,10 @@ class UpcomingMatchFeatureProjector:
 
         xg_values = await self._get_team_xg(team_id, db, recent_matches)
         if xg_values:
-            stats["home_xg_avg_5"] = np.mean(xg_values[:5])
-            stats["home_xg_consistency"] = np.std(xg_values[:5]) if len(xg_values) >= 5 else 0.75
+            stats["home_xg_avg_5"] = float(np.mean(xg_values[:5]))
+            stats["home_xg_consistency"] = (
+                float(np.std(xg_values[:5])) if len(xg_values) >= 5 else 0.75
+            )
 
         return stats if stats else None
 

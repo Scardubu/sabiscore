@@ -1,20 +1,13 @@
 import { NextResponse } from "next/server";
+import { proxyHeaders, resolveBackendBaseUrl } from "@/lib/proxy-utils";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function resolveBackendBaseUrl(): string {
-  const configured =
-    process.env.SABISCORE_BACKEND_URL;
-  if (configured && configured.trim().length > 0) return configured.replace(/\/+$/, "");
-  return "http://127.0.0.1:8000";
-}
-
 export async function GET() {
   try {
-    const backendToken = process.env.BACKEND_TOKEN || "development-token";
     const res = await fetch(`${resolveBackendBaseUrl()}/internal/smoke`, {
-      headers: { Authorization: `Bearer ${backendToken}` },
+      headers: proxyHeaders(),
       cache: "no-store",
     });
     if (!res.ok) {

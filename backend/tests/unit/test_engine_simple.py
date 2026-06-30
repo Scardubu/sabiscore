@@ -1,23 +1,14 @@
+"""Legacy insights inference must fail closed."""
+
 import pytest
-from unittest.mock import patch, MagicMock
 
-def test_engine_basic_flow():
-    """Test core engine workflow with minimal mocks"""
-    with patch('src.insights.engine.DataAggregator') as mock_agg, \
-         patch('src.insights.engine.SabiScoreEnsemble') as mock_model:
+from src.core.exceptions import DataUnavailableError
+from src.insights.engine import InsightsEngine
 
-        # Setup mocks
-        mock_agg_instance = mock_agg.return_value
-        mock_model_instance = mock_model.return_value
-        mock_agg_instance.fetch_match_data.return_value = {}
-        mock_model_instance.is_trained = False
 
-        # Import after mocking
-        from src.insights.engine import InsightsEngine
-        engine = InsightsEngine(model=mock_model_instance, aggregator=mock_agg_instance)
-
-        # Test
-        result = engine.generate_match_insights('TeamA vs TeamB', 'EPL')
-        assert isinstance(result, dict)
-        assert 'predictions' in result
-        mock_agg_instance.fetch_match_data.assert_called_once()
+def test_legacy_insights_engine_is_disabled():
+    engine = InsightsEngine()
+    with pytest.raises(DataUnavailableError) as exc_info:
+        engine.generate_match_insights("TeamA vs TeamB", "EPL")
+    assert exc_info.value.reason == "LEGACY_ENGINE_DISABLED"
+    assert "legacy_insights_engine" in exc_info.value.missing_fields

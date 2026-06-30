@@ -1,0 +1,39 @@
+name: Ruff Diagnostics
+
+on:
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  ruff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Ruff only
+        run: python -m pip install --quiet ruff
+      - name: Capture Ruff diagnostics
+        id: ruff
+        working-directory: backend
+        continue-on-error: true
+        run: |
+          set +e
+          ruff check src tests --output-format=concise > /tmp/ruff.txt 2>&1
+          status=$?
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          cat /tmp/ruff.txt
+      - name: Upload Ruff diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ruff-diagnostics
+          path: /tmp/ruff.txt
+          if-no-files-found: error
+      - name: Enforce Ruff result
+        if: steps.ruff.outputs.status != '0'
+        run: exit 1

@@ -1,9 +1,13 @@
 # syntax=docker/dockerfile:1
 
 # Base stage with dependencies
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
+
+ENV CI=true
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
 
 RUN corepack enable
 
@@ -20,19 +24,21 @@ COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
 COPY . .
 
 # Build the Next.js app
-ENV NEXT_TELEMETRY_DISABLED 1
-ENV NODE_ENV production
-ENV NEXT_STANDALONE true
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
+ENV NEXT_STANDALONE=true
+ARG SABISCORE_BACKEND_URL=http://api:8000
+ENV SABISCORE_BACKEND_URL=${SABISCORE_BACKEND_URL}
 
 RUN pnpm --filter @sabiscore/web build
 
 # Production runner stage
-FROM node:20-alpine AS production
+FROM node:22-alpine AS production
 WORKDIR /app
 
-ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
-ENV PORT 3000
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3000
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
