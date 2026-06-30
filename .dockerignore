@@ -1,0 +1,51 @@
+.git
+.github
+.gitignore
+.gitattributes
+
+# Local dependencies and package-manager caches
+**/node_modules
+.pnpm-store
+.npm
+.yarn
+
+# Build, test, and framework output
+**/.next
+**/dist
+**/build
+**/coverage
+**/.turbo
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/__pycache__
+**/*.py[cod]
+playwright-report
+test-results
+
+# Local environments and secrets
+.env
+.env.*
+!.env.example
+!.env.production.example
+**/.venv
+**/venv
+
+# Runtime data and large local artifacts
+artifacts
+data
+models
+logs
+*.log
+*.sqlite
+*.sqlite3
+
+# Editor and OS metadata
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# Documentation and repository-only material not required at runtime
+docs
+*.md
