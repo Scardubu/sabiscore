@@ -111,8 +111,8 @@ class CoreCalculationAuditOutput(BaseModel):
     market_overround: Optional[float]
     calibration_method: Optional[str]
     model_version: Optional[str]
-    kelly_fraction: float = 0.125
-    kelly_cap: float = 0.025
+    kelly_fraction: float = 0.25
+    kelly_cap: float = 0.05
 
 
 class CoreMatchOutput(BaseModel):
@@ -132,7 +132,7 @@ class CoreMatchOutput(BaseModel):
     expected_value: Optional[float]
     confidence: Literal["HIGH", "MEDIUM", "LOW"]
     confidence_adjusted_value: float
-    stake: Literal["1u", "2.5u", "pass"]
+    stake: Literal["1u", "2.5u", "5u", "pass"]
     stake_fraction: float
     minimum_acceptable_odds: Optional[float]
     drivers: List[str]
@@ -145,7 +145,7 @@ class CoreMatchOutput(BaseModel):
 
 
 class CoreEngineResponse(BaseModel):
-    engine_version: Literal["2.1.0-prod"] = "2.1.0-prod"
+    engine_version: Literal["2.2.0-prod"] = "2.2.0-prod"
     generated_at: datetime
     top_opportunities: List[str]
     batch_watchlist: List[str] = Field(default_factory=list)
