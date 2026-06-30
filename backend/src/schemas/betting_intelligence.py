@@ -1,6 +1,6 @@
 """
 SabiScore Core Engine - Versioned Betting Intelligence Schemas
-CONTRACT VERSION: 1.1.0
+CONTRACT VERSION: 1.3.0
 
 Strict Pydantic v2 models for the betting intelligence request/response contract.
 Every field that can be absent is Optional[...] with a None default.
@@ -11,6 +11,7 @@ Null rules:
   - probabilities may be None only under PARTIAL
   - stake/stake_fraction is always 0/"pass" under PARTIAL / HOLD / NO_BET
   - Timestamps must be UTC ISO-8601
+  - Full Kelly is internal audit math and is never returned to public clients
 """
 
 from __future__ import annotations
@@ -97,6 +98,16 @@ class EvidenceTierEnum(str, Enum):
     LOW_EVIDENCE = "LOW_EVIDENCE"
 
 
+class EvidenceProviderEnum(str, Enum):
+    """Canonical provider ownership identities used for independence gates."""
+
+    ESPN = "ESPN"
+    FOOTBALL_DATA_ORG = "FOOTBALL_DATA_ORG"
+    API_FOOTBALL = "API_FOOTBALL"
+    SPORTMONKS = "SPORTMONKS"
+    THE_ODDS_API = "THE_ODDS_API"
+
+
 # ---------------------------------------------------------------------------
 # Input sub-models
 # ---------------------------------------------------------------------------
@@ -173,8 +184,7 @@ class SourceStatusInput(BaseModel):
 
 
 class MatchAnalysisRequest(BaseModel):
-    """Single-match analysis request. All critical fields must be non-null for
-    a verdict above PARTIAL."""
+    """Single-match analysis request with explicit provider provenance."""
 
     match_id: str
     home_team: str
@@ -189,17 +199,24 @@ class MatchAnalysisRequest(BaseModel):
     signals: SignalsInput = Field(default_factory=SignalsInput)
     freshness: FreshnessInput = Field(default_factory=FreshnessInput)
     source_status: SourceStatusInput = Field(default_factory=SourceStatusInput)
+    verified_evidence_providers: List[EvidenceProviderEnum] = Field(default_factory=list)
 
     # Caller-declared data gaps (execution-blocking by design)
     data_gaps: List[str] = Field(default_factory=list)
     known_risks: List[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def check_provider_uniqueness(self) -> "MatchAnalysisRequest":
+        if len(set(self.verified_evidence_providers)) != len(self.verified_evidence_providers):
+            raise ValueError("verified_evidence_providers must contain unique provider owners")
+        return self
 
 
 class BatchAnalysisRequest(BaseModel):
     """Batch of up to 100 match analysis requests."""
 
     matches: List[MatchAnalysisRequest] = Field(..., min_length=1, max_length=100)
-    engine_version: str = "1.1.0"
+    engine_version: str = "1.2.0"
 
 
 # ---------------------------------------------------------------------------
@@ -231,15 +248,15 @@ class CalculationAudit(BaseModel):
     fair_market_away: Optional[float] = None
     calibration_method: Optional[str] = None
     model_version: Optional[str] = None
-    kelly_fraction: float = 0.125
-    kelly_cap: float = 0.025
+    kelly_fraction: float = 0.25
+    kelly_cap: float = 0.05
     breakeven_odds: Optional[float] = None
     minimum_odds_for_target_ev: Optional[float] = None
     edge_preserving_minimum_odds: Optional[float] = None
 
 
 class MarketEvaluation(BaseModel):
-    """Edge/EV calculation for a single 1X2 outcome."""
+    """Public edge/EV calculation for a single 1X2 outcome."""
 
     outcome: str  # "home" | "draw" | "away"
     market_label: BestMarketEnum
@@ -247,25 +264,26 @@ class MarketEvaluation(BaseModel):
     market_odds: float
     raw_implied_probability: float
     fair_market_probability: float
-    edge: float          # model_prob - fair_market_prob (pp)
-    edge_pct: float      # edge Ã- 100
-    expected_value: float  # model_prob Ã- odds - 1
-    full_kelly: float
-    stake_fraction: float  # capped fractional kelly
+    edge: float
+    edge_pct: float
+    expected_value: float
+    stake_fraction: float  # capped Quarter-Kelly; Full Kelly is never public
     confidence_adjusted_value: float
 
 
 class MatchAnalysisResult(BaseModel):
     """Complete analysis result for a single match."""
 
-    contract_version: str = "1.2.0"
-    policy_version: str = "1.0"
+    contract_version: str = "1.3.0"
+    policy_version: str = "1.1"
     decision_id: Optional[str] = None
     evaluation_at: Optional[datetime] = None
     analysis_mode: AnalysisModeEnum = AnalysisModeEnum.FORECAST_ONLY
     execution_eligible: bool = False
     watchlist: bool = False
     source_summary: Dict[str, Any] = Field(default_factory=dict)
+    verified_evidence_providers: List[EvidenceProviderEnum] = Field(default_factory=list)
+    independent_source_count: int = Field(default=0, ge=0)
     input_hash: Optional[str] = None
     policy_hash: Optional[str] = None
     minimum_acceptable_odds_method: Optional[str] = None
@@ -291,7 +309,7 @@ class MatchAnalysisResult(BaseModel):
     confidence_adjusted_value: Optional[float] = None
 
     # Staking
-    stake: str = "pass"  # "pass" or "{fraction}u"
+    stake: str = "pass"
     stake_fraction: float = 0.0
     minimum_acceptable_odds: Optional[float] = None
 
@@ -315,13 +333,13 @@ class MatchAnalysisResult(BaseModel):
 class BatchAnalysisResponse(BaseModel):
     """Response for a batch of match analyses."""
 
-    contract_version: str = "1.2.0"
-    policy_version: str = "1.0"
-    engine_version: str = "1.1.0"
+    contract_version: str = "1.3.0"
+    policy_version: str = "1.1"
+    engine_version: str = "1.2.0"
     generated_at: datetime
     top_opportunities: List[str] = Field(default_factory=list)
     batch_watchlist: List[str] = Field(
         default_factory=list,
-        description="Match IDs with SPECULATIVE verdict — watchlist only, never top_opportunities.",
+        description="Match IDs with SPECULATIVE verdict - watchlist only, never top_opportunities.",
     )
     matches: List[MatchAnalysisResult] = Field(default_factory=list)
