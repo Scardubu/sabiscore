@@ -1,4 +1,4 @@
-"""Provider-independence and public staking contract tests."""
+"""Gate-blocking tests for provider independence and public staking policy."""
 
 from datetime import datetime, timedelta, timezone
 
