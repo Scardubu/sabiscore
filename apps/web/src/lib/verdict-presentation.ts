@@ -60,11 +60,11 @@ export const VERDICT_PRESENTATION: Record<ProductionVerdict, VerdictPresentation
     tone: "positive",
   },
   HIGH_CONVICTION: {
-    label: "Bet Now",
-    summary: "High-conviction evidence and calibrated edge gates pass.",
+    label: "Strongest Qualified Value",
+    summary: "All high-conviction, calibration, freshness, and source-diversity gates pass at the current verified price.",
     badgeClass: "border-lime-300/50 bg-lime-300/15 text-lime-100",
     icon: "conviction",
-    pulse: true,
+    pulse: false,
     tone: "positive",
   },
 };
