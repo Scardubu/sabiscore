@@ -1,4 +1,4 @@
-"""Gate-blocking tests for provider independence and public staking policy."""
+"""Release gates for provider provenance, source independence, and public staking."""
 
 from datetime import datetime, timedelta, timezone
 
