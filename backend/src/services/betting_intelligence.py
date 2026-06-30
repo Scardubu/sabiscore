@@ -55,8 +55,8 @@ from ..schemas.betting_intelligence import (
 
 MIN_ACTIONABLE_EDGE: float = 0.042        # 4.2 percentage points de-vigged
 HIGH_CONVICTION_EDGE: float = 0.062       # max(MIN_ACTIONABLE_EDGE + 0.02, 0.06)
-KELLY_FRACTION: float = 0.125             # one-eighth Kelly
-MAX_KELLY_CAP: float = 0.025              # 2.5% of bankroll
+KELLY_FRACTION: float = 0.25              # Quarter-Kelly public default
+MAX_KELLY_CAP: float = 0.05               # hard 5% bankroll ceiling
 MARKET_FRESH_SECONDS: int = 900           # 15 min
 MARKET_RECENT_SECONDS: int = 3600         # 60 min
 MODEL_FEATURES_FRESH_SECONDS: int = 3600  # LIVE_THRESHOLD_SECONDS default
@@ -65,8 +65,8 @@ MAX_MARKET_OVERROUND: float = 1.20        # reject >120% book
 MIN_MARKET_OVERROUND: float = 0.90        # reject <90% book (integrity)
 SPECULATIVE_STAKE_CAP: float = 0.0025     # 0.25u cap for SPECULATIVE
 DEFAULT_TARGET_EXPECTED_VALUE: float = 0.0
-CONTRACT_VERSION: str = "1.2.0"
-POLICY_VERSION: str = "1.0"
+CONTRACT_VERSION: str = "1.3.0"
+POLICY_VERSION: str = "1.1"
 
 
 # ---------------------------------------------------------------------------
@@ -373,7 +373,6 @@ def _evaluate_all_outcomes(
             "edge": round(edge, 6),
             "edge_pct": round(edge * 100, 4),
             "expected_value": round(ev, 6),
-            "full_kelly": round(fk, 6),
             "stake_fraction": round(stake_frac, 6),
             "confidence_adjusted_value": round(cav, 8),
         })
@@ -404,6 +403,7 @@ def _apply_verdict_gate(
     evaluation_at: Optional[datetime] = None,
     min_actionable_edge: float = MIN_ACTIONABLE_EDGE,
     high_conviction_edge: float = HIGH_CONVICTION_EDGE,
+    independent_source_count: int = 0,
 ) -> VerdictEnum:
     """Apply verdict gates in strict precedence order (Section 6 of contract).
 
@@ -435,6 +435,11 @@ def _apply_verdict_gate(
         return VerdictEnum.NO_BET
 
     # -- Gate 3: HOLD ---------------------------------------------------------
+    # A single provider (or absent provider provenance) can never produce an
+    # execution verdict. Independent ownership, not row count, is the unit.
+    if independent_source_count <= 1:
+        return VerdictEnum.HOLD
+
     tier_low = model.confidence_tier == EvidenceTierEnum.LOW_EVIDENCE
     cal_unvalidated = not model.calibration_validated
     market_stale = market_freshness == FreshnessStatusEnum.STALE
@@ -478,6 +483,7 @@ def _apply_verdict_gate(
         and not high_epistemic
         and market_freshness == FreshnessStatusEnum.FRESH
         and has_causal_support
+        and independent_source_count >= 4
         and sharp_signal in (SharpSignalEnum.CONFIRMING, SharpSignalEnum.NEUTRAL, SharpSignalEnum.UNKNOWN)
     ):
         return VerdictEnum.HIGH_CONVICTION
@@ -575,6 +581,7 @@ def analyze_match(
     gaps: List[str] = list(request.data_gaps)  # start with caller-declared gaps
     model = request.model
     market = request.market
+    independent_source_count = len(set(request.verified_evidence_providers))
 
     # -- Model validation -----------------------------------------------------
     model_gaps = _evaluate_model_freshness(
@@ -656,6 +663,7 @@ def analyze_match(
         evaluation_at=evaluation_at,
         min_actionable_edge=min_edge,
         high_conviction_edge=high_conviction_edge,
+        independent_source_count=independent_source_count,
     )
 
     # -- Build result ----------------------------------------------------------
@@ -837,7 +845,11 @@ def analyze_match(
             "market": request.source_status.market.value,
             "team_metrics": request.source_status.team_metrics.value,
             "availability": request.source_status.availability.value,
+            "providers": [provider.value for provider in request.verified_evidence_providers],
+            "independent_source_count": independent_source_count,
         },
+        verified_evidence_providers=request.verified_evidence_providers,
+        independent_source_count=independent_source_count,
         input_hash=input_hash,
         policy_hash=policy_hash,
         minimum_acceptable_odds_method=minimum_method,

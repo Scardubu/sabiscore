@@ -144,9 +144,9 @@ async def analyze_single(
 async def get_policy() -> Dict[str, Any]:
     """Return active engine policy parameters for client auditing."""
     return {
-        "contract_version": "1.2.0",
-        "engine_version": "1.1.0",
-        "policy_version": "1.0",
+        "contract_version": "1.3.0",
+        "engine_version": "1.2.0",
+        "policy_version": "1.1",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "policy": {
             "min_actionable_edge_pp": round(MIN_ACTIONABLE_EDGE * 100, 2),
@@ -189,7 +189,7 @@ async def health() -> Dict[str, Any]:
     """Engine health - no external I/O, always fast."""
     return {
         "status": "healthy",
-        "engine_version": "1.1.0",
+        "engine_version": "1.2.0",
         "engine_type": "deterministic",
         "external_dependencies": "none",
         "generated_at": datetime.now(timezone.utc).isoformat(),

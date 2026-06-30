@@ -15,6 +15,7 @@ import pytest
 from src.schemas.betting_intelligence import (
     BatchAnalysisRequest,
     CompetitionEnum,
+    EvidenceProviderEnum,
     EvidenceTierEnum,
     FreshnessInput,
     FreshnessStatusEnum,
@@ -95,6 +96,7 @@ def _request(
     freshness_seconds: int = 300,
     source_status_market: SourceStatusEnum = SourceStatusEnum.VERIFIED,
     data_gaps=None,
+    providers=_DEFAULT,
 ) -> MatchAnalysisRequest:
     return MatchAnalysisRequest(
         match_id=match_id,
@@ -113,6 +115,17 @@ def _request(
             market=source_status_market,
             team_metrics=SourceStatusEnum.VERIFIED,
             availability=SourceStatusEnum.VERIFIED,
+        ),
+        verified_evidence_providers=(
+            [
+                EvidenceProviderEnum.ESPN,
+                EvidenceProviderEnum.FOOTBALL_DATA_ORG,
+                EvidenceProviderEnum.API_FOOTBALL,
+                EvidenceProviderEnum.SPORTMONKS,
+                EvidenceProviderEnum.THE_ODDS_API,
+            ]
+            if providers is _DEFAULT
+            else providers
         ),
         data_gaps=data_gaps or [],
     )
@@ -209,6 +222,7 @@ class TestPartialGate:
             sharp_signal=SharpSignalEnum.NEUTRAL,
             lineup_status=LineupStatusEnum.CONFIRMED,
             kickoff_utc=None,
+            independent_source_count=5,
         )
 
         assert verdict in (VerdictEnum.ACTIONABLE, VerdictEnum.HIGH_CONVICTION)
@@ -226,6 +240,7 @@ class TestPartialGate:
             sharp_signal=SharpSignalEnum.NEUTRAL,
             lineup_status=LineupStatusEnum.CONFIRMED,
             kickoff_utc=None,
+            independent_source_count=5,
         )
 
         assert verdict == VerdictEnum.PARTIAL

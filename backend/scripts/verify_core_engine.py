@@ -22,6 +22,7 @@ from typing import List, Tuple
 from src.schemas.betting_intelligence import (
     BatchAnalysisRequest,
     CompetitionEnum,
+    EvidenceProviderEnum,
     EvidenceTierEnum,
     FreshnessInput,
     MarketInput,
@@ -121,6 +122,13 @@ def _req(
             team_metrics=SourceStatusEnum.VERIFIED,
             availability=SourceStatusEnum.VERIFIED,
         ),
+        verified_evidence_providers=[
+            EvidenceProviderEnum.ESPN,
+            EvidenceProviderEnum.FOOTBALL_DATA_ORG,
+            EvidenceProviderEnum.API_FOOTBALL,
+            EvidenceProviderEnum.SPORTMONKS,
+            EvidenceProviderEnum.THE_ODDS_API,
+        ],
         data_gaps=data_gaps or [],
     )
 
