@@ -33,7 +33,7 @@ PYTHON_BIN     := ./.venv/bin/python
 # ── Phony Targets ─────────────────────────────────────────────────────────────
 .PHONY: help install install-force install-dry validate lint lint-md lint-sh \
 	bump-version doctor clean check-tools status open-skills \
-	phase7-caches phase7-caches-clean verify verify-core
+	phase7-caches phase7-caches-clean verify verify-core contract-scan
 
 # ── Self-Documenting Help ──────────────────────────────────────────────────────
 help: ## Show this help (default target)
@@ -91,7 +91,13 @@ validate-strict: check-tools ## Validate registry AND verify all skill files exi
 	  echo "  ✓ All skill files present on disk"; \
 	fi
 
-verify-core: ## Run deterministic SabiScore checks without live providers or Docker
+contract-scan: ## Fail when prohibited fabrication or schema-authority patterns enter production code
+	@echo "  Scanning production contracts"
+	@if grep -R -n -E 'FEATURE_DEFAULTS|hardcoded_odds' backend/src --include='*.py'; then 	  echo "  ✗ Zero-fabrication contract violation"; exit 1; 	fi
+	@if grep -R -n 'create_all' backend/alembic --include='*.py'; then 	  echo "  ✗ Alembic must be the sole schema authority"; exit 1; 	fi
+	@echo "  ✓ Production contract scan passed"
+
+verify-core: contract-scan ## Run deterministic SabiScore checks without live providers or Docker
 	@echo "  SabiScore deterministic verification"
 	@echo "  1/7 Production runtime type contract"
 	@cd backend && mypy --config-file mypy-production.ini

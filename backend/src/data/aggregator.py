@@ -11,7 +11,6 @@ import pandas as pd
 
 from ..core.cache import cache
 from ..core.config import settings
-from .team_database import get_team_stats
 
 try:
     from ..features.phase9_xg_market_features import build_hybrid_xg_features as _build_hybrid_xg
@@ -102,7 +101,7 @@ class DataAggregator:
             odds = self.fetch_odds()
         except Exception as e:
             logger.warning(f"Failed to fetch odds: {e}")
-            odds = {"home_win": 2.0, "draw": 3.2, "away_win": 3.5}
+            odds = {}
 
         try:
             injuries = self.fetch_injuries()
@@ -120,7 +119,7 @@ class DataAggregator:
             team_stats = self.fetch_team_stats()
         except Exception as e:
             logger.warning(f"Failed to fetch team stats: {e}")
-            team_stats = self._create_mock_team_stats()
+            team_stats = {}
 
         # Phase 9 / V4 candidate features — shadow mode, metadata-only
         phase9_candidate_features: Dict[str, Any] = {}
@@ -175,89 +174,6 @@ class DataAggregator:
             logger.warning(f"Failed to cache data: {e}")
 
         return data
-
-    def _create_mock_team_stats(self) -> Dict[str, Any]:
-        """Create mock team statistics when scraping fails.
-        
-        Uses team database to return differentiated stats for each team.
-        Returns all fields expected by FeatureTransformer including:
-        - squad_value, elo, missing_value (for _add_team_stats_features)
-        - xG features (for _add_advanced_team_features)
-        - Form/momentum features (for other methods)
-        """
-        from .team_database import get_team_elo, get_team_squad_value
-        
-        home_team = self.teams.get("home", "")
-        away_team = self.teams.get("away", "")
-        
-        home_stats = get_team_stats(home_team, is_home=True)
-        away_stats = get_team_stats(away_team, is_home=False)
-        
-        home_elo = get_team_elo(home_team)
-        away_elo = get_team_elo(away_team)
-        home_value = get_team_squad_value(home_team)
-        away_value = get_team_squad_value(away_team)
-        
-        return {
-            "home": {
-                # Required by _add_team_stats_features
-                "squad_value": home_value,
-                "elo": home_elo,
-                "missing_value": home_value * 0.05,  # Assume 5% of squad injured
-                
-                # Required by _add_advanced_team_features (xG)
-                "xg_avg_5": home_stats["xg_avg"],
-                "xg_conceded_avg_5": home_stats["xg_conceded_avg"],
-                "xg_diff_5": home_stats["xg_avg"] - home_stats["xg_conceded_avg"],
-                "xg_overperformance": 0.05 + (home_elo - 1500) / 5000,
-                "xg_consistency": home_stats["scoring_consistency"],
-                
-                # Required by _add_advanced_team_features (tactical)
-                "possession_style": 0.50 + (home_elo - 1500) / 3000,
-                "pressing_intensity": 0.50 + (home_elo - 1500) / 2500,
-                "first_half_goals_rate": 0.42 + (home_elo - 1500) / 5000,
-                "defensive_solidity": home_stats["defensive_strength"],
-                "setpiece_goals_rate": 0.22 + (home_elo - 1500) / 8000,
-                "gd_trend": 0.05 if home_elo > 1600 else -0.02,
-                "scoring_consistency": home_stats["scoring_consistency"],
-                
-                # Legacy fields for compatibility
-                "attacking_strength": home_stats["attacking_strength"],
-                "defensive_strength": home_stats["defensive_strength"],
-                "win_rate": home_stats["win_rate"],
-                "goals_per_game": home_stats["goals_per_game"],
-                "clean_sheet_rate": home_stats["clean_sheet_rate"],
-            },
-            "away": {
-                # Required by _add_team_stats_features
-                "squad_value": away_value,
-                "elo": away_elo,
-                "missing_value": away_value * 0.05,  # Assume 5% of squad injured
-                
-                # Required by _add_advanced_team_features (xG)
-                "xg_avg_5": away_stats["xg_avg"],
-                "xg_conceded_avg_5": away_stats["xg_conceded_avg"],
-                "xg_diff_5": away_stats["xg_avg"] - away_stats["xg_conceded_avg"],
-                "xg_overperformance": 0.05 + (away_elo - 1500) / 5000,
-                "xg_consistency": away_stats["scoring_consistency"],
-                
-                # Required by _add_advanced_team_features (tactical)
-                "possession_style": 0.48 + (away_elo - 1500) / 3000,
-                "pressing_intensity": 0.48 + (away_elo - 1500) / 2500,
-                "first_half_goals_rate": 0.40 + (away_elo - 1500) / 5000,
-                "defensive_solidity": away_stats["defensive_strength"],
-                "setpiece_goals_rate": 0.20 + (away_elo - 1500) / 8000,
-                "gd_trend": 0.05 if away_elo > 1600 else -0.02,
-                "scoring_consistency": away_stats["scoring_consistency"],
-                
-                # Legacy fields for compatibility
-                "attacking_strength": away_stats["attacking_strength"],
-                "defensive_strength": away_stats["defensive_strength"],
-                "win_rate": away_stats["win_rate"],
-                "goals_per_game": away_stats["goals_per_game"],
-                "clean_sheet_rate": away_stats["clean_sheet_rate"],
-            }
-        }
 
     # ------------------------------------------------------------------
     def fetch_historical_stats(self) -> pd.DataFrame:
@@ -343,12 +259,20 @@ class DataAggregator:
         try:
             odds = self.oddsportal.scrape_odds(self.teams["home"], self.teams["away"])
             if not odds:
-                logger.warning("No odds found for %s, using default odds", self.matchup)
-                return {"home_win": 2.0, "draw": 3.2, "away_win": 3.5}
-            return odds
-        except Exception as e:
-            logger.warning(f"Failed to fetch odds for {self.matchup}: {e}")
-            return {"home_win": 2.0, "draw": 3.2, "away_win": 3.5}
+                logger.warning("No real odds found for %s", self.matchup)
+                return {}
+            required = ("home_win", "draw", "away_win")
+            if any(key not in odds for key in required):
+                logger.warning("Incomplete real odds for %s", self.matchup)
+                return {}
+            parsed = {key: float(odds[key]) for key in required}
+            if any(value <= 1.0 for value in parsed.values()):
+                logger.warning("Invalid real odds for %s", self.matchup)
+                return {}
+            return parsed
+        except Exception as exc:
+            logger.warning("Failed to fetch real odds for %s: %s", self.matchup, exc)
+            return {}
 
     def fetch_injuries(self) -> pd.DataFrame:
         try:
@@ -378,45 +302,41 @@ class DataAggregator:
             return pd.DataFrame()
 
     def fetch_team_stats(self) -> Dict[str, Dict[str, Any]]:
-        """Fetch team statistics from Transfermarkt and enrich with team database values."""
-        
-        # Start with mock stats as base (has all required fields)
-        base_stats = self._create_mock_team_stats()
-        
+        """Return only fields parsed from a live Transfermarkt response."""
         try:
             player_values_home = self.transfermarkt.scrape_player_values(self.teams["home"])
             player_values_away = self.transfermarkt.scrape_player_values(self.teams["away"])
 
-            def enrich_with_scraped(team: str, values: pd.DataFrame, base: Dict[str, Any]) -> Dict[str, Any]:
-                """Merge scraped data into base stats."""
-                result = dict(base)  # Start with all base fields
-                
-                if not values.empty:
-                    try:
-                        avg_value = values["value"].str.replace("€", "").str.replace("m", "").astype(float, errors="ignore")
-                        avg_value = pd.to_numeric(avg_value, errors="coerce")
-                        
-                        if not avg_value.empty and avg_value.mean() > 0:
-                            # Override with real scraped value
-                            result["squad_value"] = float(avg_value.sum())  # Total squad value
-                            
-                        if "age" in values:
-                            result["average_age"] = float(values["age"].mean())
-                            
-                        result["squad_size"] = int(len(values))
-                    except Exception as e:
-                        logger.debug(f"Error processing scraped values for {team}: {e}")
-                
+            def parsed_squad(values: pd.DataFrame) -> Dict[str, Any]:
+                if values.empty or "value" not in values.columns:
+                    return {}
+                numeric = (
+                    values["value"]
+                    .astype(str)
+                    .str.replace("€", "", regex=False)
+                    .str.replace("m", "", regex=False)
+                    .str.replace(",", "", regex=False)
+                )
+                numeric = pd.to_numeric(numeric, errors="coerce").dropna()
+                if numeric.empty or float(numeric.sum()) <= 0:
+                    return {}
+                result: Dict[str, Any] = {
+                    "squad_value": float(numeric.sum()),
+                    "squad_size": int(len(values)),
+                }
+                if "age" in values.columns:
+                    ages = pd.to_numeric(values["age"], errors="coerce").dropna()
+                    if not ages.empty:
+                        result["average_age"] = float(ages.mean())
                 return result
 
             return {
-                "home": enrich_with_scraped(self.teams["home"], player_values_home, base_stats["home"]),
-                "away": enrich_with_scraped(self.teams["away"], player_values_away, base_stats["away"]),
+                "home": parsed_squad(player_values_home),
+                "away": parsed_squad(player_values_away),
             }
-        except Exception as e:
-            logger.warning(f"Failed to fetch team stats for {self.matchup}: {e}")
-            return base_stats
-
+        except Exception as exc:
+            logger.warning("Failed to fetch real team stats for %s: %s", self.matchup, exc)
+            return {"home": {}, "away": {}}
 
     def _load_local_history(self) -> pd.DataFrame:
         """Load fallback historical matches from processed data."""

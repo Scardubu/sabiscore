@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.cache import cache_manager
 from ..core.config import settings
+from ..core.exceptions import DataUnavailableError
 from ..data.aggregator import DataAggregator, get_enhanced_aggregator
 
 try:
@@ -297,11 +298,8 @@ class PredictionService:
         # Verify columns match
         missing = [c for c in columns if c not in feature_frame.columns]
         if missing:
-            logger.warning(f"Transformer output missing columns expected by model: {missing}")
-            # Fill missing with 0
-            for c in missing:
-                feature_frame[c] = 0.0
-                
+            raise DataUnavailableError([f"model_feature.{name}" for name in missing])
+
         # Ensure correct order
         feature_frame = cast(pd.DataFrame, feature_frame.loc[:, columns])
         
