@@ -10,10 +10,12 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import and_, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...core.cache import cache
 from ...db.models import Match, Odds, Prediction
 from ...db.session import get_async_session
 from ...schemas.betting_intelligence import (
     CompetitionEnum,
+    EvidenceProviderEnum,
     EvidenceTierEnum,
     FreshnessInput,
     LineupStatusEnum,
@@ -27,6 +29,7 @@ from ...schemas.betting_intelligence import (
 )
 from ...services.betting_intelligence import analyze_match
 from ...providers import ProviderRegistry
+from ...providers.base import ProviderResult, ProviderStatus
 from ...providers.registry import get_provider_registry
 from ...providers.orchestrator import EvidenceOrchestrator, EvidenceProfile
 
@@ -36,6 +39,139 @@ router = APIRouter(prefix="/fixtures", tags=["fixtures"])
 MODEL_FEATURES_FRESH_SECONDS = 3600
 AVAILABILITY_CRITICAL_HOURS = 24
 LINEUP_CRITICAL_MINUTES = 90
+PROVIDER_EVIDENCE_TTL_SECONDS = 21600
+_PROVIDER_OWNER_BY_ID = {
+    "espn": EvidenceProviderEnum.ESPN,
+    "football_data_org": EvidenceProviderEnum.FOOTBALL_DATA_ORG,
+    "api_football": EvidenceProviderEnum.API_FOOTBALL,
+    "sportmonks": EvidenceProviderEnum.SPORTMONKS,
+    "the_odds_api": EvidenceProviderEnum.THE_ODDS_API,
+}
+_TEAM_METRIC_OPERATIONS = {"fixtures", "standings", "teams", "team_statistics"}
+_AVAILABILITY_OPERATIONS = {"injuries", "lineups"}
+
+
+def _provider_evidence_key(fixture_id: str) -> str:
+    return f"fixture:provider-evidence:{fixture_id}"
+
+
+def _load_provider_evidence(fixture_id: str) -> Dict[str, Any]:
+    value = cache.get(_provider_evidence_key(fixture_id))
+    return value if isinstance(value, dict) else {"providers": {}}
+
+
+def _store_provider_results(
+    fixture_id: str,
+    profile: EvidenceProfile,
+    results: List[ProviderResult],
+) -> Dict[str, Any]:
+    ledger = _load_provider_evidence(fixture_id)
+    providers = dict(ledger.get("providers") or {})
+    for result in results:
+        owner = _PROVIDER_OWNER_BY_ID.get(result.provider)
+        if owner is None:
+            continue
+        owner_key = owner.value
+        entry = dict(providers.get(owner_key) or {})
+        observations = list(entry.get("observations") or [])
+        observation = {
+            "operation": result.operation,
+            "status": result.status.value,
+            "acquired_at": result.acquired_at.isoformat(),
+            "provider_timestamp": (
+                result.provider_timestamp.isoformat()
+                if result.provider_timestamp is not None
+                else None
+            ),
+            "record_count": len(result.records),
+            "warnings": list(result.warnings),
+            "error_code": result.error_code,
+            "profile": profile.value,
+        }
+        observations = [
+            item
+            for item in observations
+            if not (
+                item.get("operation") == result.operation
+                and item.get("profile") == profile.value
+            )
+        ]
+        observations.append(observation)
+        verified = any(
+            item.get("status") == ProviderStatus.VERIFIED.value
+            and int(item.get("record_count") or 0) > 0
+            for item in observations
+        )
+        providers[owner_key] = {
+            "owner": owner_key,
+            "verified": verified,
+            "latest_acquired_at": result.acquired_at.isoformat(),
+            "observations": observations[-20:],
+        }
+    ledger = {
+        "fixture_id": fixture_id,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "providers": providers,
+    }
+    cache.set(
+        _provider_evidence_key(fixture_id),
+        ledger,
+        ttl=PROVIDER_EVIDENCE_TTL_SECONDS,
+    )
+    return ledger
+
+
+def _verified_provider_owners(ledger: Dict[str, Any]) -> List[EvidenceProviderEnum]:
+    providers = ledger.get("providers") or {}
+    verified: List[EvidenceProviderEnum] = []
+    for owner in EvidenceProviderEnum:
+        entry = providers.get(owner.value)
+        if isinstance(entry, dict) and entry.get("verified") is True:
+            verified.append(owner)
+    return verified
+
+
+def _operation_status(
+    ledger: Dict[str, Any],
+    operations: set[str],
+) -> str:
+    for entry in (ledger.get("providers") or {}).values():
+        if not isinstance(entry, dict):
+            continue
+        for observation in entry.get("observations") or []:
+            operation = str(observation.get("operation") or "").split(":", 1)[0]
+            if (
+                operation in operations
+                and observation.get("status") == ProviderStatus.VERIFIED.value
+                and int(observation.get("record_count") or 0) > 0
+            ):
+                return SourceStatusEnum.VERIFIED.value
+    return SourceStatusEnum.DATA_GAP.value
+
+
+def _provider_timeline(ledger: Dict[str, Any]) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    for owner, entry in sorted((ledger.get("providers") or {}).items()):
+        if not isinstance(entry, dict):
+            continue
+        observations = entry.get("observations") or []
+        latest = observations[-1] if observations else {}
+        rows.append(
+            {
+                "step": "provider_evidence",
+                "provider": owner,
+                "source": owner,
+                "status": (
+                    ProviderStatus.VERIFIED.value
+                    if entry.get("verified")
+                    else str(latest.get("status") or SourceStatusEnum.DATA_GAP.value)
+                ),
+                "timestamp": latest.get("acquired_at"),
+                "operation": latest.get("operation"),
+                "record_count": latest.get("record_count", 0),
+            }
+        )
+    return rows
 
 
 class FixtureSummary(BaseModel):
@@ -66,10 +202,12 @@ class EvidenceResponse(BaseModel):
     retrieval_timeline: List[Dict[str, Any]] = Field(default_factory=list)
     readiness: List[Dict[str, Any]] = Field(default_factory=list)
     source_comparison: List[Dict[str, Any]] = Field(default_factory=list)
+    verified_evidence_providers: List[EvidenceProviderEnum] = Field(default_factory=list)
+    provider_evidence: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 class RefreshEvidenceRequest(BaseModel):
-    profile: EvidenceProfile = EvidenceProfile.PREMATCH_STANDARD
+    profile: EvidenceProfile = EvidenceProfile.PRODUCTION_CYCLE
 
 
 class RefreshEvidenceResponse(BaseModel):
@@ -331,7 +469,13 @@ async def _build_evidence(db: AsyncSession, fixture_id: str) -> tuple[Match, Opt
     prediction = await _latest_prediction(db, fixture_id)
     odds = await _latest_odds(db, fixture_id)
     summary = _fixture_summary(fixture, odds, prediction)
+    ledger = _load_provider_evidence(fixture_id)
+    verified_providers = _verified_provider_owners(ledger)
+    team_metrics_status = _operation_status(ledger, _TEAM_METRIC_OPERATIONS)
+    availability_status = _operation_status(ledger, _AVAILABILITY_OPERATIONS)
     data_gaps: List[str] = []
+    if not verified_providers:
+        data_gaps.append("DATA_GAP: evidence_provider_provenance")
     if prediction is None:
         data_gaps.append("DATA_GAP: model_prediction")
     else:
@@ -370,20 +514,21 @@ async def _build_evidence(db: AsyncSession, fixture_id: str) -> tuple[Match, Opt
         source_status={
             "model": model_status,
             "market": "VERIFIED" if odds else "DATA_GAP",
-            "team_metrics": "DATA_GAP",
-            "availability": "DATA_GAP",
+            "team_metrics": team_metrics_status,
+            "availability": availability_status,
         },
         data_gaps=data_gaps,
         retrieval_timeline=[
             {"step": "fixture", "status": "VERIFIED", "source": "database"},
             {"step": "model", "status": model_status, "source": "predictions"},
             {"step": "market", "status": "VERIFIED" if odds else "DATA_GAP", "source": "manual odds snapshot"},
-            {"step": "availability", "status": "DATA_GAP", "source": "lineup and injury provider unavailable"},
+            {"step": "availability", "status": availability_status, "source": "provider evidence ledger"},
+            *_provider_timeline(ledger),
         ],
         readiness=[
             {"stage": "Fixture identity", "state": "VERIFIED", "source": "database", "timestamp": summary.kickoff_utc, "reason": None},
-            {"stage": "Team metrics", "state": model_status, "source": "model features", "timestamp": prediction.created_at if prediction else None, "reason": None if prediction else "model prediction missing"},
-            {"stage": "Availability", "state": "DATA_GAP", "source": None, "timestamp": None, "reason": "availability provider evidence not verified"},
+            {"stage": "Team metrics", "state": team_metrics_status, "source": "provider evidence ledger", "timestamp": ledger.get("updated_at"), "reason": None if team_metrics_status == "VERIFIED" else "team-metric provider evidence not verified"},
+            {"stage": "Availability", "state": availability_status, "source": "provider evidence ledger", "timestamp": ledger.get("updated_at"), "reason": None if availability_status == "VERIFIED" else "availability provider evidence not verified"},
             {"stage": "Lineup", "state": "DATA_GAP", "source": None, "timestamp": None, "reason": "confirmed lineup unavailable"},
             {"stage": "Model", "state": model_status, "source": "SabiScore backend", "timestamp": prediction.created_at if prediction else None, "reason": None if model_status == "VERIFIED" else "model metadata incomplete or stale"},
             {"stage": "Market", "state": "VERIFIED" if odds else "DATA_GAP", "source": odds.bookmaker if odds else None, "timestamp": odds.timestamp if odds else None, "reason": None if odds else "one coherent bookmaker snapshot required"},
@@ -405,6 +550,8 @@ async def _build_evidence(db: AsyncSession, fixture_id: str) -> tuple[Match, Opt
                 "timestamp": prediction.created_at if prediction else None,
             },
         ],
+        verified_evidence_providers=verified_providers,
+        provider_evidence=_provider_timeline(ledger),
     )
     return fixture, prediction, odds, evidence
 
@@ -486,7 +633,9 @@ async def refresh_fixture_evidence(
             "kickoff_utc": fixture.match_date,
         },
         payload.profile,
+        canonical_fixture_id=fixture_id,
     )
+    _store_provider_results(fixture_id, payload.profile, results)
     return RefreshEvidenceResponse(
         fixture_id=fixture_id,
         profile=payload.profile,
@@ -605,6 +754,7 @@ async def analyze_fixture(
             market_seconds=_market_age_seconds(odds),
             model_features_seconds=model_age,
         ),
+        verified_evidence_providers=evidence.verified_evidence_providers,
         source_status=SourceStatusInput(
             model=SourceStatusEnum(model_status) if model else SourceStatusEnum.DATA_GAP,
             market=SourceStatusEnum.VERIFIED if market else SourceStatusEnum.DATA_GAP,

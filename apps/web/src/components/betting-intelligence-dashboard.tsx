@@ -432,7 +432,7 @@ export function BettingIntelligenceDashboard({ initialCompetition = "EPL" }: { i
     setLoading("refresh");
     setError(null);
     try {
-      await refreshFixtureEvidence(selectedFixtureId, "PREMATCH_STANDARD");
+      await refreshFixtureEvidence(selectedFixtureId, "PRODUCTION_CYCLE");
       setEvidence(await getFixtureEvidence(selectedFixtureId));
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Evidence refresh failed.");

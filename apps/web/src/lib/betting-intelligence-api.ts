@@ -280,6 +280,8 @@ export interface FixtureEvidenceResponse {
   retrieval_timeline: Array<Record<string, unknown>>;
   readiness: Array<Record<string, unknown>>;
   source_comparison: Array<Record<string, unknown>>;
+  verified_evidence_providers: EvidenceProvider[];
+  provider_evidence: Array<Record<string, unknown>>;
 }
 
 export interface ManualOddsSnapshotRequest {
@@ -504,7 +506,7 @@ export async function getFixtureEvidence(fixtureId: string): Promise<FixtureEvid
 
 export async function refreshFixtureEvidence(
   fixtureId: string,
-  profile = "PREMATCH_STANDARD",
+  profile = "PRODUCTION_CYCLE",
 ): Promise<RefreshEvidenceResponse> {
   return apiFetch<RefreshEvidenceResponse>(
     `/api/fixtures/${encodeURIComponent(fixtureId)}/refresh`,

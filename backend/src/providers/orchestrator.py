@@ -58,6 +58,7 @@ class EvidenceProfile(str, Enum):
     LINEUP_REFRESH = "LINEUP_REFRESH"
     MARKET_REFRESH = "MARKET_REFRESH"
     FORECAST_ONLY = "FORECAST_ONLY"
+    PRODUCTION_CYCLE = "PRODUCTION_CYCLE"
 
 
 def _stub_result(provider: str, operation: str, reason: str) -> ProviderResult:
@@ -149,11 +150,36 @@ class EvidenceOrchestrator:
             return await self._collect_market_refresh(fixture, competition, canonical_fixture_id)
         if profile == EvidenceProfile.FORECAST_ONLY:
             return await self._collect_forecast_only(fixture, competition)
+        if profile == EvidenceProfile.PRODUCTION_CYCLE:
+            return await self._collect_production_cycle(
+                fixture, competition, canonical_fixture_id
+            )
         return [_stub_result("orchestrator", profile.value, f"unknown_profile_{profile}")]
 
     # ------------------------------------------------------------------ #
     # Profile implementations                                              #
     # ------------------------------------------------------------------ #
+
+    async def _collect_production_cycle(
+        self,
+        fixture: dict[str, Any],
+        competition: str,
+        canonical_fixture_id: str | None,
+    ) -> list[ProviderResult]:
+        """Run the explicit user-triggered full evidence cycle concurrently.
+
+        This is not used for background polling. It fans out across the standard,
+        enriched, and market profiles while preserving each provider's quota and
+        circuit-breaker behavior. Missing credentials remain structured gaps.
+        """
+        groups = await asyncio.gather(
+            self._collect_prematch_standard(fixture, competition),
+            self._collect_prematch_enriched(fixture, competition),
+            self._collect_market_refresh(
+                fixture, competition, canonical_fixture_id
+            ),
+        )
+        return [result for group in groups for result in group]
 
     async def _collect_discovery(
         self, fixture: dict[str, Any], competition: str
