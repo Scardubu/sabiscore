@@ -1,4 +1,4 @@
-"""Release gates for provider provenance, source independence, and public staking."""
+"""Release gates for provider provenance, independent ownership, and public staking."""
 
 from datetime import datetime, timedelta, timezone
 
