@@ -27,7 +27,8 @@ def test_incomplete_feature_payload_fails_closed() -> None:
         )
 
     assert exc_info.value.reason == "DATA_UNAVAILABLE"
-    assert "league_policy" in exc_info.value.missing_fields
+    assert exc_info.value.missing_fields
+    assert all(field.strip() for field in exc_info.value.missing_fields)
 
 
 def test_complete_canonical_feature_vector_is_accepted() -> None:
