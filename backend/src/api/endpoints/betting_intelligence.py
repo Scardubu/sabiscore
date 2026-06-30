@@ -164,6 +164,12 @@ async def get_policy() -> Dict[str, Any]:
                 "ACTIONABLE",
                 "HIGH_CONVICTION",
             ],
+            "source_diversity": {
+                "minimum_for_execution": 2,
+                "minimum_for_high_conviction": 4,
+                "single_provider_ceiling": "HOLD",
+            },
+            "staking_display": "Quarter-Kelly only; Full Kelly is never returned",
             "ucl_coverage": "SOFT - HIGH_CONVICTION excluded until dedicated model validated",
             "market_freshness_thresholds": {
                 "fresh_seconds": 900,

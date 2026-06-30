@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..db.models import MatchPredictionLog
 from ..schemas.betting_intelligence import (
     CompetitionEnum,
+    EvidenceProviderEnum,
     EvidenceTierEnum,
     FreshnessInput,
     LineupStatusEnum,
@@ -70,12 +71,12 @@ class CertifiedAnalyticsService:
             home_probability=float(model_payload["home_probability"]),
             draw_probability=float(model_payload["draw_probability"]),
             away_probability=float(model_payload["away_probability"]),
-            model_version=str(model_payload.get("model_version") or "certified-v1"),
-            calibration_method=str(model_payload.get("calibration_method") or "backend_calibrated"),
-            calibration_validated=bool(model_payload.get("calibration_validated", True)),
-            epistemic_uncertainty=float(model_payload.get("epistemic_uncertainty", 0.12)),
-            aleatoric_uncertainty=float(model_payload.get("aleatoric_uncertainty", 0.18)),
-            confidence_tier=EvidenceTierEnum(model_payload.get("confidence_tier") or EvidenceTierEnum.OK.value),
+            model_version=str(model_payload["model_version"]),
+            calibration_method=str(model_payload["calibration_method"]),
+            calibration_validated=bool(model_payload["calibration_validated"]),
+            epistemic_uncertainty=float(model_payload["epistemic_uncertainty"]),
+            aleatoric_uncertainty=float(model_payload["aleatoric_uncertainty"]),
+            confidence_tier=EvidenceTierEnum(model_payload["confidence_tier"]),
         )
 
         market = None
@@ -89,7 +90,7 @@ class CertifiedAnalyticsService:
                 opening_home_odds=market_payload.get("opening_home_odds"),
                 opening_draw_odds=market_payload.get("opening_draw_odds"),
                 opening_away_odds=market_payload.get("opening_away_odds"),
-                captured_at=market_payload.get("captured_at") or datetime.now(timezone.utc),
+                captured_at=market_payload["captured_at"],
             )
 
         return MatchAnalysisRequest(
@@ -97,7 +98,7 @@ class CertifiedAnalyticsService:
             home_team=str(payload["home_team"]),
             away_team=str(payload["away_team"]),
             competition=_competition(str(payload.get("competition") or payload.get("league") or "EPL")),
-            kickoff_utc=payload.get("kickoff_utc") or datetime.now(timezone.utc),
+            kickoff_utc=payload["kickoff_utc"],
             model=model,
             market=market,
             signals=SignalsInput(
@@ -112,21 +113,21 @@ class CertifiedAnalyticsService:
                 sharp_market_signal=SharpSignalEnum(signals_payload.get("sharp_market_signal") or SharpSignalEnum.UNKNOWN.value),
             ),
             freshness=FreshnessInput(
-                model_features_seconds=freshness_payload.get("model_features_seconds", 0),
-                market_seconds=freshness_payload.get("market_seconds", 0 if market else None),
+                model_features_seconds=freshness_payload.get("model_features_seconds"),
+                market_seconds=freshness_payload.get("market_seconds"),
                 injury_news_seconds=freshness_payload.get("injury_news_seconds"),
                 lineup_seconds=freshness_payload.get("lineup_seconds"),
             ),
             source_status=SourceStatusInput(
-                model=SourceStatusEnum(source_payload.get("model") or SourceStatusEnum.VERIFIED.value),
-                market=(
-                    SourceStatusEnum(source_payload.get("market") or SourceStatusEnum.VERIFIED.value)
-                    if market
-                    else SourceStatusEnum.DATA_GAP
-                ),
-                team_metrics=SourceStatusEnum(source_payload.get("team_metrics") or SourceStatusEnum.VERIFIED.value),
-                availability=SourceStatusEnum(source_payload.get("availability") or SourceStatusEnum.VERIFIED.value),
+                model=SourceStatusEnum(source_payload.get("model") or SourceStatusEnum.DATA_GAP.value),
+                market=SourceStatusEnum(source_payload.get("market") or SourceStatusEnum.DATA_GAP.value),
+                team_metrics=SourceStatusEnum(source_payload.get("team_metrics") or SourceStatusEnum.DATA_GAP.value),
+                availability=SourceStatusEnum(source_payload.get("availability") or SourceStatusEnum.DATA_GAP.value),
             ),
+            verified_evidence_providers=[
+                EvidenceProviderEnum(provider)
+                for provider in payload.get("verified_evidence_providers", [])
+            ],
             data_gaps=list(payload.get("data_gaps") or []),
             known_risks=list(payload.get("known_risks") or []),
         )

@@ -1,4 +1,4 @@
-"""Deterministic SabiScore Core Engine v2.1 evaluator."""
+"""Deterministic SabiScore Core Engine v2.2 evaluator."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from ..schemas.core_engine import (
 )
 
 
-ENGINE_VERSION = "2.1.0-prod"
+ENGINE_VERSION = "2.2.0-prod"
 SUPPORTED_COMPETITIONS = {
     "EPL",
     "LA_LIGA",
@@ -34,8 +34,8 @@ OUTCOMES = (
 )
 
 CORE_MIN_ACTIONABLE_EDGE = 0.042
-CORE_KELLY_FRACTION = 0.125
-CORE_MAX_KELLY_CAP = 0.025
+CORE_KELLY_FRACTION = 0.25
+CORE_MAX_KELLY_CAP = 0.05
 CORE_MIN_MARKET_OVERROUND = 1.0
 CORE_MAX_MARKET_OVERROUND = 1.25
 PROBABILITY_TOLERANCE = 0.005
@@ -290,17 +290,13 @@ def _evaluate_match(match: CoreMatchInput) -> CoreMatchOutput:
         )
 
     verdict = "ACTIONABLE"
-    if (
-        match.competition != "UCL"
-        and model is not None
-        and model.epistemic_uncertainty is not None
-        and model.epistemic_uncertainty <= HIGH_CONVICTION_EPISTEMIC_MAX
-        and signals is not None
-        and signals.lineup_status == "CONFIRMED"
-    ):
-        verdict = "HIGH_CONVICTION"
-    elif match.competition == "UCL":
+    if match.competition == "UCL":
         risks.append("UCL soft coverage caps the verdict at ACTIONABLE.")
+    else:
+        risks.append(
+            "Compatibility core input has no provider-ownership provenance; "
+            "HIGH_CONVICTION is unavailable on this path."
+        )
 
     return _build_output(
         match=match,
@@ -725,7 +721,7 @@ def _stake_label(stake_fraction: float, verdict: str) -> str:
     if verdict in {"PARTIAL", "HOLD", "NO_BET"} or stake_fraction <= 0:
         return "pass"
     if stake_fraction >= CORE_MAX_KELLY_CAP:
-        return "2.5u"
+        return "5u"
     return "1u"
 
 

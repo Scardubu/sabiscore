@@ -102,14 +102,14 @@ def test_invalid_market_overround_forces_partial():
     assert result.calculation_audit.market_overround == pytest.approx(0.3)
 
 
-def test_high_conviction_is_allowed_for_clean_tier_one_fixture():
+def test_compatibility_core_caps_clean_fixture_at_actionable_without_provenance():
     result = _analyze(_base_match()).matches[0]
 
-    assert result.verdict == "HIGH_CONVICTION"
+    assert result.verdict == "ACTIONABLE"
     assert result.best_market == "HOME_ML"
     assert result.expected_value == pytest.approx(0.3)
-    assert result.stake_fraction == pytest.approx(0.025)
-    assert result.stake == "2.5u"
+    assert result.stake_fraction == pytest.approx(0.05)
+    assert result.stake == "5u"
 
 
 def test_advisory_lineup_and_sharp_signal_do_not_force_partial():

@@ -86,3 +86,9 @@ def test_full_kelly_is_not_in_public_market_evaluations():
     for evaluation in result.all_market_evaluations or []:
         assert "full_kelly" not in evaluation
         assert evaluation["stake_fraction"] <= MAX_KELLY_CAP
+
+
+def test_missing_provider_provenance_is_partial():
+    result = analyze_match(request_with([]), causal_drivers=["xg_differential"])
+    assert result.verdict == VerdictEnum.PARTIAL
+    assert "DATA_GAP: evidence_provider_provenance" in result.data_gaps

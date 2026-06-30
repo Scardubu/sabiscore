@@ -228,6 +228,12 @@ export interface EnginePolicy {
     kelly_fraction: number;
     max_kelly_cap: number;
     speculative_stake_cap: number;
+    source_diversity?: {
+      minimum_for_execution: number;
+      minimum_for_high_conviction: number;
+      single_provider_ceiling: Verdict;
+    };
+    staking_display?: string;
     minimum_acceptable_odds_method?: string;
     target_expected_value?: number;
     verdict_precedence: Verdict[];

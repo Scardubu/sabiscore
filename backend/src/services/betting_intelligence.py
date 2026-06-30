@@ -435,9 +435,10 @@ def _apply_verdict_gate(
         return VerdictEnum.NO_BET
 
     # -- Gate 3: HOLD ---------------------------------------------------------
-    # A single provider (or absent provider provenance) can never produce an
-    # execution verdict. Independent ownership, not row count, is the unit.
-    if independent_source_count <= 1:
+    # Unknown ownership is incomplete; one independent owner is capped at HOLD.
+    if independent_source_count <= 0:
+        return VerdictEnum.PARTIAL
+    if independent_source_count == 1:
         return VerdictEnum.HOLD
 
     tier_low = model.confidence_tier == EvidenceTierEnum.LOW_EVIDENCE
@@ -581,7 +582,10 @@ def analyze_match(
     gaps: List[str] = list(request.data_gaps)  # start with caller-declared gaps
     model = request.model
     market = request.market
-    independent_source_count = len(set(request.verified_evidence_providers))
+    verified_providers = list(dict.fromkeys(request.verified_evidence_providers))
+    independent_source_count = len(verified_providers)
+    if model is not None and market is not None and independent_source_count == 0:
+        gaps.append("DATA_GAP: evidence_provider_provenance")
 
     # -- Model validation -----------------------------------------------------
     model_gaps = _evaluate_model_freshness(
@@ -797,6 +801,10 @@ def analyze_match(
 
     # Risks
     risks: List[str] = list(request.known_risks[:3])
+    if independent_source_count == 1:
+        risks.append("Single-provider evidence caps the verdict at HOLD.")
+    elif 1 < independent_source_count < 4:
+        risks.append("Fewer than four independent providers prevents HIGH_CONVICTION.")
     if not risks:
         if request.signals.confirmed_absences:
             risks.append(
@@ -845,10 +853,10 @@ def analyze_match(
             "market": request.source_status.market.value,
             "team_metrics": request.source_status.team_metrics.value,
             "availability": request.source_status.availability.value,
-            "providers": [provider.value for provider in request.verified_evidence_providers],
+            "providers": [provider.value for provider in verified_providers],
             "independent_source_count": independent_source_count,
         },
-        verified_evidence_providers=request.verified_evidence_providers,
+        verified_evidence_providers=verified_providers,
         independent_source_count=independent_source_count,
         input_hash=input_hash,
         policy_hash=policy_hash,
