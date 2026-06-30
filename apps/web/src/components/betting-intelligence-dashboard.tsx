@@ -214,28 +214,36 @@ function OutcomeTable({ rows }: { rows?: MarketEvaluation[] | null }) {
 }
 
 
-const EVIDENCE_PROVIDERS = ["ESPN", "FBRef", "SofaScore", "Understat", "Transfermarkt"] as const;
+const EVIDENCE_PROVIDERS = [
+  { key: "FOOTBALL_DATA_ORG", label: "football-data.org" },
+  { key: "API_FOOTBALL", label: "API-Football" },
+  { key: "SPORTMONKS", label: "Sportmonks" },
+  { key: "THE_ODDS_API", label: "The Odds API" },
+  { key: "ESPN", label: "ESPN · supplementary" },
+] as const;
 
 function ProviderEvidenceMeter({ evidence }: { evidence: FixtureEvidenceResponse | null }) {
-  const rows = evidence?.retrieval_timeline ?? [];
-  const findProvider = (provider: string) => rows.find((row) => {
-    const source = String(row.source ?? row.provider ?? "").toLowerCase();
-    return source.includes(provider.toLowerCase());
+  const rows = evidence?.provider_evidence ?? evidence?.retrieval_timeline ?? [];
+  const findProvider = (providerKey: string) => rows.find((row) => {
+    const source = String(row.source ?? row.provider ?? "")
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, "_");
+    return source.includes(providerKey);
   });
 
   return (
     <section className="bi-panel" aria-labelledby="provider-evidence-title">
       <div id="provider-evidence-title" className="bi-panel-title"><Database size={16} /> Five-Source Evidence</div>
       <div className="bi-provider-grid">
-        {EVIDENCE_PROVIDERS.map((provider) => {
-          const row = findProvider(provider);
+        {EVIDENCE_PROVIDERS.map(({ key, label }) => {
+          const row = findProvider(key);
           const status = String(row?.status ?? "UNAVAILABLE").toUpperCase();
           const timestamp = typeof row?.timestamp === "string" ? row.timestamp : null;
           return (
-            <div className="bi-provider" key={provider}>
+            <div className="bi-provider" key={key}>
               <span className={`bi-dot ${status.toLowerCase()}`} aria-hidden="true" />
               <div>
-                <strong>{provider}</strong>
+                <strong>{label}</strong>
                 <small>{status.replaceAll("_", " ")}{timestamp ? ` · ${fmtDate(timestamp)}` : ""}</small>
               </div>
             </div>
