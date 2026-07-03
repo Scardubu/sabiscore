@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const BACKEND_URL =
-  process.env.SABISCORE_BACKEND_URL ??
-  "http://localhost:8000";
+const BACKEND_URL = process.env.SABISCORE_BACKEND_URL;
 
 const BACKEND_TOKEN = process.env.BACKEND_TOKEN;
 
@@ -11,6 +9,12 @@ export async function proxyFixtureRequest(
   backendPath: string,
   init?: { method?: string; body?: string },
 ): Promise<NextResponse> {
+  if (!BACKEND_URL) {
+    return NextResponse.json(
+      { error: "BACKEND_NOT_CONFIGURED", message: "SABISCORE_BACKEND_URL is not set." },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
+  }
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (BACKEND_TOKEN) headers.Authorization = `Bearer ${BACKEND_TOKEN}`;
 

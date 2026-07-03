@@ -1,6 +1,6 @@
 // SabiScore Strict Betting Intelligence API Types
-// Contract version: 1.1.0
-// Generated: 2026-06-25
+// Contract version: 1.2.0
+// Updated: 2026-07-04
 
 // --- Enums -------------------------------------------------------------------
 
