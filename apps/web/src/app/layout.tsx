@@ -13,7 +13,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { ToastProvider } from "./toast-provider";
 import { ConsentProvider } from "../components/consent-banner";
-import { ErrorBoundary } from "../components/ErrorBoundary";
+import { ErrorBoundary } from "../components/error-boundary";
 import { ClientEffects } from "./client-effects";
 import { ReadinessRing } from "../components/readiness-ring";
 

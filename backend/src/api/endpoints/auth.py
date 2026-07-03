@@ -2,7 +2,7 @@
 
 import asyncio
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from dataclasses import dataclass
@@ -48,7 +48,7 @@ async def oauth_password_form(
 
 async def _check_rate_limit(client_ip: str) -> None:
 	async with _rate_lock:
-		now = datetime.utcnow()
+		now = datetime.now(timezone.utc)
 		window_start = now - timedelta(seconds=AUTH_RATE_LIMIT_WINDOW)
 		recent = [ts for ts in _rate_limit_store[client_ip] if ts > window_start]
 		_rate_limit_store[client_ip] = recent
@@ -92,8 +92,8 @@ def _serialize_user(user: UserAccount) -> UserResponse:
 
 
 async def _touch_last_login(db: AsyncSession, user: UserAccount) -> None:
-	user.last_login_at = datetime.utcnow()
-	user.updated_at = datetime.utcnow()
+	user.last_login_at = datetime.now(timezone.utc)
+	user.updated_at = datetime.now(timezone.utc)
 	await db.commit()
 	await db.refresh(user)
 

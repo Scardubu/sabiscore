@@ -177,11 +177,12 @@ class TestFeaturesToModelPipeline:
         """Test feature transformation for model input."""
         service = PredictionService()
         
-        # Transformer should handle missing features gracefully
+        # Transformer requires real odds (zero-fabrication contract)
         features = service.transformer.engineer_features({
             "home_team": "Arsenal",
             "away_team": "Chelsea",
             "league": "EPL",
+            "odds": {"home_win": 2.10, "draw": 3.40, "away_win": 3.60},
         })
         
         assert features is not None
