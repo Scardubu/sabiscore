@@ -1,0 +1,227 @@
+"use client";
+
+/**
+ * ProviderMeter — shows real-time health of the five configured evidence providers.
+ *
+ * Displays only the canonical SabiScore provider registry:
+ *   Football-Data.org | API-Football | Sportmonks | The Odds API | ESPN
+ *
+ * Status icons follow directive §17:
+ *   ✓ Live        — VERIFIED
+ *   ⚠ Stale       — PARTIAL / CONFIGURED_UNVERIFIED
+ *   ✗ Unavailable — UNAVAILABLE / CIRCUIT_OPEN / INVALID
+ *   ○ Not configured — UNCONFIGURED
+ *   ⏸ Quota       — RATE_LIMITED
+ *
+ * Data comes from /api/providers/health (proxied to backend); never from
+ * provider hosts directly.
+ */
+
+import { useEffect, useState } from "react";
+
+type ProviderStatus =
+  | "VERIFIED"
+  | "CONFIGURED_UNVERIFIED"
+  | "UNCONFIGURED"
+  | "PARTIAL"
+  | "UNAVAILABLE"
+  | "CIRCUIT_OPEN"
+  | "RATE_LIMITED"
+  | "INVALID"
+  | "CONFLICTING";
+
+interface ProviderRow {
+  provider: string;
+  display_name: string;
+  enabled: boolean;
+  configured: boolean;
+  status: ProviderStatus;
+  trust_tier: string;
+  requires_key: boolean;
+}
+
+interface HealthResponse {
+  providers: ProviderRow[];
+  generated_at: string;
+}
+
+// Canonical display order matching directive registry
+const CANONICAL_ORDER = [
+  "football_data_org",
+  "api_football",
+  "sportmonks",
+  "the_odds_api",
+  "espn",
+];
+
+const DISPLAY_NAMES: Record<string, string> = {
+  football_data_org: "Football-Data.org",
+  api_football: "API-Football",
+  sportmonks: "Sportmonks",
+  the_odds_api: "The Odds API",
+  espn: "ESPN",
+};
+
+function statusBadge(row: ProviderRow): { icon: string; label: string; className: string } {
+  if (!row.enabled) return { icon: "○", label: "Not configured", className: "pm-off" };
+  switch (row.status) {
+    case "VERIFIED":
+      return { icon: "✓", label: "Live", className: "pm-live" };
+    case "RATE_LIMITED":
+      return { icon: "⏸", label: "Quota exhausted", className: "pm-quota" };
+    case "CIRCUIT_OPEN":
+    case "UNAVAILABLE":
+    case "INVALID":
+      return { icon: "✗", label: "Unavailable", className: "pm-down" };
+    case "UNCONFIGURED":
+      return { icon: "○", label: "Not configured", className: "pm-off" };
+    case "PARTIAL":
+    case "CONFIGURED_UNVERIFIED":
+    case "CONFLICTING":
+      return { icon: "⚠", label: "Stale", className: "pm-stale" };
+    default:
+      return { icon: "?", label: row.status, className: "pm-off" };
+  }
+}
+
+export function ProviderMeter() {
+  const [rows, setRows] = useState<ProviderRow[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [lastChecked, setLastChecked] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchHealth() {
+      try {
+        const res = await fetch("/api/providers/health", { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data: HealthResponse = await res.json();
+        if (!cancelled) {
+          setRows(data.providers ?? []);
+          setLastChecked(data.generated_at ?? null);
+          setError(null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError("Provider status unavailable — backend unreachable");
+        }
+      }
+    }
+
+    fetchHealth();
+    // Refresh every 60s so stale status eventually clears
+    const interval = setInterval(fetchHealth, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Sort by canonical order; append unknown providers at end
+  const sorted = rows
+    ? [
+        ...CANONICAL_ORDER.map((id) => rows.find((r) => r.provider === id)).filter(Boolean),
+        ...rows.filter((r) => !CANONICAL_ORDER.includes(r.provider)),
+      ].filter(Boolean) as ProviderRow[]
+    : null;
+
+  return (
+    <section
+      className="pm-root"
+      aria-label="Evidence provider status meter"
+      role="status"
+    >
+      <div className="pm-header">
+        <span className="pm-title">Evidence Sources</span>
+        {lastChecked && (
+          <span className="pm-ts" aria-label={`Last checked ${lastChecked}`}>
+            {new Date(lastChecked).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          </span>
+        )}
+      </div>
+
+      {error ? (
+        <p className="pm-error">{error}</p>
+      ) : sorted === null ? (
+        <div className="pm-loading" aria-busy="true">Checking providers…</div>
+      ) : (
+        <ul className="pm-list" role="list">
+          {sorted.map((row) => {
+            const badge = statusBadge(row);
+            return (
+              <li key={row.provider} className={`pm-row ${badge.className}`}>
+                <span className="pm-icon" aria-hidden="true">{badge.icon}</span>
+                <span className="pm-name">
+                  {DISPLAY_NAMES[row.provider] ?? row.display_name}
+                </span>
+                <span className="pm-label">{badge.label}</span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <p className="pm-disclaimer">
+        Status reflects configuration at last probe. A provider marked ○ requires
+        its key to be set in the backend environment.
+      </p>
+
+      <style>{`
+        .pm-root {
+          background: #0d1c18;
+          border: 1px solid #1f3529;
+          border-radius: 8px;
+          padding: 12px 14px;
+          font-size: 12px;
+          color: #9fb3aa;
+        }
+        .pm-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 8px;
+        }
+        .pm-title {
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          color: #6b8c7a;
+        }
+        .pm-ts { color: #4a6358; font-size: 10px; }
+        .pm-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+        .pm-row {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          padding: 4px 6px;
+          border-radius: 4px;
+          background: #111e1a;
+        }
+        .pm-icon { font-size: 13px; width: 16px; text-align: center; flex-shrink: 0; }
+        .pm-name { flex: 1; color: #c8dbd2; font-weight: 500; }
+        .pm-label { font-size: 10px; color: #6b8c7a; flex-shrink: 0; }
+        /* Status colour tokens */
+        .pm-live .pm-icon { color: #4ade80; }
+        .pm-live .pm-label { color: #4ade80; }
+        .pm-stale .pm-icon { color: #facc15; }
+        .pm-stale .pm-label { color: #facc15; }
+        .pm-down .pm-icon { color: #f87171; }
+        .pm-down .pm-label { color: #f87171; }
+        .pm-quota .pm-icon { color: #c084fc; }
+        .pm-quota .pm-label { color: #c084fc; }
+        .pm-off .pm-icon { color: #374640; }
+        .pm-off .pm-label { color: #374640; }
+        .pm-loading { color: #4a6358; padding: 6px 0; }
+        .pm-error { color: #f87171; margin: 4px 0 6px; }
+        .pm-disclaimer {
+          margin-top: 8px;
+          font-size: 10px;
+          line-height: 1.4;
+          color: #374640;
+        }
+      `}</style>
+    </section>
+  );
+}

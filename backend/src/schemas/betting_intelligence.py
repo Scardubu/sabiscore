@@ -193,6 +193,11 @@ class MatchAnalysisRequest(BaseModel):
     # Caller-declared data gaps (execution-blocking by design)
     data_gaps: List[str] = Field(default_factory=list)
     known_risks: List[str] = Field(default_factory=list)
+    # Provider ceiling enforcement (directive §9, C-07/08/09/10).
+    # None = ceiling bypassed (legacy callers / no orchestrator).
+    # [] = explicitly 0 verified providers → PARTIAL.
+    # ["espn", "api_football"] = ceiling enforced with those two owners.
+    verified_evidence_providers: Optional[List[str]] = None
 
 
 class BatchAnalysisRequest(BaseModel):
@@ -231,8 +236,8 @@ class CalculationAudit(BaseModel):
     fair_market_away: Optional[float] = None
     calibration_method: Optional[str] = None
     model_version: Optional[str] = None
-    kelly_fraction: float = 0.125
-    kelly_cap: float = 0.025
+    kelly_fraction: float = 0.25   # quarter-Kelly (directive §12)
+    kelly_cap: float = 0.05        # 5% hard cap
     breakeven_odds: Optional[float] = None
     minimum_odds_for_target_ev: Optional[float] = None
     edge_preserving_minimum_odds: Optional[float] = None

@@ -108,6 +108,7 @@ def test_high_conviction_is_allowed_for_clean_tier_one_fixture():
     assert result.verdict == "HIGH_CONVICTION"
     assert result.best_market == "HOME_ML"
     assert result.expected_value == pytest.approx(0.3)
+    # EPL pending-calibration policy caps Kelly at 2.5%; global ceiling is 5% (directive §11/§12).
     assert result.stake_fraction == pytest.approx(0.025)
     assert result.stake == "2.5u"
 
@@ -240,3 +241,51 @@ def test_speculative_routed_to_batch_watchlist_not_top_opportunities():
     assert "speculative-1" not in response.top_opportunities
     assert "action-1" in response.top_opportunities
     assert "action-1" not in response.batch_watchlist
+
+
+# ---------------------------------------------------------------------------
+# Provider ceiling gates (directive §9, C-07/08/09/10)
+# ---------------------------------------------------------------------------
+
+
+def test_zero_verified_providers_forces_partial():
+    """Explicitly supplying an empty provider list forces PARTIAL (C-07/C-08)."""
+    match = _base_match(verified_evidence_providers=[])
+    result = _analyze(match).matches[0]
+    assert result.verdict == "PARTIAL"
+    assert any("NO_VERIFIED_EVIDENCE_PROVIDERS" in g for g in result.data_gaps)
+
+
+def test_single_provider_caps_at_hold(monkeypatch):
+    """One verified provider → max HOLD regardless of edge (C-09)."""
+    match = _base_match(verified_evidence_providers=["api_football"])
+    result = _analyze(match).matches[0]
+    assert result.verdict == "HOLD"
+    assert any("single" in r.lower() or "provider" in r.lower() for r in result.risks)
+
+
+def test_two_providers_caps_below_high_conviction():
+    """Two verified providers → max ACTIONABLE; HIGH_CONVICTION requires 4 (C-10)."""
+    match = _base_match(verified_evidence_providers=["api_football", "the_odds_api"])
+    result = _analyze(match).matches[0]
+    assert result.verdict != "HIGH_CONVICTION"
+    assert result.verdict in ("ACTIONABLE", "SPECULATIVE", "HOLD", "PARTIAL", "NO_BET")
+
+
+def test_four_providers_allows_high_conviction():
+    """Four verified providers → HIGH_CONVICTION eligible when other gates pass (C-10)."""
+    match = _base_match(
+        verified_evidence_providers=[
+            "football_data_org", "api_football", "the_odds_api", "espn"
+        ]
+    )
+    result = _analyze(match).matches[0]
+    assert result.verdict == "HIGH_CONVICTION"
+
+
+def test_none_providers_bypasses_ceiling():
+    """verified_evidence_providers=None (default) bypasses ceiling — legacy behavior."""
+    match = _base_match()  # no verified_evidence_providers key
+    result = _analyze(match).matches[0]
+    # Should still reach HIGH_CONVICTION via legacy path
+    assert result.verdict == "HIGH_CONVICTION"

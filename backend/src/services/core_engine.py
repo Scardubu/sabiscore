@@ -34,8 +34,8 @@ OUTCOMES = (
 )
 
 CORE_MIN_ACTIONABLE_EDGE = 0.042
-CORE_KELLY_FRACTION = 0.125
-CORE_MAX_KELLY_CAP = 0.025
+CORE_KELLY_FRACTION = 0.25   # quarter-Kelly (directive §12)
+CORE_MAX_KELLY_CAP = 0.05    # 5% of bankroll hard cap (directive §12)
 CORE_MIN_MARKET_OVERROUND = 1.0
 CORE_MAX_MARKET_OVERROUND = 1.25
 PROBABILITY_TOLERANCE = 0.005
@@ -105,6 +105,15 @@ def _evaluate_match(match: CoreMatchInput) -> CoreMatchOutput:
     drivers: list[str] = []
     invalidation_conditions: list[str] = []
 
+    # Per-league Kelly cap — looked up once here so every _build_output call uses it.
+    _eval_kelly_cap = CORE_MAX_KELLY_CAP
+    try:
+        from ..core.league_policy import get_league_policy
+        if match.competition:
+            _eval_kelly_cap = get_league_policy(match.competition).kelly_cap
+    except Exception:
+        pass
+
     model = match.model
     market = match.market
     signals = match.signals
@@ -173,6 +182,18 @@ def _evaluate_match(match: CoreMatchInput) -> CoreMatchOutput:
     )
 
     critical_gaps = _critical_data_gaps(data_gaps)
+
+    # Provider ceiling gate (directive §9, C-07/08).
+    # None = ceiling bypassed (legacy callers). [] = enforced with 0 providers.
+    provider_count: int | None = (
+        len(set(match.verified_evidence_providers))
+        if match.verified_evidence_providers is not None
+        else None
+    )
+    if provider_count == 0 and not critical_gaps:
+        data_gaps.append("DATA_GAP: NO_VERIFIED_EVIDENCE_PROVIDERS")
+        critical_gaps = ["DATA_GAP: NO_VERIFIED_EVIDENCE_PROVIDERS"]
+
     if critical_gaps or freshness_status == "CONFLICTING":
         return _build_output(
             match=match,
@@ -237,6 +258,23 @@ def _evaluate_match(match: CoreMatchInput) -> CoreMatchOutput:
         and best.expected_value > 0
     )
 
+    # Provider ceiling: 1 verified owner → max HOLD (directive §9, C-09).
+    if provider_count is not None and provider_count == 1:
+        return _build_output(
+            match=match,
+            verdict="HOLD",
+            probabilities=probabilities,
+            data_freshness=data_freshness,
+            data_gaps=[],
+            audit=audit,
+            candidate=best,
+            confidence="LOW",
+            drivers=drivers,
+            risks=["Single-provider evidence: a second independent source is required before execution."],
+            invalidation_conditions=invalidation_conditions,
+            explanation="Only one independent evidence provider contributed to this analysis. Minimum two providers required for SPECULATIVE or above.",
+        )
+
     if below_actionable and not speculative_signal:
         return _build_output(
             match=match,
@@ -295,10 +333,13 @@ def _evaluate_match(match: CoreMatchInput) -> CoreMatchOutput:
         and model.epistemic_uncertainty <= HIGH_CONVICTION_EPISTEMIC_MAX
         and signals is not None
         and signals.lineup_status == "CONFIRMED"
+        and (provider_count is None or provider_count >= 4)  # C-10: 4 required when ceiling active
     ):
         verdict = "HIGH_CONVICTION"
     elif match.competition == "UCL":
         risks.append("UCL soft coverage caps the verdict at ACTIONABLE.")
+    elif provider_count is not None and provider_count < 4 and provider_count >= 2:
+        risks.append(f"Provider ceiling: {provider_count}/4 independent sources. Four required for HIGH_CONVICTION.")
 
     return _build_output(
         match=match,
@@ -314,6 +355,7 @@ def _evaluate_match(match: CoreMatchInput) -> CoreMatchOutput:
         risks=risks,
         invalidation_conditions=invalidation_conditions,
         explanation="Valid data received and the selected market clears positive EV plus the configured minimum edge threshold.",
+        effective_kelly_cap=_eval_kelly_cap,
     )
 
 
@@ -505,6 +547,16 @@ def _build_candidates(
     if model is None or market is None:
         return []
 
+    # Per-league Kelly cap (directive §11, C-13): look up policy, fall back to module default.
+    effective_kelly_cap = CORE_MAX_KELLY_CAP
+    try:
+        from ..core.league_policy import get_league_policy
+        if match.competition:
+            _lp = get_league_policy(match.competition)
+            effective_kelly_cap = _lp.kelly_cap
+    except Exception:
+        pass  # unknown league or import error → module default
+
     uncertainty_factor = _uncertainty_factor(model)
     freshness_factor = _freshness_factor(match.freshness)
     completeness_factor = 1.0
@@ -525,7 +577,7 @@ def _build_candidates(
         edge = model_probability - fair_probabilities[key]
         expected_value = (model_probability * odds) - 1.0
         kelly_full = expected_value / (odds - 1.0) if odds > 1.0 else 0.0
-        kelly_fraction = min(max(kelly_full, 0.0) * CORE_KELLY_FRACTION, CORE_MAX_KELLY_CAP)
+        kelly_fraction = min(max(kelly_full, 0.0) * CORE_KELLY_FRACTION, effective_kelly_cap)
         score = (
             max(expected_value, 0.0)
             * uncertainty_factor
@@ -668,10 +720,11 @@ def _build_output(
     risks: Optional[list[str]] = None,
     invalidation_conditions: Optional[list[str]] = None,
     explanation: str,
+    effective_kelly_cap: float = CORE_MAX_KELLY_CAP,
 ) -> CoreMatchOutput:
     pass_verdicts = {"PARTIAL", "HOLD", "NO_BET"}
     final_stake_fraction = 0.0 if verdict in pass_verdicts else (stake_fraction or 0.0)
-    stake = _stake_label(final_stake_fraction, verdict)
+    stake = _stake_label(final_stake_fraction, verdict, effective_kelly_cap)
 
     if verdict == "PARTIAL":
         candidate = None
@@ -719,10 +772,11 @@ def _build_output(
     )
 
 
-def _stake_label(stake_fraction: float, verdict: str) -> str:
+def _stake_label(stake_fraction: float, verdict: str, kelly_cap: float = CORE_MAX_KELLY_CAP) -> str:
     if verdict in {"PARTIAL", "HOLD", "NO_BET"} or stake_fraction <= 0:
         return "pass"
-    if stake_fraction >= CORE_MAX_KELLY_CAP:
+    # "2.5u" when at ≥90% of the effective cap (covers rounding); "1u" for smaller stakes.
+    if stake_fraction >= kelly_cap * 0.90:
         return "2.5u"
     return "1u"
 

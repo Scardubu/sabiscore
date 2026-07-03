@@ -33,6 +33,8 @@ _LEAGUE_IDS: dict[str, int] = {
     "SERIE_A": 135,
     "BUNDESLIGA": 78,
     "LIGUE_1": 61,
+    "EREDIVISIE": 88,   # Dutch Eredivisie (all comps available on free plan)
+    "UCL": 2,           # UEFA Champions League
 }
 
 
@@ -482,9 +484,15 @@ class APIFootballProvider(BaseProvider):
         )
 
     def _quota_from_headers(self, headers: Any) -> ProviderQuota:
+        # Daily remaining from API response headers; daily limit from config as override.
+        from ..core.config import settings
+
         remaining = headers.get("x-ratelimit-requests-remaining") if headers else None
-        limit = headers.get("x-ratelimit-requests-limit") if headers else None
+        limit_header = headers.get("x-ratelimit-requests-limit") if headers else None
+        limit = settings.api_football_daily_request_limit or (
+            int(limit_header) if limit_header and str(limit_header).isdigit() else None
+        )
         return ProviderQuota(
             remaining=int(remaining) if remaining and str(remaining).isdigit() else None,
-            limit=int(limit) if limit and str(limit).isdigit() else None,
+            limit=limit,
         )

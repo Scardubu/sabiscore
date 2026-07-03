@@ -113,6 +113,15 @@ verify-core: ## Run deterministic SabiScore checks without live providers or Doc
 	@node apps/scraper/src/cli.mjs validate
 	@echo "  6/6 Python compilation"
 	@python -m compileall -q backend/src backend/scripts
+	@echo "  Zero-fabrication scan"
+	@! grep -rn --include="*.py" \
+	  "FEATURE_DEFAULTS\[" \
+	  backend/src/api backend/src/services backend/src/providers \
+	  2>/dev/null | grep -v "test_" | grep -v "#" || \
+	  { echo "  ✗ FEATURE_DEFAULTS used in production API/service/provider path — C-02 violation"; exit 1; }
+	@! grep -rn --include="*.py" "Base\.metadata\.create_all" backend/alembic 2>/dev/null || \
+	  { echo "  ✗ create_all in Alembic chain — C-01 violation"; exit 1; }
+	@echo "  ✓ Zero-fabrication scan passed"
 
 verify: ## Run every SabiScore production release gate; requires pnpm, Postgres, Docker, browsers, and gitleaks
 	@command -v gitleaks >/dev/null || { echo "gitleaks is required for production verification"; exit 1; }

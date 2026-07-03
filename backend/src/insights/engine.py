@@ -209,11 +209,15 @@ class InsightsEngine:
         
         # Create DataFrame with features in exact expected order
         result = pd.DataFrame([aligned])[expected_features]
-        
-        # Final safety: fill any remaining NaN
-        result = result.fillna(0.0)
-        
-        logger.debug(f"Aligned features: {len(result.columns)} columns ready for model")
+
+        # ponytail: do NOT silently fill NaN with 0.0 here — NaN means the feature
+        # was genuinely unavailable. CatBoost handles NaN natively; sklearn models
+        # that cannot should apply their own imputation strategy with explicit logging.
+        null_count = int(result.isnull().sum().sum())
+        if null_count:
+            logger.debug("Aligned features: %d columns are NaN (unavailable evidence)", null_count)
+
+        logger.debug("Aligned features: %d columns ready for model", len(result.columns))
         return result
     
     def _enrich_from_match_data(self, aligned: Dict[str, float], match_data: Dict[str, Any]) -> None:

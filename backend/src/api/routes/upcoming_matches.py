@@ -161,16 +161,16 @@ async def get_upcoming_matches(
             {
               "outcome": "draw",
               "edge_pct": 8.5,
-              "kelly_stake_pct": 4.2,
-              "clv_cents": 28.9,
-              "recommended_stake_ngn": 5000,
-              "confidence": 0.81
+              "kelly_stake_pct": "<calculated quarter-Kelly, capped at 5%>",
+              "clv_cents": "<calculated from closing-line comparison>",
+              "recommended_stake_ngn": "<calculated from bankroll>",
+              "confidence": "<model calibration output>"
             }
           ],
           "has_value": true,
           "data_quality": {
-            "historical_data_ratio": 0.92,
-            "defaults_used_count": 5,
+            "historical_data_ratio": "<fraction of features from real data>",
+            "defaults_used_count": "<count of features filled from league averages>",
             "is_synthetic": false
           }
         }

@@ -24,11 +24,13 @@ from .base import (
 )
 
 COMPETITIONS = {
-    "EPL": "PL",
-    "LA_LIGA": "PD",
-    "SERIE_A": "SA",
-    "BUNDESLIGA": "BL1",
-    "LIGUE_1": "FL1",
+    "EPL": "PL",          # Premier League
+    "LA_LIGA": "PD",       # Primera Division
+    "SERIE_A": "SA",       # Serie A
+    "BUNDESLIGA": "BL1",   # Bundesliga
+    "LIGUE_1": "FL1",      # Ligue 1
+    "EREDIVISIE": "DED",   # Dutch Eredivisie (free tier)
+    "UCL": "CL",           # UEFA Champions League (free tier)
 }
 
 
@@ -271,9 +273,24 @@ class FootballDataOrgProvider(BaseProvider):
         )
 
     def _quota_from_headers(self, headers: Any) -> ProviderQuota:
-        remaining = headers.get("X-Requests-Available-Minute") if headers else None
+        # football-data.org returns per-minute remaining; daily limit from config.
+        from ..core.config import settings
+
+        remaining_minute = headers.get("X-Requests-Available-Minute") if headers else None
+        reset_header = headers.get("X-RequestCounter-Reset") if headers else None
+        reset_at = None
+        if reset_header:
+            try:
+                from datetime import timezone as _tz
+                import datetime as _dt
+                reset_at = _dt.datetime.fromtimestamp(int(reset_header), tz=_tz.utc)
+            except (ValueError, OSError):
+                pass
+        limit = settings.football_data_daily_request_limit
         return ProviderQuota(
-            remaining=int(remaining) if remaining and str(remaining).isdigit() else None,
+            limit=limit,
+            remaining=int(remaining_minute) if remaining_minute and str(remaining_minute).isdigit() else None,
+            reset_at=reset_at,
         )
 
 

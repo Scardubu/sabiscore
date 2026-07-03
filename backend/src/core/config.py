@@ -14,7 +14,8 @@ class Settings(BaseSettings):
     """Centralised application settings with environment-aware validation."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        # Search both the project root and backend/ so the CLI works from either cwd.
+        env_file=(str(_PROJECT_ROOT / ".env"), ".env"),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
@@ -470,20 +471,76 @@ class Settings(BaseSettings):
     provider_request_budget_enabled: bool = Field(default=True, alias="PROVIDER_REQUEST_BUDGET_ENABLED")
 
     # Backend-only provider credentials.
+    # Canonical names follow the directive contract; old aliases retained for backward compat.
     sportmonks_api_key: Optional[str] = Field(
         default=None,
-        alias="SPORTMONKS_API_KEY",
-        description="Sportmonks API key for backend-only provider gateway calls.",
+        validation_alias=AliasChoices("SPORTMONKS_API_TOKEN", "SPORTMONKS_API_KEY"),
+        description="Sportmonks API token for backend-only provider gateway calls.",
     )
     api_football_key: Optional[str] = Field(
         default=None,
-        alias="API_FOOTBALL_KEY",
+        validation_alias=AliasChoices("API_FOOTBALL_API_KEY", "API_FOOTBALL_KEY"),
         description="API-Football key for backend-only provider gateway calls.",
     )
     the_odds_api_key: Optional[str] = Field(
         default=None,
-        alias="THE_ODDS_API_KEY",
+        # API integration guide suggests ODDS_API_KEY; directive canonical is THE_ODDS_API_KEY.
+        # Accept both so users following either naming convention are covered.
+        validation_alias=AliasChoices("THE_ODDS_API_KEY", "ODDS_API_KEY"),
         description="The Odds API key for backend-only provider gateway calls.",
+    )
+
+    # Per-provider daily/monthly request budgets (free-tier quota governance).
+    # Unset = unlimited (no budget enforcement for that provider).
+    football_data_daily_request_limit: Optional[int] = Field(
+        default=None,
+        alias="FOOTBALL_DATA_DAILY_REQUEST_LIMIT",
+        description="Max requests per day for Football-Data.org.",
+    )
+    api_football_daily_request_limit: Optional[int] = Field(
+        default=None,
+        alias="API_FOOTBALL_DAILY_REQUEST_LIMIT",
+        description="Max requests per day for API-Football.",
+    )
+    sportmonks_daily_request_limit: Optional[int] = Field(
+        default=None,
+        alias="SPORTMONKS_DAILY_REQUEST_LIMIT",
+        description="Max requests per day for Sportmonks.",
+    )
+    the_odds_api_monthly_credit_limit: Optional[int] = Field(
+        default=None,
+        alias="THE_ODDS_API_MONTHLY_CREDIT_LIMIT",
+        description="Max API credits per month for The Odds API.",
+    )
+
+    # Provider gateway operational settings.
+    provider_request_timeout_seconds: int = Field(
+        default=12,
+        ge=1,
+        alias="PROVIDER_REQUEST_TIMEOUT_SECONDS",
+        description="Per-request timeout for provider HTTP calls.",
+    )
+    provider_max_retries: int = Field(
+        default=2,
+        ge=0,
+        le=5,
+        alias="PROVIDER_MAX_RETRIES",
+        description="Max retry attempts per provider request (exponential backoff).",
+    )
+    provider_cache_enabled: bool = Field(
+        default=True,
+        alias="PROVIDER_CACHE_ENABLED",
+        description="Enable response caching for provider gateway calls.",
+    )
+    provider_strict_quota_mode: bool = Field(
+        default=True,
+        alias="PROVIDER_STRICT_QUOTA_MODE",
+        description="When True, suspend low-priority calls when quota is low.",
+    )
+    provider_fail_closed: bool = Field(
+        default=True,
+        alias="PROVIDER_FAIL_CLOSED",
+        description="When True, missing provider data propagates as a structured gap (not a default).",
     )
 
     def _parse_cors_raw(self) -> List[str]:

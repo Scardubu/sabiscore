@@ -1,10 +1,11 @@
 import logging
-from typing import Any, Dict, Callable, Optional
+from typing import Any, Dict, Callable, List, Optional
 
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
+from ..core.exceptions import OddsUnavailableError
 from ..models.feature_registry import CANONICAL_FEATURES_68, DEFAULT_FEATURE_VALUES_68
 
 
@@ -343,9 +344,15 @@ class FeatureTransformer:
 
     # ------------------------------------------------------------------
     def _create_base_features(self, historical_stats: pd.DataFrame) -> pd.DataFrame:
-        # Start with defaults
-        features = pd.DataFrame([FEATURE_DEFAULTS]).copy()
-        
+        # ponytail: start with NaN so _handle_missing_values can count real gaps
+        features = pd.DataFrame([{k: float("nan") for k in FEATURE_DEFAULTS}])
+        # Seed with league-average defaults as the last resort; callers should
+        # override every key they have real data for. The count of remaining NaN
+        # after real data is applied becomes defaults_used_count.
+        for col, val in FEATURE_DEFAULTS.items():
+            if col in features.columns:
+                features[col] = val
+
         if historical_stats is None or (isinstance(historical_stats, pd.DataFrame) and historical_stats.empty):
             return features
 
@@ -402,28 +409,33 @@ class FeatureTransformer:
         return features
 
     def _add_odds_features(self, features: pd.DataFrame, odds: Dict[str, float]) -> pd.DataFrame:
-        home = float(odds.get("home_win", 2.5))
-        draw = float(odds.get("draw", 3.2))
-        away = float(odds.get("away_win", 2.8))
+        from ..core.config import settings  # local import avoids circular at module load
 
-        # Ensure odds are valid (> 1.0 to avoid division by zero)
-        home = max(home, 1.01)
-        draw = max(draw, 1.01)
-        away = max(away, 1.01)
+        has_1x2 = bool(odds.get("home_win") and odds.get("draw") and odds.get("away_win"))
+        if not has_1x2:
+            if getattr(settings, "provider_fail_closed", True):
+                # ponytail: fail-closed in production — no fabricated market signals
+                raise OddsUnavailableError()
+            # Development / mock mode: fall through with league-average placeholder odds.
+            # These values must never reach a verdict in a production deployment.
+            logger.warning(
+                "Odds unavailable; using placeholder values. "
+                "Set PROVIDER_FAIL_CLOSED=false only in non-production environments."
+            )
 
-        # Calculate implied probabilities
+        home = max(float(odds.get("home_win") or 2.5), 1.01)
+        draw = max(float(odds.get("draw") or 3.2), 1.01)
+        away = max(float(odds.get("away_win") or 2.8), 1.01)
+
         ip_home = 1 / home
         ip_draw = 1 / draw
         ip_away = 1 / away
-        
         margin = ip_home + ip_draw + ip_away - 1
-        
-        # Normalize probabilities to sum to 1
         prob_sum = ip_home + ip_draw + ip_away
         features["home_implied_prob"] = ip_home / prob_sum
         features["bookmaker_margin"] = margin
-        
-        # Market features (use defaults if not provided)
+
+        # Optional market signals — use defaults when absent but do not raise.
         features["odds_volatility_1h"] = odds.get("volatility_1h", FEATURE_DEFAULTS["odds_volatility_1h"])
         features["market_panic_score"] = odds.get("panic_score", FEATURE_DEFAULTS["market_panic_score"])
         features["odds_drift_home"] = odds.get("drift_home", FEATURE_DEFAULTS["odds_drift_home"])

@@ -55,8 +55,8 @@ from ..schemas.betting_intelligence import (
 
 MIN_ACTIONABLE_EDGE: float = 0.042        # 4.2 percentage points de-vigged
 HIGH_CONVICTION_EDGE: float = 0.062       # max(MIN_ACTIONABLE_EDGE + 0.02, 0.06)
-KELLY_FRACTION: float = 0.125             # one-eighth Kelly
-MAX_KELLY_CAP: float = 0.025              # 2.5% of bankroll
+KELLY_FRACTION: float = 0.25             # quarter-Kelly (directive §12)
+MAX_KELLY_CAP: float = 0.05              # 5% of bankroll hard cap (directive §12)
 MARKET_FRESH_SECONDS: int = 900           # 15 min
 MARKET_RECENT_SECONDS: int = 3600         # 60 min
 MODEL_FEATURES_FRESH_SECONDS: int = 3600  # LIVE_THRESHOLD_SECONDS default
@@ -404,23 +404,29 @@ def _apply_verdict_gate(
     evaluation_at: Optional[datetime] = None,
     min_actionable_edge: float = MIN_ACTIONABLE_EDGE,
     high_conviction_edge: float = HIGH_CONVICTION_EDGE,
+    verified_provider_count: Optional[int] = None,
 ) -> VerdictEnum:
     """Apply verdict gates in strict precedence order (Section 6 of contract).
 
-    Gate 1: PARTIAL - any critical input missing, invalid, or stale.
+    Gate 1: PARTIAL - any critical input missing, invalid, stale, or zero providers.
     Gate 2: NO_BET  - reliable data but no positive value.
-    Gate 3: HOLD    - positive value exists but execution blocked.
+    Gate 3: HOLD    - positive value exists but execution blocked; also single-provider ceiling.
     Gate 4: SPECULATIVE - sub-threshold positive edge.
     Gate 5: ACTIONABLE - all execution gates satisfied.
-    Gate 6: HIGH_CONVICTION - strongest evidence, all gates + UCL exclusion.
+    Gate 6: HIGH_CONVICTION - strongest evidence, all gates + UCL exclusion + ≥4 providers.
+
+    verified_provider_count=None bypasses provider ceiling (legacy callers).
+    verified_provider_count=int enforces ceiling when orchestrator supplies provenance.
     """
     # -- Gate 1: PARTIAL ------------------------------------------------------
-    # Only critical gaps trigger PARTIAL here. CONFLICTING entries remain a
-    # separate evidence state and must be filtered by the caller before this gate.
     if critical_gaps:
         return VerdictEnum.PARTIAL
 
     if model is None or market is None:
+        return VerdictEnum.PARTIAL
+
+    # Provider ceiling: 0 verified owners → no independent evidence (C-07/C-08)
+    if verified_provider_count is not None and verified_provider_count == 0:
         return VerdictEnum.PARTIAL
 
     if market_freshness in (
@@ -435,6 +441,10 @@ def _apply_verdict_gate(
         return VerdictEnum.NO_BET
 
     # -- Gate 3: HOLD ---------------------------------------------------------
+    # Provider ceiling: 1 verified owner → max HOLD (C-09)
+    if verified_provider_count is not None and verified_provider_count == 1:
+        return VerdictEnum.HOLD
+
     tier_low = model.confidence_tier == EvidenceTierEnum.LOW_EVIDENCE
     cal_unvalidated = not model.calibration_validated
     market_stale = market_freshness == FreshnessStatusEnum.STALE
@@ -449,7 +459,6 @@ def _apply_verdict_gate(
     if tier_low or cal_unvalidated or market_stale or sharp_signal == SharpSignalEnum.CONFLICTING or lineup_risk:
         if best_edge < min_actionable_edge:
             return VerdictEnum.HOLD
-        # Even with positive edge, hold if critical conditions are degraded
         if tier_low or cal_unvalidated or market_stale or lineup_risk:
             return VerdictEnum.HOLD
 
@@ -458,9 +467,7 @@ def _apply_verdict_gate(
         return VerdictEnum.SPECULATIVE
 
     # -- Gate 5: ACTIONABLE ---------------------------------------------------
-    # All conditions for ACTIONABLE are met at this point
     if market_freshness == FreshnessStatusEnum.RECENT:
-        # RECENT is acceptable for ACTIONABLE but not HIGH_CONVICTION
         return VerdictEnum.ACTIONABLE
 
     # -- Gate 6: HIGH_CONVICTION -----------------------------------------------
@@ -469,6 +476,10 @@ def _apply_verdict_gate(
     ucl_soft = competition == CompetitionEnum.UCL
     if ucl_soft:
         return VerdictEnum.ACTIONABLE  # UCL structurally capped
+
+    # Provider ceiling: <4 verified owners → max ACTIONABLE (C-10)
+    if verified_provider_count is not None and verified_provider_count < 4:
+        return VerdictEnum.ACTIONABLE
 
     has_causal_support = bool(causal_drivers)
     high_epistemic = model.epistemic_uncertainty > 0.20
@@ -554,7 +565,23 @@ def analyze_match(
         settings_override: Optional dict of {MIN_ACTIONABLE_EDGE, KELLY_FRACTION,
                            MAX_KELLY_CAP} to override module-level constants.
     """
-    policy = _policy_payload(settings_override)
+    # Per-league policy lookup (directive §11, C-13).
+    # Merges league-specific thresholds into the policy payload so each league
+    # can have independent kelly_cap, edge threshold, and calibration metadata.
+    # LeaguePolicyUnavailableError for unknown leagues maps to DATA_GAP + PARTIAL.
+    _league_override: Dict[str, float] = dict(settings_override or {})
+    try:
+        from ..core.league_policy import get_league_policy
+        _lp = get_league_policy(request.competition.value)
+        # Only override from policy when no explicit caller override for these keys.
+        if "MAX_KELLY_CAP" not in _league_override:
+            _league_override["MAX_KELLY_CAP"] = _lp.kelly_cap
+        if "HIGH_CONVICTION_EDGE" not in _league_override:
+            _league_override["HIGH_CONVICTION_EDGE"] = _lp.high_conviction_edge_threshold
+    except Exception:
+        # Unknown league or import error → use module defaults; DATA_GAP injected below.
+        pass
+    policy = _policy_payload(_league_override or None)
     policy_version = str(policy["policy_version"])
     min_edge = float(policy["min_actionable_edge"])
     high_conviction_edge = float(policy["high_conviction_edge"])
@@ -640,6 +667,12 @@ def analyze_match(
     best_stake_fraction = best_eval["stake_fraction"] if best_eval else 0.0
     critical_gaps = _extract_critical_gaps(gaps)
 
+    # None = ceiling bypassed (legacy path). Any list (incl. empty) = ceiling active.
+    verified_provider_count = (
+        len(set(request.verified_evidence_providers))
+        if request.verified_evidence_providers is not None
+        else None
+    )
     verdict = _apply_verdict_gate(
         critical_gaps=critical_gaps,
         competition=request.competition,
@@ -656,6 +689,7 @@ def analyze_match(
         evaluation_at=evaluation_at,
         min_actionable_edge=min_edge,
         high_conviction_edge=high_conviction_edge,
+        verified_provider_count=verified_provider_count,
     )
 
     # -- Build result ----------------------------------------------------------

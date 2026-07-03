@@ -17,8 +17,6 @@ Ethical Note:
 """
 
 import logging
-import random
-from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
 from .base_scraper import BaseScraper, CACHE_DIR, PROCESSED_DIR
@@ -79,113 +77,8 @@ class OddsPortalScraper(BaseScraper):
         Full implementation requires Playwright/Selenium.
         """
         logger.info(f"Fetching OddsPortal odds for {home_team} vs {away_team}")
-        
-        # For development, return simulated historical odds
-        return self._simulate_odds_data(home_team, away_team, league)
-    
-    def _simulate_odds_data(
-        self,
-        home_team: str,
-        away_team: str,
-        league: str
-    ) -> Dict:
-        """Simulate realistic historical odds data."""
-        # Generate opening odds based on perceived team strength
-        home_strength = self._estimate_team_strength(home_team)
-        away_strength = self._estimate_team_strength(away_team)
-        
-        # Calculate fair probabilities
-        home_prob = (home_strength + 0.1) / (home_strength + away_strength + 0.3)  # Home advantage
-        away_prob = away_strength / (home_strength + away_strength + 0.3)
-        draw_prob = 1 - home_prob - away_prob
-        
-        # Convert to decimal odds (with bookmaker margin)
-        margin = 1.05  # 5% margin
-        home_odds = round(margin / home_prob, 2)
-        draw_odds = round(margin / draw_prob, 2)
-        away_odds = round(margin / away_prob, 2)
-        
-        # Simulate odds movement (opening to closing)
-        opening_odds = {
-            "home": round(home_odds * random.uniform(0.95, 1.05), 2),
-            "draw": round(draw_odds * random.uniform(0.95, 1.05), 2),
-            "away": round(away_odds * random.uniform(0.95, 1.05), 2),
-        }
-        
-        closing_odds = {
-            "home": home_odds,
-            "draw": draw_odds,
-            "away": away_odds,
-        }
-        
-        # Multi-bookmaker odds
-        bookmaker_odds = self._simulate_bookmaker_odds(
-            closing_odds, self.BOOKMAKERS
-        )
-        
-        return {
-            "match": f"{home_team} vs {away_team}",
-            "league": league,
-            "date": (datetime.now() - timedelta(days=random.randint(1, 30))).strftime("%Y-%m-%d"),
-            "opening_odds": opening_odds,
-            "closing_odds": closing_odds,
-            "movement": {
-                "home": round(closing_odds["home"] - opening_odds["home"], 3),
-                "draw": round(closing_odds["draw"] - opening_odds["draw"], 3),
-                "away": round(closing_odds["away"] - opening_odds["away"], 3),
-            },
-            "bookmaker_odds": bookmaker_odds,
-            "best_odds": self._find_best_odds(bookmaker_odds),
-            "average_odds": self._calculate_average_odds(bookmaker_odds),
-            "implied_probabilities": {
-                "home": round(1 / closing_odds["home"], 3),
-                "draw": round(1 / closing_odds["draw"], 3),
-                "away": round(1 / closing_odds["away"], 3),
-            },
-            "overround": round(
-                (1/closing_odds["home"] + 1/closing_odds["draw"] + 1/closing_odds["away"]) * 100 - 100, 
-                2
-            ),
-            "timestamp": datetime.now().isoformat(),
-            "source": "oddsportal",
-            "simulated": True,
-        }
-    
-    def _estimate_team_strength(self, team: str) -> float:
-        """Estimate team strength (0-1 scale)."""
-        top_teams = {
-            "Man City": 0.95, "Arsenal": 0.90, "Liverpool": 0.88,
-            "Chelsea": 0.82, "Tottenham": 0.78, "Man United": 0.75,
-            "Newcastle": 0.75, "Aston Villa": 0.72,
-            "Real Madrid": 0.95, "Barcelona": 0.90, "Atletico Madrid": 0.82,
-            "Bayern Munich": 0.95, "Dortmund": 0.82,
-            "PSG": 0.92, "Inter": 0.85, "Juventus": 0.82,
-        }
-        
-        for known_team, strength in top_teams.items():
-            if known_team.lower() in team.lower() or team.lower() in known_team.lower():
-                return strength
-        
-        return random.uniform(0.5, 0.7)  # Default for unknown teams
-    
-    def _simulate_bookmaker_odds(
-        self,
-        base_odds: Dict[str, float],
-        bookmakers: List[str]
-    ) -> Dict[str, Dict[str, float]]:
-        """Simulate odds across multiple bookmakers."""
-        result = {}
-        
-        for bookie in bookmakers:
-            # Each bookmaker varies slightly
-            variance = random.uniform(-0.08, 0.08)
-            result[bookie] = {
-                "home": round(base_odds["home"] * (1 + variance), 2),
-                "draw": round(base_odds["draw"] * (1 + random.uniform(-0.05, 0.05)), 2),
-                "away": round(base_odds["away"] * (1 - variance), 2),  # Inverse correlation
-            }
-        
-        return result
+        # OddsPortal requires JavaScript rendering (Playwright/Selenium); not yet implemented.
+        return None
     
     def _find_best_odds(
         self,

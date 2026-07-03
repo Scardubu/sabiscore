@@ -70,9 +70,9 @@ class BetfairExchangeScraper(BaseScraper):
         if self.api_key and self.session_token:
             return self._fetch_via_api(home_team, away_team, league)
         
-        # Otherwise, simulate realistic exchange odds
-        logger.info(f"Simulating Betfair odds for {home_team} vs {away_team}")
-        return self._simulate_exchange_odds(home_team, away_team)
+        # No credentials and no public endpoint available; fail closed.
+        logger.info(f"No Betfair credentials for {home_team} vs {away_team}; returning None")
+        return None
     
     def _fetch_via_api(
         self,
@@ -94,77 +94,9 @@ class BetfairExchangeScraper(BaseScraper):
             "Content-Type": "application/json",
         }
         
-        # This is a placeholder - actual implementation would need proper
-        # market ID lookup and price fetching
-        logger.warning("Betfair API integration not fully implemented - using simulation")
-        return self._simulate_exchange_odds(home_team, away_team)
-    
-    def _simulate_exchange_odds(
-        self,
-        home_team: str,
-        away_team: str
-    ) -> Dict:
-        """
-        Simulate realistic exchange odds and liquidity.
-        
-        Exchange odds typically have:
-        - Tighter spread than bookmakers (lower margin)
-        - Back/lay spread based on liquidity
-        - Higher liquidity on favorites
-        """
-        import random
-        
-        # Simulate base probabilities
-        home_prob = random.uniform(0.35, 0.55)
-        draw_prob = random.uniform(0.20, 0.30)
-        away_prob = 1 - home_prob - draw_prob
-        
-        # Convert to decimal odds with exchange margin (~1-2%)
-        margin = random.uniform(0.01, 0.02)
-        
-        home_back = round(1 / home_prob, 2)
-        draw_back = round(1 / draw_prob, 2)
-        away_back = round(1 / away_prob, 2)
-        
-        # Lay odds slightly higher (spread)
-        spread = random.uniform(0.01, 0.03)
-        home_lay = round(home_back * (1 + spread), 2)
-        draw_lay = round(draw_back * (1 + spread), 2)
-        away_lay = round(away_back * (1 + spread), 2)
-        
-        # Simulate liquidity (more on favorites)
-        base_liquidity = random.uniform(50000, 200000)
-        home_liquidity = base_liquidity * (1 / home_back)
-        draw_liquidity = base_liquidity * 0.3
-        away_liquidity = base_liquidity * (1 / away_back)
-        
-        return {
-            "match": f"{home_team} vs {away_team}",
-            "timestamp": datetime.now().isoformat(),
-            "exchange": "betfair",
-            "markets": {
-                "match_odds": {
-                    "home": {
-                        "back": home_back,
-                        "lay": home_lay,
-                        "liquidity_gbp": round(home_liquidity, 2),
-                    },
-                    "draw": {
-                        "back": draw_back,
-                        "lay": draw_lay,
-                        "liquidity_gbp": round(draw_liquidity, 2),
-                    },
-                    "away": {
-                        "back": away_back,
-                        "lay": away_lay,
-                        "liquidity_gbp": round(away_liquidity, 2),
-                    },
-                },
-            },
-            "margin": round(margin * 100, 2),
-            "total_liquidity_gbp": round(home_liquidity + draw_liquidity + away_liquidity, 2),
-            "simulated": True,  # Flag that this is simulated data
-        }
+        # Actual API integration not yet implemented; fail closed.
+        logger.warning("Betfair API integration not fully implemented")
+        return None
     
     def _parse_data(self, page_content: Dict) -> Dict:
         """Parse exchange odds data."""

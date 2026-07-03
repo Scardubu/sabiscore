@@ -87,6 +87,10 @@ class CoreMatchInput(BaseModel):
     signals: Optional[CoreSignalsInput] = None
     freshness: Optional[CoreFreshnessInput] = None
     source_status: Optional[CoreSourceStatusInput] = None
+    # Provider ceiling enforcement (directive §9, C-07/08/09/10).
+    # None = ceiling bypassed (legacy callers / no orchestrator).
+    # [] = explicitly 0 verified providers → PARTIAL.
+    verified_evidence_providers: Optional[List[str]] = None
 
 
 class CoreEngineAnalyzeRequest(BaseModel):
@@ -111,8 +115,8 @@ class CoreCalculationAuditOutput(BaseModel):
     market_overround: Optional[float]
     calibration_method: Optional[str]
     model_version: Optional[str]
-    kelly_fraction: float = 0.125
-    kelly_cap: float = 0.025
+    kelly_fraction: float = 0.25   # quarter-Kelly
+    kelly_cap: float = 0.05        # 5% hard cap
 
 
 class CoreMatchOutput(BaseModel):

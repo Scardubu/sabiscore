@@ -11,6 +11,7 @@ import {
   RefreshCw,
   ShieldCheck,
 } from "lucide-react";
+import { ProviderMeter } from "@/components/ProviderMeter";
 import type {
   FixtureEvidenceResponse,
   FixtureSummary,
@@ -605,6 +606,8 @@ export function BettingIntelligenceDashboard() {
               <Timeline evidence={evidence} />
               <ReadinessRail evidence={evidence} />
             </div>
+
+            <ProviderMeter />
 
             <div className="bi-two">
               <section className="bi-panel">
