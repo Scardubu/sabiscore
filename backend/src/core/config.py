@@ -96,7 +96,7 @@ class Settings(BaseSettings):
     football_data_api_key: Optional[str] = Field(
         default=None,
         alias="FOOTBALL_DATA_API_KEY",
-        description="API key for football-data.co.uk and similar services"
+        description="X-Auth-Token for football-data.org (fixtures, standings, results).",
     )
     
     # App metadata (backwards-compat with legacy settings access in main.py)

@@ -54,5 +54,38 @@ def quota(provider_id: str | None) -> None:
     asyncio.run(run())
 
 
+@providers_cli.command("status")
+def status() -> None:
+    """Summary health table: configured | missing | invalid | quota_exhausted | temporarily_unavailable."""
+    async def run() -> None:
+        registry = build_provider_registry()
+        healths = await registry.health()
+        rows = []
+        for h in healths:
+            if not h.enabled:
+                state = "disabled"
+            elif not h.configured:
+                state = "missing"
+            elif h.status.value in ("CIRCUIT_OPEN", "UNAVAILABLE"):
+                state = "temporarily_unavailable"
+            elif h.status.value in ("INVALID",):
+                state = "invalid"
+            elif h.status.value in ("RATE_LIMITED",):
+                state = "quota_exhausted"
+            else:
+                # VERIFIED and CONFIGURED_UNVERIFIED both mean the credential
+                # is present; only the live-probe result differs.
+                state = "configured"
+            rows.append({
+                "provider": h.provider,
+                "state": state,
+                "configured": h.configured,
+                "warnings": h.warnings,
+            })
+        _print_json({"status": rows})
+
+    asyncio.run(run())
+
+
 if __name__ == "__main__":
     providers_cli()

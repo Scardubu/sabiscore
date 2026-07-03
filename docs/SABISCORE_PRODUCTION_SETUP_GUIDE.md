@@ -1,6 +1,6 @@
 # SabiScore Production Setup Guide
 
-Last updated: 2026-06-28
+Last updated: 2026-07-04
 
 This is the authoritative setup and deployment guide for the finalized production shape.
 
@@ -39,8 +39,8 @@ Backend-only provider keys:
 | Variable | Required | Notes |
 |---|---:|---|
 | `FOOTBALL_DATA_API_KEY` | Optional | Official fixture/standing provider |
-| `API_FOOTBALL_KEY` | Optional | Authenticated enrichment provider |
-| `SPORTMONKS_API_KEY` | Optional | Authenticated enrichment provider |
+| `API_FOOTBALL_API_KEY` | Optional | Authenticated enrichment provider |
+| `SPORTMONKS_API_TOKEN` | Optional | Authenticated enrichment provider |
 | `THE_ODDS_API_KEY` | Optional | Current market snapshots |
 
 Frontend/server variables:
@@ -141,6 +141,7 @@ CLI:
 
 ```bash
 cd backend
+python -m src.cli providers status       # one-line health summary per provider
 python -m src.cli providers doctor
 python -m src.cli providers capabilities
 python -m src.cli providers quota
