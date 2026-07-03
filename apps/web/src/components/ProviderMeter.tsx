@@ -102,7 +102,7 @@ export function ProviderMeter() {
           setLastChecked(data.generated_at ?? null);
           setError(null);
         }
-      } catch (err) {
+      } catch {
         if (!cancelled) {
           setError("Provider status unavailable — backend unreachable");
         }
