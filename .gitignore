@@ -212,3 +212,8 @@ apps/api/logs/
 *~
 AGENTS.md
 *.prompt.md
+
+# TLS certificates — never commit private keys
+ssl/*.pem
+ssl/*.key
+ssl/*.crt

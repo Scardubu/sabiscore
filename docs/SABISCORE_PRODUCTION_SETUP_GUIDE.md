@@ -272,6 +272,16 @@ run the full release matrix before tagging the release.
 3. Roll back database schema only with reviewed Alembic downgrade or forward-fix migration.
 4. Re-run `python -m src.cli providers doctor` and `make verify` before restoring traffic.
 
+## vΩ.2 Changes (2026-07-04)
+
+- CI workflows (`ci.yml`, `secret-scan.yml`) now trigger on `master` branch — previously only fired on `main`/`develop`.
+- `nginx.conf` created at repo root; `docker-compose.prod.yml` nginx mount now valid. `./ssl/` certs still required for TLS.
+- All three Docker healthcheck paths aligned to `/api/v1/health/live`.
+- `PREMIUM_VISUAL_HIERARCHY` flag enabled by default; premium homepage now shown to all users.
+- Test deps (`pytest`, `pytest-asyncio`, `respx`) moved from `requirements.txt` to `requirements-dev.txt`; Render deployments no longer install test packages.
+- Dev postgres aligned to `postgres:16-alpine` (matches prod compose).
+- `datetime.utcnow()` deprecated calls replaced with `datetime.now(timezone.utc)` in `model_registry.py`.
+
 ## Known Limitations
 
 - Live provider tests are opt-in with `PROVIDER_LIVE_TESTS=false` by default.

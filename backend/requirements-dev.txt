@@ -1,3 +1,8 @@
 -r requirements.txt
 mypy
 ruff
+
+# Test dependencies (not deployed to Render)
+pytest==7.4.3
+pytest-asyncio==0.21.1
+respx==0.23.1

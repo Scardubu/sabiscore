@@ -3,6 +3,10 @@
 ESPN is keyless, unofficial/public for this product, and may corroborate
 fixtures/status/standings only. It must never provide SabiScore probabilities,
 odds, stakes, or authoritative availability on its own.
+
+NOTE: The active implementation lives in providers/espn/ (package). This flat
+module is superseded and retained only for backwards-compat imports. The package
+takes Python precedence when both exist.
 """
 
 from __future__ import annotations

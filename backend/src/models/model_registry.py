@@ -8,7 +8,7 @@ import json
 import logging
 from pathlib import Path
 from typing import Dict, Any, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import pandas as pd
 
 logger = logging.getLogger(__name__)
@@ -125,7 +125,7 @@ class ModelRegistry:
                 'metrics': metrics,
                 'params': params,
                 'tags': tags or {},
-                'registered_at': datetime.utcnow().isoformat(),
+                'registered_at': datetime.now(timezone.utc).isoformat(),
                 'status': 'staging'  # Default to staging
             }
             self._save_metadata()
@@ -207,7 +207,7 @@ class ModelRegistry:
         # Promote new model
         self.metadata['production_model'] = model_id
         self.metadata['models'][model_id]['status'] = 'production'
-        self.metadata['models'][model_id]['promoted_at'] = datetime.utcnow().isoformat()
+        self.metadata['models'][model_id]['promoted_at'] = datetime.now(timezone.utc).isoformat()
         
         self._save_metadata()
         logger.info(f"Model {model_id} promoted to production")
@@ -302,7 +302,7 @@ class ModelRegistry:
             raise ValueError("Cannot archive production model. Promote another model first.")
         
         self.metadata['models'][model_id]['status'] = 'archived'
-        self.metadata['models'][model_id]['archived_at'] = datetime.utcnow().isoformat()
+        self.metadata['models'][model_id]['archived_at'] = datetime.now(timezone.utc).isoformat()
         
         self._save_metadata()
         logger.info(f"Model {model_id} archived")
