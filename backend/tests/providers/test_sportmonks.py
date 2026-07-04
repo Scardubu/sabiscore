@@ -1,4 +1,4 @@
-"""Tests for sportmonks.py (sidelined + lineups, api_token query-param auth).
+"""Tests for sportmonks.py (sidelined + lineups, Authorization-header auth).
 
 Run:
     cd backend
@@ -32,7 +32,7 @@ VALID_LINEUP_RESPONSE = {
 
 
 @pytest.mark.asyncio
-async def test_injuries_happy_path_uses_query_param_auth(mock_client_factory):
+async def test_injuries_happy_path_uses_header_auth_never_url_token(mock_client_factory):
     calls = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -44,8 +44,10 @@ async def test_injuries_happy_path_uses_query_param_auth(mock_client_factory):
 
     assert result.status == ProviderStatus.VERIFIED
     assert result.records[0]["category"] == "injury"
-    assert "x-auth-token" not in {k.lower() for k in calls[0].headers}
-    assert "api_token=test-token" in str(calls[0].url)
+    # Token travels in the Authorization header only — never in the URL, where
+    # it would leak through httpx exception messages and access logs.
+    assert calls[0].headers.get("authorization") == "test-token"
+    assert "test-token" not in str(calls[0].url)
     assert "unfiltered_by_competition" in result.warnings
 
 

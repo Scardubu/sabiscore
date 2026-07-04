@@ -127,10 +127,13 @@ class TestPhase8RegistryInvariants:
 class TestPhase8EndpointHelpers:
     """Isolated tests for phase8_features endpoint logic."""
 
-    def test_phase8_disabled_flag_returns_false_by_default(self):
-        from src.api.endpoints.phase8_features import _is_phase8_enabled
+    def test_phase8_disabled_flag_returns_false_by_default(self, monkeypatch):
+        from src.api.endpoints.phase8_features import _is_phase8_enabled, settings
 
         os.environ.pop("USE_PHASE8_FEATURES", None)
+        # Pin the settings fallback so a local .env with phase8 enabled
+        # cannot flip this default-contract test (read-only property -> patch class).
+        monkeypatch.setattr(type(settings), "phase8_enabled", property(lambda self: False))
         assert _is_phase8_enabled() is False
 
     def test_phase8_enabled_flag_true(self):

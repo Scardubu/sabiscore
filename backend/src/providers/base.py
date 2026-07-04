@@ -10,6 +10,7 @@ import hashlib
 import json
 import logging
 import random
+import re
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Mapping
@@ -20,7 +21,18 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
-SENSITIVE_QUERY_KEYS = {"api_key", "apikey", "key", "token", "auth", "authorization"}
+SENSITIVE_QUERY_KEYS = {"api_key", "apikey", "api_token", "key", "token", "auth", "authorization"}
+
+_SENSITIVE_PARAM_RE = re.compile(
+    r"\b(" + "|".join(SENSITIVE_QUERY_KEYS) + r")=([^&\s'\"]+)",
+    re.IGNORECASE,
+)
+
+
+def redact_text(text: str) -> str:
+    """Scrub sensitive query-param values from arbitrary text (e.g. exception messages
+    that embed full request URLs, like httpx.HTTPStatusError)."""
+    return _SENSITIVE_PARAM_RE.sub(r"\1=[REDACTED]", text)
 
 
 class ProviderStatus(str, Enum):
@@ -271,7 +283,10 @@ class BaseProvider:
                 if attempt < self.max_retries:
                     await self._sleep_with_jitter(attempt)
         safe_url = redact_url(url)
-        logger.warning("provider_request_failed provider=%s url=%s error=%s", self.provider_id, safe_url, last_exc)
+        # httpx exception messages embed the full request URL (with query string) —
+        # scrub them before they reach any log sink.
+        safe_error = redact_text(str(last_exc)) if last_exc else None
+        logger.warning("provider_request_failed provider=%s url=%s error=%s", self.provider_id, safe_url, safe_error)
         raise last_exc or RuntimeError("provider_request_failed")
 
     async def _sleep_with_jitter(self, attempt: int) -> None:

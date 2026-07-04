@@ -37,7 +37,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Coroutine
 
-from .base import ProviderResult, ProviderStatus, TrustTier
+from .base import ProviderResult, ProviderStatus, TrustTier, redact_text
 from .reconciliation import TeamCandidate, reconcile_team
 from .registry import ProviderRegistry
 
@@ -85,7 +85,7 @@ async def _safe_call(
         # Provider exists but has no operational method yet (stub).
         return _stub_result(provider, operation, f"{provider}.{operation}() not yet implemented")
     except Exception as exc:
-        logger.warning("orchestrator_provider_error provider=%s op=%s error=%s", provider, operation, exc)
+        logger.warning("orchestrator_provider_error provider=%s op=%s error=%s", provider, operation, redact_text(str(exc)))
         return ProviderResult(
             provider=provider,
             operation=operation,

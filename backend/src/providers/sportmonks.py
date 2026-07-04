@@ -1,6 +1,6 @@
 """Sportmonks optional enrichment provider.
 
-Operational client: sidelined players + lineups via api_token query-param
+Operational client: sidelined players + lineups via Authorization header
 auth (unlike football_data_org/api_football, which use header auth). Quota
 is reported in the response body's `rate_limit` object, not HTTP headers —
 an intentional deviation from the other two adapters, not an oversight.
@@ -82,7 +82,7 @@ class SportmonksProvider(BaseProvider):
         try:
             payload, _headers = await self._get_json(
                 f"{self.base_url}/sidelined",
-                params={"api_token": self.api_key},
+                headers={"Authorization": self.api_key},
             )
         except Exception as exc:
             return self._network_failure("injuries", exc)
@@ -121,7 +121,8 @@ class SportmonksProvider(BaseProvider):
         try:
             payload, _headers = await self._get_json(
                 f"{self.base_url}/fixtures/{fixture_id}",
-                params={"include": "lineups", "api_token": self.api_key},
+                params={"include": "lineups"},
+                headers={"Authorization": self.api_key},
             )
         except Exception as exc:
             return self._network_failure("lineups", exc)
@@ -157,7 +158,7 @@ class SportmonksProvider(BaseProvider):
         try:
             await self._get_json(
                 f"{self.base_url}/sidelined",
-                params={"api_token": self.api_key},
+                headers={"Authorization": self.api_key},
             )
             return ProviderStatus.VERIFIED
         except Exception:  # pragma: no cover - network path

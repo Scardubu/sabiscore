@@ -211,3 +211,36 @@ def test_reconciliation_unknown_only_when_no_candidate_exists():
     assert decision.status == "UNKNOWN"
     assert decision.fixture_id is None
     assert decision.reason == "no_candidate"
+
+
+def test_redact_url_scrubs_api_token_query_param():
+    from src.providers.base import redact_url
+
+    url = "https://api.sportmonks.com/v3/football/sidelined?api_token=SECRET123&include=x"
+    redacted = redact_url(url)
+    assert "SECRET123" not in redacted
+    assert "api_token=%5BREDACTED%5D" in redacted or "api_token=[REDACTED]" in redacted
+
+
+def test_redact_text_scrubs_tokens_embedded_in_exception_messages():
+    from src.providers.base import redact_text
+
+    # httpx.HTTPStatusError embeds the full request URL in its message
+    message = (
+        "Client error '404 Not Found' for url "
+        "'https://api.sportmonks.com/v3/football/sidelined?api_token=SECRET123'"
+    )
+    redacted = redact_text(message)
+    assert "SECRET123" not in redacted
+    assert "api_token=[REDACTED]" in redacted
+    # non-sensitive text is preserved
+    assert "404 Not Found" in redacted
+
+
+def test_redact_text_handles_multiple_sensitive_params():
+    from src.providers.base import redact_text
+
+    text = "https://x.test/?apiKey=AAA&token=BBB&normal=keep"
+    redacted = redact_text(text)
+    assert "AAA" not in redacted and "BBB" not in redacted
+    assert "normal=keep" in redacted
