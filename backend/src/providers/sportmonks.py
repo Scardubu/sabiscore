@@ -154,10 +154,14 @@ class SportmonksProvider(BaseProvider):
         )
 
     async def probe(self) -> ProviderStatus:
-        """Cheap liveness probe: reuses the sidelined endpoint (no cheaper documented endpoint)."""
+        """Cheap liveness probe: /leagues is the cheapest call valid on every plan.
+
+        Live-verified 2026-07-04: bare /sidelined 404s in the subscribed API
+        shape, so probing it could never verify a valid token.
+        """
         try:
             await self._get_json(
-                f"{self.base_url}/sidelined",
+                f"{self.base_url}/leagues",
                 headers={"Authorization": self.api_key},
             )
             return ProviderStatus.VERIFIED
