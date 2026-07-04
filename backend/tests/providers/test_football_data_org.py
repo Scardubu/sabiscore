@@ -136,7 +136,7 @@ async def test_fixtures_unsupported_competition(mock_client_factory):
     provider = FootballDataOrgProvider(
         api_key="test-key", enabled=True, http_client=mock_client_factory(handler)
     )
-    result = await provider.fixtures(competition="UCL")  # not in COMPETITIONS
+    result = await provider.fixtures(competition="FIFA_WC")  # not in COMPETITIONS
 
     assert result.status == ProviderStatus.UNAVAILABLE
     assert result.error_code == "unsupported_competition"
