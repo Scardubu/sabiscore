@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1
-
 # Base stage with dependencies
 FROM node:20-alpine AS base
 RUN apk add --no-cache libc6-compat

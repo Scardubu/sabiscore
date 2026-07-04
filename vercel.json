@@ -10,14 +10,18 @@
   "build": {
     "env": {
       "NEXT_TELEMETRY_DISABLED": "1",
+      "NODE_ENV": "production",
       "NODE_OPTIONS": "--max-old-space-size=8192"
     }
   },
   "env": {
+    "NEXT_PUBLIC_APP_URL": "https://sabiscore.com",
+    "NEXT_PUBLIC_SITE_URL": "https://sabiscore.com",
     "NEXT_PUBLIC_CURRENCY": "NGN",
-    "NEXT_PUBLIC_CURRENCY_SYMBOL": "₦",
+    "NEXT_PUBLIC_CURRENCY_SYMBOL": "NGN",
     "NEXT_PUBLIC_BASE_BANKROLL": "10000",
-    "NEXT_PUBLIC_MIN_EDGE_NGN": "66"
+    "NEXT_PUBLIC_MIN_EDGE_NGN": "66",
+    "NEXT_PUBLIC_ENABLE_PERF_MONITORING": "false"
   },
   "headers": [
     {

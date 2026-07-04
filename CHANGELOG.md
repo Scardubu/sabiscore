@@ -7,6 +7,44 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ---
 
+## Vercel env matrix, Docker build fixes, zero-fab guard (2026-07-04 session 11)
+
+### Vercel — complete env matrix
+
+Full Vercel environment variable mapping resolved this session.
+
+**Added to `vercel.json` (safe non-secrets, committed):**
+- `NEXT_PUBLIC_APP_URL` + `NEXT_PUBLIC_SITE_URL` = `https://sabiscore.com` — used by `layout.tsx` for canonical URL (falls back to `VERCEL_URL` if unset)
+- `NEXT_PUBLIC_ENABLE_PERF_MONITORING` = `false` — performance monitoring opt-in flag
+- `NODE_ENV` = `production` in `build.env` — fixes the NODE_ENV footgun when Vercel injects the build environment
+
+**Must be set in the Vercel project dashboard (never in `vercel.json`):**
+| Variable | Required | Purpose |
+|---|---|---|
+| `SABISCORE_BACKEND_URL` | **Required** | All server-side proxy routes; e.g. `https://sabiscore-api.onrender.com` |
+| `SECRET_KEY` | **Required** | FastAPI JWT signing key (≥32 chars) |
+| `CRON_SECRET` | Recommended | Auth for `/api/cron/*` routes |
+| `REVALIDATE_SECRET` | Recommended | Auth for `/api/revalidate` (default `dev-secret-token` is insecure in prod) |
+| `BACKEND_TOKEN` | Optional | Added as `Authorization: Bearer` when calling backend proxy routes |
+| `ADMIN_TOKEN` | Optional | Guards `/admin/model-health` page |
+| `WARMUP_SECRET` | Optional | Guards `/api/warmup` keepalive route |
+| `REDIS_URL` | Optional | Redis Cloud URL for server-side prediction cache (in-memory fallback if unset) |
+| `ALERT_WEBHOOK_URL` | Optional | Slack/Discord webhook for drift-check alerts |
+| `KV_REST_API_URL` + `KV_REST_API_TOKEN` | Optional | Vercel KV for prediction cache (fallback to in-memory if unset) |
+
+**Auto-provided by Vercel (no action needed):**
+- `VERCEL_URL` — deployment-specific URL; used as fallback for `NEXT_PUBLIC_SITE_URL`
+- `NODE_ENV` — set to `production` automatically on Vercel builds
+
+### Docker builds — build context and Dockerfile fixes
+
+- **Fixed:** `Makefile` verify target `11/14` now uses `backend/` as build context (was `.`). The Dockerfile COPYs from the context root; with `.` the `requirements.txt` was not found. docker-compose already used `context: ./backend` — Makefile now matches.
+- **Fixed:** `apps/web/Dockerfile` — removed `# syntax=docker/dockerfile:1` frontend directive. This triggers a DNS lookup for `registry-1.docker.io` during build, making all offline builds fail before the first `FROM`. Without it, BuildKit uses the bundled frontend.
+- **Fixed:** `backend/Dockerfile` — `FROM ... as` → `FROM ... AS` (BuildKit warning `FromAsCasing`).
+- **Note:** Docker image builds still require internet to pull `python:3.11-slim` and `node:20-alpine` base images if not cached locally. Network access in Docker Desktop is a machine-level configuration.
+
+---
+
 ## Zero-fab guard, walk-forward RPS, Vercel cleanup, ssl scaffold (2026-07-04)
 
 ### Zero-fabrication — prediction.py now enforces fail-closed at inference time

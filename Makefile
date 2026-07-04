@@ -158,7 +158,7 @@ verify: ## Run every SabiScore production release gate; requires pnpm, Postgres,
 	@echo "  10/14 Docker Compose configuration"
 	@docker compose -f docker-compose.prod.yml config --quiet
 	@echo "  11/14 Backend image"
-	@docker build -f backend/Dockerfile -t sabiscore-backend:verify .
+	@docker build -f backend/Dockerfile -t sabiscore-backend:verify backend/
 	@echo "  12/14 Web image"
 	@docker build -f apps/web/Dockerfile -t sabiscore-web:verify .
 	@echo "  13/14 Playwright desktop/mobile smoke"

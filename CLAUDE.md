@@ -494,6 +494,8 @@ overrides all prior status docs — verify with a grep/read before acting.
 | Walk-forward RPS skeleton | `model_registry.py` `walk_forward_validate(records, n_splits=5)` — temporal CV over stored match records; runnable once live match data accumulates from provider APIs. (2026-07-04) |
 | ssl/ directory scaffolded | `ssl/.gitkeep` committed; cert files gitignored. `make ssl-dev-certs` generates self-signed certs for local nginx prod-compose testing. (2026-07-04) |
 | Vercel dead env vars removed (C-24) | `vercel.json` (root): removed `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` — neither is read anywhere in `apps/web/src/`. `SABISCORE_BACKEND_URL` must be set in the Vercel project dashboard for server-side proxy routes to reach the Render backend. (2026-07-04) |
+| Vercel env matrix complete | `vercel.json` now includes all safe non-secret env vars: `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_ENABLE_PERF_MONITORING`, `NODE_ENV=production` in build.env. Secret vars documented below — set only in Vercel dashboard. (2026-07-04) |
+| Docker build context fix | `Makefile` verify step now uses `backend/` as build context for backend image (was `.` which caused `requirements.txt` not-found). `apps/web/Dockerfile` `# syntax` directive removed (caused DNS failure during offline/Docker-Desktop builds). Backend Dockerfile `FROM/AS` casing normalised. (2026-07-04) |
 
 ## Confirmed incomplete / next gates
 
