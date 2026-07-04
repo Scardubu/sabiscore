@@ -11,7 +11,7 @@
 // Currency Constants
 export const NGN_PER_USD = 1580.0; // Nigerian Naira to USD exchange rate (Nov 2025)
 export const BASE_BANKROLL_NGN = 10_000; // Base betting unit in Naira
-export const KELLY_FRACTION = 0.125; // ⅛ Kelly (conservative)
+export const KELLY_FRACTION = 0.25; // ¼ Kelly (quarter-Kelly)
 export const MIN_EDGE_NGN = 66; // Minimum edge threshold (₦66 = 4.2% of ₦10k)
 
 interface FormatOptions {

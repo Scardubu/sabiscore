@@ -2,8 +2,8 @@ services:
   # Next.js Web App (6 replicas for load balancing)
   web:
     build:
-      context: ./apps/web
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/web/Dockerfile
       target: production
     image: sabiscore-web:latest
     deploy:
@@ -107,8 +107,8 @@ services:
   # WebSocket Server (4 replicas for live updates)
   ws:
     build:
-      context: ./backend
-      dockerfile: Dockerfile.ws
+      context: ./apps/ws
+      dockerfile: Dockerfile
       target: production
     image: sabiscore-ws:latest
     deploy:

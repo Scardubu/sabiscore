@@ -12,6 +12,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { ProviderMeter } from "@/components/ProviderMeter";
+import { ResponsibleGamblingBanner } from "@/components/ui/ResponsibleGamblingTooltip";
 import type {
   FixtureEvidenceResponse,
   FixtureSummary,
@@ -35,32 +36,32 @@ const COMPETITIONS = ["EPL", "LA_LIGA", "SERIE_A", "BUNDESLIGA", "LIGUE_1", "ERE
 
 const VERDICT_LABEL: Record<Verdict, { label: string; action: string; tone: string }> = {
   HIGH_CONVICTION: {
-    label: "HIGH CONVICTION",
-    action: "QUALIFIES AT CURRENT PRICE",
+    label: "Strong Value Signal",
+    action: "STRONG VALUE — QUALIFIES",
     tone: "positive",
   },
   ACTIONABLE: {
-    label: "ACTIONABLE",
+    label: "Good Value",
     action: "QUALIFIES AT CURRENT PRICE",
     tone: "positive",
   },
   SPECULATIVE: {
-    label: "WATCHLIST",
-    action: "WATCHLIST",
+    label: "Risky — Small Stake Only",
+    action: "WATCHLIST — SMALL STAKE ONLY",
     tone: "watch",
   },
   HOLD: {
-    label: "HOLD",
-    action: "WAIT FOR LINEUPS",
+    label: "Monitor Closely",
+    action: "WAIT FOR MORE EVIDENCE",
     tone: "neutral",
   },
   PARTIAL: {
-    label: "PARTIAL",
+    label: "Incomplete Data",
     action: "MORE EVIDENCE REQUIRED",
     tone: "partial",
   },
   NO_BET: {
-    label: "NO BET",
+    label: "Skip This Match",
     action: "PASS",
     tone: "pass",
   },
@@ -697,6 +698,8 @@ export function BettingIntelligenceDashboard() {
             </section>
 
             <OutcomeTable rows={result?.all_market_evaluations} />
+
+            <ResponsibleGamblingBanner />
 
             {result && (
               <div className="bi-two">

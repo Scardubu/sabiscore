@@ -91,6 +91,17 @@ jobs:
         working-directory: backend
         run: alembic upgrade head
 
+      - name: Alembic schema drift check
+        working-directory: backend
+        run: alembic check
+
+      - name: Zero-fabrication scan
+        working-directory: backend
+        shell: bash
+        run: |
+          ! grep -rn "FEATURE_DEFAULTS\[" src/services src/api --include="*.py"
+          ! grep -rn "Base\.metadata\.create_all" alembic --include="*.py"
+
       - name: Backend tests
         working-directory: backend
         run: pytest tests -q --no-cov

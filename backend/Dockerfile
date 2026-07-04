@@ -55,9 +55,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Create directories for volume mounts
 RUN mkdir -p /app/models /app/data
 
-# Create non-root user
-# RUN useradd -m appuser && chown -R appuser:appuser /app
-# USER appuser
+# Non-root user for production security
+RUN useradd -m appuser && chown -R appuser:appuser /app
+USER appuser
 
 HEALTHCHECK --interval=30s --timeout=3s \
   CMD curl -f http://localhost:$PORT/health || exit 1

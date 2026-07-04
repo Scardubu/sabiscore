@@ -5,6 +5,16 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+
+const AnalyzeRequestSchema = z.object({
+  matches: z
+    .array(z.object({ fixture_id: z.string().min(1).max(64) }))
+    .min(1)
+    .optional(),
+  bookmaker: z.string().optional(),
+  odds: z.record(z.number()).optional(),
+});
 
 const BACKEND_URL = process.env.SABISCORE_BACKEND_URL;
 
@@ -81,8 +91,15 @@ export async function POST(req: NextRequest) {
 
   let backendPath = "/api/v1/betting-intelligence/analyze/single";
   try {
-    const parsed = JSON.parse(body) as { matches?: unknown };
-    if (Array.isArray(parsed.matches)) {
+    const parsed: unknown = JSON.parse(body);
+    const validation = AnalyzeRequestSchema.safeParse(parsed);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: "INVALID_REQUEST", message: validation.error.message },
+        { status: 400 },
+      );
+    }
+    if (Array.isArray(validation.data.matches)) {
       backendPath = "/api/v1/betting-intelligence/analyze";
     }
   } catch {

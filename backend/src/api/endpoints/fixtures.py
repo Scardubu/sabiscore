@@ -246,10 +246,12 @@ def _critical_availability_gaps(fixture: Match) -> List[str]:
 def _prediction_metadata(prediction: Optional[Prediction]) -> Dict[str, Any]:
     if prediction is None or not isinstance(prediction.features, dict):
         return {}
-    metadata = prediction.features.get("betting_intelligence")
-    if isinstance(metadata, dict):
-        return metadata
-    return prediction.features
+    bi = prediction.features.get("betting_intelligence")
+    if isinstance(bi, dict):
+        return bi
+    # PredictionResponse stores contract fields under prediction.features["metadata"]
+    nested = prediction.features.get("metadata")
+    return nested if isinstance(nested, dict) else prediction.features
 
 
 def _prediction_contract_gaps(prediction: Optional[Prediction]) -> List[str]:
@@ -336,6 +338,9 @@ async def _build_evidence(db: AsyncSession, fixture_id: str) -> tuple[Match, Opt
         data_gaps.append("DATA_GAP: model_prediction")
     else:
         data_gaps.extend(_prediction_contract_gaps(prediction))
+        _fc = _prediction_metadata(prediction).get("feature_completeness", 1.0)
+        if isinstance(_fc, (int, float)) and _fc < 0.5:
+            data_gaps.append("DATA_GAP: model_feature_completeness_critical")
     if odds is None:
         data_gaps.append("DATA_GAP: coherent_1x2_market_snapshot")
     model_age = _prediction_age_seconds(prediction)
@@ -587,6 +592,11 @@ async def analyze_fixture(
     model_age = _prediction_age_seconds(prediction)
     model_status = evidence.source_status.get("model", "DATA_GAP")
 
+    _fc = _prediction_metadata(prediction).get("feature_completeness", 1.0) if prediction else 1.0
+    known_risks: List[str] = []
+    if isinstance(_fc, (int, float)) and 0.5 <= _fc < 0.8:
+        known_risks.append(f"ADVISORY: {round((1 - _fc) * 100)}% of model features used league-average defaults")
+
     req = MatchAnalysisRequest(
         match_id=fixture_id,
         home_team=_team_label(fixture.home_team_id),
@@ -612,5 +622,6 @@ async def analyze_fixture(
             availability=SourceStatusEnum.DATA_GAP,
         ),
         data_gaps=data_gaps,
+        known_risks=known_risks,
     )
     return analyze_match(req, evaluation_at=datetime.now(timezone.utc))

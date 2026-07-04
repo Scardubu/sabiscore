@@ -68,7 +68,7 @@ const TIER_LABELS = { HIGH: "High Edge", MEDIUM: "Medium Edge", LOW: "Low Edge" 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function KellyVisualizer({ fraction, abstain }: { fraction: number; abstain: boolean }) {
-  const MAX = 0.025;
+  const MAX = 0.05;
   const pct = abstain ? 0 : Math.min(1, Math.max(0, fraction) / MAX);
   const label = abstain ? "No bet" : `${(fraction * 100).toFixed(1)}%`;
 
@@ -86,7 +86,7 @@ function KellyVisualizer({ fraction, abstain }: { fraction: number; abstain: boo
         aria-valuenow={Math.round(pct * 100)}
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-label={`Kelly stake: ${label} of bankroll (Kelly-derived, capped at 2.5%)`}
+        aria-label={`Kelly stake: ${label} of bankroll (Quarter-Kelly, capped at 5%)`}
       >
         <div
           className={cn(
@@ -96,7 +96,7 @@ function KellyVisualizer({ fraction, abstain }: { fraction: number; abstain: boo
           style={{ width: `${pct * 100}%` }}
         />
       </div>
-      <p className="mt-0.5 text-[10px] text-slate-600">Kelly-derived · capped at 2.5%</p>
+      <p className="mt-0.5 text-[10px] text-slate-600">Quarter-Kelly · capped at 5%</p>
     </div>
   );
 }

@@ -116,8 +116,20 @@ class FeatureTransformer:
     def __init__(self) -> None:
         self.scaler = StandardScaler()
         self.expected_columns = list(CANONICAL_FEATURES_68)
+        self.feature_completeness: float = 1.0
 
     def engineer_features(self, match_data: Dict[str, Any]) -> pd.DataFrame:
+        # Measure real evidence before defaults fill the gaps
+        _hs = match_data.get("historical_stats")
+        _h2h = match_data.get("head_to_head")
+        _present = sum([
+            bool(match_data.get("current_form")),
+            bool(match_data.get("team_stats")),
+            isinstance(_hs, pd.DataFrame) and not _hs.empty,
+            isinstance(_h2h, pd.DataFrame) and not _h2h.empty,
+        ])
+        self.feature_completeness = _present / 4.0
+
         # Handle None values by converting to empty DataFrame/dict
         historical_stats = match_data.get("historical_stats")
         if historical_stats is None or (isinstance(historical_stats, pd.DataFrame) and historical_stats.empty):

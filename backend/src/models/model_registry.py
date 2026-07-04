@@ -213,9 +213,9 @@ class ModelRegistry:
         logger.info(f"Model {model_id} promoted to production")
     
     def compare_models(
-        self, 
+        self,
         model_ids: List[str],
-        metric: str = 'accuracy'
+        metric: str = 'rps'
     ) -> pd.DataFrame:
         """
         Compare performance metrics across models
@@ -247,7 +247,8 @@ class ModelRegistry:
         df = pd.DataFrame(comparison)
         
         if not df.empty and metric in df.columns:
-            df = df.sort_values(by=metric, ascending=False)
+            # rps is minimised (lower = better); all other metrics are maximised
+            df = df.sort_values(by=metric, ascending=(metric == "rps"))
         
         return df
     

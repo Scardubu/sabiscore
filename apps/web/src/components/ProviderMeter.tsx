@@ -75,9 +75,10 @@ function statusBadge(row: ProviderRow): { icon: string; label: string; className
       return { icon: "✗", label: "Unavailable", className: "pm-down" };
     case "UNCONFIGURED":
       return { icon: "○", label: "Not configured", className: "pm-off" };
+    case "CONFLICTING":
+      return { icon: "⚡", label: "Conflict", className: "pm-conflict" };
     case "PARTIAL":
     case "CONFIGURED_UNVERIFIED":
-    case "CONFLICTING":
       return { icon: "⚠", label: "Stale", className: "pm-stale" };
     default:
       return { icon: "?", label: row.status, className: "pm-off" };

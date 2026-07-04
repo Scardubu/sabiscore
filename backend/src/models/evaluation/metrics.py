@@ -37,3 +37,13 @@ def expected_calibration_error(
         float(np.mean([ece_per_class[f"class_{i}"] for i in range(n_classes)])), 4
     )
     return ece_per_class
+
+
+def ranked_probability_score(y_true_outcome: int, probs: list[float]) -> float:
+    """Ranked Probability Score for a 3-outcome match (0=home, 1=draw, 2=away).
+
+    Lower is better. Range [0, 1].
+    """
+    cumprobs = [sum(probs[: i + 1]) for i in range(3)]
+    cumtrue = [1.0 if y_true_outcome <= i else 0.0 for i in range(3)]
+    return sum((p - t) ** 2 for p, t in zip(cumprobs, cumtrue)) / 2.0
