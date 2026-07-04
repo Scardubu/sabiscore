@@ -19,6 +19,10 @@ paths = [
   '''package-lock\.json''',
   '''node_modules/''',
   '''\.venv/''',
+  '''(^|/)\.env$''',
+  '''(^|/)backend/\.env$''',
+  '''^\.worktrees/''',
   '''apps/web/\.next/''',
+  '''backend/artifacts/''',
   '''test-results/''',
 ]

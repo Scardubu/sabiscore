@@ -87,7 +87,7 @@ def _latest_team_row(rollups: pd.DataFrame, team: str) -> pd.Series | None:
 
 
 def _kelly_fraction(model_prob: float, decimal_price: float) -> float:
-    """Full-Kelly stake fraction for a single back bet.
+    """Raw Kelly stake signal for a single back bet.
 
     ``f* = (b * p - q) / b`` where ``b = price - 1`` (net decimal odds),
     ``p = model_prob``, and ``q = 1 - p``. Clamped to ``[0.0, 1.0]`` — a

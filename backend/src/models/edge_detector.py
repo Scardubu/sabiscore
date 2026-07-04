@@ -96,7 +96,7 @@ class EdgeDetector:
         """Calculate Smart Kelly stake
         
         Uses fractional Kelly to reduce variance while maintaining growth:
-        - Full Kelly: f = (bp - q) / b
+        - Raw Kelly signal: f = (bp - q) / b
         - Fractional Kelly: stake = f * kelly_fraction
         
         Args:
@@ -113,7 +113,7 @@ class EdgeDetector:
             p = fair_probability     # Win probability
             q = 1.0 - p             # Lose probability
             
-            # Full Kelly fraction
+            # Raw Kelly fraction before public stake caps.
             kelly_f = (b * p - q) / b
             
             # Apply fractional Kelly
@@ -136,7 +136,7 @@ class EdgeDetector:
                 actual_fraction = 0
             
             return {
-                "full_kelly_fraction": round(kelly_f, 4),
+                "raw_kelly_fraction": round(kelly_f, 4),
                 "fractional_kelly": round(fractional_f, 4),
                 "actual_fraction": round(actual_fraction, 4),
                 "stake_amount": round(stake_amount, 2),
@@ -147,7 +147,7 @@ class EdgeDetector:
         except Exception as e:
             logger.error(f"Error calculating Kelly stake: {e}")
             return {
-                "full_kelly_fraction": 0.0,
+                "raw_kelly_fraction": 0.0,
                 "fractional_kelly": 0.0,
                 "actual_fraction": 0.0,
                 "stake_amount": 0.0,

@@ -175,7 +175,7 @@ def _stable_hash(payload: Any) -> str:
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
-def _policy_payload(settings_override: Optional[Dict[str, float]] = None) -> Dict[str, Any]:
+def _policy_payload(settings_override: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     s = settings_override or {}
     return {
         "policy_version": s.get("POLICY_VERSION", POLICY_VERSION),
@@ -373,7 +373,6 @@ def _evaluate_all_outcomes(
             "edge": round(edge, 6),
             "edge_pct": round(edge * 100, 4),
             "expected_value": round(ev, 6),
-            "full_kelly": round(fk, 6),
             "stake_fraction": round(stake_frac, 6),
             "confidence_adjusted_value": round(cav, 8),
         })
@@ -552,7 +551,7 @@ def _compute_completeness(request: MatchAnalysisRequest) -> float:
 def analyze_match(
     request: MatchAnalysisRequest,
     causal_drivers: Optional[List[str]] = None,
-    settings_override: Optional[Dict[str, float]] = None,
+    settings_override: Optional[Dict[str, Any]] = None,
     evaluation_at: Optional[datetime] = None,
 ) -> MatchAnalysisResult:
     """Analyze a single match and return a deterministic betting recommendation.
@@ -569,7 +568,8 @@ def analyze_match(
     # Merges league-specific thresholds into the policy payload so each league
     # can have independent kelly_cap, edge threshold, and calibration metadata.
     # LeaguePolicyUnavailableError for unknown leagues maps to DATA_GAP + PARTIAL.
-    _league_override: Dict[str, float] = dict(settings_override or {})
+    league_policy_gap: str | None = None
+    _league_override: Dict[str, Any] = dict(settings_override or {})
     try:
         from ..core.league_policy import get_league_policy
         _lp = get_league_policy(request.competition.value)
@@ -578,9 +578,17 @@ def analyze_match(
             _league_override["MAX_KELLY_CAP"] = _lp.kelly_cap
         if "HIGH_CONVICTION_EDGE" not in _league_override:
             _league_override["HIGH_CONVICTION_EDGE"] = _lp.high_conviction_edge_threshold
+        if "MARKET_FRESH_SECONDS" not in _league_override:
+            _league_override["MARKET_FRESH_SECONDS"] = float(_lp.market_freshness_ttl_seconds)
+        if "MODEL_FEATURES_FRESH_SECONDS" not in _league_override:
+            _league_override["MODEL_FEATURES_FRESH_SECONDS"] = float(
+                _lp.model_feature_freshness_ttl_seconds
+            )
+        if "POLICY_VERSION" not in _league_override:
+            _league_override["POLICY_VERSION"] = f"{_lp.league_id}@{_lp.version}"
     except Exception:
         # Unknown league or import error → use module defaults; DATA_GAP injected below.
-        pass
+        league_policy_gap = "DATA_GAP: LEAGUE_POLICY_UNAVAILABLE"
     policy = _policy_payload(_league_override or None)
     policy_version = str(policy["policy_version"])
     min_edge = float(policy["min_actionable_edge"])
@@ -600,6 +608,8 @@ def analyze_match(
     )[:24]
 
     gaps: List[str] = list(request.data_gaps)  # start with caller-declared gaps
+    if league_policy_gap is not None:
+        gaps.append(league_policy_gap)
     model = request.model
     market = request.market
 
@@ -1037,7 +1047,7 @@ def _rank_top_opportunities(results: List[MatchAnalysisResult]) -> Tuple[List[st
 def analyze_batch(
     request: BatchAnalysisRequest,
     causal_drivers_map: Optional[Dict[str, List[str]]] = None,
-    settings_override: Optional[Dict[str, float]] = None,
+    settings_override: Optional[Dict[str, Any]] = None,
     evaluation_at: Optional[datetime] = None,
 ) -> BatchAnalysisResponse:
     """Analyze all matches in the batch and return ranked results.

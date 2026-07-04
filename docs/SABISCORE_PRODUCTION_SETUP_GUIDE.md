@@ -147,6 +147,13 @@ python -m src.cli providers capabilities
 python -m src.cli providers quota
 ```
 
+`providers status` and `providers doctor` are safe offline/configuration commands
+by default. Their public report shape is intentionally limited to `provider` and
+one of `configured`, `missing`, `invalid`, `quota_exhausted`, or
+`temporarily_unavailable`. Live validation is opt-in only with
+`providers doctor --validate-live`; startup and default CI must not spend
+free-tier provider quota.
+
 API:
 
 ```text
@@ -176,7 +183,10 @@ POST /api/v1/fixtures/{fixture_id}/odds-snapshot
 POST /api/v1/fixtures/{fixture_id}/analyze
 ```
 
-The strict betting engine remains the only source of verdict, expected value, edge, and Kelly stake sizing. UCL fixtures cannot become `HIGH_CONVICTION`.
+The strict betting engine remains the only source of verdict, expected value,
+edge, and Quarter-Kelly stake sizing. UCL fixtures cannot become
+`HIGH_CONVICTION`. Raw Kelly math is internal audit detail and is not returned by
+public backend schemas or frontend TypeScript contracts.
 
 Only critical gaps force a `PARTIAL` verdict: missing/invalid required model probabilities, unresolved fixture identity, missing coherent 1X2 market data for value analysis, or stale required inputs. Advisory gaps and risks such as provisional lineups, optional injury context, or low-confidence contextual signals may reduce confidence or hold promotion, but they do not trigger `PARTIAL` by themselves. Conflicting source evidence remains fail-closed and is reported separately from critical gaps.
 
@@ -195,7 +205,11 @@ The `/intelligence` UI includes competition selection, team autocomplete, date f
 
 Language must remain quiet and analytical. Do not add promotional betting copy.
 
-The certified match dashboard renders backend-returned probabilities, edge, expected value, Kelly sizing, critical gaps, advisory gaps, conflicts, and decision identifiers. It must not recompute official verdicts, expected value, or stake sizing in the browser.
+The certified match dashboard renders backend-returned probabilities, edge,
+expected value, Quarter-Kelly sizing, critical gaps, advisory gaps, conflicts,
+and decision identifiers. It must not recompute official verdicts, expected
+value, or stake sizing in the browser. Do not expose `NEXT_PUBLIC_KELLY_FRACTION`
+or any provider credential to the web bundle.
 
 ## Scraper Boundaries
 
@@ -226,6 +240,31 @@ Additional deployment gates:
 - Docker Compose config/build validation;
 - Playwright desktop/mobile `/intelligence` smoke where browser tooling is available.
 
+Latest local Phase 1-2 evidence on 2026-07-04:
+
+- `python -m src.cli providers doctor` and `providers status` passed in offline
+  mode with the five-state public contract and no credential values printed.
+- `pytest tests/test_provider_cli_contract.py tests/test_league_policy_contract.py tests/test_zero_fabrication_contract.py -q --no-cov` passed.
+- `pytest tests/test_betting_intelligence_engine.py tests/test_core_engine.py -q --no-cov` passed.
+- `pnpm --filter @sabiscore/web typecheck` passed.
+- `python scripts/verify_openapi.py` passed with 78 paths.
+- `gitleaks detect --no-git --source . --redact --exit-code 1` passed after
+  excluding ignored local env files, backend artifacts, and local worktrees from
+  source scans.
+- `pnpm --filter @sabiscore/web test` and `pnpm --filter @sabiscore/web build`
+  remain blocked in this Windows shell by child-process `spawn EPERM` during
+  Vitest/esbuild or Next.js post-compile worker startup.
+- `docker compose -f docker-compose.prod.yml config` passed; Docker image build
+  remains blocked in this shell by local Docker Buildx lock-file permissions.
+- `backend/src/data/transformers.py` still contains legacy `FEATURE_DEFAULTS[...]`
+  fallback usage in feature-engineering code. Do not mark zero-fabrication fully
+  certified until that path raises `DataUnavailableError` or is proven outside
+  production inference.
+
+Do not merge a certification branch directly if it is stale against `master` or
+contains unrelated broad churn. Port verified fixes onto current `master`, then
+run the full release matrix before tagging the release.
+
 ## Rollback
 
 1. Disable optional provider flags first.
@@ -238,3 +277,8 @@ Additional deployment gates:
 - Live provider tests are opt-in with `PROVIDER_LIVE_TESTS=false` by default.
 - Provider quotas are observed and exposed but require provider-specific headers for exact remaining/reset values.
 - Legacy code remains for compatibility, but production entrypoints are canonicalized to `backend`, `apps/web`, and `apps/scraper`.
+- Full production readiness remains blocked until `make verify`, Docker image
+  builds, Alembic upgrade/check, frontend tests/build, and Playwright smoke tests
+  are run successfully in an environment with those dependencies.
+- Feature transformation still needs a dedicated zero-fabrication pass for legacy
+  `FEATURE_DEFAULTS[...]` fallback usage in `backend/src/data/transformers.py`.

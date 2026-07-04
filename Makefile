@@ -97,6 +97,9 @@ verify-core: ## Run deterministic SabiScore checks without live providers or Doc
 	@cd backend && PYTHONPATH=. DEBUG=false ALLOW_SQLITE_FALLBACK=true python -m pytest -q \
 	  tests/test_secret_safety.py \
 	  tests/test_database_migration_hardening.py \
+	  tests/test_provider_cli_contract.py \
+	  tests/test_league_policy_contract.py \
+	  tests/test_zero_fabrication_contract.py \
 	  tests/test_providers_gateway.py \
 	  tests/test_betting_intelligence_engine.py \
 	  tests/providers/test_reconciliation_and_odds.py \
@@ -119,6 +122,12 @@ verify-core: ## Run deterministic SabiScore checks without live providers or Doc
 	  backend/src/api backend/src/services backend/src/providers \
 	  2>/dev/null | grep -v "test_" | grep -v "#" || \
 	  { echo "  ✗ FEATURE_DEFAULTS used in production API/service/provider path — C-02 violation"; exit 1; }
+	@! grep -rn --include="*.py" "full_kelly_fraction" backend/src 2>/dev/null || \
+	  { echo "  âœ— Public Full-Kelly payload exposure is forbidden"; exit 1; }
+	@! grep -rn -E 'full_kelly|Full-Kelly|Full Kelly' apps/web/src --include='*.ts' --include='*.tsx' 2>/dev/null || \
+	  { echo "  âœ— Public Full-Kelly frontend exposure is forbidden"; exit 1; }
+	@! grep -rn 'NEXT_PUBLIC_KELLY_FRACTION' vercel.json .env.example apps/web backend/.env.example 2>/dev/null || \
+	  { echo "  âœ— Kelly fraction must not be exposed as NEXT_PUBLIC_*"; exit 1; }
 	@! grep -rn --include="*.py" "Base\.metadata\.create_all" backend/alembic 2>/dev/null || \
 	  { echo "  ✗ create_all in Alembic chain — C-01 violation"; exit 1; }
 	@echo "  ✓ Zero-fabrication scan passed"

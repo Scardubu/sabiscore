@@ -314,7 +314,6 @@ export interface CertifiedMarketEvaluation {
   edge: number;
   edge_pct: number;
   expected_value: number;
-  full_kelly: number;
   stake_fraction: number;
   confidence_adjusted_value: number;
 }

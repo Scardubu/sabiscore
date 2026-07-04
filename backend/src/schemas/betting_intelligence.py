@@ -255,8 +255,7 @@ class MarketEvaluation(BaseModel):
     edge: float          # model_prob - fair_market_prob (pp)
     edge_pct: float      # edge Ã- 100
     expected_value: float  # model_prob Ã- odds - 1
-    full_kelly: float
-    stake_fraction: float  # capped fractional kelly
+    stake_fraction: float  # capped Quarter-Kelly; raw Kelly math is never public
     confidence_adjusted_value: float
 
 

@@ -182,6 +182,7 @@ redis-data/
 *.secret
 .env.production.local
 .env.development.local
+.worktrees/
 
 # API keys and sensitive config
 *api_key*

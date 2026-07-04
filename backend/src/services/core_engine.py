@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from math import isfinite
 from typing import Iterable, Optional
 
+from ..core.league_policy import LeaguePolicy, get_league_policy
 from ..schemas.core_engine import (
     CoreCalculationAuditOutput,
     CoreDataFreshnessOutput,
@@ -60,6 +61,20 @@ class Candidate:
     minimum_acceptable_odds: Optional[float]
 
 
+def _league_policy_for(competition: Optional[str]) -> Optional[LeaguePolicy]:
+    if not competition:
+        return None
+    return get_league_policy(competition)
+
+
+def _league_kelly_cap(competition: Optional[str]) -> float:
+    try:
+        policy = _league_policy_for(competition)
+        return policy.kelly_cap if policy is not None else CORE_MAX_KELLY_CAP
+    except Exception:
+        return CORE_MAX_KELLY_CAP
+
+
 def analyze_core_matches(matches: Iterable[CoreMatchInput]) -> CoreEngineResponse:
     """Evaluate a batch of matches independently and rank clear opportunities."""
 
@@ -108,11 +123,11 @@ def _evaluate_match(match: CoreMatchInput) -> CoreMatchOutput:
     # Per-league Kelly cap — looked up once here so every _build_output call uses it.
     _eval_kelly_cap = CORE_MAX_KELLY_CAP
     try:
-        from ..core.league_policy import get_league_policy
-        if match.competition:
-            _eval_kelly_cap = get_league_policy(match.competition).kelly_cap
+        policy = _league_policy_for(match.competition)
+        if policy is not None:
+            _eval_kelly_cap = policy.kelly_cap
     except Exception:
-        pass
+        data_gaps.append("DATA_GAP: LEAGUE_POLICY_UNAVAILABLE")
 
     model = match.model
     market = match.market
@@ -172,7 +187,7 @@ def _evaluate_match(match: CoreMatchInput) -> CoreMatchOutput:
         calibration_method=model.calibration_method if model else None,
         model_version=model.model_version if model else None,
         kelly_fraction=CORE_KELLY_FRACTION,
-        kelly_cap=CORE_MAX_KELLY_CAP,
+        kelly_cap=_eval_kelly_cap,
     )
     data_freshness = CoreDataFreshnessOutput(
         status=freshness_status,

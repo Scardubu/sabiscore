@@ -9,6 +9,7 @@ from typing import Any
 import click
 
 from ..providers import build_provider_registry
+from ..providers.base import ProviderHealth
 
 
 def _print_json(payload: Any) -> None:
@@ -20,11 +21,63 @@ def providers_cli() -> None:
     """Inspect provider configuration, capabilities, and quotas."""
 
 
+ProviderCliStatus = str
+ALLOWED_PROVIDER_CLI_STATUSES: tuple[ProviderCliStatus, ...] = (
+    "configured",
+    "missing",
+    "invalid",
+    "quota_exhausted",
+    "temporarily_unavailable",
+)
+
+
+def _provider_cli_status(health: ProviderHealth) -> ProviderCliStatus:
+    """Map internal provider health to the public five-state CLI contract."""
+
+    status = health.status.value
+    if status == "RATE_LIMITED" or health.quota.remaining == 0:
+        return "quota_exhausted"
+    if status == "INVALID":
+        return "invalid"
+    if not health.enabled or not health.configured or status == "UNCONFIGURED":
+        return "missing"
+    if status in {"CIRCUIT_OPEN", "UNAVAILABLE", "PARTIAL", "CONFLICTING"}:
+        return "temporarily_unavailable"
+    return "configured"
+
+
+async def _provider_status_report(
+    provider_id: str | None = None,
+    *,
+    validate_live: bool = False,
+) -> dict[str, list[dict[str, str]]]:
+    registry = build_provider_registry()
+    providers = [registry.get(provider_id)] if provider_id else registry.list()
+    if validate_live:
+        for provider in providers:
+            provider.live_tests = True
+    healths = await asyncio.gather(*(provider.health() for provider in providers))
+    return {
+        "providers": [
+            {"provider": health.provider, "status": _provider_cli_status(health)}
+            for health in healths
+        ]
+    }
+
+
 @providers_cli.command("doctor")
 @click.option("--provider", "provider_id", default=None, help="Provider id to inspect")
-def doctor(provider_id: str | None) -> None:
+@click.option(
+    "--validate-live",
+    is_flag=True,
+    default=False,
+    help="Run the provider's cheapest explicit live validation probe.",
+)
+def doctor(provider_id: str | None, validate_live: bool) -> None:
+    """Report provider status using the public five-state taxonomy only."""
+
     async def run() -> None:
-        _print_json(await build_provider_registry().doctor(provider_id))
+        _print_json(await _provider_status_report(provider_id, validate_live=validate_live))
 
     asyncio.run(run())
 
@@ -55,34 +108,12 @@ def quota(provider_id: str | None) -> None:
 
 
 @providers_cli.command("status")
-def status() -> None:
-    """Summary health table: configured | missing | invalid | quota_exhausted | temporarily_unavailable."""
+@click.option("--provider", "provider_id", default=None, help="Provider id to inspect")
+def status(provider_id: str | None) -> None:
+    """Report configured | missing | invalid | quota_exhausted | temporarily_unavailable."""
+
     async def run() -> None:
-        registry = build_provider_registry()
-        healths = await registry.health()
-        rows = []
-        for h in healths:
-            if not h.enabled:
-                state = "disabled"
-            elif not h.configured:
-                state = "missing"
-            elif h.status.value in ("CIRCUIT_OPEN", "UNAVAILABLE"):
-                state = "temporarily_unavailable"
-            elif h.status.value in ("INVALID",):
-                state = "invalid"
-            elif h.status.value in ("RATE_LIMITED",):
-                state = "quota_exhausted"
-            else:
-                # VERIFIED and CONFIGURED_UNVERIFIED both mean the credential
-                # is present; only the live-probe result differs.
-                state = "configured"
-            rows.append({
-                "provider": h.provider,
-                "state": state,
-                "configured": h.configured,
-                "warnings": h.warnings,
-            })
-        _print_json({"status": rows})
+        _print_json(await _provider_status_report(provider_id, validate_live=False))
 
     asyncio.run(run())
 

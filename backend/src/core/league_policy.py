@@ -74,13 +74,35 @@ class LeaguePolicy:
         return self.policy_source == "CALIBRATED" and self.artifact_hash is not None
 
 
+_ALIASES = {
+    "premier_league": "EPL",
+    "epl": "EPL",
+    "la_liga": "LA_LIGA",
+    "laliga": "LA_LIGA",
+    "bundesliga": "BUNDESLIGA",
+    "serie_a": "SERIE_A",
+    "ligue_1": "LIGUE_1",
+    "eredivisie": "EREDIVISIE",
+    "ucl": "UCL",
+    "uefa_champions_league": "UCL",
+}
+
+
+def canonical_league_id(league_id: str) -> str:
+    key = league_id.strip()
+    if not key:
+        raise LeaguePolicyUnavailableError(league_id)
+    normalized = key.lower().replace("-", "_").replace(" ", "_")
+    return _ALIASES.get(normalized, key.upper())
+
+
 def get_league_policy(league_id: str) -> LeaguePolicy:
     """Return the policy for a league, raising if unavailable or uncalibrated.
 
     Callers that need best-effort behaviour may catch LeaguePolicyUnavailableError
     and surface a PARTIAL verdict with reason=LEAGUE_POLICY_UNAVAILABLE.
     """
-    policy = LeaguePolicy._registry.get(league_id.upper())
+    policy = LeaguePolicy._registry.get(canonical_league_id(league_id))
     if policy is None:
         raise LeaguePolicyUnavailableError(league_id)
     return policy
