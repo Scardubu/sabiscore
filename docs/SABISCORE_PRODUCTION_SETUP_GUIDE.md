@@ -251,11 +251,19 @@ Latest local Phase 1-2 evidence on 2026-07-04:
 - `gitleaks detect --no-git --source . --redact --exit-code 1` passed after
   excluding ignored local env files, backend artifacts, and local worktrees from
   source scans.
-- `pnpm --filter @sabiscore/web test` and `pnpm --filter @sabiscore/web build`
-  remain blocked in this Windows shell by child-process `spawn EPERM` during
-  Vitest/esbuild or Next.js post-compile worker startup.
-- `docker compose -f docker-compose.prod.yml config` passed; Docker image build
-  remains blocked in this shell by local Docker Buildx lock-file permissions.
+- `pnpm --filter @sabiscore/web test` passes (11/11) — the prior Windows
+  `spawn EPERM` blocker no longer reproduces.
+- `pnpm --filter @sabiscore/web build` passes, but **only with
+  `NODE_ENV=production`**: a shell that exports `NODE_ENV=development` globally
+  makes `next build` fail during `/404` prerender with a misleading
+  `<Html> should not be imported outside of pages/_document` error. The repo is
+  fine; unset NODE_ENV or force `NODE_ENV=production` for local builds. (CI
+  runners are unaffected — they do not export NODE_ENV.)
+- `pnpm exec playwright test tests/e2e/intelligence.spec.ts` passes 4/4
+  (chromium + mobile-chrome) against the production build via the config's
+  `webServer` block.
+- `docker compose config` and `docker compose -f docker-compose.prod.yml config`
+  both pass; Docker image build remains blocked locally (daemon not running).
 - `backend/src/data/transformers.py` still contains legacy `FEATURE_DEFAULTS[...]`
   fallback usage in feature-engineering code. Do not mark zero-fabrication fully
   certified until that path raises `DataUnavailableError` or is proven outside

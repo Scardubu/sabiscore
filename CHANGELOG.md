@@ -7,6 +7,30 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ---
 
+## Deploy-config fixes, Sportmonks probe correction, local release gates green (2026-07-04)
+
+### Providers — Sportmonks could never verify
+
+- **Fixed:** `SportmonksProvider.probe()` now calls `/leagues` (the cheapest call valid on every Sportmonks plan) instead of bare `/sidelined`, which was live-verified to 404 in the subscribed API shape — meaning even a valid token always reported `temporarily_unavailable`. After the fix, a live `providers status` run reports all five providers `configured`. The failed-probe log also confirmed the earlier redaction fix works: no token appeared in the logged URL.
+
+### Deployment — Render never deployed this repo
+
+- **Fixed:** `render.yaml` had `branch: main`, but the repository's only branch is `master` — `autoDeploy: true` has never fired. Now `branch: master`. Also removed the `KELLY_FRACTION=0.125` env var: nothing reads it (`backend/src/core/config.py` has no such field) and it contradicted the certified Quarter-Kelly 0.25 contract.
+- **Deleted:** `backend/src/utils/currency.py` — zero importers repo-wide, carrying the same stale ⅛-Kelly constant. Full backend suite green after removal (939 passed, 7 skipped).
+
+### Release gates — first fully-green local run of the web pipeline
+
+- **Verified:** backend pytest 939/7/0 · web lint ✓ · web typecheck ✓ (after clearing stale `.next/types` referencing deleted odds routes) · web unit tests 11/11 (prior Windows `spawn EPERM` blocker no longer reproduces) · web production build ✓ · Playwright `/intelligence` smoke 4/4 (chromium + mobile-chrome) · OpenAPI 78 paths ✓ · `docker compose config` dev+prod ✓ · gitleaks working-tree scan clean.
+- **Found (environmental footgun, documented in CLAUDE.md + setup guide):** a shell exporting `NODE_ENV=development` makes `next build` fail during `/404` prerender with a misleading `<Html> should not be imported outside of pages/_document` error. The repo is fine — build with `NODE_ENV=production`. The deletion of `src/pages/_document.tsx`/`_error.tsx` in c39b429 merely rerouted `/404` generation through the code path that exposes this.
+- **Still environment-blocked:** Docker image builds and Alembic-against-Postgres (no Docker daemon); walk-forward RPS (needs accumulated live match data); Vercel deployment verification.
+
+### Housekeeping
+
+- **Committed:** Codex skills bridge pack (`.ai/skills/nexus/`, `scripts/*codex*`, `docs/Skills README.md`) — its companion `docs/CODEX_VSCODE_SETUP.md` was already tracked.
+- **Gitignored:** `docs/Public-ESPN-API-main/` (1.2 MB vendored read-only reference repo).
+
+---
+
 ## Critical fix: production CSP was silently breaking client-side hydration on every page (2026-06-28)
 
 ### Backend/frontend security — `script-src` nonce via middleware
