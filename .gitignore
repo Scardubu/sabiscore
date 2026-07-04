@@ -209,3 +209,5 @@ apps/api/logs/
 *.swp
 *.swo
 *~
+AGENTS.md
+*.prompt.md

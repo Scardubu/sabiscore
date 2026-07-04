@@ -1,7 +1,7 @@
 /**
  * Next.js API route: POST /api/betting-intelligence/analyze
  * Proxies to the FastAPI strict engine endpoint.
- * Adds CORS headers, validates Content-Type, and forwards auth tokens.
+ * Validates request body with Zod and forwards to backend.
  */
 
 import { NextRequest, NextResponse } from "next/server";

@@ -4,7 +4,7 @@
  * All financial metrics use Nigerian Naira:
  * - Base bankroll: ₦10,000
  * - Exchange rate: ₦1,580 = $1 USD (Nov 2025)
- * - Kelly fraction: ⅛ (0.125)
+ * - Kelly fraction: ¼ (0.25)
  * - Minimum edge: ₦66 (4.2%)
  */
 
