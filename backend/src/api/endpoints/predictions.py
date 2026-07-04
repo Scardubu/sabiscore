@@ -11,6 +11,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import ValidationError
 
+from ...core.exceptions import DataUnavailableError
 from ...db.session import get_async_session
 from ...services.prediction import PredictionService
 from ...schemas.prediction import MatchPredictionRequest, PredictionResponse
@@ -155,6 +156,12 @@ async def create_prediction(
             raise HTTPException(
                 status_code=503,
                 detail="Model artifacts not available. System initializing."
+            ) from exc
+        except DataUnavailableError as exc:
+            logger.warning("Prediction refused — no evidence: %s", exc)
+            raise HTTPException(
+                status_code=422,
+                detail=f"Insufficient evidence for prediction: {exc}",
             ) from exc
         except ValueError as exc:
             logger.warning("Prediction input rejected: %s", exc)

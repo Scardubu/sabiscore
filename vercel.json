@@ -10,14 +10,10 @@
   "build": {
     "env": {
       "NEXT_TELEMETRY_DISABLED": "1",
-      "NODE_OPTIONS": "--max-old-space-size=8192",
-      "NEXT_PUBLIC_API_URL": "https://sabiscore-api.onrender.com",
-      "NEXT_PUBLIC_WS_URL": "wss://sabiscore-api.onrender.com"
+      "NODE_OPTIONS": "--max-old-space-size=8192"
     }
   },
   "env": {
-    "NEXT_PUBLIC_API_URL": "https://sabiscore-api.onrender.com",
-    "NEXT_PUBLIC_WS_URL": "wss://sabiscore-api.onrender.com",
     "NEXT_PUBLIC_CURRENCY": "NGN",
     "NEXT_PUBLIC_CURRENCY_SYMBOL": "₦",
     "NEXT_PUBLIC_BASE_BANKROLL": "10000",

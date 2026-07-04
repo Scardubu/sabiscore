@@ -303,6 +303,95 @@ class ModelRegistry:
         
         self.metadata['models'][model_id]['status'] = 'archived'
         self.metadata['models'][model_id]['archived_at'] = datetime.now(timezone.utc).isoformat()
-        
+
         self._save_metadata()
         logger.info(f"Model {model_id} archived")
+
+    def walk_forward_validate(
+        self,
+        records: List[Dict[str, Any]],
+        n_splits: int = 5,
+    ) -> Dict[str, Any]:
+        """Temporal walk-forward RPS validation.
+
+        Args:
+            records: List of dicts with keys: ``date`` (ISO str), ``outcome``
+                (0=home_win, 1=draw, 2=away_win), ``probs`` (3-element list
+                [p_home, p_draw, p_away]). Must be sorted chronologically or
+                this method will sort them.
+            n_splits: Number of temporal folds (train+test windows).
+
+        Returns:
+            Dict with per-fold and aggregate RPS, plus validation metadata.
+            Returns an empty result (``{"skipped": True}``) when fewer than
+            ``n_splits * 2`` records are available.
+        """
+        try:
+            from .evaluation.metrics import ranked_probability_score
+        except ImportError:
+            logger.warning("ranked_probability_score not available; walk-forward skipped")
+            return {"skipped": True, "reason": "metrics module unavailable"}
+
+        if not records:
+            return {"skipped": True, "reason": "no_records"}
+
+        sorted_records = sorted(records, key=lambda r: r.get("date", ""))
+        n = len(sorted_records)
+        min_records = n_splits * 2
+        if n < min_records:
+            return {"skipped": True, "reason": f"need >= {min_records} records, got {n}"}
+
+        fold_size = n // (n_splits + 1)
+        fold_results: List[Dict[str, Any]] = []
+
+        for fold in range(n_splits):
+            train_end = (fold + 1) * fold_size
+            test_start = train_end
+            test_end = min(test_start + fold_size, n)
+            test_records = sorted_records[test_start:test_end]
+
+            if not test_records:
+                continue
+
+            rps_scores = []
+            for rec in test_records:
+                outcome = rec.get("outcome")
+                probs = rec.get("probs", [])
+                if outcome is None or len(probs) != 3:
+                    continue
+                y_true = [0.0, 0.0, 0.0]
+                y_true[int(outcome)] = 1.0
+                try:
+                    rps_scores.append(ranked_probability_score(y_true, probs))
+                except Exception:
+                    pass
+
+            if not rps_scores:
+                continue
+
+            fold_results.append({
+                "fold": fold,
+                "train_end_idx": train_end,
+                "test_size": len(rps_scores),
+                "rps_mean": sum(rps_scores) / len(rps_scores),
+                "rps_min": min(rps_scores),
+                "rps_max": max(rps_scores),
+                "date_range": {
+                    "from": test_records[0].get("date"),
+                    "to": test_records[-1].get("date"),
+                },
+            })
+
+        if not fold_results:
+            return {"skipped": True, "reason": "no_valid_folds"}
+
+        all_rps = [f["rps_mean"] for f in fold_results]
+        return {
+            "skipped": False,
+            "n_splits": len(fold_results),
+            "total_records": n,
+            "rps_overall": sum(all_rps) / len(all_rps),
+            "rps_std": float(pd.Series(all_rps).std()) if len(all_rps) > 1 else 0.0,
+            "folds": fold_results,
+            "validated_at": datetime.now(timezone.utc).isoformat(),
+        }

@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.cache import cache_manager
 from ..core.config import settings
+from ..core.exceptions import DataUnavailableError
 from ..data.aggregator import DataAggregator, get_enhanced_aggregator
 
 try:
@@ -105,6 +106,13 @@ class PredictionService:
             ensemble,
             league_slug,
         )
+
+        if self.transformer.feature_completeness == 0.0:
+            raise DataUnavailableError(
+                "No evidence sources available — refusing to infer from pure defaults",
+                provider="internal",
+                evidence_type="feature_completeness",
+            )
 
         try:
             inference_start = time.time()

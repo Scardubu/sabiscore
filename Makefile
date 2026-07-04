@@ -179,6 +179,18 @@ phase7-caches-clean: ## Remove generated Phase 7 cache artifacts
 	@rm -f data/processed/elo_ratings.parquet data/processed/statsbomb_features_cache.parquet
 	@echo "  ✓ Removed Phase 7 cache artifacts"
 
+# ── TLS / SSL ─────────────────────────────────────────────────────────────────
+ssl-dev-certs: ## Generate self-signed TLS certs in ./ssl/ for local nginx (prod compose)
+	@mkdir -p ssl
+	@if command -v openssl >/dev/null 2>&1; then \
+	  openssl req -x509 -nodes -newkey rsa:4096 \
+	    -keyout ssl/nginx.key -out ssl/nginx.crt \
+	    -days 365 -subj "/CN=localhost" 2>/dev/null && \
+	  echo "  ✓ Self-signed certs written to ./ssl/ (valid 365 days)"; \
+	else \
+	  echo "  [SKIP] openssl not found — install it or place real certs in ./ssl/nginx.{key,crt}"; \
+	fi
+
 # ── Linting ───────────────────────────────────────────────────────────────────
 lint: lint-md lint-sh ## Run all linters (Markdown + Shell)
 

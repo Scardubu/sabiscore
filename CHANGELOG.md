@@ -7,6 +7,31 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ---
 
+## Zero-fab guard, walk-forward RPS, Vercel cleanup, ssl scaffold (2026-07-04)
+
+### Zero-fabrication — prediction.py now enforces fail-closed at inference time
+
+- **Fixed:** `PredictionService.predict_match()` now raises `DataUnavailableError` when `FeatureTransformer.feature_completeness == 0.0` (all four evidence sources absent) before calling `ensemble.predict()`. Previously the model ran on pure EPL-average `FEATURE_DEFAULTS` and produced a plausible-looking prediction that was only tagged PARTIAL by the downstream evidence endpoint. The guard is the full enforcement the `exceptions.py` docstring always intended: "Production inference must never silently replace missing evidence with defaults."
+- `predictions.py` endpoint catches `DataUnavailableError` → HTTP 422 `Insufficient evidence for prediction`. The `_build_evidence` PARTIAL gate at feature_completeness 0.01–0.49 remains as the belt-and-suspenders check for partial evidence.
+
+### Walk-forward RPS validation framework
+
+- **Added:** `ModelRegistry.walk_forward_validate(records, n_splits=5)` — temporal cross-validation over stored match records. Accepts a list of `{date, outcome, probs}` dicts, splits chronologically into n folds, computes per-fold and aggregate RPS (lower = better). Returns `{"skipped": True}` gracefully when fewer than `n_splits * 2` records are available. Ready to run once live match data accumulates from provider APIs.
+
+### Vercel C-24 — dead env vars removed, deployment path documented
+
+- **Cleaned:** `vercel.json` (root) `build.env` and `env` blocks had dead `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` pointing to the Render backend. Neither variable is read anywhere in `apps/web/src/` (grep confirmed zero usages). Removed. Existing rewrites (`/api/v1/` → Render) remain. To activate Vercel deployment: set `SABISCORE_BACKEND_URL=https://sabiscore-api.onrender.com` in the Vercel project environment settings, then link the repo.
+
+### TLS — ssl/ scaffold and dev-cert helper
+
+- **Added:** `ssl/.gitkeep` (cert files are already gitignored). `make ssl-dev-certs` runs `openssl req -x509 ...` to generate `ssl/nginx.{key,crt}` for local `docker-compose.prod.yml` nginx testing. Unblocks the Docker prod-compose smoke path once the Docker daemon is running.
+
+### Test baseline
+
+Backend: 939 passed, 7 skipped, 0 failed — unchanged after all changes.
+
+---
+
 ## Deploy-config fixes, Sportmonks probe correction, local release gates green (2026-07-04)
 
 ### Providers — Sportmonks could never verify

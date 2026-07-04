@@ -490,15 +490,19 @@ overrides all prior status docs — verify with a grep/read before acting.
 | Web test EPERM blocker cleared | `pnpm --filter @sabiscore/web test` passes locally (11/11); the prior Windows `spawn EPERM` block no longer reproduces. Stale `.next/types` from deleted odds routes broke typecheck until `.next` was cleared — clear `.next` before local typecheck after route deletions. (2026-07-04) |
 | Web production build + Playwright green locally | `next build` passes and `playwright test tests/e2e/intelligence.spec.ts` passes 4/4 (chromium + mobile-chrome). ⚠️ **NODE_ENV footgun**: a shell exporting `NODE_ENV=development` makes `next build` fail at `/404` prerender with a misleading `<Html> should not be imported outside of pages/_document` error (Next builds dev-mode React into the exporter). Always build with `NODE_ENV=production` or unset. Not a repo defect — c39b429's deletion of `src/pages/_document.tsx`/`_error.tsx` merely rerouted `/404` generation through the path that exposes it. (2026-07-04) |
 | OpenAPI + compose config verified | `backend/scripts/verify_openapi.py` passes with 78 paths (run with `PYTHONPATH=.` from `backend/`). `docker compose config` passes for both dev and prod compose files. (2026-07-04) |
+| Zero-fab guard (C-02 promoted) | `prediction.py` `predict_match()` raises `DataUnavailableError` when `feature_completeness == 0.0` — model no longer runs on pure defaults; caller `predictions.py` maps it to HTTP 422. The downstream `_build_evidence` PARTIAL gate remains as the belt-and-suspenders check for completeness 0.01–0.49. (2026-07-04) |
+| Walk-forward RPS skeleton | `model_registry.py` `walk_forward_validate(records, n_splits=5)` — temporal CV over stored match records; runnable once live match data accumulates from provider APIs. (2026-07-04) |
+| ssl/ directory scaffolded | `ssl/.gitkeep` committed; cert files gitignored. `make ssl-dev-certs` generates self-signed certs for local nginx prod-compose testing. (2026-07-04) |
+| Vercel dead env vars removed (C-24) | `vercel.json` (root): removed `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` — neither is read anywhere in `apps/web/src/`. `SABISCORE_BACKEND_URL` must be set in the Vercel project dashboard for server-side proxy routes to reach the Render backend. (2026-07-04) |
 
 ## Confirmed incomplete / next gates
 
 | Gap | Files | Action |
 |---|---|---|
-| Walk-forward RPS validation | `models/model_registry.py` | First-pass training complete; formal temporal cross-validation pending live match data from provider APIs |
+| Walk-forward RPS — live run | `models/model_registry.py` | Framework present; run `registry.walk_forward_validate(records)` once live match data accumulates |
 | Provider adapters (fdo, sm) — live verification | `football_data_org.py`, `sportmonks.py` | Code operational; needs live API key response to verify upstream contract |
 | make verify (full 14-step) | `Makefile` | Requires Postgres + Docker + all credentials active; run when Docker available |
-| C-24 Vercel deployment | Vercel project | Requires Vercel project linked to repo; unknown status |
+| C-24 Vercel deployment | Vercel project | vercel.json ready; set `SABISCORE_BACKEND_URL` in Vercel dashboard then link project to repo |
 
 ## Provider enable flag alignment (2026-07-04)
 
