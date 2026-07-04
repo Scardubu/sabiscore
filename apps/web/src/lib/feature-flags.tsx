@@ -21,7 +21,7 @@ const LOCAL_STORAGE_KEY = "sabiscore.featureFlags";
 
 export const FEATURE_FLAG_DEFAULTS: Record<FeatureFlag, boolean> = {
   [FeatureFlag.PREDICTION_INTERSTITIAL_V2]: true,
-  [FeatureFlag.PREMIUM_VISUAL_HIERARCHY]: false,
+  [FeatureFlag.PREMIUM_VISUAL_HIERARCHY]: true,
   [FeatureFlag.ASSET_AUDIT_V2]: false,
   [FeatureFlag.FULL_ANALYSIS_V7]: true,
   [FeatureFlag.UPCOMING_PANEL]: true,

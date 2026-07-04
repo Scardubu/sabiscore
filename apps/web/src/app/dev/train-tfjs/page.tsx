@@ -1,7 +1,9 @@
+import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ShieldAlert } from "lucide-react";
 
 export default function TrainTFJSPage() {
+  if (process.env.NODE_ENV === "production") notFound();
   return (
     <main className="min-h-screen bg-neutral-950 px-6 py-16 text-neutral-100">
       <section className="mx-auto max-w-2xl rounded-lg border border-amber-500/30 bg-amber-500/10 p-6">

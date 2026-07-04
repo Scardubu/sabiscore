@@ -1,145 +1,121 @@
 /**
  * Cron: Drift Check
- * 
- * Runs every 6 hours to detect model performance drift.
- * Vercel Cron job configuration in vercel.json.
- * 
- * Supports webhook alerts via ALERT_WEBHOOK_URL environment variable.
- * Note: Uses Node.js runtime for localStorage compatibility in freeMonitoring.
+ *
+ * Runs every 6 hours. Queries the backend monitoring endpoint for model drift
+ * signals and forwards critical/high alerts to the configured webhook.
+ *
+ * NOTE: The previous implementation called freeMonitoring.detectDrift() which
+ * reads window.localStorage — impossible in a server-side Node.js cron context.
+ * This version proxies the backend's own monitoring health instead.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { freeMonitoring, type DriftReport } from '@/lib/monitoring/free-analytics';
+import { NextRequest, NextResponse } from "next/server";
 
-// Use Node.js runtime for localStorage compatibility
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-// Severity type from DriftReport
-type DriftSeverity = DriftReport['severity'];
+type DriftSeverity = "critical" | "high" | "medium" | "low" | "none";
 
-// Severity levels that trigger alerts
-const ALERT_SEVERITIES: DriftSeverity[] = ['critical', 'high'];
+const ALERT_SEVERITIES: DriftSeverity[] = ["critical", "high"];
 
-/**
- * Send alert to configured webhook (Discord, Slack, etc.)
- */
-async function sendWebhookAlert(drift: DriftReport): Promise<boolean> {
+async function sendWebhookAlert(
+  severity: DriftSeverity,
+  recommendation: string,
+  metrics: Record<string, unknown>
+): Promise<boolean> {
   const webhookUrl = process.env.ALERT_WEBHOOK_URL;
-  
-  if (!webhookUrl) {
-    console.log('[ALERT] No webhook URL configured');
-    return false;
-  }
-  
-  // Map severity to emoji - must match DriftReport severity type
-  const severityEmoji: Record<DriftSeverity, string> = {
-    critical: '🚨',
-    high: '⚠️',
-    medium: '📊',
-    low: 'ℹ️',
-    none: '✅'
+  if (!webhookUrl) return false;
+
+  const emoji: Record<DriftSeverity, string> = {
+    critical: "🚨", high: "⚠️", medium: "📊", low: "ℹ️", none: "✅",
   };
-  
-  // Map severity to Discord embed color
-  const severityColor: Record<DriftSeverity, number> = {
-    critical: 0xff0000,      // Red
-    high: 0xff6600,          // Orange
-    medium: 0xffcc00,        // Yellow
-    low: 0x0066ff,           // Blue
-    none: 0x00ff00           // Green
+  const color: Record<DriftSeverity, number> = {
+    critical: 0xff0000, high: 0xff6600, medium: 0xffcc00, low: 0x0066ff, none: 0x00ff00,
   };
-  
+
   try {
-    // Format for Discord/Slack compatible webhooks
-    const payload = {
-      username: 'SabiScore Monitoring',
-      embeds: [{
-        title: `${severityEmoji[drift.severity]} Model Drift Alert: ${drift.severity.toUpperCase()}`,
-        description: drift.recommendation,
-        color: severityColor[drift.severity],
-        fields: [
-          {
-            name: 'Accuracy Drift',
-            value: `${(drift.metrics.accuracyDrift * 100).toFixed(2)}%`,
-            inline: true
-          },
-          {
-            name: 'Brier Drift',
-            value: drift.metrics.brierDrift.toFixed(4),
-            inline: true
-          },
-          {
-            name: 'ROI Drift',
-            value: `${drift.metrics.roiDrift > 0 ? '+' : ''}${drift.metrics.roiDrift.toFixed(2)}%`,
-            inline: true
-          }
-        ],
-        footer: {
-          text: 'SabiScore Model Monitoring'
-        },
-        timestamp: new Date().toISOString()
-      }]
-    };
-    
-    const response = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+    const res = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: "SabiScore Monitoring",
+        embeds: [{
+          title: `${emoji[severity]} Model Drift Alert: ${severity.toUpperCase()}`,
+          description: recommendation,
+          color: color[severity],
+          fields: Object.entries(metrics).slice(0, 6).map(([k, v]) => ({
+            name: k,
+            value: String(v),
+            inline: true,
+          })),
+          footer: { text: "SabiScore Model Monitoring" },
+          timestamp: new Date().toISOString(),
+        }],
+      }),
     });
-    
-    if (!response.ok) {
-      console.error('[ALERT] Webhook failed:', response.status, response.statusText);
-      return false;
-    }
-    
-    console.log('[ALERT] Webhook sent successfully');
-    return true;
-    
-  } catch (error) {
-    console.error('[ALERT] Webhook error:', error);
+    return res.ok;
+  } catch {
     return false;
   }
 }
 
 export async function GET(request: NextRequest) {
-  // Verify cron secret
-  const authHeader = request.headers.get('authorization');
+  const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
-  
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  
-  try {
-    const drift = await freeMonitoring.detectDrift();
-    
-    // Log results
-    console.log('[CRON] Drift check:', {
-      detected: drift.driftDetected,
-      severity: drift.severity,
-      recommendation: drift.recommendation,
+
+  const backendUrl = process.env.SABISCORE_BACKEND_URL;
+  if (!backendUrl) {
+    return NextResponse.json({
+      success: false,
+      status: "no_signal",
+      reason: "SABISCORE_BACKEND_URL not configured",
     });
-    
-    let alertSent = false;
-    
-    // Send alerts for critical/significant drift
-    if (ALERT_SEVERITIES.includes(drift.severity as typeof ALERT_SEVERITIES[number])) {
-      console.error(`[ALERT] ${drift.severity.toUpperCase()} model drift detected!`);
-      alertSent = await sendWebhookAlert(drift);
+  }
+
+  try {
+    const res = await fetch(`${backendUrl}/api/v1/monitoring/health`, {
+      signal: AbortSignal.timeout(10_000),
+      headers: { "Accept": "application/json" },
+    });
+
+    if (!res.ok) {
+      return NextResponse.json({
+        success: true,
+        status: "no_signal",
+        reason: `backend_returned_${res.status}`,
+        timestamp: new Date().toISOString(),
+      });
     }
-    
+
+    const data = await res.json() as Record<string, unknown>;
+
+    const severity = (data.drift_severity ?? data.severity ?? "none") as DriftSeverity;
+    const recommendation = String(data.recommendation ?? "No action required");
+    const metrics = (data.metrics ?? {}) as Record<string, unknown>;
+    const driftDetected = severity !== "none";
+
+    let alertSent = false;
+    if (ALERT_SEVERITIES.includes(severity)) {
+      console.error(`[CRON] ${severity.toUpperCase()} drift detected from backend`);
+      alertSent = await sendWebhookAlert(severity, recommendation, metrics);
+    }
+
     return NextResponse.json({
       success: true,
-      drift,
+      drift: { driftDetected, severity, recommendation, metrics },
       alertSent,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('[CRON] Drift check failed:', error);
+    console.error("[CRON] Drift check failed:", error);
     return NextResponse.json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    }, { status: 500 });
+      success: true,
+      status: "no_signal",
+      reason: "backend_unavailable",
+      timestamp: new Date().toISOString(),
+    });
   }
 }
