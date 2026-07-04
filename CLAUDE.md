@@ -484,6 +484,10 @@ overrides all prior status docs — verify with a grep/read before acting.
 | RPS metric + compare_models default (D-01, D-02) | `ranked_probability_score()` added to `backend/src/models/evaluation/metrics.py`. `compare_models()` in `model_registry.py` defaults to `metric='rps'` and sorts ascending (lower = better). (2026-07-04) |
 | CI: alembic check + zero-fab scan (C-19) | `.github/workflows/ci.yml` now runs `alembic check` after `alembic upgrade head`, and a zero-fabrication grep scan (FEATURE_DEFAULTS[ in services/api, Base.metadata.create_all in alembic). (2026-07-04) |
 | CI: removed \|\| true (C-19 quality) | `.github/workflows/validate-models.yml` no longer suppresses pip install failures silently; boto3 has its own step with `continue-on-error: true`. (2026-07-04) |
+| Render deploy branch | `render.yaml` `branch: master` (was `main` — autoDeploy never fired on the active branch). Dead `KELLY_FRACTION=0.125` env removed — nothing reads it; engines hardcode 0.25. (2026-07-04) |
+| Dead ⅛-Kelly module deleted | `backend/src/utils/currency.py` removed — zero importers repo-wide; its `KELLY_FRACTION = 0.125` contradicted the certified Quarter-Kelly contract. Full suite green after deletion. (2026-07-04) |
+| Sportmonks probe endpoint | `providers/sportmonks.py` `probe()` uses `/leagues` — live-verified that bare `/sidelined` 404s in the subscribed API shape, so the old probe could never return VERIFIED. All 5 providers now `configured` in `providers status` with live probes on. (2026-07-04) |
+| Web test EPERM blocker cleared | `pnpm --filter @sabiscore/web test` passes locally (11/11); the prior Windows `spawn EPERM` block no longer reproduces. Stale `.next/types` from deleted odds routes broke typecheck until `.next` was cleared — clear `.next` before local typecheck after route deletions. (2026-07-04) |
 
 ## Confirmed incomplete / next gates
 

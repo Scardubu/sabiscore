@@ -281,6 +281,10 @@ run the full release matrix before tagging the release.
 - Test deps (`pytest`, `pytest-asyncio`, `respx`) moved from `requirements.txt` to `requirements-dev.txt`; Render deployments no longer install test packages.
 - Dev postgres aligned to `postgres:16-alpine` (matches prod compose).
 - `datetime.utcnow()` deprecated calls replaced with `datetime.now(timezone.utc)` in `model_registry.py`.
+- `render.yaml` now deploys from `master` (was `main` — autoDeploy never fired) and no longer sets the dead `KELLY_FRACTION=0.125` env var (read by nothing; engines hardcode Quarter-Kelly 0.25).
+- `backend/src/utils/currency.py` deleted — dead module (zero importers) carrying a stale ⅛-Kelly constant that contradicted the certified Quarter-Kelly contract.
+- Sportmonks `probe()` now calls `/leagues` (cheapest call valid on every plan). Live-verified: bare `/sidelined` 404s in the subscribed API shape, so the old probe could never verify a valid token. All five providers report `configured` via `providers status`.
+- `docs/Public-ESPN-API-main/` (vendored read-only reference repo) is now gitignored.
 
 ## Known Limitations
 

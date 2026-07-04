@@ -62,6 +62,8 @@ coverage/
 .pytest_cache/
 .coverage
 docs/Sabi-Engine-Upgrade-docs
+# Vendored upstream reference repo (read-only endpoint intelligence, not a dependency)
+docs/Public-ESPN-API-main/
 
 # Misc
 *.bak
