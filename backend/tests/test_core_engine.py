@@ -108,9 +108,9 @@ def test_high_conviction_is_allowed_for_clean_tier_one_fixture():
     assert result.verdict == "HIGH_CONVICTION"
     assert result.best_market == "HOME_ML"
     assert result.expected_value == pytest.approx(0.3)
-    # EPL pending-calibration policy caps Kelly at 2.5%; global ceiling is 5% (directive §11/§12).
-    assert result.stake_fraction == pytest.approx(0.025)
-    assert result.stake == "2.5u"
+    # EPL calibrated policy kelly_cap=0.04; global ceiling is 5% (directive §11/§12).
+    assert result.stake_fraction == pytest.approx(0.04)
+    assert result.stake == "2.5u"  # label is hardcoded "at-cap" signal regardless of cap value
 
 
 def test_advisory_lineup_and_sharp_signal_do_not_force_partial():

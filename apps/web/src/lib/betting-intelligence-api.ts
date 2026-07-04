@@ -192,6 +192,9 @@ export interface MatchAnalysisResult {
   all_market_evaluations?: MarketEvaluation[] | null;
   data_freshness?: DataFreshness | null;
   data_gaps: string[];
+  critical_gaps?: string[];
+  advisory_gaps?: string[];
+  conflicts?: string[];
   calculation_audit?: CalculationAudit | null;
   explanation: string;
 }

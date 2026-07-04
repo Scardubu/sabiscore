@@ -711,6 +711,38 @@ export function BettingIntelligenceDashboard() {
               </div>
             )}
 
+            {result && (result.critical_gaps?.length || result.advisory_gaps?.length || result.conflicts?.length) ? (
+              <div className="bi-two">
+                {result.critical_gaps?.length ? (
+                  <section className="bi-panel" style={{ borderColor: "var(--bi-red, #ef4444)" }}>
+                    <div className="bi-panel-title" style={{ color: "var(--bi-red, #ef4444)" }}>
+                      <AlertTriangle size={14} /> Blocking Gaps — execution paused
+                    </div>
+                    <ul className="bi-list gap">
+                      {result.critical_gaps.map((gap) => <li key={gap}>{gap.replace(/_/g, " ")}</li>)}
+                    </ul>
+                  </section>
+                ) : null}
+                {(result.advisory_gaps?.length || result.conflicts?.length) ? (
+                  <section className="bi-panel" style={{ borderColor: "var(--bi-amber, #f59e0b)" }}>
+                    <div className="bi-panel-title" style={{ color: "var(--bi-amber, #f59e0b)" }}>
+                      Advisory
+                    </div>
+                    {result.advisory_gaps?.length ? (
+                      <ul className="bi-list gap">
+                        {result.advisory_gaps.map((gap) => <li key={gap}>{gap.replace(/_/g, " ")}</li>)}
+                      </ul>
+                    ) : null}
+                    {result.conflicts?.length ? (
+                      <ul className="bi-list risk" style={{ marginTop: 8 }}>
+                        {result.conflicts.map((c) => <li key={c}>{c.replace(/_/g, " ")}</li>)}
+                      </ul>
+                    ) : null}
+                  </section>
+                ) : null}
+              </div>
+            ) : null}
+
             {result?.calculation_audit && (
               <section className="bi-panel">
                 <div className="bi-panel-title">Price Window</div>

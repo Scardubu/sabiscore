@@ -46,6 +46,56 @@ async def test_enabled_provider_health_is_configured_not_verified_without_live_p
     assert "live_probe_not_run" in health.warnings
 
 
+def test_espn_normalize_event_timestamp_discipline():
+    """provider_timestamp must be None when ESPN supplies no lastModified; kickoff_utc
+    must come from event.date only — the two fields must never share the same value."""
+    provider = ESPNProvider(enabled=True, live_tests=False)
+
+    event = {
+        "id": "abc123",
+        "date": "2026-08-15T19:45:00Z",
+        "status": {"type": {"name": "STATUS_SCHEDULED"}},
+        "competitions": [
+            {
+                "competitors": [
+                    {"homeAway": "home", "team": {"displayName": "Arsenal"}},
+                    {"homeAway": "away", "team": {"displayName": "Chelsea"}},
+                ]
+            }
+        ],
+    }
+    record = provider.normalize_event(event, "EPL")
+
+    assert record["kickoff_utc"] == "2026-08-15T19:45:00Z"
+    assert record["provider_timestamp"] is None, (
+        "provider_timestamp must be None when ESPN response has no lastModified"
+    )
+
+
+def test_espn_normalize_event_uses_last_modified_when_present():
+    provider = ESPNProvider(enabled=True, live_tests=False)
+
+    event = {
+        "id": "xyz",
+        "date": "2026-08-15T19:45:00Z",
+        "lastModified": "2026-08-15T20:01:30Z",
+        "status": {"type": {"name": "STATUS_IN_PROGRESS"}},
+        "competitions": [
+            {
+                "competitors": [
+                    {"homeAway": "home", "team": {"displayName": "Liverpool"}},
+                    {"homeAway": "away", "team": {"displayName": "Everton"}},
+                ]
+            }
+        ],
+    }
+    record = provider.normalize_event(event, "EPL")
+
+    assert record["kickoff_utc"] == "2026-08-15T19:45:00Z"
+    assert record["provider_timestamp"] == "2026-08-15T20:01:30Z"
+    assert record["kickoff_utc"] != record["provider_timestamp"]
+
+
 def test_provider_registry_registers_canonical_provider_set():
     registry = build_provider_registry()
     provider_ids = {provider.provider_id for provider in registry.providers}

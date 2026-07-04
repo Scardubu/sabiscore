@@ -1,8 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 const BACKEND_URL = process.env.SABISCORE_BACKEND_URL;
 
 const BACKEND_TOKEN = process.env.BACKEND_TOKEN;
+
+const FixtureIdSchema = z.string().min(1).max(64).regex(/^[a-zA-Z0-9_-]+$/);
+
+export function validateFixtureId(id: string): NextResponse | null {
+  const result = FixtureIdSchema.safeParse(id);
+  if (!result.success) {
+    return NextResponse.json(
+      { error: "INVALID_FIXTURE_ID", message: "Fixture ID contains invalid characters." },
+      { status: 400, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+  return null;
+}
 
 export async function proxyFixtureRequest(
   req: NextRequest,

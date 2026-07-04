@@ -48,10 +48,10 @@ def main():
         
         for league, result in results.items():
             if 'error' in result:
-                logger.error(f"✗ {league}: {result['error']}")
+                logger.error(f"[FAIL] {league}: {result['error']}")
                 failed += 1
             else:
-                logger.info(f"✓ {league}:")
+                logger.info(f"[OK] {league}:")
                 logger.info(f"  - Accuracy: {result.get('accuracy', 0):.2%}")
                 logger.info(f"  - Brier Score: {result.get('brier_score', 0):.4f}")
                 logger.info(f"  - Features: {result.get('feature_count', 0)}")

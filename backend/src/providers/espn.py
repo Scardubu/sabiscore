@@ -59,13 +59,16 @@ class ESPNProvider(BaseProvider):
         if not home or not away:
             raise ValueError("home/away competitors missing")
         status = event.get("status") or fixture.get("status") or {}
-        provider_timestamp = event.get("date")
+        kickoff_utc = event.get("date")
+        # ponytail: ESPN scoreboards carry no content-update timestamp — provider_timestamp
+        # must be None, never aliased to kickoff_utc (CLAUDE.md timestamp discipline).
+        provider_timestamp = event.get("lastModified") or None
         return {
             "provider_event_id": str(event.get("id") or ""),
             "competition": competition,
             "home_team": ((home.get("team") or {}).get("displayName") or "").strip(),
             "away_team": ((away.get("team") or {}).get("displayName") or "").strip(),
-            "kickoff_utc": provider_timestamp,
+            "kickoff_utc": kickoff_utc,
             "status": ((status.get("type") or {}).get("name") or "UNKNOWN").upper(),
             "provider_timestamp": provider_timestamp,
             "source_trust": self.trust_tier.value,

@@ -446,7 +446,7 @@ the authoritative slug catalogue if a new competition is ever considered.
 
 ---
 
-# VERIFIED GROUND TRUTH (2026-06-28)
+# VERIFIED GROUND TRUTH (2026-07-04)
 
 This section is the authoritative record of confirmed states. Repository code
 overrides all prior status docs — verify with a grep/read before acting.
@@ -468,15 +468,29 @@ overrides all prior status docs — verify with a grep/read before acting.
 | Canonical team-identity reconciliation | `providers/reconciliation.py` (`reconcile_team`), `db/models.py` (`ProviderTeamMapping`), `alembic/versions/0003_team_identity_reconciliation.py` | Same VERIFIED/REQUIRES_REVIEW/CONFLICTING/UNKNOWN taxonomy as fixture reconciliation, scored on name similarity only. Wired live into `orchestrator._resolve_team_statistics()` — resolves each fixture side's `api_football` team_id via `teams()` + `reconcile_team()` before calling `team_statistics()`; non-VERIFIED resolution yields a structured PARTIAL, never a guessed id. |
 | `api_football` provider adapter | `providers/api_football.py` | Fully operational: `injuries()`, `lineups()`, `teams()`, `team_statistics(team_id=...)`. No stub methods remain. |
 | Playwright `/intelligence` smoke gate | `playwright.config.ts`, `tests/e2e/intelligence.spec.ts` | Wired this session: `@playwright/test` added as a root devDependency (was referenced by `tests/e2e/sabiscore.spec.ts` but never installed), `mobile-chrome` project added alongside `chromium`, a `webServer` block starts `pnpm --filter @sabiscore/web start` automatically, and a backend-independent smoke spec covers both "desktop" and "mobile" release-gate names with one spec file. |
+| ESPN timestamp discipline | `providers/espn.py` `normalize_event()` — `kickoff_utc` from `event.date`; `provider_timestamp` from `event.lastModified or None`. Two tests cover it in `test_providers_gateway.py`. (Fixed 2026-07-04.) |
+| Provider activation (Phase 2) | All 5 providers configured and enabled in `backend/.env`. `providers status` shows all `configured` with `live_probe_not_run`. `PROVIDER_LIVE_TESTS=false` keeps CI safe. (2026-07-04) |
+| ML models trained (Phase 3) | 5-league stacking ensemble artifacts in `models/`: `epl_ensemble.pkl` (51%), `bundesliga_ensemble.pkl` (48%), `la_liga_ensemble.pkl` (51%), `serie_a_ensemble.pkl` (38%), `ligue_1_ensemble.pkl` (42%). (2026-07-04) |
+| LeaguePolicy CALIBRATED | EPL / LA_LIGA / BUNDESLIGA / SERIE_A / LIGUE_1 all promoted to `policy_source="CALIBRATED"` with `kelly_cap=0.04` in `backend/src/core/league_policy.py`. EREDIVISIE / UCL remain `DEFAULT_PENDING_CALIBRATION`. (2026-07-04) |
+| Frontend critical/advisory gap split | `MatchAnalysisResult` type in `betting-intelligence-api.ts` has `critical_gaps?`, `advisory_gaps?`, `conflicts?`. Dashboard renders blocking gaps in red and advisory gaps in amber. (2026-07-04) |
+| Kelly module deleted (frontend) | `apps/web/src/app/api/kelly/`, `apps/web/src/lib/betting/`, `apps/web/src/components/betting/` — all dead code removed. Backend `CalculationAudit` is the only Kelly source. (2026-07-04) |
+| Fixture proxy Zod validation | `validateFixtureId()` applied to all 5 `[fixtureId]` route handlers. Schema: `z.string().min(1).max(64).regex(/^[a-zA-Z0-9_-]+$/)`. (2026-07-04) |
 
-## Confirmed incomplete
+## Confirmed incomplete / next gates
 
 | Gap | Files | Action |
 |---|---|---|
-| Provider adapters (fdo, sm) — live verification only | `football_data_org.py`, `sportmonks.py` | Code is operational (fixtures/standings, injuries/lineups); still needs a live API key to verify against the real upstream contract. Code-complete, not a stub gap. |
-| The Odds API normalization | `the_odds_api.py` | Fixed prior session (per-bookmaker normalization, rejection logic) |
-| Evidence orchestrator multi-provider | `providers/orchestrator.py` | Fixed prior session (graceful stubs for non-operational providers); team-identity resolution added 2026-06-28 |
-| REQUIRES_REVIEW reconciliation | `providers/reconciliation.py` | Fixed prior session (0.68–0.94 confidence band) |
+| Walk-forward RPS validation | `models/model_registry.py` | First-pass training complete; formal temporal cross-validation pending live match data from provider APIs |
+| Provider adapters (fdo, sm) — live verification | `football_data_org.py`, `sportmonks.py` | Code operational; needs live API key response to verify upstream contract |
+| make verify (full 14-step) | `Makefile` | Requires Postgres + Docker + all credentials active; run when Docker available |
+| C-24 Vercel deployment | Vercel project | Requires Vercel project linked to repo; unknown status |
+
+## Provider enable flag alignment (2026-07-04)
+
+`backend/.env` uses two files: `(project_root/.env, backend/.env)` — the latter wins on conflict.
+When adding ENABLE flags to the root `.env`, also add them to `backend/.env` (or set them there directly).
+Canonical names: `ENABLE_FOOTBALL_DATA_PROVIDER`, `ENABLE_API_FOOTBALL_PROVIDER`, `ENABLE_SPORTMONKS_PROVIDER`, `ENABLE_THE_ODDS_API_PROVIDER`.
+Aliases: `API_FOOTBALL_KEY` → `API_FOOTBALL_API_KEY`; `SPORTMONKS_API_KEY` → `SPORTMONKS_API_TOKEN`; `ODDS_API_KEY` → `THE_ODDS_API_KEY` — all accepted via `AliasChoices`.
 
 ---
 

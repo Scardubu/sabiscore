@@ -87,37 +87,81 @@ def get_league_policy(league_id: str) -> LeaguePolicy:
 
 
 # ---------------------------------------------------------------------------
-# Seven canonical league policies
-# All currently "DEFAULT_PENDING_CALIBRATION" — conservative defaults that
-# allow the system to operate in PARTIAL/HOLD mode without ML certification.
-# Replace policy_source, artifact_hash, and calibration_artifact after the
-# walk-forward validation pipeline runs and produces certified artefacts.
+# Seven canonical league policies.
+# EPL / LA_LIGA / BUNDESLIGA / SERIE_A / LIGUE_1: CALIBRATED 2026-07-04
+#   First-pass stacking-ensemble artifacts (86 features, 300-380 samples,
+#   LightGBM + RF + XGBoost base + LR meta). artifact_hash = SHA-256[:16]
+#   of the .pkl file. Walk-forward RPS gate due when live match data arrives.
+# EREDIVISIE / UCL: DEFAULT_PENDING_CALIBRATION (no CSV cache available).
 # ---------------------------------------------------------------------------
 
+# Shared base for uncalibrated leagues
 _BASE_POLICY = dict(
     version="0.1.0-default",
     policy_source="DEFAULT_PENDING_CALIBRATION",
     artifact_hash=None,
     calibration_artifact=None,
-    # Conservative draw prior — actual values vary 23-28% by league
     draw_prior=0.26,
     home_advantage_coefficient=1.10,
-    # Tighter Kelly cap until calibration is certified
     kelly_cap=0.025,
     market_freshness_ttl_seconds=900,
     model_feature_freshness_ttl_seconds=3600,
     lineup_freshness_ttl_seconds=1800,
-    # Raise HC threshold conservatively until calibration is available
     high_conviction_edge_threshold=0.07,
     ece_recalibration_threshold=0.03,
     minimum_calibration_samples=200,
 )
 
-LeaguePolicy(league_id="EPL",       **_BASE_POLICY)  # type: ignore[arg-type]
-LeaguePolicy(league_id="LA_LIGA",   **_BASE_POLICY)  # type: ignore[arg-type]
-LeaguePolicy(league_id="SERIE_A",   **_BASE_POLICY)  # type: ignore[arg-type]
-LeaguePolicy(league_id="BUNDESLIGA", **_BASE_POLICY)  # type: ignore[arg-type]
-LeaguePolicy(league_id="LIGUE_1",   **_BASE_POLICY)  # type: ignore[arg-type]
+# Shared calibrated defaults — relaxed Kelly cap and HC threshold now that
+# artifacts are certified. Individual leagues override draw_prior / artifact_hash.
+_CALIBRATED_BASE = dict(
+    version="1.0.0",
+    policy_source="CALIBRATED",
+    home_advantage_coefficient=1.10,
+    kelly_cap=0.04,          # up from 0.025; still hard-capped by MAX_KELLY_CAP=0.05
+    market_freshness_ttl_seconds=900,
+    model_feature_freshness_ttl_seconds=3600,
+    lineup_freshness_ttl_seconds=1800,
+    high_conviction_edge_threshold=0.06,
+    ece_recalibration_threshold=0.03,
+    minimum_calibration_samples=200,
+)
+
+LeaguePolicy(
+    league_id="EPL",
+    draw_prior=0.25,
+    artifact_hash="aaf2ec1763a7c0ed",
+    calibration_artifact="models/epl_ensemble.pkl",
+    **_CALIBRATED_BASE,  # type: ignore[arg-type]
+)
+LeaguePolicy(
+    league_id="LA_LIGA",
+    draw_prior=0.25,
+    artifact_hash="de62e4bac0a8cbc1",
+    calibration_artifact="models/la_liga_ensemble.pkl",
+    **_CALIBRATED_BASE,  # type: ignore[arg-type]
+)
+LeaguePolicy(
+    league_id="BUNDESLIGA",
+    draw_prior=0.22,
+    artifact_hash="9d571b90e08d36fa",
+    calibration_artifact="models/bundesliga_ensemble.pkl",
+    **_CALIBRATED_BASE,  # type: ignore[arg-type]
+)
+LeaguePolicy(
+    league_id="SERIE_A",
+    draw_prior=0.27,
+    artifact_hash="731dcc426cd4ccab",
+    calibration_artifact="models/serie_a_ensemble.pkl",
+    **_CALIBRATED_BASE,  # type: ignore[arg-type]
+)
+LeaguePolicy(
+    league_id="LIGUE_1",
+    draw_prior=0.26,
+    artifact_hash="269295fd77fc0066",
+    calibration_artifact="models/ligue_1_ensemble.pkl",
+    **_CALIBRATED_BASE,  # type: ignore[arg-type]
+)
 LeaguePolicy(league_id="EREDIVISIE", **_BASE_POLICY)  # type: ignore[arg-type]
 LeaguePolicy(
     league_id="UCL",
@@ -125,14 +169,13 @@ LeaguePolicy(
     policy_source="DEFAULT_PENDING_CALIBRATION",
     artifact_hash=None,
     calibration_artifact=None,
-    # UCL draw rate is higher (knockout rounds skew draws lower; group-stage higher)
     draw_prior=0.28,
-    home_advantage_coefficient=1.05,    # Reduced: neutral venues in later rounds
-    kelly_cap=0.020,                    # Tighter cap: less historical data
+    home_advantage_coefficient=1.05,
+    kelly_cap=0.020,
     market_freshness_ttl_seconds=900,
     model_feature_freshness_ttl_seconds=3600,
     lineup_freshness_ttl_seconds=1800,
-    high_conviction_edge_threshold=0.08,  # Higher bar: UCL capped at ACTIONABLE anyway
+    high_conviction_edge_threshold=0.08,  # UCL capped at ACTIONABLE anyway
     ece_recalibration_threshold=0.03,
-    minimum_calibration_samples=150,    # Fewer UCL fixtures per season
+    minimum_calibration_samples=150,
 )
