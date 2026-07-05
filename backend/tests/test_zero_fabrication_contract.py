@@ -23,6 +23,10 @@ def test_prohibited_production_patterns_are_absent() -> None:
         _read_texts(backend_root / "src" / name, "*.py")
         for name in ("api", "services", "providers")
     )
+    transformer_text = (backend_root / "src" / "data" / "transformers.py").read_text(
+        encoding="utf-8",
+        errors="ignore",
+    )
     backend_source_text = _read_texts(backend_root / "src", "*.py")
     migration_text = _read_texts(backend_root / "alembic", "*.py")
     web_text = _read_texts(repo_root / "apps" / "web" / "src", "*.ts*")
@@ -37,6 +41,7 @@ def test_prohibited_production_patterns_are_absent() -> None:
     )
 
     assert "FEATURE_DEFAULTS[" not in api_service_provider_text
+    assert "FEATURE_DEFAULTS[" not in transformer_text
     assert "hardcoded_odds" not in api_service_provider_text
     assert "Base.metadata.create_all" not in migration_text
     assert "full_kelly_fraction" not in backend_source_text

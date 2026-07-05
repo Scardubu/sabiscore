@@ -119,7 +119,7 @@ verify-core: ## Run deterministic SabiScore checks without live providers or Doc
 	@echo "  Zero-fabrication scan"
 	@! grep -rn --include="*.py" \
 	  "FEATURE_DEFAULTS\[" \
-	  backend/src/api backend/src/services backend/src/providers \
+	  backend/src/api backend/src/services backend/src/providers backend/src/data/transformers.py \
 	  2>/dev/null | grep -v "test_" | grep -v "#" || \
 	  { echo "  ✗ FEATURE_DEFAULTS used in production API/service/provider path — C-02 violation"; exit 1; }
 	@! grep -rn --include="*.py" "full_kelly_fraction" backend/src 2>/dev/null || \

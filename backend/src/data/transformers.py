@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
-from ..core.exceptions import OddsUnavailableError
+from ..core.exceptions import DataUnavailableError, OddsUnavailableError
 from ..models.feature_registry import CANONICAL_FEATURES_68, DEFAULT_FEATURE_VALUES_68
 
 
@@ -113,12 +113,124 @@ class FeatureTransformer:
     Produces canonical feature vectors aligned with production model metadata.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, allow_legacy_defaults: bool = False) -> None:
         self.scaler = StandardScaler()
         self.expected_columns = list(CANONICAL_FEATURES_68)
         self.feature_completeness: float = 1.0
+        self.allow_legacy_defaults = allow_legacy_defaults
+
+    def _fail_closed_enabled(self) -> bool:
+        if self.allow_legacy_defaults:
+            return False
+        try:
+            from ..core.config import settings  # local import avoids circular at module load
+
+            return bool(getattr(settings, "provider_fail_closed", True))
+        except Exception:
+            return True
+
+    def _legacy_default(self, feature: str) -> float:
+        if self._fail_closed_enabled():
+            raise DataUnavailableError(
+                f"Required feature '{feature}' is unavailable; refusing to use legacy defaults",
+                provider="internal",
+                evidence_type=f"feature:{feature}",
+            )
+        value = FEATURE_DEFAULTS.get(feature)
+        if value is None:
+            raise DataUnavailableError(
+                f"Required feature '{feature}' has no legacy default",
+                provider="internal",
+                evidence_type=f"feature:{feature}",
+            )
+        return float(value)
+
+    def _value_or_legacy(self, mapping: Dict[str, Any], key: str, feature: str) -> Any:
+        if key in mapping and mapping.get(key) is not None:
+            return mapping[key]
+        return self._legacy_default(feature)
+
+    @staticmethod
+    def _is_non_empty_frame(value: Any) -> bool:
+        return isinstance(value, pd.DataFrame) and not value.empty
+
+    @staticmethod
+    def _has_numeric(mapping: Dict[str, Any], key: str) -> bool:
+        return _safe_float(mapping.get(key)) is not None
+
+    def _validate_required_evidence(self, match_data: Dict[str, Any]) -> None:
+        """Fail closed before any feature prior can enter production inference."""
+        missing: List[str] = []
+
+        odds = match_data.get("odds") or {}
+        if not all(self._has_numeric(odds, key) and float(odds[key]) > 1.0 for key in ("home_win", "draw", "away_win")):
+            missing.append("odds.1x2")
+
+        schedule = match_data.get("schedule") or {}
+        if not schedule.get("league"):
+            missing.append("schedule.league")
+        kickoff = schedule.get("date")
+        if not kickoff:
+            missing.append("schedule.date")
+        else:
+            try:
+                pd.to_datetime(kickoff)
+            except Exception:
+                missing.append("schedule.date")
+
+        historical_stats = match_data.get("historical_stats")
+        if not self._is_non_empty_frame(historical_stats):
+            missing.append("historical_stats")
+        elif not {"home_score", "away_score"}.issubset(set(historical_stats.columns)):
+            missing.append("historical_stats.home_score_away_score")
+
+        head_to_head = match_data.get("head_to_head")
+        if not self._is_non_empty_frame(head_to_head):
+            missing.append("head_to_head")
+        elif not {"home_score", "away_score"}.issubset(set(head_to_head.columns)):
+            missing.append("head_to_head.home_score_away_score")
+
+        current_form = match_data.get("current_form") or {}
+        for side in ("home", "away"):
+            form = current_form.get(side) or {}
+            if not form.get("last_5_games"):
+                missing.append(f"current_form.{side}.last_5_games")
+
+        team_stats = match_data.get("team_stats") or {}
+        required_team_fields = (
+            "squad_value",
+            "missing_value",
+            "elo",
+            "xg_avg_5",
+            "xg_conceded_avg_5",
+            "xg_diff_5",
+            "xg_overperformance",
+            "xg_consistency",
+            "possession_style",
+            "pressing_intensity",
+            "first_half_goals_rate",
+            "defensive_solidity",
+            "setpiece_goals_rate",
+            "gd_trend",
+            "scoring_consistency",
+        )
+        for side in ("home", "away"):
+            stats = team_stats.get(side) or {}
+            for field in required_team_fields:
+                if not self._has_numeric(stats, field):
+                    missing.append(f"team_stats.{side}.{field}")
+
+        if missing:
+            raise DataUnavailableError(
+                "Required feature evidence unavailable: " + ", ".join(sorted(set(missing))),
+                provider="internal",
+                evidence_type="feature_evidence",
+            )
 
     def engineer_features(self, match_data: Dict[str, Any]) -> pd.DataFrame:
+        if self._fail_closed_enabled():
+            self._validate_required_evidence(match_data)
+
         # Measure real evidence before defaults fill the gaps
         _hs = match_data.get("historical_stats")
         _h2h = match_data.get("head_to_head")
@@ -174,11 +286,23 @@ class FeatureTransformer:
         odds = match_data.get("odds") or {}
 
         row = features.iloc[0].to_dict() if not features.empty else {}
-        canonical = dict(DEFAULT_FEATURE_VALUES_68)
+        canonical = (
+            dict(DEFAULT_FEATURE_VALUES_68)
+            if not self._fail_closed_enabled()
+            else {name: float("nan") for name in self.expected_columns}
+        )
 
         def get_num(name: str, default: float) -> float:
             value = _safe_float(row.get(name))
-            return default if value is None else value
+            if value is None:
+                if self._fail_closed_enabled():
+                    raise DataUnavailableError(
+                        f"Required feature '{name}' is unavailable; refusing to use projection defaults",
+                        provider="internal",
+                        evidence_type=f"feature:{name}",
+                    )
+                return default
+            return value
 
         home_odds = max(float(odds.get("home_win", 2.5)), 1.01)
         draw_odds = max(float(odds.get("draw", 3.3)), 1.01)
@@ -257,6 +381,12 @@ class FeatureTransformer:
             except Exception:
                 kickoff_dt = None
         if kickoff_dt is None:
+            if self._fail_closed_enabled():
+                raise DataUnavailableError(
+                    "Kickoff timestamp is required for schedule features",
+                    provider="internal",
+                    evidence_type="feature:schedule.date",
+                )
             kickoff_dt = pd.Timestamp.utcnow()
 
         canonical["day_of_week"] = float(kickoff_dt.dayofweek)
@@ -273,6 +403,12 @@ class FeatureTransformer:
             "ligue_1": (0.41, 2.66, 0.259),
         }
         key = league_name.lower().replace(" ", "_")
+        if key not in league_defaults and self._fail_closed_enabled():
+            raise DataUnavailableError(
+                f"League policy defaults unavailable for '{league_name}'",
+                provider="internal",
+                evidence_type="feature:league",
+            )
         home_rate, avg_goals, draw_rate = league_defaults.get(key, (0.42, 2.75, 0.246))
         canonical["league_home_rate"] = home_rate
         canonical["league_avg_goals"] = avg_goals
@@ -292,32 +428,52 @@ class FeatureTransformer:
         canonical["league_Serie_A"] = 1.0 if key in ("serie_a", "seriea") else 0.0
 
         # Phase 7-A additions (Elo + StatsBomb tactical layer).
-        # Keep neutral defaults when sources are missing. PredictionService will still
-        # select only the model's declared feature columns, preserving 58-feature models.
+        # Only compute columns required by the loaded model artifact. This preserves
+        # 58-feature model compatibility without requiring absent enhanced sources.
         team_stats = match_data.get("team_stats") or {}
         home_stats = team_stats.get("home", {}) if isinstance(team_stats, dict) else {}
         away_stats = team_stats.get("away", {}) if isinstance(team_stats, dict) else {}
         enhanced = match_data.get("enhanced_features") or {}
+        expected = set(self.expected_columns)
 
-        elo_diff = get_num("elo_difference", float(home_stats.get("elo", 0.0)) - float(away_stats.get("elo", 0.0)))
-        elo_home_trend_5 = get_num("elo_home_trend_5", get_num("home_elo_trend_5", float(home_stats.get("elo_trend_5", 0.0))))
-        elo_away_trend_5 = get_num("elo_away_trend_5", get_num("away_elo_trend_5", float(away_stats.get("elo_trend_5", 0.0))))
+        def _source_num(name: str, *sources: Any, default: float = 0.0) -> float:
+            value = _safe_float(row.get(name))
+            if value is not None:
+                return value
+            for source in sources:
+                source_value = _safe_float(source)
+                if source_value is not None:
+                    return source_value
+            if self._fail_closed_enabled():
+                raise DataUnavailableError(
+                    f"Required feature '{name}' is unavailable; refusing to use projection defaults",
+                    provider="internal",
+                    evidence_type=f"feature:{name}",
+                )
+            return default
 
-        league_elo_spread = {
-            "epl": 110.0,
-            "premier_league": 110.0,
-            "la_liga": 105.0,
-            "bundesliga": 115.0,
-            "serie_a": 100.0,
-            "ligue_1": 95.0,
-            "eredivisie": 90.0,
-        }.get(key, 100.0)
+        elo_diff: Optional[float] = None
+        if "elo_difference" in expected or "elo_momentum_cross" in expected:
+            home_elo = _source_num("home_elo", home_stats.get("elo"))
+            away_elo = _source_num("away_elo", away_stats.get("elo"))
+            elo_diff = _source_num("elo_difference", home_elo - away_elo)
 
-        canonical["elo_difference"] = elo_diff
-        canonical["elo_home_trend_5"] = elo_home_trend_5
-        canonical["elo_away_trend_5"] = elo_away_trend_5
-        canonical["elo_league_adjusted"] = elo_diff / max(league_elo_spread, 1e-6)
-        canonical["elo_momentum_cross"] = elo_home_trend_5 - elo_away_trend_5
+        elo_home_trend_5: Optional[float] = None
+        if "elo_home_trend_5" in expected or "elo_momentum_cross" in expected:
+            elo_home_trend_5 = _source_num("elo_home_trend_5", row.get("home_elo_trend_5"), home_stats.get("elo_trend_5"))
+
+        elo_away_trend_5: Optional[float] = None
+        if "elo_away_trend_5" in expected or "elo_momentum_cross" in expected:
+            elo_away_trend_5 = _source_num("elo_away_trend_5", row.get("away_elo_trend_5"), away_stats.get("elo_trend_5"))
+
+        if "elo_difference" in expected and elo_diff is not None:
+            canonical["elo_difference"] = elo_diff
+        if "elo_home_trend_5" in expected and elo_home_trend_5 is not None:
+            canonical["elo_home_trend_5"] = elo_home_trend_5
+        if "elo_away_trend_5" in expected and elo_away_trend_5 is not None:
+            canonical["elo_away_trend_5"] = elo_away_trend_5
+        if "elo_momentum_cross" in expected and elo_home_trend_5 is not None and elo_away_trend_5 is not None:
+            canonical["elo_momentum_cross"] = elo_home_trend_5 - elo_away_trend_5
 
         def _enhanced_num(*keys: str, default: float = 0.0) -> float:
             for item in keys:
@@ -325,45 +481,56 @@ class FeatureTransformer:
                 value = _safe_float(raw)
                 if value is not None:
                     return value
+            if self._fail_closed_enabled():
+                raise DataUnavailableError(
+                    f"Required enhanced feature evidence unavailable: {'/'.join(keys)}",
+                    provider="internal",
+                    evidence_type=f"feature:{keys[0] if keys else 'enhanced'}",
+                )
             return default
 
-        canonical["home_pressing_intensity"] = get_num(
-            "home_pressing_intensity",
-            _enhanced_num("home_pressing_intensity", "sb_home_pressing_intensity", default=0.55),
-        )
-        canonical["progressive_carry_diff"] = _enhanced_num(
-            "progressive_carry_diff",
-            "sb_progressive_carry_diff",
-            default=0.0,
-        )
-        canonical["shot_quality_diff"] = _enhanced_num(
-            "shot_quality_diff",
-            "sb_shot_quality_diff",
-            default=0.0,
-        )
-        canonical["key_passes_under_pressure_diff"] = _enhanced_num(
-            "key_passes_under_pressure_diff",
-            "sb_key_passes_under_pressure_diff",
-            default=0.0,
-        )
-        canonical["set_piece_xg_diff"] = _enhanced_num(
-            "set_piece_xg_diff",
-            "sb_set_piece_xg_diff",
-            default=0.0,
-        )
+        if "home_pressing_intensity" in expected:
+            canonical["home_pressing_intensity"] = _source_num(
+                "home_pressing_intensity",
+                home_stats.get("pressing_intensity"),
+                enhanced.get("home_pressing_intensity"),
+                enhanced.get("sb_home_pressing_intensity"),
+                default=0.55,
+            )
+        if "progressive_carry_diff" in expected:
+            canonical["progressive_carry_diff"] = _enhanced_num(
+                "progressive_carry_diff",
+                "sb_progressive_carry_diff",
+                default=0.0,
+            )
+        if "shot_quality_diff" in expected:
+            canonical["shot_quality_diff"] = _enhanced_num(
+                "shot_quality_diff",
+                "sb_shot_quality_diff",
+                default=0.0,
+            )
+        if "key_passes_under_pressure_diff" in expected:
+            canonical["key_passes_under_pressure_diff"] = _enhanced_num(
+                "key_passes_under_pressure_diff",
+                "sb_key_passes_under_pressure_diff",
+                default=0.0,
+            )
+        if "set_piece_xg_diff" in expected:
+            canonical["set_piece_xg_diff"] = _enhanced_num(
+                "set_piece_xg_diff",
+                "sb_set_piece_xg_diff",
+                default=0.0,
+            )
 
         return pd.DataFrame([canonical], columns=self.expected_columns)
 
     # ------------------------------------------------------------------
     def _create_base_features(self, historical_stats: pd.DataFrame) -> pd.DataFrame:
-        # ponytail: start with NaN so _handle_missing_values can count real gaps
         features = pd.DataFrame([{k: float("nan") for k in FEATURE_DEFAULTS}])
-        # Seed with league-average defaults as the last resort; callers should
-        # override every key they have real data for. The count of remaining NaN
-        # after real data is applied becomes defaults_used_count.
-        for col, val in FEATURE_DEFAULTS.items():
-            if col in features.columns:
-                features[col] = val
+        if not self._fail_closed_enabled():
+            for col, val in FEATURE_DEFAULTS.items():
+                if col in features.columns:
+                    features[col] = val
 
         if historical_stats is None or (isinstance(historical_stats, pd.DataFrame) and historical_stats.empty):
             return features
@@ -407,7 +574,7 @@ class FeatureTransformer:
             points = sum(3 if r == "W" else 1 if r == "D" else 0 for r in results)
             
             # Normalize form to 0-1 range (max 15 points)
-            features[f"{side}_form_5"] = points / 15.0 if results else FEATURE_DEFAULTS[f"{side}_form_5"]
+            features[f"{side}_form_5"] = points / 15.0 if results else self._legacy_default(f"{side}_form_5")
             
             # For 10 and 20 game form, we might not have data, so use defaults or estimate
             # If we have 'form_10' in input, use it, otherwise estimate from form_5
@@ -415,8 +582,8 @@ class FeatureTransformer:
             features[f"{side}_form_20"] = form.get("form_20", features[f"{side}_form_10"])
             
             # Streaks
-            features[f"{side}_win_streak"] = form.get("win_streak", FEATURE_DEFAULTS[f"{side}_win_streak"])
-            features[f"{side}_unbeaten_streak"] = form.get("unbeaten_streak", FEATURE_DEFAULTS[f"{side}_unbeaten_streak"])
+            features[f"{side}_win_streak"] = self._value_or_legacy(form, "win_streak", f"{side}_win_streak")
+            features[f"{side}_unbeaten_streak"] = self._value_or_legacy(form, "unbeaten_streak", f"{side}_unbeaten_streak")
             
         return features
 
@@ -425,7 +592,7 @@ class FeatureTransformer:
 
         has_1x2 = bool(odds.get("home_win") and odds.get("draw") and odds.get("away_win"))
         if not has_1x2:
-            if getattr(settings, "provider_fail_closed", True):
+            if self._fail_closed_enabled() and getattr(settings, "provider_fail_closed", True):
                 # ponytail: fail-closed in production — no fabricated market signals
                 raise OddsUnavailableError()
             # Development / mock mode: fall through with league-average placeholder odds.
@@ -448,9 +615,9 @@ class FeatureTransformer:
         features["bookmaker_margin"] = margin
 
         # Optional market signals — use defaults when absent but do not raise.
-        features["odds_volatility_1h"] = odds.get("volatility_1h", FEATURE_DEFAULTS["odds_volatility_1h"])
-        features["market_panic_score"] = odds.get("panic_score", FEATURE_DEFAULTS["market_panic_score"])
-        features["odds_drift_home"] = odds.get("drift_home", FEATURE_DEFAULTS["odds_drift_home"])
+        features["odds_volatility_1h"] = self._value_or_legacy(odds, "volatility_1h", "odds_volatility_1h")
+        features["market_panic_score"] = self._value_or_legacy(odds, "panic_score", "market_panic_score")
+        features["odds_drift_home"] = self._value_or_legacy(odds, "drift_home", "odds_drift_home")
 
         return features
 
@@ -463,12 +630,12 @@ class FeatureTransformer:
     def _add_h2h_features(self, features: pd.DataFrame, head_to_head: pd.DataFrame) -> pd.DataFrame:
         if head_to_head.empty:
             # Use defaults
-            features["h2h_home_wins"] = FEATURE_DEFAULTS["h2h_home_wins"]
-            features["h2h_away_wins"] = FEATURE_DEFAULTS["h2h_away_wins"]
-            features["h2h_draws"] = FEATURE_DEFAULTS["h2h_draws"]
-            features["h2h_total_matches"] = FEATURE_DEFAULTS["h2h_total_matches"]
-            features["h2h_avg_goals"] = FEATURE_DEFAULTS["h2h_avg_goals"]
-            features["h2h_home_win_rate"] = FEATURE_DEFAULTS["h2h_home_win_rate"]
+            features["h2h_home_wins"] = self._legacy_default("h2h_home_wins")
+            features["h2h_away_wins"] = self._legacy_default("h2h_away_wins")
+            features["h2h_draws"] = self._legacy_default("h2h_draws")
+            features["h2h_total_matches"] = self._legacy_default("h2h_total_matches")
+            features["h2h_avg_goals"] = self._legacy_default("h2h_avg_goals")
+            features["h2h_home_win_rate"] = self._legacy_default("h2h_home_win_rate")
             return features
 
         total = len(head_to_head)
@@ -490,15 +657,15 @@ class FeatureTransformer:
         away_stats = team_stats.get("away", {})
         
         # Squad value features
-        features["home_squad_value"] = home_stats.get("squad_value", FEATURE_DEFAULTS["home_squad_value"])
-        features["away_squad_value"] = away_stats.get("squad_value", FEATURE_DEFAULTS["away_squad_value"])
-        features["home_missing_value"] = home_stats.get("missing_value", FEATURE_DEFAULTS["home_missing_value"])
-        features["away_missing_value"] = away_stats.get("missing_value", FEATURE_DEFAULTS["away_missing_value"])
+        features["home_squad_value"] = self._value_or_legacy(home_stats, "squad_value", "home_squad_value")
+        features["away_squad_value"] = self._value_or_legacy(away_stats, "squad_value", "away_squad_value")
+        features["home_missing_value"] = self._value_or_legacy(home_stats, "missing_value", "home_missing_value")
+        features["away_missing_value"] = self._value_or_legacy(away_stats, "missing_value", "away_missing_value")
         features["squad_value_diff"] = features["home_squad_value"] - features["away_squad_value"]
         
         # Elo features
-        features["home_elo"] = home_stats.get("elo", FEATURE_DEFAULTS["home_elo"])
-        features["away_elo"] = away_stats.get("elo", FEATURE_DEFAULTS["away_elo"])
+        features["home_elo"] = self._value_or_legacy(home_stats, "elo", "home_elo")
+        features["away_elo"] = self._value_or_legacy(away_stats, "elo", "away_elo")
         features["elo_difference"] = features["home_elo"] - features["away_elo"]
         
         return features
@@ -509,25 +676,25 @@ class FeatureTransformer:
 
         # xG features
         for side, stats in [("home", home_stats), ("away", away_stats)]:
-            features[f"{side}_xg_avg_5"] = stats.get("xg_avg_5", FEATURE_DEFAULTS[f"{side}_xg_avg_5"])
-            features[f"{side}_xg_conceded_avg_5"] = stats.get("xg_conceded_avg_5", FEATURE_DEFAULTS[f"{side}_xg_conceded_avg_5"])
-            features[f"{side}_xg_diff_5"] = stats.get("xg_diff_5", FEATURE_DEFAULTS[f"{side}_xg_diff_5"])
-            features[f"{side}_xg_overperformance"] = stats.get("xg_overperformance", FEATURE_DEFAULTS[f"{side}_xg_overperformance"])
-            features[f"{side}_xg_consistency"] = stats.get("xg_consistency", FEATURE_DEFAULTS[f"{side}_xg_consistency"])
+            features[f"{side}_xg_avg_5"] = self._value_or_legacy(stats, "xg_avg_5", f"{side}_xg_avg_5")
+            features[f"{side}_xg_conceded_avg_5"] = self._value_or_legacy(stats, "xg_conceded_avg_5", f"{side}_xg_conceded_avg_5")
+            features[f"{side}_xg_diff_5"] = self._value_or_legacy(stats, "xg_diff_5", f"{side}_xg_diff_5")
+            features[f"{side}_xg_overperformance"] = self._value_or_legacy(stats, "xg_overperformance", f"{side}_xg_overperformance")
+            features[f"{side}_xg_consistency"] = self._value_or_legacy(stats, "xg_consistency", f"{side}_xg_consistency")
             
         features["xg_differential"] = features["home_xg_diff_5"] - features["away_xg_diff_5"]
 
         # Tactical features
         for side, stats in [("home", home_stats), ("away", away_stats)]:
-            features[f"{side}_possession_style"] = stats.get("possession_style", FEATURE_DEFAULTS[f"{side}_possession_style"])
-            features[f"{side}_pressing_intensity"] = stats.get("pressing_intensity", FEATURE_DEFAULTS[f"{side}_pressing_intensity"])
-            features[f"{side}_first_half_goals_rate"] = stats.get("first_half_goals_rate", FEATURE_DEFAULTS[f"{side}_first_half_goals_rate"])
-            features[f"{side}_defensive_solidity"] = stats.get("defensive_solidity", FEATURE_DEFAULTS[f"{side}_defensive_solidity"])
-            features[f"{side}_setpiece_goals_rate"] = stats.get("setpiece_goals_rate", FEATURE_DEFAULTS[f"{side}_setpiece_goals_rate"])
+            features[f"{side}_possession_style"] = self._value_or_legacy(stats, "possession_style", f"{side}_possession_style")
+            features[f"{side}_pressing_intensity"] = self._value_or_legacy(stats, "pressing_intensity", f"{side}_pressing_intensity")
+            features[f"{side}_first_half_goals_rate"] = self._value_or_legacy(stats, "first_half_goals_rate", f"{side}_first_half_goals_rate")
+            features[f"{side}_defensive_solidity"] = self._value_or_legacy(stats, "defensive_solidity", f"{side}_defensive_solidity")
+            features[f"{side}_setpiece_goals_rate"] = self._value_or_legacy(stats, "setpiece_goals_rate", f"{side}_setpiece_goals_rate")
             
             # GD trends
-            features[f"{side}_gd_trend"] = stats.get("gd_trend", FEATURE_DEFAULTS[f"{side}_gd_trend"])
-            features[f"{side}_scoring_consistency"] = stats.get("scoring_consistency", FEATURE_DEFAULTS[f"{side}_scoring_consistency"])
+            features[f"{side}_gd_trend"] = self._value_or_legacy(stats, "gd_trend", f"{side}_gd_trend")
+            features[f"{side}_scoring_consistency"] = self._value_or_legacy(stats, "scoring_consistency", f"{side}_scoring_consistency")
 
         return features
 
@@ -536,21 +703,21 @@ class FeatureTransformer:
         away_form = current_form.get("away", {})
 
         # Momentum features
-        features["home_momentum_lambda"] = home_form.get("momentum_lambda", FEATURE_DEFAULTS["home_momentum_lambda"])
-        features["home_momentum_weighted"] = home_form.get("momentum_weighted", FEATURE_DEFAULTS["home_momentum_weighted"])
-        features["away_momentum_lambda"] = away_form.get("momentum_lambda", FEATURE_DEFAULTS["away_momentum_lambda"])
-        features["away_momentum_weighted"] = away_form.get("momentum_weighted", FEATURE_DEFAULTS["away_momentum_weighted"])
+        features["home_momentum_lambda"] = self._value_or_legacy(home_form, "momentum_lambda", "home_momentum_lambda")
+        features["home_momentum_weighted"] = self._value_or_legacy(home_form, "momentum_weighted", "home_momentum_weighted")
+        features["away_momentum_lambda"] = self._value_or_legacy(away_form, "momentum_lambda", "away_momentum_lambda")
+        features["away_momentum_weighted"] = self._value_or_legacy(away_form, "momentum_weighted", "away_momentum_weighted")
 
         # Fatigue features
-        features["home_days_rest"] = home_form.get("days_rest", FEATURE_DEFAULTS["home_days_rest"])
-        features["home_fatigue_index"] = home_form.get("fatigue_index", FEATURE_DEFAULTS["home_fatigue_index"])
-        features["home_fixtures_14d"] = home_form.get("fixtures_14d", FEATURE_DEFAULTS["home_fixtures_14d"])
-        features["home_fixture_congestion"] = home_form.get("fixture_congestion", FEATURE_DEFAULTS["home_fixture_congestion"])
+        features["home_days_rest"] = self._value_or_legacy(home_form, "days_rest", "home_days_rest")
+        features["home_fatigue_index"] = self._value_or_legacy(home_form, "fatigue_index", "home_fatigue_index")
+        features["home_fixtures_14d"] = self._value_or_legacy(home_form, "fixtures_14d", "home_fixtures_14d")
+        features["home_fixture_congestion"] = self._value_or_legacy(home_form, "fixture_congestion", "home_fixture_congestion")
         
-        features["away_days_rest"] = away_form.get("days_rest", FEATURE_DEFAULTS["away_days_rest"])
-        features["away_fatigue_index"] = away_form.get("fatigue_index", FEATURE_DEFAULTS["away_fatigue_index"])
-        features["away_fixtures_14d"] = away_form.get("fixtures_14d", FEATURE_DEFAULTS["away_fixtures_14d"])
-        features["away_fixture_congestion"] = away_form.get("fixture_congestion", FEATURE_DEFAULTS["away_fixture_congestion"])
+        features["away_days_rest"] = self._value_or_legacy(away_form, "days_rest", "away_days_rest")
+        features["away_fatigue_index"] = self._value_or_legacy(away_form, "fatigue_index", "away_fatigue_index")
+        features["away_fixtures_14d"] = self._value_or_legacy(away_form, "fixtures_14d", "away_fixtures_14d")
+        features["away_fixture_congestion"] = self._value_or_legacy(away_form, "fixture_congestion", "away_fixture_congestion")
 
         return features
 
@@ -559,18 +726,18 @@ class FeatureTransformer:
         
         # Weather features
         weather = schedule.get("weather", {})
-        features["temperature"] = weather.get("temperature", FEATURE_DEFAULTS["temperature"])
-        features["precipitation"] = weather.get("precipitation", FEATURE_DEFAULTS["precipitation"])
-        features["wind_speed"] = weather.get("wind_speed", FEATURE_DEFAULTS["wind_speed"])
-        features["weather_impact_score"] = weather.get("impact_score", FEATURE_DEFAULTS["weather_impact_score"])
+        features["temperature"] = self._value_or_legacy(weather, "temperature", "temperature")
+        features["precipitation"] = self._value_or_legacy(weather, "precipitation", "precipitation")
+        features["wind_speed"] = self._value_or_legacy(weather, "wind_speed", "wind_speed")
+        features["weather_impact_score"] = self._value_or_legacy(weather, "impact_score", "weather_impact_score")
         
         # Home advantage features
-        features["home_advantage_win_rate"] = schedule.get("home_advantage_win_rate", FEATURE_DEFAULTS["home_advantage_win_rate"])
-        features["home_goals_advantage"] = schedule.get("home_goals_advantage", FEATURE_DEFAULTS["home_goals_advantage"])
-        features["away_win_rate_away"] = schedule.get("away_win_rate_away", FEATURE_DEFAULTS["away_win_rate_away"])
-        features["home_crowd_boost"] = schedule.get("home_crowd_boost", FEATURE_DEFAULTS["home_crowd_boost"])
-        features["home_advantage_coefficient"] = schedule.get("home_advantage_coefficient", FEATURE_DEFAULTS["home_advantage_coefficient"])
-        features["referee_home_bias"] = schedule.get("referee_home_bias", FEATURE_DEFAULTS["referee_home_bias"])
+        features["home_advantage_win_rate"] = self._value_or_legacy(schedule, "home_advantage_win_rate", "home_advantage_win_rate")
+        features["home_goals_advantage"] = self._value_or_legacy(schedule, "home_goals_advantage", "home_goals_advantage")
+        features["away_win_rate_away"] = self._value_or_legacy(schedule, "away_win_rate_away", "away_win_rate_away")
+        features["home_crowd_boost"] = self._value_or_legacy(schedule, "home_crowd_boost", "home_crowd_boost")
+        features["home_advantage_coefficient"] = self._value_or_legacy(schedule, "home_advantage_coefficient", "home_advantage_coefficient")
+        features["referee_home_bias"] = self._value_or_legacy(schedule, "referee_home_bias", "referee_home_bias")
         
         return features
 
@@ -694,6 +861,13 @@ class FeatureTransformer:
     def _handle_missing_values(self, features: pd.DataFrame) -> pd.DataFrame:
         if features.empty:
             return features
+        if self._fail_closed_enabled() and features.isnull().any().any():
+            missing = [str(col) for col in features.columns if features[col].isnull().any()]
+            raise DataUnavailableError(
+                "Required feature values unavailable: " + ", ".join(missing),
+                provider="internal",
+                evidence_type="feature_values",
+            )
         # Fill NaN values with column means, but if mean is NaN, use 0
         for col in features.columns:
             if features[col].isnull().any():
@@ -729,17 +903,30 @@ class FeatureTransformer:
         return features
 
     def _validate_features(self, features: pd.DataFrame) -> pd.DataFrame:
-        ordered = features.reindex(columns=self.expected_columns, fill_value=0.0).copy()
+        fill_value = 0.0 if not self._fail_closed_enabled() else float("nan")
+        ordered = features.reindex(columns=self.expected_columns, fill_value=fill_value).copy()
 
         if len(ordered) != 1:
             logger.warning("Expected a single feature row, got %s rows", len(ordered))
             if len(ordered) > 0:
                 ordered = ordered.iloc[[0]].copy()
             else:
+                if self._fail_closed_enabled():
+                    raise DataUnavailableError(
+                        "No feature row produced for production inference",
+                        provider="internal",
+                        evidence_type="feature_row",
+                    )
                 ordered = pd.DataFrame([{c: 0.0 for c in self.expected_columns}])
 
         if ordered.isnull().any().any():
-            logger.warning("Feature validation found nulls, replacing with 0.0")
+            if self._fail_closed_enabled():
+                missing = [str(col) for col in ordered.columns if ordered[col].isnull().any()]
+                raise DataUnavailableError(
+                    "Required canonical features unavailable: " + ", ".join(missing),
+                    provider="internal",
+                    evidence_type="canonical_features",
+                )
             ordered = ordered.fillna(0.0)
 
         return pd.DataFrame(ordered)
@@ -747,5 +934,11 @@ class FeatureTransformer:
     def _ensure_minimum_row(self, features: pd.DataFrame) -> pd.DataFrame:
         if not features.empty:
             return features
+        if self._fail_closed_enabled():
+            raise DataUnavailableError(
+                "No engineered features available for production inference",
+                provider="internal",
+                evidence_type="feature_row",
+            )
         defaults = {column: 0.0 for column in self.expected_columns}
         return pd.DataFrame([defaults])

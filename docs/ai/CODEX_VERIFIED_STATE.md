@@ -1,6 +1,6 @@
 # Codex Verified Repository State
 
-Last reviewed: 2026-07-04
+Last reviewed: 2026-07-05
 
 This is a dated navigation aid, not a substitute for inspecting current code,
 tests, Git history, and runtime configuration. Update it only with fresh evidence.
@@ -43,34 +43,54 @@ tests, Git history, and runtime configuration. Update it only with fresh evidenc
   `make verify`, Docker builds, Alembic upgrade/check, frontend test/build, and
   Playwright smoke gates pass in the target release environment.
 
-## Fresh local evidence from 2026-07-04
+## Fresh local evidence from 2026-07-05
 
-- Provider/league/zero-fabrication contracts:
-  `10 passed` for `tests/test_provider_cli_contract.py`,
-  `tests/test_league_policy_contract.py`, and
-  `tests/test_zero_fabrication_contract.py`.
+- Transformer zero-fabrication hardening:
+  `backend/src/data/transformers.py` now defaults to fail-closed production
+  behavior, validates required feature evidence before engineering features, and
+  exposes `allow_legacy_defaults=True` only for explicit training/backcompat
+  callers. Missing production evidence raises `DataUnavailableError`.
+- Transformer/static contracts:
+  `7 passed` for `tests/test_zero_fabrication_contract.py` and
+  `tests/unit/test_feature_transformer.py`.
 - Betting engines:
   `82 passed` for `tests/test_betting_intelligence_engine.py` and
   `tests/test_core_engine.py`.
 - Frontend:
-  `pnpm --filter @sabiscore/web typecheck` passed.
+  `pnpm --filter @sabiscore/web typecheck` passed;
+  `pnpm --filter @sabiscore/web lint` passed;
+  `pnpm --filter @sabiscore/web test` passed outside the sandbox
+  (`2 files`, `11 tests`) after sandboxed esbuild spawn failed with `EPERM`;
+  `pnpm --filter @sabiscore/web build` passed outside the sandbox after the
+  sandboxed Next worker spawn failed with `EPERM`.
 - OpenAPI:
-  `python scripts/verify_openapi.py` passed with 78 paths.
+  `PYTHONPATH=. python scripts/verify_openapi.py` passed with 78 paths.
 - Static scans:
   zero hits for `full_kelly_fraction`, web Full-Kelly tokens, and
-  `NEXT_PUBLIC_KELLY_FRACTION`; zero hits for `FEATURE_DEFAULTS[` only in the
-  current `api/services/providers` release-scan path.
-- Secret scan:
-  `gitleaks detect --no-git --source . --redact --exit-code 1` passed after
-  `.gitleaks.toml` excluded ignored local env files, backend artifacts, and local
-  `.worktrees/` from source scans.
-- Docker/frontend release blockers:
-  Vitest and Next production build hit Windows `spawn EPERM`; Docker image build
-  hit a local Buildx lock-file permission error. These are not certified green.
-- Zero-fabrication blocker:
-  `backend/src/data/transformers.py` still contains legacy `FEATURE_DEFAULTS[...]`
-  fallback usage. It must be fail-closed or proven outside production inference
-  before production readiness can be certified.
+  `NEXT_PUBLIC_KELLY_FRACTION`; zero hits for `FEATURE_DEFAULTS[` in
+  production API/service/provider paths and `backend/src/data/transformers.py`.
+- Docker:
+  `docker compose -f docker-compose.prod.yml config --quiet` passed. Docker image
+  builds were retried outside the sandbox; Buildx lock access was resolved, but
+  backend and web image builds remain blocked by Docker daemon DNS failures when
+  fetching Debian/Alpine packages.
+- Alembic:
+  `alembic upgrade head` and `alembic check` are blocked in this environment by
+  an invalid/unavailable PostgreSQL URL. SQLite fallback was not used for the
+  production migration gate.
+- Playwright:
+  Full `pnpm exec playwright test` ran outside the sandbox and produced
+  `16 passed, 6 failed`; failures were backend-dependent checks because local
+  backend health was `degraded` due host memory pressure. Targeted
+  `pnpm exec playwright test tests/e2e/intelligence.spec.ts` passed 4/4
+  (desktop + mobile).
+- Branch/PR state:
+  `master` equals `origin/master` at
+  `1453b785f28d81959c7d9db99efa3b9f0edd8a68`. PR #4
+  (`codex/final-production-certification` -> `master`) is open, unmerged, and
+  not mergeable. Local bundle backups for all non-master remote branches are in
+  `artifacts/branch-backups/20260705-000338/`. Do not delete non-master branches
+  while PR #4 remains open and release gates are blocked.
 
 ## Verification rule
 

@@ -219,3 +219,4 @@ AGENTS.md
 ssl/*.pem
 ssl/*.key
 ssl/*.crt
+.env*

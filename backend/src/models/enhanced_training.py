@@ -374,7 +374,7 @@ class EnhancedModelTrainer:
 
     def __init__(self, time_budget_s: int = 7200):
         self.time_budget_s = time_budget_s
-        self.transformer = FeatureTransformer()
+        self.transformer = FeatureTransformer(allow_legacy_defaults=True)
         self.models_path = settings.models_path
         self.data_path = settings.data_path
         self.models_path.mkdir(parents=True, exist_ok=True)

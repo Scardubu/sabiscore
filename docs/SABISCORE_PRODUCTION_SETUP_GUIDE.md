@@ -1,4 +1,4 @@
-# SabiScore Production Setup Guide
+﻿# SabiScore Production Setup Guide
 
 Last updated: 2026-07-04
 
@@ -167,7 +167,7 @@ Provider output is redacted and returned in a standard envelope with trust tier,
 
 Provider health distinguishes configuration from verification. With live provider probes disabled, enabled providers return `CONFIGURED_UNVERIFIED`, not `VERIFIED`. A provider reaches `VERIFIED` only after a provider-specific live probe or successful live data operation validates the upstream path.
 
-The provider registry and its shared `httpx.AsyncClient` are created once in the FastAPI lifespan (`app.state.provider_registry`, `app.state.http_client`) and injected into every request via `Depends(get_provider_registry)` — never instantiated per request. CLI tools and tests may still call `build_provider_registry()` directly without a client; providers fall back to an ad-hoc per-call client in that case.
+The provider registry and its shared `httpx.AsyncClient` are created once in the FastAPI lifespan (`app.state.provider_registry`, `app.state.http_client`) and injected into every request via `Depends(get_provider_registry)` â€” never instantiated per request. CLI tools and tests may still call `build_provider_registry()` directly without a client; providers fall back to an ad-hoc per-call client in that case.
 
 ## Intelligence Flow
 
@@ -199,7 +199,7 @@ Market rules:
 
 ## Web
 
-`apps/web` must not call provider hosts directly and must not import TensorFlow.js for production inference/training. Next.js server routes proxy the backend using `SABISCORE_BACKEND_URL`. The browser-side TensorFlow.js modules (`lib/ml/`) and their unreachable demo components have been removed from the tree entirely — `/dev/train-tfjs` is a static disabled-state page with no client-side model code behind it.
+`apps/web` must not call provider hosts directly and must not import TensorFlow.js for production inference/training. Next.js server routes proxy the backend using `SABISCORE_BACKEND_URL`. The browser-side TensorFlow.js modules (`lib/ml/`) and their unreachable demo components have been removed from the tree entirely â€” `/dev/train-tfjs` is a static disabled-state page with no client-side model code behind it.
 
 The `/intelligence` UI includes competition selection, team autocomplete, date filtering, fixture cards, readiness rail, odds auto-fill candidates, manual fallback, decision card, model-vs-market comparison, evidence passport, price window, source comparison drawer, and outage states.
 
@@ -240,34 +240,38 @@ Additional deployment gates:
 - Docker Compose config/build validation;
 - Playwright desktop/mobile `/intelligence` smoke where browser tooling is available.
 
-Latest local Phase 1-2 evidence on 2026-07-04:
-
+Latest local Phase 1-2 evidence on 2026-07-05:
 - `python -m src.cli providers doctor` and `providers status` passed in offline
   mode with the five-state public contract and no credential values printed.
-- `pytest tests/test_provider_cli_contract.py tests/test_league_policy_contract.py tests/test_zero_fabrication_contract.py -q --no-cov` passed.
-- `pytest tests/test_betting_intelligence_engine.py tests/test_core_engine.py -q --no-cov` passed.
+- `..\.venv\Scripts\python.exe -m pytest tests/test_zero_fabrication_contract.py tests/unit/test_feature_transformer.py -q --no-cov`
+  passed (`7 passed`). `FeatureTransformer` now fails closed by default in
+  production inference and raises `DataUnavailableError` for missing required
+  feature evidence; legacy defaults require explicit `allow_legacy_defaults=True`
+  in training/backcompat callers.
+- `..\.venv\Scripts\python.exe -m pytest tests/test_betting_intelligence_engine.py tests/test_core_engine.py -q --no-cov`
+  passed (`82 passed`).
 - `pnpm --filter @sabiscore/web typecheck` passed.
-- `python scripts/verify_openapi.py` passed with 78 paths.
-- `gitleaks detect --no-git --source . --redact --exit-code 1` passed after
-  excluding ignored local env files, backend artifacts, and local worktrees from
-  source scans.
-- `pnpm --filter @sabiscore/web test` passes (11/11) — the prior Windows
-  `spawn EPERM` blocker no longer reproduces.
-- `pnpm --filter @sabiscore/web build` passes, but **only with
-  `NODE_ENV=production`**: a shell that exports `NODE_ENV=development` globally
-  makes `next build` fail during `/404` prerender with a misleading
-  `<Html> should not be imported outside of pages/_document` error. The repo is
-  fine; unset NODE_ENV or force `NODE_ENV=production` for local builds. (CI
-  runners are unaffected — they do not export NODE_ENV.)
-- `pnpm exec playwright test tests/e2e/intelligence.spec.ts` passes 4/4
-  (chromium + mobile-chrome) against the production build via the config's
-  `webServer` block.
-- `docker compose config` and `docker compose -f docker-compose.prod.yml config`
-  both pass; Docker image build remains blocked locally (daemon not running).
-- `backend/src/data/transformers.py` still contains legacy `FEATURE_DEFAULTS[...]`
-  fallback usage in feature-engineering code. Do not mark zero-fabrication fully
-  certified until that path raises `DataUnavailableError` or is proven outside
-  production inference.
+- `pnpm --filter @sabiscore/web lint` passed.
+- `pnpm --filter @sabiscore/web test` passed outside the sandbox (`11 passed`)
+  after the sandboxed run failed with esbuild `spawn EPERM`.
+- `pnpm --filter @sabiscore/web build` passed outside the sandbox after the
+  sandboxed run failed with Next worker `spawn EPERM`.
+- `PYTHONPATH=. python scripts/verify_openapi.py` passed with 78 paths.
+- `docker compose -f docker-compose.prod.yml config --quiet` passed. Docker
+  image builds were retried outside the sandbox; Buildx lock access was resolved,
+  but backend/web image builds are still blocked by Docker daemon DNS failures
+  while fetching Debian/Alpine packages.
+- `pnpm exec playwright test` ran outside the sandbox with `16 passed, 6 failed`;
+  failures were backend-dependent tests because the local backend health endpoint
+  returned `degraded` under host memory pressure. The release-relevant targeted
+  `/intelligence` smoke passed: `pnpm exec playwright test tests/e2e/intelligence.spec.ts`
+  (`4 passed`, chromium + mobile-chrome).
+- `alembic upgrade head` and `alembic check` are still blocked until a valid
+  PostgreSQL `DATABASE_URL` is available in the release environment.
+- Branch cleanup is blocked: PR #4 from `codex/final-production-certification`
+  to `master` is open, unmerged, and not mergeable. Bundle backups for all
+  non-master remote branches were created under
+  `artifacts/branch-backups/20260705-000338/`.
 
 Do not merge a certification branch directly if it is stale against `master` or
 contains unrelated broad churn. Port verified fixes onto current `master`, then
@@ -280,17 +284,17 @@ run the full release matrix before tagging the release.
 3. Roll back database schema only with reviewed Alembic downgrade or forward-fix migration.
 4. Re-run `python -m src.cli providers doctor` and `make verify` before restoring traffic.
 
-## vΩ.2 Changes (2026-07-04)
+## vÎ©.2 Changes (2026-07-04)
 
-- CI workflows (`ci.yml`, `secret-scan.yml`) now trigger on `master` branch — previously only fired on `main`/`develop`.
+- CI workflows (`ci.yml`, `secret-scan.yml`) now trigger on `master` branch â€” previously only fired on `main`/`develop`.
 - `nginx.conf` created at repo root; `docker-compose.prod.yml` nginx mount now valid. `./ssl/` certs still required for TLS.
 - All three Docker healthcheck paths aligned to `/api/v1/health/live`.
 - `PREMIUM_VISUAL_HIERARCHY` flag enabled by default; premium homepage now shown to all users.
 - Test deps (`pytest`, `pytest-asyncio`, `respx`) moved from `requirements.txt` to `requirements-dev.txt`; Render deployments no longer install test packages.
 - Dev postgres aligned to `postgres:16-alpine` (matches prod compose).
 - `datetime.utcnow()` deprecated calls replaced with `datetime.now(timezone.utc)` in `model_registry.py`.
-- `render.yaml` now deploys from `master` (was `main` — autoDeploy never fired) and no longer sets the dead `KELLY_FRACTION=0.125` env var (read by nothing; engines hardcode Quarter-Kelly 0.25).
-- `backend/src/utils/currency.py` deleted — dead module (zero importers) carrying a stale ⅛-Kelly constant that contradicted the certified Quarter-Kelly contract.
+- `render.yaml` now deploys from `master` (was `main` â€” autoDeploy never fired) and no longer sets the dead `KELLY_FRACTION=0.125` env var (read by nothing; engines hardcode Quarter-Kelly 0.25).
+- `backend/src/utils/currency.py` deleted â€” dead module (zero importers) carrying a stale â…›-Kelly constant that contradicted the certified Quarter-Kelly contract.
 - Sportmonks `probe()` now calls `/leagues` (cheapest call valid on every plan). Live-verified: bare `/sidelined` 404s in the subscribed API shape, so the old probe could never verify a valid token. All five providers report `configured` via `providers status`.
 - `docs/Public-ESPN-API-main/` (vendored read-only reference repo) is now gitignored.
 
@@ -302,5 +306,5 @@ run the full release matrix before tagging the release.
 - Full production readiness remains blocked until `make verify`, Docker image
   builds, Alembic upgrade/check, frontend tests/build, and Playwright smoke tests
   are run successfully in an environment with those dependencies.
-- Feature transformation still needs a dedicated zero-fabrication pass for legacy
-  `FEATURE_DEFAULTS[...]` fallback usage in `backend/src/data/transformers.py`.
+- Do not delete non-master branches until open PRs are merged or closed, branch
+  backups are retained, and the full release gate is green.

@@ -19,7 +19,7 @@ class ModelTrainer:
     """Handles model training pipeline"""
 
     def __init__(self):
-        self.transformer = FeatureTransformer()
+        self.transformer = FeatureTransformer(allow_legacy_defaults=True)
         self.models_path = settings.models_path
         self.data_path = settings.data_path
         self.models_path.mkdir(parents=True, exist_ok=True)

@@ -40,7 +40,14 @@ from .explainer import ModelExplainer
 from .edge_detector import EdgeDetector
 from .live_calibrator import PlattCalibrator
 from .orchestrator import ModelOrchestrator
-from .training import ModelTrainer
+
+
+def __getattr__(name: str):
+    if name == "ModelTrainer":
+        from .training import ModelTrainer
+
+        return ModelTrainer
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
     # DB Models

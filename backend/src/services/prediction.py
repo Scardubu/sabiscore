@@ -308,6 +308,7 @@ class PredictionService:
 
         # Generate features using the transformer.
         # This ensures we align to the canonical 58-feature production schema.
+        self.transformer.expected_columns = columns
         feature_frame = self.transformer.engineer_features(match_data)
         
         # Verify columns match
@@ -649,13 +650,13 @@ class PredictionService:
                 if result:
                     return result
             except Exception as e:
-                logger.debug("ModelExplainer failed, falling back to synthetic: %s", e)
+                logger.debug("ModelExplainer failed, falling back to deterministic feature ranking: %s", e)
         ranked = sorted(feature_vector.items(), key=lambda item: abs(item[1]), reverse=True)[:5]
         return {
             "top_features": [
                 {"name": name, "impact": float(value)} for name, value in ranked
             ],
-            "summary": "Synthetic feature importance derived from hashed feature vector",
+            "summary": "Deterministic feature ranking derived from the validated feature vector",
         }
 
     def _build_metadata(
@@ -747,4 +748,3 @@ class PredictionService:
         if not odds or odds <= 1.0:
             return 0.33
         return float(1.0 / odds)
-
