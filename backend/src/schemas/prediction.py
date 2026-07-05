@@ -173,17 +173,16 @@ class CalibrationMetrics(BaseModel):
     calibration_window_hours: int = 24
     mean_squared_error: Optional[float] = None
     log_loss: Optional[float] = None
-    
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "platt_a": 1.042,
-                "platt_b": -0.018,
-                "last_calibration": "2025-11-11T14:30:00Z",
-                "samples_used": 127,
-                "mean_squared_error": 0.0184
-            }
+
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "platt_a": 1.042,
+            "platt_b": -0.018,
+            "last_calibration": "2025-11-11T14:30:00Z",
+            "samples_used": 127,
+            "mean_squared_error": 0.0184
         }
+    })
 
 
 class EdgeDetectionRequest(BaseModel):
@@ -239,28 +238,27 @@ class PredictionHistoryResponse(BaseModel):
     profitable_bets: int
     league_breakdown: Dict[str, Dict[str, float]]
     date_range: Dict[str, datetime]
-    
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "total_predictions": 42000,
-                "accuracy": 0.737,
-                "high_confidence_accuracy": 0.849,
-                "avg_brier_score": 0.184,
-                "avg_clv_ngn": 60,
-                "roi_percent": 18.4,
-                "value_bets_count": 8472,
-                "profitable_bets": 6219,
-                "league_breakdown": {
-                    "epl": {"accuracy": 0.762, "roi": 19.2},
-                    "bundesliga": {"accuracy": 0.718, "roi": 17.1}
-                },
-                "date_range": {
-                    "start": "2024-08-01T00:00:00Z",
-                    "end": "2025-11-11T00:00:00Z"
-                }
+
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "total_predictions": 42000,
+            "accuracy": 0.737,
+            "high_confidence_accuracy": 0.849,
+            "avg_brier_score": 0.184,
+            "avg_clv_ngn": 60,
+            "roi_percent": 18.4,
+            "value_bets_count": 8472,
+            "profitable_bets": 6219,
+            "league_breakdown": {
+                "epl": {"accuracy": 0.762, "roi": 19.2},
+                "bundesliga": {"accuracy": 0.718, "roi": 17.1}
+            },
+            "date_range": {
+                "start": "2024-08-01T00:00:00Z",
+                "end": "2025-11-11T00:00:00Z"
             }
         }
+    })
 
 
 class ModelPerformanceMetrics(BaseModel):
@@ -274,15 +272,14 @@ class ModelPerformanceMetrics(BaseModel):
     uptime_percent: float = Field(..., ge=0, le=100)
     errors_last_hour: int
     
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "predictions_today": 347,
-                "avg_processing_time_ms": 142,
-                "cache_hit_rate": 0.87,
-                "value_bets_identified": 73,
-                "avg_edge_ngn": 172,
-                "uptime_percent": 99.94,
-                "errors_last_hour": 0
-            }
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "predictions_today": 347,
+            "avg_processing_time_ms": 142,
+            "cache_hit_rate": 0.87,
+            "value_bets_identified": 73,
+            "avg_edge_ngn": 172,
+            "uptime_percent": 99.94,
+            "errors_last_hour": 0
         }
+    })

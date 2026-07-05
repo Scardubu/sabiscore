@@ -46,9 +46,15 @@ def __getattr__(name: str):
     if name == "ModelTrainer":
         from .training import ModelTrainer
         return ModelTrainer
-    if name in ("EnhancedStackingEnsemble", "EnhancedModelTrainer", "CalibratedEnsemble"):
-        from .enhanced_training import EnhancedStackingEnsemble, EnhancedModelTrainer, CalibratedEnsemble
-        return locals()[name]
+    if name == "EnhancedStackingEnsemble":
+        from .enhanced_training import EnhancedStackingEnsemble
+        return EnhancedStackingEnsemble
+    if name == "EnhancedModelTrainer":
+        from .enhanced_training import EnhancedModelTrainer
+        return EnhancedModelTrainer
+    if name == "CalibratedEnsemble":
+        from .enhanced_training import CalibratedEnsemble
+        return CalibratedEnsemble
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [

@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class TeamBase(BaseModel):
@@ -25,8 +25,7 @@ class TeamResponse(TeamBase):
 	created_at: Optional[datetime] = None
 	updated_at: Optional[datetime] = None
 
-	class Config:
-		from_attributes = True
+	model_config = ConfigDict(from_attributes=True)
 
 
 __all__ = ["TeamResponse"]
