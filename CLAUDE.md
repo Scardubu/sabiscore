@@ -503,6 +503,10 @@ overrides all prior status docs — verify with a grep/read before acting.
 | Vercel dead env vars removed (C-24) | `vercel.json` (root): removed `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` — neither is read anywhere in `apps/web/src/`. `SABISCORE_BACKEND_URL` must be set in the Vercel project dashboard for server-side proxy routes to reach the Render backend. (2026-07-04) |
 | Vercel env matrix complete | `vercel.json` now includes all safe non-secret env vars: `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_ENABLE_PERF_MONITORING`, `NODE_ENV=production` in build.env. Secret vars documented below — set only in Vercel dashboard. (2026-07-04) |
 | Docker build context fix | `Makefile` verify step now uses `backend/` as build context for backend image (was `.` which caused `requirements.txt` not-found). `apps/web/Dockerfile` `# syntax` directive removed (caused DNS failure during offline/Docker-Desktop builds). Backend Dockerfile `FROM/AS` casing normalised. (2026-07-04) |
+| Pydantic v2 ConfigDict migration | All 7 production schema classes (`league`, `match`, `team`, `user`, `prediction` ×3) migrated from deprecated `class Config:` to `model_config = ConfigDict(...)`. No `class Config:` pattern remains in `backend/src/schemas/`. (2026-07-05) |
+| Ruff zero-issue backend | `python -m ruff check src/` reports zero issues. All bare `except:` changed to `except Exception:` across `fbref.py`, `orchestrator.py`, `background.py`, `feature_engineering.py`. E402 intentional guard imports annotated with `# noqa: E402`. E701/E741 style issues resolved. (2026-07-05) |
+| Unused import cleanup | Removed unused `from typing import List` in `endpoints/__init__.py`, unused `LegacyPredictorAdapter` import in `ultra_prediction_service.py`, and restructured `models/__init__.__getattr__` to eliminate false ruff F401 via explicit per-name returns. (2026-07-05) |
+| Web lint + typecheck green | `pnpm --filter @sabiscore/web lint` (0 errors, 0 warnings) and `pnpm --filter @sabiscore/web typecheck` both pass clean. (2026-07-05) |
 
 ## Confirmed incomplete / next gates
 
