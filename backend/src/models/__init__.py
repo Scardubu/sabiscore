@@ -45,8 +45,10 @@ from .orchestrator import ModelOrchestrator
 def __getattr__(name: str):
     if name == "ModelTrainer":
         from .training import ModelTrainer
-
         return ModelTrainer
+    if name in ("EnhancedStackingEnsemble", "EnhancedModelTrainer", "CalibratedEnsemble"):
+        from .enhanced_training import EnhancedStackingEnsemble, EnhancedModelTrainer, CalibratedEnsemble
+        return locals()[name]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
@@ -82,4 +84,7 @@ __all__ = [
     "PlattCalibrator",
     "ModelOrchestrator",
     "ModelTrainer",
+    "EnhancedStackingEnsemble",
+    "EnhancedModelTrainer",
+    "CalibratedEnsemble",
 ]

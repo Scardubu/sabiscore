@@ -110,7 +110,7 @@ class CalibratedEnsemble:
     Wraps a trained classifier with isotonic probability calibration.
     """
 
-    def __init__(self, base_estimator: Any, method: str = "isotonic", cv: int = 5):
+    def __init__(self, base_estimator: Any, method: str = "isotonic", cv: Any = "prefit"):
         self.base_estimator = base_estimator
         self.method = method
         self.cv = cv
@@ -271,7 +271,7 @@ class EnhancedStackingEnsemble:
         if self.calibrate:
             logger.info("Applying isotonic calibration...")
             self.calibrator_ = CalibratedEnsemble(
-                base_estimator=self.stacking_model_, method="isotonic", cv=5
+                base_estimator=self.stacking_model_, method="isotonic", cv="prefit"
             )
             self.calibrator_.fit(X, y_arr)
 
