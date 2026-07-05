@@ -193,3 +193,44 @@ def test_engineer_features_legacy_defaults_require_explicit_opt_in():
 
     assert not frame.empty
     assert set(CANONICAL_FEATURES_58).issubset(set(frame.columns))
+
+
+# ---------------------------------------------------------------------------
+# feature_completeness intermediate-value tests
+# These lock the 4-source counting logic (current_form, team_stats,
+# historical_stats, head_to_head) against accidental breakage.
+# allow_legacy_defaults=True skips the require-all validation so partial
+# data reaches the completeness counter.
+# ---------------------------------------------------------------------------
+
+def _form_stub() -> dict:
+    return {"home": {"last_5_games": []}, "away": {"last_5_games": []}}
+
+
+def _history_stub() -> pd.DataFrame:
+    return pd.DataFrame([{"home_score": 1, "away_score": 0}])
+
+
+def test_feature_completeness_one_source():
+    transformer = FeatureTransformer(allow_legacy_defaults=True)
+    transformer.engineer_features({"current_form": _form_stub()})
+    assert transformer.feature_completeness == pytest.approx(0.25)
+
+
+def test_feature_completeness_two_sources():
+    transformer = FeatureTransformer(allow_legacy_defaults=True)
+    transformer.engineer_features({
+        "current_form": _form_stub(),
+        "team_stats": {"home": {}, "away": {}},
+    })
+    assert transformer.feature_completeness == pytest.approx(0.50)
+
+
+def test_feature_completeness_three_sources():
+    transformer = FeatureTransformer(allow_legacy_defaults=True)
+    transformer.engineer_features({
+        "current_form": _form_stub(),
+        "team_stats": {"home": {}, "away": {}},
+        "historical_stats": _history_stub(),
+    })
+    assert transformer.feature_completeness == pytest.approx(0.75)

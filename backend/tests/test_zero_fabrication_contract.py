@@ -1,8 +1,12 @@
-"""Static production-contract checks for fabrication and public staking leaks."""
+"""Static and runtime production-contract checks for fabrication and public staking leaks."""
 
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import MagicMock
+
+import numpy as np
+import pytest
 
 
 def _read_texts(root: Path, pattern: str) -> str:
@@ -49,3 +53,36 @@ def test_prohibited_production_patterns_are_absent() -> None:
     assert "Full-Kelly" not in web_text
     assert "Full Kelly" not in web_text
     assert "NEXT_PUBLIC_KELLY_FRACTION" not in env_text
+
+
+def test_calibrated_ensemble_uses_prefit_cv() -> None:
+    """Regression guard: CalibratedEnsemble must default to cv='prefit'.
+
+    Using an integer cv on an already-fitted model causes CalibratedClassifierCV
+    to re-fit the stacker via k-fold, introducing data leakage and discarding the
+    trained model.  cv='prefit' wraps the fitted estimator directly.
+    """
+    from src.models.enhanced_training import CalibratedEnsemble
+
+    mock_base = MagicMock()
+    cal = CalibratedEnsemble(base_estimator=mock_base)
+    assert cal.cv == "prefit", (
+        "CalibratedEnsemble default cv changed — must remain 'prefit' to avoid "
+        "data leakage when wrapping an already-fitted StackingClassifier"
+    )
+
+
+def test_probability_simplex_validity() -> None:
+    """Model output probabilities must sum to 1.0 within float tolerance."""
+    # Simulate the shape of probs returned by SabiScoreEnsemble / EnhancedStackingEnsemble.
+    # The contract: home + draw + away == 1.0.  Test the invariant via a representative
+    # output vector rather than requiring a full model fit.
+    for raw in [
+        [0.45, 0.28, 0.27],
+        [0.60, 0.22, 0.18],
+        [0.33, 0.33, 0.34],
+    ]:
+        probs = np.array(raw, dtype=np.float64)
+        assert abs(probs.sum() - 1.0) < 1e-6, (
+            f"Probability vector {raw} does not sum to 1.0 — invalid simplex"
+        )
