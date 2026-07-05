@@ -95,6 +95,7 @@ data/processed/
 backend/data/processed/
 backend/mlruns/
 backend/artifacts/
+artifacts/
 
 # Model checkpoints and temporary training files
 checkpoints/
