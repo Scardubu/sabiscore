@@ -100,7 +100,13 @@ jobs:
         shell: bash
         run: |
           ! grep -rn "FEATURE_DEFAULTS\[" src/services src/api --include="*.py"
+          ! grep -rn "FEATURE_DEFAULTS\[" src/data/transformers.py
+          ! grep -rn "hardcoded_odds" src/services src/api src/providers --include="*.py"
           ! grep -rn "Base\.metadata\.create_all" alembic --include="*.py"
+          ! grep -rn "full_kelly_fraction" src --include="*.py"
+          cd ..
+          ! grep -rn "full_kelly\|Full-Kelly\|Full Kelly" apps/web/src --include="*.ts" --include="*.tsx"
+          ! grep -rn "NEXT_PUBLIC_KELLY_FRACTION" vercel.json .env.example backend/.env.example 2>/dev/null || true
 
       - name: Backend tests
         working-directory: backend
@@ -142,3 +148,40 @@ jobs:
 
       - name: Build web
         run: pnpm --filter @sabiscore/web build
+        env:
+          NODE_ENV: production
+
+  playwright-smoke:
+    name: Playwright Smoke (backend-independent)
+    runs-on: ubuntu-latest
+    needs: web-quality
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      SABISCORE_BACKEND_URL: http://localhost:8000
+      NODE_ENV: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build web
+        run: pnpm --filter @sabiscore/web build
+
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run smoke tests
+        run: pnpm exec playwright test tests/e2e/intelligence.spec.ts --project=chromium --project=mobile-chrome

@@ -17,7 +17,6 @@ import {
   Zap,
 } from "lucide-react";
 import { BestBetSpotlight } from "@/components/best-bet-spotlight";
-import { Header } from "@/components/header";
 import { MatchSelector } from "@/components/match-selector";
 import { ReadinessRing } from "@/components/readiness-ring";
 import { UpcomingMatchesPanel } from "@/components/upcoming-matches-panel";
@@ -195,7 +194,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      <Header />
       <main className="container mx-auto px-4 py-12">
         <div className="mx-auto max-w-6xl space-y-12">
           {premiumEnabled ? <PremiumHome /> : <LegacyHome />}

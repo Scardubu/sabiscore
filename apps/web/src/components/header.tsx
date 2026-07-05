@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
   { href: "/match", label: "Matches", detail: "Live ML edge" },
-  { href: "/performance", label: "Intelligence", detail: "Edge quality + value bets" },
+  { href: "/intelligence", label: "Intelligence", detail: "Edge quality + value bets" },
   { href: "/monitoring", label: "Monitoring", detail: "Model health" },
   { href: "/docs", label: "Docs", detail: "Playbooks + API" },
 ];
