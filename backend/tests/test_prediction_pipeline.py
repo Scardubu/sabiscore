@@ -9,8 +9,6 @@ Run with: pytest tests/test_prediction_pipeline.py -v --run-integration
 Skip by default in CI: these tests require external resources.
 """
 
-import asyncio
-import json
 import logging
 import os
 
@@ -26,10 +24,13 @@ from src.services.prediction import PredictionService
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Skip all tests in this module unless --run-integration is passed or models exist
+# Opt-in integration tests. These exercise the full prediction path which, post
+# zero-fabrication, requires real provider evidence (form, stats, H2H) — not just
+# trained models on disk. Models existing is insufficient, so gate purely on the
+# explicit opt-in the module docstring documents.
 pytestmark = pytest.mark.skipif(
-    not os.environ.get("RUN_INTEGRATION_TESTS") and not settings.models_path.exists(),
-    reason="Integration tests require trained models. Set RUN_INTEGRATION_TESTS=1 or ensure models exist."
+    not os.environ.get("RUN_INTEGRATION_TESTS"),
+    reason="Integration tests require external resources (real provider evidence, DB, Redis). Set RUN_INTEGRATION_TESTS=1 to run.",
 )
 
 

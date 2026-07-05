@@ -7,14 +7,13 @@ Tests the complete flow from data acquisition to prediction delivery.
 """
 
 import pytest
-import asyncio
-from datetime import datetime
-from unittest.mock import Mock, patch, AsyncMock
+from unittest.mock import Mock, patch
 from httpx import AsyncClient
 
 # Import application components
 from src.api.main import app
-from src.data.aggregator import DataAggregator, EnhancedDataAggregator
+from src.core.exceptions import DataUnavailableError
+from src.data.aggregator import DataAggregator
 from src.services.prediction import PredictionService
 from src.schemas.prediction import MatchPredictionRequest
 
@@ -173,19 +172,19 @@ class TestFeaturesToModelPipeline:
         assert service.transformer is not None
 
     @pytest.mark.asyncio
-    async def test_feature_transformation(self, sample_match_request):
-        """Test feature transformation for model input."""
+    async def test_feature_transformation_fails_closed_without_evidence(self):
+        """Zero-fabrication: engineering features from odds alone (no form, team
+        stats, or H2H evidence) must fail closed rather than fabricate a feature
+        vector. Verifies the transformer's fail-closed default in production."""
         service = PredictionService()
-        
-        # Transformer requires real odds (zero-fabrication contract)
-        features = service.transformer.engineer_features({
-            "home_team": "Arsenal",
-            "away_team": "Chelsea",
-            "league": "EPL",
-            "odds": {"home_win": 2.10, "draw": 3.40, "away_win": 3.60},
-        })
-        
-        assert features is not None
+
+        with pytest.raises(DataUnavailableError):
+            service.transformer.engineer_features({
+                "home_team": "Arsenal",
+                "away_team": "Chelsea",
+                "league": "EPL",
+                "odds": {"home_win": 2.10, "draw": 3.40, "away_win": 3.60},
+            })
 
 
 @pytest.mark.integration
