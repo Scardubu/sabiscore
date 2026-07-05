@@ -284,6 +284,15 @@ run the full release matrix before tagging the release.
 3. Roll back database schema only with reviewed Alembic downgrade or forward-fix migration.
 4. Re-run `python -m src.cli providers doctor` and `make verify` before restoring traffic.
 
+## vΩ.3 Changes (2026-07-05)
+
+- **SECURITY — Upstash Redis credential purged.** A live Upstash token (`known-amoeba-10186.upstash.io`) had been committed as an env default across 10 tracked files (`apps/ws/main.py`, `apps/api/ingestion/redis_client.py`, `start_backend.bat`, and 6 docs). All occurrences removed: code/scripts now default to inert `redis://localhost:6379/0`, docs to a `<UPSTASH_REDIS_TOKEN>` placeholder. **Action required: rotate this token in the Upstash console** — it stays in Git history until a reviewed history rewrite is scheduled.
+- `apps/ws/Dockerfile` gained the `production` build target that `docker-compose.prod.yml` references (previously only `base` existed, so `docker compose build ws` would fail), aligned the exposed/served port to compose `WS_PORT=8001`, and dropped the `# syntax` directive (offline-build footgun). The stale duplicate `apps/ws/Dockerfile.ws` was deleted.
+- `apps/ws/main.py` CORS corrected: `allow_credentials=False` with the open-origin default (browsers reject wildcard-origin + credentials); origins overridable via `WS_ALLOWED_ORIGINS`.
+- Provider circuit breakers confirmed already wired for all five providers — the four non-ESPN adapters inherit breaker protection through `BaseProvider._get_json`; no per-adapter change was needed.
+- `Makefile` zero-fabrication scan output: fixed double-encoded `✗` glyphs (mojibake) in three echo lines.
+- Earlier vΩ.3 pass (commit `1006485`): CI Kelly-fraction scan is now fatal (no `|| true`); `UltraPredictionService` has a zero-fabrication guard; homepage "Live" dot is backed by a real `/api/health` fetch; `performance.py` returns `503 METRICS_UNAVAILABLE` instead of false-zero stats; both engines share the `epistemic ≤ 0.05` HIGH_CONVICTION threshold; `verified_provider_count=None` now maps to 0 → PARTIAL; Eredivisie aligned to SOFT; `docker-compose.prod.yml` secrets are fail-fast required vars.
+
 ## vÎ©.2 Changes (2026-07-04)
 
 - CI workflows (`ci.yml`, `secret-scan.yml`) now trigger on `master` branch â€” previously only fired on `main`/`develop`.

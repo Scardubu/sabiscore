@@ -123,11 +123,11 @@ verify-core: ## Run deterministic SabiScore checks without live providers or Doc
 	  2>/dev/null | grep -v "test_" | grep -v "#" || \
 	  { echo "  ✗ FEATURE_DEFAULTS used in production API/service/provider path — C-02 violation"; exit 1; }
 	@! grep -rn --include="*.py" "full_kelly_fraction" backend/src 2>/dev/null || \
-	  { echo "  âœ— Public Full-Kelly payload exposure is forbidden"; exit 1; }
+	  { echo "  ✗ Public Full-Kelly payload exposure is forbidden"; exit 1; }
 	@! grep -rn -E 'full_kelly|Full-Kelly|Full Kelly' apps/web/src --include='*.ts' --include='*.tsx' 2>/dev/null || \
-	  { echo "  âœ— Public Full-Kelly frontend exposure is forbidden"; exit 1; }
+	  { echo "  ✗ Public Full-Kelly frontend exposure is forbidden"; exit 1; }
 	@! grep -rn 'NEXT_PUBLIC_KELLY_FRACTION' vercel.json .env.example apps/web backend/.env.example 2>/dev/null || \
-	  { echo "  âœ— Kelly fraction must not be exposed as NEXT_PUBLIC_*"; exit 1; }
+	  { echo "  ✗ Kelly fraction must not be exposed as NEXT_PUBLIC_*"; exit 1; }
 	@! grep -rn --include="*.py" "Base\.metadata\.create_all" backend/alembic 2>/dev/null || \
 	  { echo "  ✗ create_all in Alembic chain — C-01 violation"; exit 1; }
 	@echo "  ✓ Zero-fabrication scan passed"

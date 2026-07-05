@@ -1504,7 +1504,7 @@ DB_PASSWORD=your_secure_password_here
 DATABASE_URL=postgresql://sabiscore_user:${DB_PASSWORD}@localhost:5432/sabiscore
 
 # Redis
-REDIS_URL=redis://default:ASfKAAIncDJmZjE2OGZjZDA3OTM0ZTY5YTRiNzZhNjMwMjM1YzZiZnAyMTAxODY@known-amoeba-10186.upstash.io:6379
+REDIS_URL=redis://default:<UPSTASH_REDIS_TOKEN>@<your-endpoint>.upstash.io:6379
 
 # API Keys (Optional)
 HUGGINGFACE_API_KEY=
