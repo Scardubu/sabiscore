@@ -301,9 +301,8 @@ class PremierLeagueModel:
                 implied_prob = 1 / decimal_odd
                 edge_value = fair_prob - implied_prob
                 
-                # EPL volatility discount (reduce Kelly by 12.5%)
                 kelly_fraction = (fair_prob * (decimal_odd - 1) - (1 - fair_prob)) / (decimal_odd - 1)
-                kelly_fraction *= 0.125  # 1/8 Kelly for EPL
+                kelly_fraction = min(kelly_fraction, 0.04)  # policy cap 4%
                 
                 if edge_value > 0.042:  # 4.2% minimum edge
                     edges[outcome] = {

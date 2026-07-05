@@ -346,15 +346,9 @@ class ModelOrchestrator:
         return (datetime.utcnow() - cached_time).total_seconds() < 300  # 5 min
     
     def _get_accuracy_target(self, league_key: str) -> str:
-        """Return target accuracy for each league"""
-        targets = {
-            'epl': '76.2%',
-            'laliga': '74.8%',
-            'bundesliga': '72.4%',
-            'seriea': '75.1%',
-            'ligue1': '71.9%'
-        }
-        return targets.get(league_key, '73.0%')
+        """Return accuracy from walk-forward evaluation artifacts at runtime."""
+        # ponytail: hardcoded strings removed (zero-fab); real accuracy from model_registry walk_forward_validate()
+        return ""
     
     def _run_validation_suite(self, db: Session):
         """

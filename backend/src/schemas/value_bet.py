@@ -20,7 +20,7 @@ class ValueBetResponse(BaseModel):
                 "edge_percent": 9.3,
                 "edge_ngn": 186.0,
                 "kelly_stake_ngn": 53720.0,
-                "kelly_fraction": 0.125,
+                "kelly_fraction": 0.25,
                 "clv_ngn": 0.0,
                 "confidence": 0.847,
                 "expected_roi": 0.089,

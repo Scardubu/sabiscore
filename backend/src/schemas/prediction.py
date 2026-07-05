@@ -192,7 +192,7 @@ class EdgeDetectionRequest(BaseModel):
     market_odds: Dict[str, float]
     bankroll_ngn: float = Field(default=10_000, ge=1000)
     min_edge_threshold: float = Field(default=0.042, ge=0, le=1)
-    kelly_fraction: float = Field(default=0.125, ge=0.01, le=1.0)
+    kelly_fraction: float = Field(default=0.25, ge=0.01, le=1.0)
 
 
 class EdgeDetectionResponse(BaseModel):

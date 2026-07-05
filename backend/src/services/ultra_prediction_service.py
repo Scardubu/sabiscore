@@ -70,7 +70,7 @@ class UltraPredictionService:
         # Edge detection
         self.edge_detector = EdgeDetector(
             min_edge_threshold=0.042,
-            kelly_fraction=0.125,
+            kelly_fraction=0.25,
             max_stake_pct=0.05,
         )
         
@@ -361,7 +361,7 @@ class UltraPredictionService:
             if edge >= 0.042:
                 # Kelly criterion calculation
                 kelly_fraction = (prob * market_odds - 1) / (market_odds - 1)
-                kelly_fraction = min(kelly_fraction * 0.125, 0.05)  # 1/8 Kelly, max 5%
+                kelly_fraction = min(kelly_fraction, 0.04)  # capped at league policy 4%
                 kelly_stake = bankroll * kelly_fraction
                 
                 value_bet = ValueBetResponse(

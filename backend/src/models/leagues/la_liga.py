@@ -2,7 +2,6 @@
 """
 La Liga Model - Optimized for technical play, possession, and home advantage
 Key features: Possession dominance, technical quality, home advantage
-Target: 74.8% accuracy
 """
 
 import numpy as np
@@ -206,7 +205,7 @@ class LaLigaModel:
                 edge_value = fair_prob - implied_prob
                 
                 kelly_fraction = (fair_prob * (decimal_odd - 1) - (1 - fair_prob)) / (decimal_odd - 1)
-                kelly_fraction *= 0.125 
+                kelly_fraction = min(kelly_fraction, 0.04)  # policy cap 4%
                 
                 if edge_value > 0.04:
                     edges[outcome] = {

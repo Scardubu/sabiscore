@@ -23,7 +23,7 @@ class EdgeDetector:
     def __init__(
         self,
         min_edge_threshold: float = 0.042,  # 4.2% minimum edge
-        kelly_fraction: float = 0.125,      # 1/8 Kelly
+        kelly_fraction: float = 0.25,        # Quarter-Kelly
         max_stake_pct: float = 0.05,        # Max 5% of bankroll per bet
         min_odds: float = 1.50,             # Minimum odds to consider
         max_odds: float = 10.0,             # Maximum odds to consider
@@ -32,7 +32,7 @@ class EdgeDetector:
         
         Args:
             min_edge_threshold: Minimum edge to trigger alert (0.042 = 4.2%)
-            kelly_fraction: Fraction of Kelly criterion to use (0.125 = 1/8 Kelly)
+            kelly_fraction: Fraction of Kelly criterion to use (0.25 = Quarter-Kelly)
             max_stake_pct: Maximum stake as % of bankroll
             min_odds: Minimum decimal odds to consider
             max_odds: Maximum decimal odds to consider
@@ -332,7 +332,7 @@ def example_usage():
     """Example usage of EdgeDetector"""
     detector = EdgeDetector(
         min_edge_threshold=0.042,
-        kelly_fraction=0.125,
+        kelly_fraction=0.25,
         max_stake_pct=0.05,
     )
     

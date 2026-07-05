@@ -39,7 +39,7 @@ class UltraPredictionService:
         self._predictor: Optional[UltraPredictor] = None
         self._default_bankroll = 10_000.0
         self._min_edge_threshold = 0.042  # 4.2% minimum edge
-        self._kelly_fraction = 0.125  # 1/8 Kelly
+        self._kelly_fraction = 0.25  # Quarter-Kelly
         
         # Load model on initialization
         self._load_model()

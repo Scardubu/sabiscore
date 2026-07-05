@@ -2,7 +2,6 @@
 """
 Ligue 1 Model - Optimized for physical play and young talent variance
 Key features: Physicality, youth variance, home advantage
-Target: 71.9% accuracy
 """
 
 import numpy as np
@@ -184,7 +183,7 @@ class Ligue1Model:
                 edge_value = fair_prob - implied_prob
                 
                 kelly_fraction = (fair_prob * (decimal_odd - 1) - (1 - fair_prob)) / (decimal_odd - 1)
-                kelly_fraction *= 0.125 
+                kelly_fraction = min(kelly_fraction, 0.04)  # policy cap 4%
                 
                 if edge_value > 0.04:
                     edges[outcome] = {

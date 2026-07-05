@@ -2,7 +2,6 @@
 """
 Serie A Model - Optimized for tactical rigidity and defensive organization
 Key features: Defensive solidity, tactical fouls, lower scoring
-Target: 75.1% accuracy
 """
 
 import numpy as np
@@ -185,7 +184,7 @@ class SerieAModel:
                 edge_value = fair_prob - implied_prob
                 
                 kelly_fraction = (fair_prob * (decimal_odd - 1) - (1 - fair_prob)) / (decimal_odd - 1)
-                kelly_fraction *= 0.125 
+                kelly_fraction = min(kelly_fraction, 0.04)  # policy cap 4%
                 
                 if edge_value > 0.04:
                     edges[outcome] = {
