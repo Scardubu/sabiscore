@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { proxyFixtureRequest } from "@/app/api/fixtures/proxy";
 
 const AnalyzeRequestSchema = z.object({
   matches: z
@@ -15,68 +16,6 @@ const AnalyzeRequestSchema = z.object({
   bookmaker: z.string().optional(),
   odds: z.record(z.number()).optional(),
 });
-
-const BACKEND_URL = process.env.SABISCORE_BACKEND_URL;
-
-const BACKEND_TOKEN = process.env.BACKEND_TOKEN;
-
-async function proxyToBackend(
-  req: NextRequest,
-  path: string,
-  body: string,
-): Promise<NextResponse> {
-  if (!BACKEND_URL) {
-    return NextResponse.json(
-      { error: "BACKEND_NOT_CONFIGURED", message: "SABISCORE_BACKEND_URL is not set." },
-      { status: 503 },
-    );
-  }
-  const url = `${BACKEND_URL}${path}`;
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (BACKEND_TOKEN) {
-    headers["Authorization"] = `Bearer ${BACKEND_TOKEN}`;
-  }
-
-  try {
-    const backendRes = await fetch(url, {
-      method: req.method,
-      headers,
-      body: req.method !== "GET" ? body : undefined,
-      // 15s timeout for analysis
-      signal: AbortSignal.timeout(15_000),
-    });
-
-    const data = await backendRes.json().catch(() => null);
-
-    return NextResponse.json(data, {
-      status: backendRes.status,
-      headers: {
-        "Cache-Control": "no-store",
-        "X-Powered-By": "SabiScore-Engine/1.1.0",
-      },
-    });
-  } catch (err: unknown) {
-    const name = err instanceof Error ? err.name : "";
-    if (name === "TimeoutError" || name === "AbortError") {
-      return NextResponse.json(
-        {
-          error: "ENGINE_TIMEOUT",
-          message: "Analysis request timed out. The backend may be cold-starting.",
-        },
-        { status: 504 },
-      );
-    }
-    return NextResponse.json(
-      {
-        error: "BACKEND_UNAVAILABLE",
-        message: "Could not reach the SabiScore backend.",
-      },
-      { status: 503 },
-    );
-  }
-}
 
 export async function POST(req: NextRequest) {
   let body: string;
@@ -109,5 +48,5 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  return proxyToBackend(req, backendPath, body);
+  return proxyFixtureRequest(req, backendPath, { method: "POST", body });
 }

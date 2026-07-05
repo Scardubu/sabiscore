@@ -191,7 +191,22 @@ class UltraPredictionService:
         start_time: float,
     ) -> PredictionResponse:
         """Generate prediction using Ultra ensemble"""
-        
+        # Zero-fab guard: refuse inference when no real evidence is present.
+        # ponytail: mirrors PredictionService.predict_match feature_completeness==0 guard
+        has_evidence = (
+            bool(getattr(request, "home_form", None))
+            or bool(getattr(request, "away_form", None))
+            or bool(getattr(request, "home_stats", None))
+            or bool(getattr(request, "away_stats", None))
+            or bool(getattr(request, "home_squad", None))
+            or bool(getattr(request, "away_squad", None))
+        )
+        if not has_evidence:
+            from ..core.exceptions import DataUnavailableError
+            raise DataUnavailableError(
+                "No evidence sources available — refusing to infer from pure defaults (ultra path)"
+            )
+
         # Build feature dictionary from request
         features = self._extract_features(request)
         

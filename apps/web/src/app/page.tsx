@@ -30,7 +30,7 @@ const HERO_STATS = [
 ];
 
 const TRUST_BADGES = [
-  { label: "Leagues + UCL", value: "6+1" },
+  { label: "Competitions", value: "7" },
   { label: "Evidence-led analysis", value: "Always" },
   { label: "Phase 8 features", value: "86" },
 ];
@@ -305,7 +305,7 @@ function PremiumHome() {
                     </div>
                   </div>
                   {idx === 0 && (
-                    <span className="text-xs font-semibold uppercase tracking-widest text-slate-500">Live</span>
+                    <span className="text-xs font-semibold uppercase tracking-widest text-slate-500">Always on</span>
                   )}
                 </div>
               ))}
@@ -423,7 +423,7 @@ function LegacyHome() {
       <section className="space-y-6 text-center animate-fade-in">
         <div className="inline-block rounded-full border border-indigo-500/20 bg-indigo-500/10 px-4 py-2">
           <span className="text-sm font-semibold text-indigo-400">
-            Phase 8 Ensemble | 86 ML Features | 5 Leagues + UCL | RPS &lt;= 0.21
+            Phase 8 Ensemble | 86 ML Features | 7 competitions | RPS &lt;= 0.21
           </span>
         </div>
         <h1 className="bg-gradient-to-r from-slate-100 via-indigo-200 to-purple-200 bg-clip-text text-5xl font-bold leading-tight text-transparent md:text-7xl">
@@ -432,7 +432,7 @@ function LegacyHome() {
           Intelligence Platform
         </h1>
         <p className="mx-auto max-w-3xl text-xl leading-relaxed text-slate-400">
-          Walk-forward validated predictions across 5 leagues + UCL.{" "}
+          Walk-forward validated predictions across 7 competitions.{" "}
           <span className="font-semibold text-indigo-400">Edge quality scored</span> before every stake.
         </p>
         <div className="flex items-center justify-center gap-4 pt-4">

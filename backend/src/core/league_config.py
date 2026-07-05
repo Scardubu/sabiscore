@@ -75,9 +75,14 @@ ACTIVE_LEAGUES: FrozenSet[LeagueProfile] = frozenset(
         LeagueProfile(
             id="Eredivisie",
             name="Eredivisie",
-            coverage="FULL",
+            coverage="SOFT",  # aligned with league_policy.py DEFAULT_PENDING_CALIBRATION
             model_min_seasons=5,
-            low_evidence_allowed=False,
+            low_evidence_allowed=True,
+            caveat_text=(
+                "Eredivisie coverage is pending full calibration. "
+                "Predictions may carry higher epistemic uncertainty. "
+                "Treat as informational and apply stricter personal thresholds."
+            ),
         ),
         LeagueProfile(
             id="UCL",

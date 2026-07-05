@@ -67,7 +67,8 @@ def test_allows_low_evidence_ucl():
 
 
 def test_allows_low_evidence_full_leagues():
-    for lid in ("EPL", "La Liga", "Bundesliga", "Serie A", "Ligue 1", "Eredivisie"):
+    # Eredivisie is SOFT (pending calibration) so low_evidence IS allowed there
+    for lid in ("EPL", "La Liga", "Bundesliga", "Serie A", "Ligue 1"):
         assert allows_low_evidence(lid) is False, f"{lid} should not allow low_evidence"
 
 

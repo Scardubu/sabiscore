@@ -199,11 +199,11 @@ def _evaluate_match(match: CoreMatchInput) -> CoreMatchOutput:
     critical_gaps = _critical_data_gaps(data_gaps)
 
     # Provider ceiling gate (directive §9, C-07/08).
-    # None = ceiling bypassed (legacy callers). [] = enforced with 0 providers.
-    provider_count: int | None = (
+    # None = caller omitted provenance → treat as 0 (missing provenance = no verified evidence).
+    provider_count: int = (
         len(set(match.verified_evidence_providers))
         if match.verified_evidence_providers is not None
-        else None
+        else 0
     )
     if provider_count == 0 and not critical_gaps:
         data_gaps.append("DATA_GAP: NO_VERIFIED_EVIDENCE_PROVIDERS")
@@ -274,7 +274,7 @@ def _evaluate_match(match: CoreMatchInput) -> CoreMatchOutput:
     )
 
     # Provider ceiling: 1 verified owner → max HOLD (directive §9, C-09).
-    if provider_count is not None and provider_count == 1:
+    if provider_count == 1:
         return _build_output(
             match=match,
             verdict="HOLD",
@@ -348,7 +348,7 @@ def _evaluate_match(match: CoreMatchInput) -> CoreMatchOutput:
         and model.epistemic_uncertainty <= HIGH_CONVICTION_EPISTEMIC_MAX
         and signals is not None
         and signals.lineup_status == "CONFIRMED"
-        and (provider_count is None or provider_count >= 4)  # C-10: 4 required when ceiling active
+        and provider_count >= 4  # C-10: 4 independent verified sources required
     ):
         verdict = "HIGH_CONVICTION"
     elif match.competition == "UCL":

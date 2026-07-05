@@ -241,21 +241,21 @@ class PredictionHistoryResponse(BaseModel):
 
     model_config = ConfigDict(json_schema_extra={
         "example": {
-            "total_predictions": 42000,
-            "accuracy": 0.737,
-            "high_confidence_accuracy": 0.849,
-            "avg_brier_score": 0.184,
-            "avg_clv_ngn": 60,
-            "roi_percent": 18.4,
-            "value_bets_count": 8472,
-            "profitable_bets": 6219,
+            "total_predictions": 500,
+            "accuracy": 0.45,
+            "high_confidence_accuracy": 0.50,
+            "avg_brier_score": 0.230,
+            "avg_clv_ngn": 5,
+            "roi_percent": 2.1,
+            "value_bets_count": 80,
+            "profitable_bets": 44,
             "league_breakdown": {
-                "epl": {"accuracy": 0.762, "roi": 19.2},
-                "bundesliga": {"accuracy": 0.718, "roi": 17.1}
+                "epl": {"accuracy": 0.447, "roi": 2.4},
+                "bundesliga": {"accuracy": 0.419, "roi": 1.8}
             },
             "date_range": {
-                "start": "2024-08-01T00:00:00Z",
-                "end": "2025-11-11T00:00:00Z"
+                "start": "2025-08-01T00:00:00Z",
+                "end": "2026-07-05T00:00:00Z"
             }
         }
     })

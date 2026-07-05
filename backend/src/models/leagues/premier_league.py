@@ -2,7 +2,7 @@
 """
 Premier League Model - Optimized for high-intensity, high-scoring matches
 Key features: Crowd pressure, fatigue from European competitions, tactical flexibility
-Target: 76.2% accuracy, +4.1₵ CLV, 0.178 Brier score
+Phase 7-B holdout: ~44.7% accuracy, 0.230 Brier score (3-way prediction baseline ~33%)
 """
 
 import numpy as np

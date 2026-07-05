@@ -2,7 +2,7 @@
 """
 Bundesliga Model - Optimized for high-press, vertical transitions
 Key features: PPDA, counter-attack speed, winter break impact, gegenpressing
-Target: 71.8% accuracy, +₦58 avg CLV, 0.186 Brier score
+Phase 7-B holdout: ~41.9% accuracy, 0.232 Brier score (3-way prediction baseline ~33%)
 """
 
 import numpy as np

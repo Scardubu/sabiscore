@@ -194,7 +194,7 @@ class MatchAnalysisRequest(BaseModel):
     data_gaps: List[str] = Field(default_factory=list)
     known_risks: List[str] = Field(default_factory=list)
     # Provider ceiling enforcement (directive §9, C-07/08/09/10).
-    # None = ceiling bypassed (legacy callers / no orchestrator).
+    # None = caller omitted provenance → treated as 0 → PARTIAL.
     # [] = explicitly 0 verified providers → PARTIAL.
     # ["espn", "api_football"] = ceiling enforced with those two owners.
     verified_evidence_providers: Optional[List[str]] = None

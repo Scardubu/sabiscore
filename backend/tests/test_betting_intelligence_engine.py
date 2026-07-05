@@ -90,6 +90,9 @@ def _market(
     )
 
 
+_FOUR_PROVIDERS = ["espn", "api_football", "football_data_org", "the_odds_api"]
+
+
 def _request(
     match_id: str = "test-001",
     competition: CompetitionEnum = CompetitionEnum.EPL,
@@ -98,6 +101,7 @@ def _request(
     freshness_seconds: int = 300,
     source_status_market: SourceStatusEnum = SourceStatusEnum.VERIFIED,
     data_gaps=None,
+    verified_evidence_providers=_DEFAULT,
 ) -> MatchAnalysisRequest:
     return MatchAnalysisRequest(
         match_id=match_id,
@@ -118,6 +122,10 @@ def _request(
             availability=SourceStatusEnum.VERIFIED,
         ),
         data_gaps=data_gaps or [],
+        verified_evidence_providers=(
+            _FOUR_PROVIDERS if verified_evidence_providers is _DEFAULT
+            else verified_evidence_providers
+        ),
     )
 
 
@@ -212,9 +220,29 @@ class TestPartialGate:
             sharp_signal=SharpSignalEnum.NEUTRAL,
             lineup_status=LineupStatusEnum.CONFIRMED,
             kickoff_utc=None,
+            verified_provider_count=4,
         )
 
         assert verdict in (VerdictEnum.ACTIONABLE, VerdictEnum.HIGH_CONVICTION)
+
+    def test_none_provider_count_forces_partial(self):
+        # None means caller omitted provenance → treat as 0 verified owners (P1-6)
+        verdict = _apply_verdict_gate(
+            critical_gaps=[],
+            competition=CompetitionEnum.EPL,
+            model=_model(home=0.65, draw=0.20, away=0.15),
+            market=_market(home=1.80, draw=3.50, away=4.50),
+            market_freshness=FreshnessStatusEnum.FRESH,
+            best_ev=0.17,
+            best_edge=0.12,
+            best_stake_fraction=0.01,
+            sharp_signal=SharpSignalEnum.NEUTRAL,
+            lineup_status=LineupStatusEnum.CONFIRMED,
+            kickoff_utc=None,
+            verified_provider_count=None,
+        )
+
+        assert verdict == VerdictEnum.PARTIAL
 
     def test_critical_gap_still_forces_partial_gate(self):
         verdict = _apply_verdict_gate(

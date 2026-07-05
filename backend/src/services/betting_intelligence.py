@@ -414,7 +414,7 @@ def _apply_verdict_gate(
     Gate 5: ACTIONABLE - all execution gates satisfied.
     Gate 6: HIGH_CONVICTION - strongest evidence, all gates + UCL exclusion + ≥4 providers.
 
-    verified_provider_count=None bypasses provider ceiling (legacy callers).
+    verified_provider_count=None means caller omitted provenance → treated as 0 → PARTIAL.
     verified_provider_count=int enforces ceiling when orchestrator supplies provenance.
     """
     # -- Gate 1: PARTIAL ------------------------------------------------------
@@ -424,8 +424,12 @@ def _apply_verdict_gate(
     if model is None or market is None:
         return VerdictEnum.PARTIAL
 
+    # None means caller did not pass provenance — treat as 0 verified owners (C-07/C-08)
+    if verified_provider_count is None:
+        verified_provider_count = 0
+
     # Provider ceiling: 0 verified owners → no independent evidence (C-07/C-08)
-    if verified_provider_count is not None and verified_provider_count == 0:
+    if verified_provider_count == 0:
         return VerdictEnum.PARTIAL
 
     if market_freshness in (
@@ -441,7 +445,7 @@ def _apply_verdict_gate(
 
     # -- Gate 3: HOLD ---------------------------------------------------------
     # Provider ceiling: 1 verified owner → max HOLD (C-09)
-    if verified_provider_count is not None and verified_provider_count == 1:
+    if verified_provider_count == 1:
         return VerdictEnum.HOLD
 
     tier_low = model.confidence_tier == EvidenceTierEnum.LOW_EVIDENCE
@@ -477,11 +481,11 @@ def _apply_verdict_gate(
         return VerdictEnum.ACTIONABLE  # UCL structurally capped
 
     # Provider ceiling: <4 verified owners → max ACTIONABLE (C-10)
-    if verified_provider_count is not None and verified_provider_count < 4:
+    if verified_provider_count < 4:
         return VerdictEnum.ACTIONABLE
 
     has_causal_support = bool(causal_drivers)
-    high_epistemic = model.epistemic_uncertainty > 0.20
+    high_epistemic = model.epistemic_uncertainty > 0.05  # aligned with core_engine HIGH_CONVICTION_EPISTEMIC_MAX
 
     if (
         best_edge >= hc_edge_required
@@ -677,7 +681,7 @@ def analyze_match(
     best_stake_fraction = best_eval["stake_fraction"] if best_eval else 0.0
     critical_gaps = _extract_critical_gaps(gaps)
 
-    # None = ceiling bypassed (legacy path). Any list (incl. empty) = ceiling active.
+    # None = caller omitted provenance; _apply_verdict_gate maps it to 0 → PARTIAL.
     verified_provider_count = (
         len(set(request.verified_evidence_providers))
         if request.verified_evidence_providers is not None

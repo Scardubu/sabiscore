@@ -88,7 +88,7 @@ class CoreMatchInput(BaseModel):
     freshness: Optional[CoreFreshnessInput] = None
     source_status: Optional[CoreSourceStatusInput] = None
     # Provider ceiling enforcement (directive §9, C-07/08/09/10).
-    # None = ceiling bypassed (legacy callers / no orchestrator).
+    # None = caller omitted provenance → treated as 0 → PARTIAL.
     # [] = explicitly 0 verified providers → PARTIAL.
     verified_evidence_providers: Optional[List[str]] = None
 

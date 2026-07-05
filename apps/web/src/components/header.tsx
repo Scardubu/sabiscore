@@ -16,7 +16,7 @@ const NAV_LINKS = [
 const PREMIUM_STATUS_BADGES = [
   { label: "Features", value: "86 Phase 8" },
   { label: "Model", value: "Ensemble P8" },
-  { label: "Leagues", value: "5 + UCL" },
+  { label: "Competitions", value: "7" },
 ];
 
 const PREMIUM_METRICS = [
@@ -64,11 +64,13 @@ function HamburgerButton({
 function MobileDrawer({
   open,
   onClose,
-  mounted,
+  statusLabel,
+  statusDot,
 }: {
   open: boolean;
   onClose: () => void;
-  mounted: boolean;
+  statusLabel: string;
+  statusDot: string;
 }) {
   if (!open) return null;
   return (
@@ -117,11 +119,8 @@ function MobileDrawer({
         </li>
       </ul>
       <div className="mt-3 border-t border-slate-800/40 pt-3 flex items-center gap-2 px-3">
-        <span
-          className={cn("h-2 w-2 rounded-full", mounted ? "bg-green-500" : "bg-slate-600", "motion-safe:animate-pulse")}
-          aria-hidden
-        />
-        <span className="text-xs text-slate-500">{mounted ? "Live data" : "Connecting…"}</span>
+        <span className={cn("h-2 w-2 rounded-full motion-safe:animate-pulse", statusDot)} aria-hidden />
+        <span className="text-xs text-slate-500">{statusLabel}</span>
       </div>
     </div>
   );
@@ -131,9 +130,18 @@ function MobileDrawer({
 
 function LegacyHeader() {
   const [mounted, setMounted] = useState(false);
+  const [backendLive, setBackendLive] = useState<boolean | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    if (!mounted) return;
+    let cancelled = false;
+    fetch("/api/health", { cache: "no-store", signal: AbortSignal.timeout(5000) })
+      .then(r => { if (!cancelled) setBackendLive(r.ok); })
+      .catch(() => { if (!cancelled) setBackendLive(false); });
+    return () => { cancelled = true; };
+  }, [mounted]);
   const toggleMenu = useCallback(() => setMenuOpen((v) => !v), []);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
 
@@ -186,17 +194,17 @@ function LegacyHeader() {
             <div className="pl-4 border-l border-slate-800">
               <div
                 role="status"
-                aria-label={mounted ? "Live data feed connected" : "Loading data feed"}
+                aria-label={!mounted ? "Loading data feed" : backendLive ? "Backend connected" : backendLive === false ? "Backend offline" : "Checking backend"}
                 className="flex items-center space-x-2 text-xs"
               >
                 <span
                   aria-hidden
                   className={cn(
                     "h-2 w-2 rounded-full motion-safe:animate-pulse",
-                    mounted ? "bg-green-500" : "bg-slate-600",
+                    !mounted ? "bg-slate-600" : backendLive ? "bg-green-500" : backendLive === false ? "bg-red-500" : "bg-amber-500",
                   )}
                 />
-                <span className="text-slate-400">{mounted ? "Live" : "Loading"}</span>
+                <span className="text-slate-400">{!mounted ? "Loading" : backendLive ? "Live" : backendLive === false ? "Offline" : "Checking"}</span>
               </div>
             </div>
           </nav>
@@ -207,7 +215,12 @@ function LegacyHeader() {
       </div>
 
       {/* Mobile drawer */}
-      <MobileDrawer open={menuOpen} onClose={closeMenu} mounted={mounted} />
+      <MobileDrawer
+        open={menuOpen}
+        onClose={closeMenu}
+        statusLabel={!mounted ? "Connecting…" : backendLive ? "Live data" : backendLive === false ? "Offline" : "Checking…"}
+        statusDot={!mounted ? "bg-slate-600" : backendLive ? "bg-green-500" : backendLive === false ? "bg-red-500" : "bg-amber-500"}
+      />
     </header>
   );
 }
@@ -216,10 +229,19 @@ function LegacyHeader() {
 
 function PremiumHeader() {
   const [mounted, setMounted] = useState(false);
+  const [backendLive, setBackendLive] = useState<boolean | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const labsPreviewEnabled = useFeatureFlag(FeatureFlag.PREDICTION_INTERSTITIAL_V2, false);
 
   useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    if (!mounted) return;
+    let cancelled = false;
+    fetch("/api/health", { cache: "no-store", signal: AbortSignal.timeout(5000) })
+      .then(r => { if (!cancelled) setBackendLive(r.ok); })
+      .catch(() => { if (!cancelled) setBackendLive(false); });
+    return () => { cancelled = true; };
+  }, [mounted]);
   const toggleMenu = useCallback(() => setMenuOpen((v) => !v), []);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
 
@@ -293,8 +315,8 @@ function PremiumHeader() {
               className="flex items-center gap-2 rounded-full border border-white/10 bg-slate-900/80 px-3 py-1 text-[11px] font-semibold text-slate-200"
               aria-live="polite"
             >
-              <span className={cn("h-2 w-2 rounded-full animate-pulse", mounted ? "bg-emerald-400" : "bg-slate-600")} aria-hidden />
-              Edge feed {mounted ? "live" : "syncing"}
+              <span className={cn("h-2 w-2 rounded-full animate-pulse", !mounted ? "bg-slate-600" : backendLive ? "bg-emerald-400" : backendLive === false ? "bg-red-500" : "bg-amber-400")} aria-hidden />
+              Edge feed {!mounted ? "syncing" : backendLive ? "live" : backendLive === false ? "offline" : "checking"}
             </div>
             <Link
               href="/match"
@@ -310,7 +332,12 @@ function PremiumHeader() {
       </div>
 
       {/* Mobile drawer */}
-      <MobileDrawer open={menuOpen} onClose={closeMenu} mounted={mounted} />
+      <MobileDrawer
+        open={menuOpen}
+        onClose={closeMenu}
+        statusLabel={!mounted ? "Connecting…" : backendLive ? "Live data" : backendLive === false ? "Offline" : "Checking…"}
+        statusDot={!mounted ? "bg-slate-600" : backendLive ? "bg-green-500" : backendLive === false ? "bg-red-500" : "bg-amber-500"}
+      />
     </header>
   );
 }

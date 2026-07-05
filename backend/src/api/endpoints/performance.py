@@ -116,24 +116,27 @@ async def model_performance(
     league: Optional[str] = Query(None),
     window: int = Query(30, ge=7, le=180),
 ) -> Dict[str, Any]:
-    # Placeholder contract for rolling accuracy chart while persistence tables are wired.
-    return {
-        "league": league,
-        "window": window,
-        "series": [],
-        "baseline_accuracy": 0.528,
-        "generated_at": datetime.utcnow().isoformat(),
-    }
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=503,
+        content={
+            "status": "METRICS_UNAVAILABLE",
+            "reason": "bet_history_aggregation_not_yet_integrated",
+            "league": league,
+            "window": window,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+        },
+    )
 
 
 @router.get("/model-performance/summary")
 async def model_performance_summary() -> Dict[str, Any]:
-    # Placeholder contract for hero stats while bet_history aggregation is integrated.
-    return {
-        "accuracy_30d": 0.0,
-        "accuracy_season": 0.0,
-        "clv_30d": 0.0,
-        "bets_tracked": 0,
-        "roi_30d": 0.0,
-        "generated_at": datetime.utcnow().isoformat(),
-    }
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=503,
+        content={
+            "status": "METRICS_UNAVAILABLE",
+            "reason": "bet_history_aggregation_not_yet_integrated",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+        },
+    )

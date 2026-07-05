@@ -13,6 +13,9 @@ def _base_match(**overrides) -> dict:
         "away_team": "Away",
         "competition": "EPL",
         "kickoff_utc": "2026-08-15T15:00:00Z",
+        "verified_evidence_providers": [
+            "espn", "api_football", "football_data_org", "the_odds_api"
+        ],
         "model": {
             "home_probability": 0.65,
             "draw_probability": 0.20,
@@ -283,9 +286,9 @@ def test_four_providers_allows_high_conviction():
     assert result.verdict == "HIGH_CONVICTION"
 
 
-def test_none_providers_bypasses_ceiling():
-    """verified_evidence_providers=None (default) bypasses ceiling — legacy behavior."""
-    match = _base_match()  # no verified_evidence_providers key
+def test_none_providers_forces_partial():
+    """verified_evidence_providers=None means caller omitted provenance → PARTIAL (P1-6)."""
+    match = _base_match()
+    del match["verified_evidence_providers"]  # remove so it defaults to None
     result = _analyze(match).matches[0]
-    # Should still reach HIGH_CONVICTION via legacy path
-    assert result.verdict == "HIGH_CONVICTION"
+    assert result.verdict == "PARTIAL"
