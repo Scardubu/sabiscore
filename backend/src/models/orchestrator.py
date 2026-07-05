@@ -400,7 +400,7 @@ class ModelOrchestrator:
                     else:
                         y_true.append(2)
                         
-                except:
+                except Exception:
                     continue
             
             # Calculate metrics

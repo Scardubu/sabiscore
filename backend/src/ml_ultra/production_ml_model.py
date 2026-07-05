@@ -33,24 +33,22 @@ import json
 import warnings
 warnings.filterwarnings('ignore')
 
-# ML imports
-from sklearn.model_selection import (
-    TimeSeriesSplit
-)
-from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import (
-    RandomForestClassifier, 
+# ML imports  # noqa: E402
+from sklearn.model_selection import TimeSeriesSplit  # noqa: E402
+from sklearn.preprocessing import StandardScaler  # noqa: E402
+from sklearn.linear_model import LogisticRegression  # noqa: E402
+from sklearn.ensemble import (  # noqa: E402
+    RandomForestClassifier,
     GradientBoostingClassifier,
     ExtraTreesClassifier,
     VotingClassifier,
-    StackingClassifier
+    StackingClassifier,
 )
-from sklearn.metrics import (
-    accuracy_score, 
+from sklearn.metrics import (  # noqa: E402
+    accuracy_score,
     log_loss,
     classification_report,
-    confusion_matrix
+    confusion_matrix,
 )
 
 # Gradient boosting libraries

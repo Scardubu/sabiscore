@@ -36,7 +36,7 @@ try:
 except Exception as exc:  # pragma: no cover - optional dependency path
     TransfermarktLoader = _missing_loader(exc, "TransfermarktLoader unavailable: install optional scraper dependencies")
 
-from .football_data_api import FootballDataAPIClient
+from .football_data_api import FootballDataAPIClient  # noqa: E402
 
 __all__ = [
     "FootballDataLoader",

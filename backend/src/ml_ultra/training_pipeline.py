@@ -17,8 +17,8 @@ from datetime import datetime
 
 warnings.filterwarnings('ignore')
 
-from .meta_learner import DiverseEnsemble
-from .feature_engineering import AdvancedFeatureEngineer
+from .meta_learner import DiverseEnsemble  # noqa: E402
+from .feature_engineering import AdvancedFeatureEngineer  # noqa: E402
 
 logger = logging.getLogger(__name__)
 

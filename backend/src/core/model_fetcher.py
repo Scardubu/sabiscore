@@ -24,7 +24,7 @@ try:
 except Exception:
     _HAS_BOTO3 = False
 
-from ..models.ensemble import SabiScoreEnsemble
+from ..models.ensemble import SabiScoreEnsemble  # noqa: E402
 
 logger = logging.getLogger(__name__)
 

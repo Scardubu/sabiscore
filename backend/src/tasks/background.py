@@ -439,7 +439,7 @@ def cleanup_old_data(self):
                 if ttl == -1:  # No expiration set
                     redis_client.expire(key, 86400)  # Set 24h expiration
                     cleared_keys += 1
-            except:
+            except Exception:
                 continue
         
         logger.info(

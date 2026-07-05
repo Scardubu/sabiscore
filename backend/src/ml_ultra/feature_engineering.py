@@ -163,7 +163,7 @@ class AdvancedFeatureEngineer:
             try:
                 coeffs = np.polyfit(x, series, 1)
                 return coeffs[0]  # Slope
-            except:
+            except Exception:
                 return 0
 
         for team_type in ['home', 'away']:

@@ -337,7 +337,8 @@ class DataProcessingService:
                 MatchStats.team_id == match.away_team_id
             ).first()
             
-            if not home_stats: continue # Skip if no stats
+            if not home_stats:
+                continue
             
             valid_home_matches += 1
             match_home_xg = home_stats.expected_goals or 0.0
@@ -376,7 +377,8 @@ class DataProcessingService:
                 MatchStats.team_id == match.away_team_id
             ).first()
             
-            if not away_stats: continue # Skip if no stats (assuming away team stats exist)
+            if not away_stats:
+                continue  # Skip if no stats (assuming away team stats exist)
             # Actually we need stats for the 'away_team_id' which could be home or away in the match
             
             # Let's be precise:
@@ -386,7 +388,8 @@ class DataProcessingService:
             target_stats = home_stats if match.home_team_id == away_team_id else away_stats
             opp_stats = away_stats if match.home_team_id == away_team_id else home_stats
             
-            if not target_stats: continue
+            if not target_stats:
+                continue
             
             valid_away_matches += 1
             
