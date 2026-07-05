@@ -138,16 +138,19 @@ const nextConfig = {
     ]
   },
 
-  // Rewrites for API proxy
+  // Rewrites for API proxy.
+  // On Vercel, edge-level rewrites in vercel.json handle /api/v1/* — skip
+  // Next.js rewrites to avoid build-time validation failure when
+  // SABISCORE_BACKEND_URL is absent or not yet set in the Vercel dashboard.
   async rewrites() {
+    if (process.env.VERCEL) return [];
     const apiBaseUrl = process.env.SABISCORE_BACKEND_URL || 'http://localhost:8000';
-    
     return [
       {
         source: '/api/v1/:path*',
         destination: `${apiBaseUrl}/api/v1/:path*`,
       },
-    ]
+    ];
   },
 
   eslint: {
