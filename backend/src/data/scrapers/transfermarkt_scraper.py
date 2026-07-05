@@ -1,25 +1,14 @@
+# ponytail: BLOCKED — restricted site, no authorised API contract. _fetch_remote returns None (fail-closed).
 """
-Transfermarkt Market Value Scraper
-===================================
-
-Scrapes player market values and squad information.
-
-Features:
-- Current market values
-- Value history and trends
-- Squad valuations
-- Transfer rumors and news
-
-Ethical Note:
-- Uses local data fallback when available
-- Conservative rate limiting (3 seconds)
-- Only scrapes publicly available information
+Transfermarkt Market Value Scraper — BLOCKED.
+No authorised API contract exists. All fetch methods return None (fail-closed).
+Do not activate without a licensed data feed agreement.
 """
 
 import json
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from .base_scraper import BaseScraper, CACHE_DIR, PROCESSED_DIR
 

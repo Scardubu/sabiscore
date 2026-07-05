@@ -154,18 +154,13 @@ class UltraPredictor:
                 )
                 predictions.append(pred)
             except Exception as e:
-                logger.error(f"Failed to predict match {match.get('match_id')}: {e}")
-                # Return default prediction on error
-                predictions.append({
-                    'home_win_prob': 0.33,
-                    'draw_prob': 0.34,
-                    'away_win_prob': 0.33,
-                    'predicted_outcome': 'draw',
-                    'confidence': 0.34,
-                    'uncertainty': 1.0,
-                    'model_version': self.model_version,
-                    'error': str(e)
-                })
+                logger.error(
+                    "Failed to predict match %s — skipping (no fabricated fallback): %s",
+                    match.get('match_id'),
+                    e,
+                )
+                # ponytail: skip failed match; fabricated 0.33/0.34/0.33 equal-split removed —
+                # callers must handle a shorter result list or check for missing match_ids.
         
         return predictions
     
@@ -178,7 +173,6 @@ class UltraPredictor:
                 'model_path': self.model_path
             }
         
-        ensemble = self.pipeline.ensemble
         
         return {
             'loaded': True,

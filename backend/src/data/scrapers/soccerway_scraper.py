@@ -1,23 +1,11 @@
+# ponytail: BLOCKED — restricted site, no authorised API contract. _fetch_remote returns None (fail-closed).
 """
-Soccerway Competition and Fixture Scraper
-==========================================
-
-Scrapes league standings, fixtures, and results from Soccerway.
-
-Features:
-- League standings and tables
-- Fixture lists with dates and venues
-- Match results and scores
-- Squad and player information
-
-Ethical Note:
-- Uses local data fallback when available
-- Respects rate limits (3 seconds between requests)
-- Only scrapes publicly available information
+Soccerway Competition and Fixture Scraper — BLOCKED.
+No authorised API contract exists. All fetch methods return None (fail-closed).
+Do not activate without a licensed data feed agreement.
 """
 
 import logging
-from datetime import datetime
 from typing import Dict, List, Optional
 from urllib.parse import urljoin
 

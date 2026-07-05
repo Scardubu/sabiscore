@@ -1,10 +1,10 @@
 /**
  * Ultra Prediction Flow Component
- * 
+ *
  * High-performance prediction component using Ultra ML API
  * Features:
  * - <30ms latency with caching
- * - 90%+ prediction accuracy
+ * - Ensemble ML prediction
  * - Automatic fallback to legacy API
  * - Progressive loading states
  * - Value bet detection
@@ -121,8 +121,8 @@ export function UltraPredictionFlow({
                   Running Ultra ML Prediction
                 </h3>
                 <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                  {isUltraAvailable 
-                    ? 'Using high-performance ensemble (90%+ accuracy)'
+                  {isUltraAvailable
+                    ? 'Using high-performance ensemble'
                     : 'Using standard prediction engine'
                   }
                 </p>

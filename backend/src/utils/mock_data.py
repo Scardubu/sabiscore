@@ -1,6 +1,8 @@
 """
-Mock data generator for development and demo purposes
-Generates realistic match data with predictions until real APIs are integrated
+Mock data generator — TEST/DEVELOPMENT USE ONLY.
+
+Never import mock_generator from production routes.
+In production, settings.mock_mode must remain False (the safe default).
 """
 
 from datetime import datetime, timedelta
@@ -132,7 +134,7 @@ class MockDataGenerator:
         # Calculate edges (in Naira, assuming ₦10,000 base bet)
         base_bet = 10000
         home_edge_ngn = max(0, (fair_home_odds * base_bet) - (market_home * base_bet))
-        draw_edge_ngn = max(0, (fair_draw_odds * base_bet) - (market_draw * base_bet))
+        max(0, (fair_draw_odds * base_bet) - (market_draw * base_bet))
         away_edge_ngn = max(0, (fair_away_odds * base_bet) - (market_away * base_bet))
         
         # Find best value bet

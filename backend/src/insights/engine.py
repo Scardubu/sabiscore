@@ -944,7 +944,7 @@ class InsightsEngine:
 
         home_prob = predictions['home_win_prob']
         draw_prob = predictions['draw_prob']
-        away_prob = predictions['away_win_prob']
+        predictions['away_win_prob']
 
         results = []
         for _ in range(n_sims):

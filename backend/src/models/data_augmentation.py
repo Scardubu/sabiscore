@@ -420,7 +420,7 @@ class DataAugmentor:
             
             # Random referee profile
             profile = random.choice(list(referee_profiles.keys()))
-            modifiers = referee_profiles[profile]
+            referee_profiles[profile]
             
             # Apply modifiers (feature-specific)
             # In production, identify actual card/foul features

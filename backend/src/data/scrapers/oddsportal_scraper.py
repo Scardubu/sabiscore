@@ -1,23 +1,12 @@
+# ponytail: BLOCKED — restricted site, no authorised API contract. _fetch_remote returns None (fail-closed).
 """
-OddsPortal Historical Odds Scraper
-===================================
-
-Scrapes historical odds data and closing lines from OddsPortal.
-
-Features:
-- Opening and closing odds
-- Odds movement tracking
-- Multi-bookmaker comparison
-- Historical line movement analysis
-
-Ethical Note:
-- Uses local data fallback when available
-- Respects rate limits (3 seconds between requests)
-- Only scrapes publicly available odds information
+OddsPortal Historical Odds Scraper — BLOCKED.
+No authorised API contract exists. All fetch methods return None (fail-closed).
+Do not activate without a licensed data feed agreement.
 """
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from .base_scraper import BaseScraper, CACHE_DIR, PROCESSED_DIR
 

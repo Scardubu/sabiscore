@@ -1,24 +1,12 @@
+# ponytail: BLOCKED — restricted site, no authorised API contract. _fetch_remote returns None (fail-closed).
 """
-Flashscore Live Scores and Results Scraper
-============================================
-
-Scrapes live scores, lineups, and match events from Flashscore.
-
-Features:
-- Real-time match scores
-- Team lineups and formations
-- Match events (goals, cards, substitutions)
-- Head-to-head historical data
-
-Ethical Note:
-- Uses local data fallback when available
-- Respects rate limits (3 seconds between requests)
-- Only scrapes publicly available match information
+Flashscore Live Scores and Results Scraper — BLOCKED.
+No authorised API contract exists. All fetch methods return None (fail-closed).
+Do not activate without a licensed data feed agreement.
 """
 
 import logging
-from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from .base_scraper import BaseScraper, CACHE_DIR, PROCESSED_DIR
 

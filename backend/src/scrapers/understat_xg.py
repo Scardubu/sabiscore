@@ -1,12 +1,16 @@
+# RESTRICTED PROVIDER — Understat is not authorised for production scraping.
+# Data methods raise DataUnavailableError. Do not activate without a licensed API contract.
 """
-Understat.com xG data scraper with Puppeteer cluster integration.
-Extracts shot-level xG data, xG chains, and expected threat (xT) maps.
+Understat.com xG data scraper — BLOCKED.
+Not authorised for production use. Raises DataUnavailableError on all data calls.
 """
 
 import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 import re
+
+from ..core.exceptions import DataUnavailableError
 
 logger = logging.getLogger(__name__)
 
@@ -124,11 +128,9 @@ class UnderstatXGScraper:
             return xg_data
         ```
         """
-        # Placeholder - return mock structure
-        return {
-            'h': [],  # Home shots
-            'a': [],  # Away shots
-        }
+        raise DataUnavailableError(
+            "Understat xG unavailable: provider not authorised for production use"
+        )
 
     def _process_xg_data(self, raw_data: Dict[str, Any], match_id: str) -> Dict[str, Any]:
         """Process raw xG data into structured format"""
@@ -280,7 +282,6 @@ class UnderstatXGScraper:
         Returns:
             Dict containing season xG stats
         """
-        url = f"{self.BASE_URL}/team/{team_name}/{season}"
         
         try:
             # Check cache

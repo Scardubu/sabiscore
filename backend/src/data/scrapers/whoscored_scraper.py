@@ -1,22 +1,11 @@
+# ponytail: BLOCKED — restricted site, no authorised API contract. _fetch_remote returns None (fail-closed).
 """
-WhoScored Advanced Stats Scraper
-=================================
-
-Scrapes player and match statistics from WhoScored.
-
-Features:
-- Player ratings and performance metrics
-- Match statistics (possession, shots, passes)
-- Formation and tactical analysis
-- Head-to-head historical data
-
-Note: WhoScored uses JavaScript rendering. In production, use
-Playwright or Selenium for full scraping. This module provides
-a fallback with simulated data for development.
+WhoScored Advanced Stats Scraper — BLOCKED.
+No authorised API contract exists. All fetch methods return None (fail-closed).
+Do not activate without a licensed data feed agreement.
 """
 
 import logging
-from datetime import datetime
 from typing import Dict, List, Optional
 
 

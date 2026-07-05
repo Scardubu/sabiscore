@@ -242,7 +242,7 @@ function PremiumHeader() {
             </div>
             <div className="flex flex-col text-[11px] font-medium uppercase tracking-widest text-slate-400">
               <span>AI Football Intelligence</span>
-              <span className="text-[10px] text-slate-500">Live Scores • Zero Ads</span>
+              <span className="text-[10px] text-slate-500">Football Intelligence · Evidence-Led</span>
             </div>
             <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[10px] font-semibold uppercase text-slate-200">
               {labsPreviewEnabled ? "Labs preview" : "Premium"}

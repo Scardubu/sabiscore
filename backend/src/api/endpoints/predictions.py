@@ -18,13 +18,9 @@ from ...schemas.prediction import MatchPredictionRequest, PredictionResponse
 from ...schemas.value_bet import ValueBetResponse
 from ...core.database import Prediction as PredictionModel
 from ...core.cache import cache_manager
-from ...utils.mock_data import mock_generator
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/predictions", tags=["predictions"])
-
-# Feature flag for mock predictions (set to False for production with trained models)
-USE_MOCK_PREDICTIONS = False
 
 # Rate limiting configuration
 RATE_LIMIT_REQUESTS = 100  # requests per window
@@ -91,30 +87,6 @@ async def create_prediction(
     await check_rate_limit(client_ip)
     
     try:
-        # Check if using mock predictions
-        if USE_MOCK_PREDICTIONS:
-            logger.info(f"Generating mock prediction for {request.home_team} vs {request.away_team}")
-            
-            # Create mock match data
-            mock_match = {
-                'id': request.match_id or f"mock_{request.home_team}_{request.away_team}",
-                'home_team': request.home_team,
-                'away_team': request.away_team,
-                'league': request.league,
-                'match_date': datetime.utcnow().isoformat(),
-                'venue': f"{request.home_team} Stadium",
-                'status': 'scheduled',
-                'home_odds': request.odds.get('home_win') if request.odds else 2.10,
-                'draw_odds': request.odds.get('draw') if request.odds else 3.40,
-                'away_odds': request.odds.get('away_win') if request.odds else 3.50,
-            }
-            
-            # Generate prediction
-            result = mock_generator.generate_prediction(mock_match)
-            
-            logger.info(f"Mock prediction generated: confidence={result['confidence']}")
-            return PredictionResponse(**result)
-        
         # Initialize prediction service
         app_state = request_context.app.state
         ensemble_hint = getattr(app_state, "model_instance", None)
@@ -327,26 +299,7 @@ async def get_todays_value_bets(
         
         if cached_result:
             return cached_result
-        
-        # Use mock data if enabled
-        if USE_MOCK_PREDICTIONS:
-            logger.info("Generating mock value bets for today")
-            value_bets = mock_generator.generate_value_bets_today(count=limit)
-            
-            # Filter by league if specified
-            if league:
-                value_bets = [vb for vb in value_bets if vb['league'].upper() == league.upper()]
-            
-            # Apply confidence filter
-            value_bets = [vb for vb in value_bets if vb['confidence'] >= min_confidence]
-            
-            responses = [ValueBetResponse(**vb) for vb in value_bets]
-            logger.info(f"Generated {len(responses)} mock value bets")
-            
-            # Cache for 2 minutes
-            cache_manager.set(cache_key, responses, ttl=120)
-            return responses
-        
+
         # For production with real data, query from database
         # Currently returning empty list as we're building up data
         logger.info("No value bets available yet - building historical data")

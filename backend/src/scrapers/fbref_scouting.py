@@ -1,11 +1,15 @@
+# RESTRICTED PROVIDER — FBref is not authorised for production scraping.
+# Data methods raise DataUnavailableError. Do not activate without a licensed API contract.
 """
-FBref.com scouting report scraper for advanced tactical metrics.
-Extracts pressing intensity, progressive carries, defensive actions, and more.
+FBref.com scouting report scraper — BLOCKED.
+Not authorised for production use. Raises DataUnavailableError on all data calls.
 """
 
 import logging
 from typing import Dict, Optional, Any
 from datetime import datetime
+
+from ..core.exceptions import DataUnavailableError
 
 logger = logging.getLogger(__name__)
 
@@ -128,11 +132,9 @@ class FBrefScoutingScraper:
                 }
         ```
         """
-        # Placeholder
-        return {
-            'possession': {},
-            'defense': {},
-        }
+        raise DataUnavailableError(
+            "FBref tactical data unavailable: provider not authorised for production use"
+        )
 
     def _process_tactical_metrics(
         self,
@@ -141,27 +143,10 @@ class FBrefScoutingScraper:
         season: str,
     ) -> Dict[str, Any]:
         """Process raw FBref data into structured metrics"""
-        
-        possession = data.get('possession', {})
-        defense = data.get('defense', {})
-        
-        # Extract metrics (placeholder values)
-        return {
-            'team': team_name,
-            'season': season,
-            'ppda': round(possession.get('ppda', 10.5), 2),
-            'progressive_passes_per_90': round(possession.get('prog_passes_per90', 45.0), 1),
-            'progressive_carries_per_90': round(possession.get('prog_carries_per90', 30.0), 1),
-            'pressure_success_pct': round(defense.get('pressure_success', 32.0), 1),
-            'defensive_line_height': round(defense.get('def_line_height', 42.0), 1),
-            'aerial_duel_win_pct': round(defense.get('aerial_win_pct', 55.0), 1),
-            'shot_creating_actions_per_90': round(possession.get('sca_per90', 12.0), 1),
-            'tackles_per_90': round(defense.get('tackles_per90', 15.0), 1),
-            'interceptions_per_90': round(defense.get('interceptions_per90', 10.0), 1),
-            'touches_in_box_per_90': round(possession.get('touches_box_per90', 25.0), 1),
-            'passes_into_final_third_per_90': round(possession.get('passes_final_third_per90', 50.0), 1),
-            'timestamp': datetime.utcnow().isoformat(),
-        }
+        # Provider is blocked; _fetch_tactical_data raises before this is reached.
+        raise DataUnavailableError(
+            "FBref tactical data unavailable: provider not authorised for production use"
+        )
 
     async def scrape_player_scouting_report(
         self,
@@ -248,7 +233,6 @@ class FBrefScoutingScraper:
                     import json
                     return json.loads(cached)
             
-            url = f"{self.BASE_URL}/en/matches/{match_id}"
             
             # Placeholder data
             data = {

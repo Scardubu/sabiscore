@@ -38,7 +38,7 @@ const TRUST_BADGES = [
 const PREMIUM_VALUE_STREAM = [
   {
     title: "Edge telemetry",
-    description: "Live anomaly detection across 12 scrapers with automatic fallbacks and DATA_GAP surfacing.",
+    description: "Live anomaly detection across 5 independent providers with automatic fallbacks and DATA_GAP surfacing.",
     icon: BarChart3,
     footer: "Integrity SLA 99.7%",
   },
@@ -295,7 +295,7 @@ function PremiumHome() {
             </div>
 
             <div className="space-y-3">
-              {PREMIUM_PILLARS.map((pillar) => (
+              {PREMIUM_PILLARS.map((pillar, idx) => (
                 <div key={pillar.title} className="flex items-center justify-between rounded-2xl border border-white/5 bg-slate-900/60 px-4 py-3">
                   <div className="flex items-center gap-3">
                     <pillar.icon className="h-5 w-5 text-cyan-300" aria-hidden="true" />
@@ -304,7 +304,9 @@ function PremiumHome() {
                       <p className="text-sm text-slate-400">{pillar.detail}</p>
                     </div>
                   </div>
-                  <span className="text-xs font-semibold uppercase tracking-widest text-slate-500">Live</span>
+                  {idx === 0 && (
+                    <span className="text-xs font-semibold uppercase tracking-widest text-slate-500">Live</span>
+                  )}
                 </div>
               ))}
             </div>

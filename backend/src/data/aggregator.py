@@ -750,7 +750,7 @@ class EnhancedDataAggregator:
 
         for match in recent_matches:
             home_name = match.get("home_team", "")
-            away_name = match.get("away_team", "")
+            match.get("away_team", "")
             is_home = normalized_team in home_name.lower()
             team_goals = _safe_int(match.get("home_goals")) if is_home else _safe_int(match.get("away_goals"))
             opp_goals = _safe_int(match.get("away_goals")) if is_home else _safe_int(match.get("home_goals"))

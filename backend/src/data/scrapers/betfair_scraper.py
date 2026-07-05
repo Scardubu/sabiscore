@@ -15,7 +15,6 @@ additional signal for value bet detection.
 """
 
 import logging
-from datetime import datetime
 from typing import Any, Dict, Optional, Tuple
 
 
@@ -86,13 +85,7 @@ class BetfairExchangeScraper(BaseScraper):
         Requires valid API key and session token.
         """
         # API endpoint for exchange odds
-        api_url = "https://api.betfair.com/exchange/betting/rest/v1.0/listMarketCatalogue/"
         
-        headers = {
-            "X-Application": self.api_key,
-            "X-Authentication": self.session_token,
-            "Content-Type": "application/json",
-        }
         
         # Actual API integration not yet implemented; fail closed.
         logger.warning("Betfair API integration not fully implemented")
