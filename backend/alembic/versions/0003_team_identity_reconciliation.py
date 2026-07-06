@@ -1,6 +1,6 @@
 """provider team identity reconciliation table
 
-Revision ID: 0003_team_identity_reconciliation
+Revision ID: 0003_team_reconciliation
 Revises: 0002_canonical_identity
 Create Date: 2026-06-28
 """
@@ -11,7 +11,7 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = "0003_team_identity_reconciliation"
+revision = "0003_team_reconciliation"
 down_revision = "0002_canonical_identity"
 branch_labels = None
 depends_on = None
