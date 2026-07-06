@@ -7,13 +7,14 @@ Target: 90%+ accuracy, <30ms latency
 import hashlib
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.cache import cache_manager
+from ..core.league_policy import get_league_policy, LeaguePolicyUnavailableError
 from ..models.edge_detector import EdgeDetector
 from ..monitoring.metrics import metrics_collector
 from ..schemas.prediction import MatchPredictionRequest, PredictionResponse
@@ -216,7 +217,7 @@ class UltraPredictionService:
             home_team_id=hash(request.home_team) % 1000,  # Generate ID from name
             away_team_id=hash(request.away_team) % 1000,
             league_id=hash(league_slug) % 100,
-            match_date=datetime.utcnow(),
+            match_date=datetime.now(timezone.utc),
             features=features
         )
         
@@ -230,7 +231,7 @@ class UltraPredictionService:
         # Detect value bets
         bankroll = float(request.bankroll or self._default_bankroll)
         odds = self._extract_odds(request)
-        value_bets = self._detect_value_bets(match_id, probabilities, odds, bankroll)
+        value_bets = self._detect_value_bets(match_id, probabilities, odds, bankroll, league_slug)
         
         # Calculate metrics
         processing_ms = int((time.time() - start_time) * 1000)
@@ -246,7 +247,7 @@ class UltraPredictionService:
             "processing_time_ms": processing_ms,
             "engine": "ultra_ensemble",
             "uncertainty": result.get("uncertainty", 0.0),
-            "data_freshness": datetime.utcnow().isoformat(),
+            "data_freshness": datetime.now(timezone.utc).isoformat(),
         }
         
         # Create response
@@ -345,23 +346,30 @@ class UltraPredictionService:
         probabilities: Dict[str, float],
         odds: Dict[str, float],
         bankroll: float,
+        league_key: str = "",
     ) -> List[ValueBetResponse]:
         """Detect value betting opportunities"""
+        try:
+            policy = get_league_policy(league_key)
+            kelly_cap = policy.kelly_cap
+        except LeaguePolicyUnavailableError:
+            kelly_cap = 0.04  # ponytail: conservative fallback for unlisted leagues
+
         value_bets: List[ValueBetResponse] = []
-        
+
         for market, prob in probabilities.items():
             if market not in odds:
                 continue
-            
+
             market_odds = odds[market]
             implied_prob = 1.0 / market_odds if market_odds > 1 else 0.0
             edge = prob - implied_prob
-            
+
             # Only include if edge exceeds threshold (4.2%)
             if edge >= 0.042:
                 # Kelly criterion calculation
                 kelly_fraction = (prob * market_odds - 1) / (market_odds - 1)
-                kelly_fraction = min(kelly_fraction, 0.04)  # capped at league policy 4%
+                kelly_fraction = min(kelly_fraction, kelly_cap)
                 kelly_stake = bankroll * kelly_fraction
                 
                 value_bet = ValueBetResponse(
@@ -474,7 +482,7 @@ class UltraPredictionService:
             "ultra_model_loaded": self._ultra_predictor is not None and self._ultra_predictor.pipeline is not None,
             "legacy_fallback_available": self._legacy_service is not None,
             "metrics": self.metrics,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
 

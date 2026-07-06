@@ -17,7 +17,7 @@ Public surface:
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from ..base import (
@@ -96,7 +96,7 @@ class ESPNProvider(BaseProvider):
         status = event.get("status") or fixture.get("status") or {}
         kickoff_utc = event.get("date")
         provider_timestamp = event.get("lastModified") or fixture.get("lastModified")
-        acquired_at = datetime.utcnow().isoformat() + "Z"
+        acquired_at = datetime.now(timezone.utc).isoformat()
 
         return {
             "provider_event_id": str(event.get("id") or ""),

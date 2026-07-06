@@ -1,7 +1,7 @@
 """Health check and readiness probe endpoints for orchestration and monitoring."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, Response, status
@@ -28,7 +28,7 @@ async def health_check() -> Dict[str, Any]:
         "status": "healthy",
         "service": "sabiscore-api",
         "version": settings.app_version,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "environment": settings.app_env,
     }
 
@@ -59,10 +59,10 @@ async def readiness_check(
 
     # Check database
     try:
-        start = datetime.utcnow()
+        start = datetime.now(timezone.utc)
         result = await db.execute(text("SELECT 1"))
         result.scalar()
-        latency = (datetime.utcnow() - start).total_seconds() * 1000
+        latency = (datetime.now(timezone.utc) - start).total_seconds() * 1000
         checks["database"] = {
             "status": "healthy",
             "latency_ms": round(latency, 2),
@@ -75,11 +75,11 @@ async def readiness_check(
 
     # Check cache
     try:
-        start = datetime.utcnow()
+        start = datetime.now(timezone.utc)
         test_key = "health:check"
         cache_manager.set(test_key, "ok", ttl=5)
         result = cache_manager.get(test_key)
-        latency = (datetime.utcnow() - start).total_seconds() * 1000
+        latency = (datetime.now(timezone.utc) - start).total_seconds() * 1000
         
         if result == "ok":
             checks["cache"] = {
@@ -154,7 +154,7 @@ async def readiness_check(
 
     return {
         "status": overall_status,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "checks": checks,
         "ready": all_healthy and models_status == "healthy",
     }
@@ -175,7 +175,7 @@ async def metrics_endpoint() -> Dict[str, Any]:
     # For now, return basic stats
     
     return {
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "uptime_seconds": 0,  # TODO: Track actual uptime
         "predictions_total": 0,
         "predictions_errors_total": 0,
@@ -217,6 +217,6 @@ async def startup_status() -> Dict[str, Any]:
     
     return {
         "status": "ready" if all_ready else "initializing",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "initialization": initialization,
     }

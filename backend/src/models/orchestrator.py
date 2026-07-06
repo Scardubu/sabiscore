@@ -8,7 +8,7 @@ import redis
 import json
 import os
 from typing import Dict, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 import pandas as pd
 import numpy as np
@@ -140,7 +140,7 @@ class ModelOrchestrator:
             
             # Cache training metadata
             metadata = {
-                'trained_at': datetime.utcnow().isoformat(),
+                'trained_at': datetime.now(timezone.utc).isoformat(),
                 'sample_count': len(X_train_df),
                 'date_range': f"2018-{datetime(2025, 11, 3).strftime('%Y-%m-%d')}",
                 'accuracy_target': self._get_accuracy_target(league_key)
@@ -243,7 +243,7 @@ class ModelOrchestrator:
                 'league': league,
                 'match_id': match_id,
                 'predictions': predictions,
-                'timestamp': datetime.utcnow().isoformat(),
+                'timestamp': datetime.now(timezone.utc).isoformat(),
                 'model_version': f"{league_key}_v3.0"
             }
             
@@ -278,7 +278,7 @@ class ModelOrchestrator:
         result_data = {
             'match_id': match_id,
             'result': actual_result,
-            'timestamp': datetime.utcnow().isoformat()
+            'timestamp': datetime.now(timezone.utc).isoformat()
         }
         
         self.redis.lpush(key, json.dumps(result_data))
@@ -331,7 +331,7 @@ class ModelOrchestrator:
             calib_data = {
                 'x': iso.X_thresholds_.tolist(),
                 'y': iso.y_thresholds_.tolist(),
-                'updated_at': datetime.utcnow().isoformat()
+                'updated_at': datetime.now(timezone.utc).isoformat()
             }
             self.redis.setex(calib_key, 600, json.dumps(calib_data))  # 10min TTL
         
@@ -342,8 +342,8 @@ class ModelOrchestrator:
         if not cached or 'timestamp' not in cached:
             return False
         
-        cached_time = datetime.fromisoformat(cached['timestamp'])
-        return (datetime.utcnow() - cached_time).total_seconds() < 300  # 5 min
+        cached_time = datetime.fromisoformat(cached['timestamp']).replace(tzinfo=None)
+        return (datetime.now(timezone.utc).replace(tzinfo=None) - cached_time).total_seconds() < 300  # 5 min
     
     def _get_accuracy_target(self, league_key: str) -> str:
         """Return accuracy from walk-forward evaluation artifacts at runtime."""

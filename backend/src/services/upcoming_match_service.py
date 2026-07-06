@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -65,7 +65,7 @@ class UpcomingMatchService:
         days_ahead: int,
         limit: int,
     ) -> Dict[str, Any]:
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         end_date = now + timedelta(days=max(days_ahead, 1))
 
         query = (
@@ -179,7 +179,7 @@ class UpcomingMatchService:
                 match_id = str(match.get("match_id") or match.get("id") or "")
                 match["match_id"] = match_id
                 match_date = datetime.fromisoformat(
-                    match.get("match_date", datetime.utcnow().isoformat())
+                    match.get("match_date", datetime.now(timezone.utc).isoformat())
                 )
 
                 # 1. Project features via canonical path (68 or 86 features)

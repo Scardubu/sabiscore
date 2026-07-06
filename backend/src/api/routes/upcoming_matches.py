@@ -8,7 +8,7 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -229,5 +229,5 @@ async def health_check() -> Dict[str, Any]:
     return {
         "status": "healthy",
         "service": "upcoming_matches",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }

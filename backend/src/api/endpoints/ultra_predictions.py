@@ -7,11 +7,11 @@ Target: 90%+ accuracy, <30ms latency with caching
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...db.session import get_async_session
@@ -33,7 +33,7 @@ class UltraMatchFeatures(BaseModel):
     home_team_id: int = Field(..., description="Home team ID")
     away_team_id: int = Field(..., description="Away team ID")
     league_id: int = Field(..., description="League ID")
-    match_date: datetime = Field(default_factory=datetime.utcnow)
+    match_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     
     # Team form
     home_last_5_wins: int = Field(default=2, ge=0, le=5)
@@ -59,26 +59,25 @@ class UltraMatchFeatures(BaseModel):
     draw_odds: Optional[float] = Field(default=None, gt=1.0)
     away_odds: Optional[float] = Field(default=None, gt=1.0)
 
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "match_id": "arsenal_chelsea_2024",
-                "home_team_id": 42,
-                "away_team_id": 49,
-                "league_id": 1,
-                "match_date": "2024-01-15T15:00:00Z",
-                "home_last_5_wins": 3,
-                "home_last_5_draws": 1,
-                "home_last_5_losses": 1,
-                "away_last_5_wins": 2,
-                "away_last_5_draws": 2,
-                "away_last_5_losses": 1,
-                "home_goals_scored_avg": 2.1,
-                "home_goals_conceded_avg": 0.9,
-                "away_goals_scored_avg": 1.8,
-                "away_goals_conceded_avg": 1.1,
-            }
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "match_id": "arsenal_chelsea_2024",
+            "home_team_id": 42,
+            "away_team_id": 49,
+            "league_id": 1,
+            "match_date": "2024-01-15T15:00:00Z",
+            "home_last_5_wins": 3,
+            "home_last_5_draws": 1,
+            "home_last_5_losses": 1,
+            "away_last_5_wins": 2,
+            "away_last_5_draws": 2,
+            "away_last_5_losses": 1,
+            "home_goals_scored_avg": 2.1,
+            "home_goals_conceded_avg": 0.9,
+            "away_goals_scored_avg": 1.8,
+            "away_goals_conceded_avg": 1.1,
         }
+    })
 
 
 class UltraPredictRequest(BaseModel):
@@ -136,7 +135,7 @@ class UltraStatusResponse(BaseModel):
 # ============================================================================
 # Service startup time tracking
 # ============================================================================
-_service_start_time = datetime.utcnow()
+_service_start_time = datetime.now(timezone.utc)
 
 
 # ============================================================================
@@ -161,7 +160,7 @@ async def ultra_predict(
     
     Target: <30ms latency with cache, <100ms without
     """
-    start_time = datetime.utcnow()
+    start_time = datetime.now(timezone.utc)
     
     try:
         # Get service
@@ -174,7 +173,7 @@ async def ultra_predict(
         cached = cache_manager.get(cache_key)
         
         if cached is not None:
-            latency_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
+            latency_ms = int((datetime.now(timezone.utc) - start_time).total_seconds() * 1000)
             logger.debug(f"Cache hit for {features.match_id} in {latency_ms}ms")
             return UltraPredictResponse(
                 match_id=features.match_id,
@@ -223,7 +222,7 @@ async def ultra_predict(
                 detail="Prediction request timed out. Please try again."
             )
         
-        latency_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
+        latency_ms = int((datetime.now(timezone.utc) - start_time).total_seconds() * 1000)
         
         # Determine predicted outcome
         probs = result.predictions
@@ -278,7 +277,7 @@ async def ultra_predict_batch(
     
     More efficient for bulk operations (up to 50 matches)
     """
-    start_time = datetime.utcnow()
+    start_time = datetime.now(timezone.utc)
     
     if len(request.matches) == 0:
         return UltraBatchPredictResponse(
@@ -315,7 +314,7 @@ async def ultra_predict_batch(
                 continue
             predictions.append(result)
         
-        total_latency_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
+        total_latency_ms = int((datetime.now(timezone.utc) - start_time).total_seconds() * 1000)
         avg_latency_ms = total_latency_ms / len(request.matches) if request.matches else 0.0
         
         return UltraBatchPredictResponse(
@@ -352,7 +351,7 @@ async def ultra_health():
             pass
         
         # Calculate uptime
-        uptime_seconds = (datetime.utcnow() - _service_start_time).total_seconds()
+        uptime_seconds = (datetime.now(timezone.utc) - _service_start_time).total_seconds()
         
         # Determine status
         if status_data["ultra_model_loaded"] and redis_connected:

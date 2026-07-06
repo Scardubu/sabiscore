@@ -1,6 +1,6 @@
 """Security helpers for password hashing and JWT token handling."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
 from jose import jwt
@@ -35,7 +35,7 @@ def create_access_token(
 ) -> str:
 	"""Create a signed JWT containing the provided subject and claims."""
 
-	now = datetime.utcnow()
+	now = datetime.now(timezone.utc)
 	expire_delta = expires_delta or timedelta(minutes=settings.access_token_expire_minutes)
 	claims: Dict[str, Any] = {
 		"sub": subject,

@@ -82,11 +82,6 @@ class CustomJSONEncoder(json.JSONEncoder):
             return obj.model_dump()
         return str(obj)  # Fallback to string representation
 
-# Global model instance
-model_instance = None
-# Simple flag to avoid concurrent background loads
-model_load_in_progress = False
-
 # Lifespan context manager for modern FastAPI startup/shutdown
 @asynccontextmanager
 async def lifespan(app: FastAPI):

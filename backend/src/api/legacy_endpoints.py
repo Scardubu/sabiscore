@@ -6,7 +6,7 @@ import logging
 import time
 import json
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from pydantic import ValidationError
 
 from ..core.database import (
@@ -385,13 +385,13 @@ async def system_metrics(request: Request):
             "db_connections": db_connections,
             "cache_hit_rate": cache_hit_rate,
             "model_version": model_version,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
     except Exception as e:
         logger.error(f"Metrics collection failed: {e}")
         return {
             "error": "Metrics unavailable",
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
 
 

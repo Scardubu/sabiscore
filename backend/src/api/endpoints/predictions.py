@@ -2,7 +2,7 @@
 
 import json
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 import logging
 import asyncio
@@ -32,7 +32,7 @@ _rate_limit_lock = asyncio.Lock()
 async def check_rate_limit(client_ip: str) -> None:
     """Simple in-memory rate limiter for prediction endpoints."""
     async with _rate_limit_lock:
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         window_start = now - timedelta(seconds=RATE_LIMIT_WINDOW)
         
         # Clean old entries
@@ -100,12 +100,12 @@ async def create_prediction(
         
         # Generate prediction
         logger.info(f"Generating prediction for {request.home_team} vs {request.away_team}")
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
         
         if request.match_id:
             match_identifier = request.match_id
         else:
-            base_identifier = f"{request.home_team}_{request.away_team}_{int(datetime.utcnow().timestamp())}"
+            base_identifier = f"{request.home_team}_{request.away_team}_{int(datetime.now(timezone.utc).timestamp())}"
             match_identifier = base_identifier.replace(" ", "_").lower()
 
         try:
@@ -145,7 +145,7 @@ async def create_prediction(
                 detail="Service temporarily unavailable due to high load"
             ) from exc
         
-        processing_time = (datetime.utcnow() - start_time).total_seconds() * 1000
+        processing_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
         logger.info(f"Prediction generated in {processing_time:.1f}ms")
         
         # Provide a simple cache alias for lookup endpoints
@@ -229,7 +229,7 @@ async def get_prediction(
             )
         
         # Check if prediction is stale (> 1 hour old)
-        age_minutes = (datetime.utcnow() - prediction.created_at).total_seconds() / 60
+        age_minutes = (datetime.now(timezone.utc) - prediction.created_at).total_seconds() / 60
         if age_minutes > 60:
             raise HTTPException(
                 status_code=410,

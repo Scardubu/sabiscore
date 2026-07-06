@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -132,7 +132,7 @@ async def get_calibration_stats(
             isotonic=iso_stats,
             recommended=recommended,
             sample_size=sample_size,
-            generated_at=datetime.utcnow().isoformat(),
+            generated_at=datetime.now(timezone.utc).isoformat(),
         )
 
     except Exception as exc:
@@ -219,7 +219,7 @@ async def explain_prediction(
             top_features=top_features,
             base_value=float(1 / 3),  # uniform prior base
             model_version=model_version,
-            generated_at=datetime.utcnow().isoformat(),
+            generated_at=datetime.now(timezone.utc).isoformat(),
         )
 
     except HTTPException:

@@ -15,6 +15,12 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.utils.class_weight import compute_sample_weight
 import redis
 import json
+from ...core.league_policy import get_league_policy, LeaguePolicyUnavailableError
+
+try:
+    _KELLY_CAP = get_league_policy("LIGUE_1").kelly_cap
+except LeaguePolicyUnavailableError:
+    _KELLY_CAP = 0.04  # ponytail: conservative fallback
 
 class Ligue1Model:
     """
@@ -183,7 +189,7 @@ class Ligue1Model:
                 edge_value = fair_prob - implied_prob
                 
                 kelly_fraction = (fair_prob * (decimal_odd - 1) - (1 - fair_prob)) / (decimal_odd - 1)
-                kelly_fraction = min(kelly_fraction, 0.04)  # policy cap 4%
+                kelly_fraction = min(kelly_fraction, _KELLY_CAP)
                 
                 if edge_value > 0.04:
                     edges[outcome] = {

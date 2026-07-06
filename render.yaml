@@ -58,9 +58,9 @@
       - key: MIN_EDGE_NGN
         value: 66
       - key: MODEL_VERSION
-        value: 3.0
+        value: v5_phase7
       - key: FEATURES_COUNT
-        value: 220
+        value: 86
       - key: SKIP_S3
         value: "true"
       - key: MODEL_FETCH_STRICT

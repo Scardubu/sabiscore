@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select, and_
 from sqlalchemy.orm import selectinload
 from typing import Dict, List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 
 from ...db.session import get_async_session
@@ -58,7 +58,7 @@ async def get_upcoming_matches(
                     home_team=m["home_team"],
                     away_team=m["away_team"],
                     league=m["league"],
-                    match_date=datetime.fromisoformat(m["match_date"].replace("Z", "+00:00")) if isinstance(m.get("match_date"), str) and m.get("match_date") else datetime.utcnow(),
+                    match_date=datetime.fromisoformat(m["match_date"].replace("Z", "+00:00")) if isinstance(m.get("match_date"), str) and m.get("match_date") else datetime.now(timezone.utc),
                     venue=m.get("venue"),
                     status=m.get("status", "scheduled"),
                     has_odds=bool(m.get("has_odds", False)),
@@ -120,7 +120,7 @@ async def get_upcoming_matches(
             return response
         
         # Calculate date range
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         end_date = now + timedelta(days=days_ahead)
         
         # Build query
