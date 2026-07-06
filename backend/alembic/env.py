@@ -24,6 +24,11 @@ def _sync_database_url(url: str) -> str:
         return url.replace("+aiosqlite", "")
     if "+asyncpg" in url:
         return url.replace("+asyncpg", "+psycopg")
+    # Render provides plain postgresql:// / postgres:// — route to psycopg3 (installed)
+    if url.startswith("postgres://"):
+        return url.replace("postgres://", "postgresql+psycopg://", 1)
+    if url.startswith("postgresql://"):
+        return url.replace("postgresql://", "postgresql+psycopg://", 1)
     return url
 
 

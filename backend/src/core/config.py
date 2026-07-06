@@ -88,6 +88,8 @@ class Settings(BaseSettings):
         alias="ALLOWED_HOSTS",
         description="Comma-separated list of allowed hosts"
     )
+    # Render sets this automatically to the public service hostname (e.g. sabiscore-api-bav1.onrender.com)
+    render_external_hostname: Optional[str] = Field(default=None, alias="RENDER_EXTERNAL_HOSTNAME")
     opta_api_key: Optional[str] = None
     betfair_app_key: Optional[str] = None
     betfair_session_token: Optional[str] = None
@@ -693,8 +695,11 @@ class Settings(BaseSettings):
     # Backwards-compat properties expected by legacy code paths
     @property
     def allowed_hosts(self) -> List[str]:
-        """Parse allowed hosts from raw CSV string."""
-        return self._parse_allowed_hosts_raw()
+        """Parse allowed hosts from raw CSV string, auto-including Render's hostname."""
+        hosts = self._parse_allowed_hosts_raw()
+        if self.render_external_hostname and self.render_external_hostname not in hosts:
+            hosts.append(self.render_external_hostname)
+        return hosts
 
     @property
     def PROJECT_NAME(self) -> str:

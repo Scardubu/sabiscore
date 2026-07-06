@@ -32,14 +32,16 @@ Base = declarative_base()
 
 
 def _get_sync_database_url(url: str) -> str:
-    """
-    Convert async database URL to sync URL for synchronous engine.
-    Handles aiosqlite -> sqlite, asyncpg -> psycopg, etc.
-    """
+    """Convert async or bare database URL to a psycopg3 sync URL for Alembic."""
     if "+aiosqlite" in url:
         return url.replace("+aiosqlite", "")
     if "+asyncpg" in url:
         return url.replace("+asyncpg", "+psycopg")
+    # Render provides plain postgresql:// / postgres:// — route to psycopg3 (installed)
+    if url.startswith("postgres://"):
+        return url.replace("postgres://", "postgresql+psycopg://", 1)
+    if url.startswith("postgresql://"):
+        return url.replace("postgresql://", "postgresql+psycopg://", 1)
     return url
 
 
