@@ -7,7 +7,7 @@ Integrates with ModelOrchestrator for production model deployment
 import numpy as np
 import pandas as pd
 from typing import Dict, List, Tuple
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
 import pickle
 import json
@@ -170,7 +170,7 @@ class ModelTrainingService:
             'feature_names': feature_names,
             'metrics': ensemble_metrics,
             'individual_metrics': model_metrics,
-            'trained_at': datetime.utcnow().isoformat(),
+            'trained_at': datetime.now(timezone.utc).isoformat(),
             'league': league,
             'version': model_version,
             'config': self.config
@@ -204,7 +204,7 @@ class ModelTrainingService:
         Prepare training data with time-series split
         """
         # Query historical matches
-        cutoff_date = datetime.utcnow() - timedelta(days=self.config['lookback_days'])
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=self.config['lookback_days'])
         
         matches = self.db.query(Match).filter(
             Match.league == league,
@@ -564,7 +564,7 @@ class ModelTrainingService:
     
     def _generate_version_hash(self, league: str) -> str:
         """Generate unique version hash"""
-        timestamp = datetime.utcnow().isoformat()
+        timestamp = datetime.now(timezone.utc).isoformat()
         hash_input = f"{league}_{timestamp}_{self.config}".encode()
         return hashlib.md5(hash_input).hexdigest()[:8]
     

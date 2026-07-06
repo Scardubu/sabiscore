@@ -10,7 +10,7 @@ Features:
 """
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 
@@ -61,7 +61,7 @@ class BetfairConnector:
                 # Simulate odds update
                 update = {
                     "market_id": market_ids[0] if market_ids else "test",
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                     "selections": [],
                 }
                 await callback(update)

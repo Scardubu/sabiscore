@@ -7,7 +7,7 @@ Not authorised for production use. Raises DataUnavailableError on all data calls
 
 import logging
 from typing import Dict, List, Optional, Any
-from datetime import datetime
+from datetime import datetime, timezone
 import re
 
 from ..core.exceptions import DataUnavailableError
@@ -176,7 +176,7 @@ class UnderstatXGScraper:
             'shots': processed_shots,
             'xg_chains': xg_chains,
             'danger_zones': danger_zones,
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': datetime.now(timezone.utc).isoformat(),
         }
 
     def _extract_team_name(self, shots: List[Dict]) -> str:
@@ -300,7 +300,7 @@ class UnderstatXGScraper:
                 'xg_against': 0.0,
                 'xg_diff': 0.0,
                 'matches': [],
-                'timestamp': datetime.utcnow().isoformat(),
+                'timestamp': datetime.now(timezone.utc).isoformat(),
             }
             
             # Cache for 1 hour (team stats don't change often)

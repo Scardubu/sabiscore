@@ -10,7 +10,7 @@ Features:
 """
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 
@@ -50,7 +50,7 @@ class PinnacleConnector:
                 # Simulate odds update
                 update = {
                     "sport": sport,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                     "markets": [],
                 }
                 await callback(update)

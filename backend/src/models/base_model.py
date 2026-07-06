@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 from sklearn.metrics import accuracy_score, brier_score_loss, log_loss
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +119,7 @@ class BaseModel(ABC):
                 'accuracy': float(accuracy),
                 'brier_score': float(brier),
                 'log_loss': float(logloss),
-                'evaluated_at': datetime.utcnow().isoformat()
+                'evaluated_at': datetime.now(timezone.utc).isoformat()
             }
             
             logger.info(f"{self.model_name} Evaluation: {metrics}")

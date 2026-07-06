@@ -10,7 +10,7 @@ Requires Opta API credentials (set in environment):
 import asyncio
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Callable
 import aiohttp
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -112,7 +112,7 @@ class OptaConnector:
                 "shots": data.get("shots", []),
                 "xg_timeline": data.get("xgTimeline", []),
                 "pressure_zones": data.get("pressureZones", []),
-                "fetched_at": datetime.utcnow().isoformat(),
+                "fetched_at": datetime.now(timezone.utc).isoformat(),
             }
         except Exception as e:
             logger.error(f"Error parsing Opta xG response: {e}")
@@ -149,7 +149,7 @@ class OptaConnector:
                     "shots": data.get("shots", {}),
                     "xT": data.get("expectedThreat", {}),
                     "duels": data.get("duels", {}),
-                    "fetched_at": datetime.utcnow().isoformat(),
+                    "fetched_at": datetime.now(timezone.utc).isoformat(),
                 }
                 
         except Exception as e:
@@ -209,7 +209,7 @@ class OptaConnector:
             "shots": [],
             "xg_timeline": [],
             "pressure_zones": [],
-            "fetched_at": datetime.utcnow().isoformat(),
+            "fetched_at": datetime.now(timezone.utc).isoformat(),
             "mock": True,
         }
 

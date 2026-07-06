@@ -5,7 +5,7 @@ Never import mock_generator from production routes.
 In production, settings.mock_mode must remain False (the safe default).
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 import random
 from typing import List, Dict, Any
 import logging
@@ -74,7 +74,7 @@ class MockDataGenerator:
     def generate_upcoming_matches(self, days: int = 7, count: int = 30) -> List[Dict[str, Any]]:
         """Generate upcoming matches for the next N days"""
         matches = []
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         
         for _ in range(count):
             league_code = random.choice(list(self.LEAGUES.keys()))

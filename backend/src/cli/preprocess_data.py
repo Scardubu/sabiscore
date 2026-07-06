@@ -13,7 +13,7 @@ Run with: python -m backend.src.cli.preprocess_data
 import sys
 import logging
 from typing import List, Dict
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 
 import pandas as pd
 import numpy as np
@@ -74,7 +74,7 @@ class DataPreprocessor:
         logger.info(f"Fetching matches for {league_names}")
         
         # Date range: last 3 years for training data
-        cutoff_date = datetime.utcnow() - timedelta(days=3*365)
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=3*365)
         
         # Get league IDs first
         leagues = (
@@ -94,7 +94,7 @@ class DataPreprocessor:
             .filter(
                 and_(
                     Match.league_id.in_(league_ids),
-                    Match.match_date < datetime.utcnow(),  # Past matches only
+                    Match.match_date < datetime.now(timezone.utc),  # Past matches only
                     Match.match_date > cutoff_date,
                     Match.home_score.isnot(None),  # Completed matches
                     Match.away_score.isnot(None),

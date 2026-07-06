@@ -7,7 +7,7 @@ import asyncio
 import logging
 from typing import Dict, List, Optional, Any, Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 import random
 from enum import Enum
 
@@ -108,14 +108,14 @@ class ScraperClusterManager:
         if not self.circuit_open:
             if self.failure_count >= self.failure_threshold:
                 self.circuit_open = True
-                self.last_failure_time = datetime.utcnow()
+                self.last_failure_time = datetime.now(timezone.utc)
                 logger.warning("Circuit breaker OPENED due to failures")
                 return False
             return True
         
         # Check if circuit should reset
         if self.last_failure_time:
-            elapsed = (datetime.utcnow() - self.last_failure_time).total_seconds()
+            elapsed = (datetime.now(timezone.utc) - self.last_failure_time).total_seconds()
             if elapsed >= self.circuit_reset_time:
                 self.circuit_open = False
                 self.failure_count = 0
@@ -130,7 +130,7 @@ class ScraperClusterManager:
         executor: Callable,
     ) -> ScraperResult:
         """Execute task with exponential backoff retry logic"""
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
         last_error = None
         
         # Check circuit breaker
@@ -141,7 +141,7 @@ class ScraperClusterManager:
                 data=None,
                 error="Circuit breaker is OPEN",
                 duration_ms=0,
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
             )
         
         # Check cache first
@@ -170,14 +170,14 @@ class ScraperClusterManager:
                 # Success - reset failure count
                 self.failure_count = max(0, self.failure_count - 1)
                 
-                duration = (datetime.utcnow() - start_time).total_seconds() * 1000
+                duration = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
                 result = ScraperResult(
                     task_id=task.task_id,
                     success=True,
                     data=data,
                     error=None,
                     duration_ms=duration,
-                    timestamp=datetime.utcnow(),
+                    timestamp=datetime.now(timezone.utc),
                 )
                 
                 # Cache result
@@ -196,7 +196,7 @@ class ScraperClusterManager:
         
         # All retries failed
         self.failure_count += 1
-        duration = (datetime.utcnow() - start_time).total_seconds() * 1000
+        duration = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
         
         return ScraperResult(
             task_id=task.task_id,
@@ -204,7 +204,7 @@ class ScraperClusterManager:
             data=None,
             error=last_error,
             duration_ms=duration,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
         )
 
     async def _get_cached_result(self, cache_key: str) -> Optional[ScraperResult]:
@@ -280,7 +280,7 @@ class ScraperClusterManager:
                         data=None,
                         error=str(result),
                         duration_ms=0,
-                        timestamp=datetime.utcnow(),
+                        timestamp=datetime.now(timezone.utc),
                     )
                 )
             else:

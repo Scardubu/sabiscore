@@ -11,7 +11,7 @@ Requires Betfair credentials (set in environment):
 import asyncio
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Callable
 import aiohttp
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -139,7 +139,7 @@ class BetfairConnector:
                 "inplay": market.get("inplay", False),
                 "total_matched": market.get("totalMatched"),
                 "runners": runners,
-                "fetched_at": datetime.utcnow().isoformat(),
+                "fetched_at": datetime.now(timezone.utc).isoformat(),
             }
         except Exception as e:
             logger.error(f"Error parsing Betfair market book: {e}")
@@ -281,7 +281,7 @@ class BetfairConnector:
                     "lay_prices": [{"price": 3.55, "size": 320}],
                 },
             ],
-            "fetched_at": datetime.utcnow().isoformat(),
+            "fetched_at": datetime.now(timezone.utc).isoformat(),
             "mock": True,
         }
 

@@ -8,7 +8,7 @@ import redis
 import json
 import os
 from typing import Dict, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 import asyncio
@@ -73,7 +73,7 @@ class DataProcessingService:
             return json.loads(cached)
         
         # Build features from database
-        match_date = match_date or datetime.utcnow()
+        match_date = match_date or datetime.now(timezone.utc)
         
         # Parallel feature extraction
         tasks = [
@@ -99,7 +99,7 @@ class DataProcessingService:
             **results[6],  # odds
             'league': league,
             'match_date': match_date.isoformat(),
-            'processed_at': datetime.utcnow().isoformat()
+            'processed_at': datetime.now(timezone.utc).isoformat()
         }
         
         # Cache in Redis

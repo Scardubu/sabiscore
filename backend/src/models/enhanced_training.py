@@ -15,7 +15,7 @@ and calibration layers.
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -417,7 +417,7 @@ class EnhancedModelTrainer:
                 "league": league,
                 "training_samples": len(X_train),
                 "test_samples": len(X_test),
-                "trained_at": datetime.utcnow().isoformat(),
+                "trained_at": datetime.now(timezone.utc).isoformat(),
             }
         )
 

@@ -15,7 +15,7 @@ Generates comprehensive feature vectors for ML models including:
 - Tactical features (formation, pressing, possession style)
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Dict
 
 import numpy as np
@@ -700,8 +700,8 @@ class FeatureEngineer:
             elo_difference=features.get("elo_difference", 0),
             feature_vector_full=features,  # Store complete 220-feature vector as JSON
             features_version=self.version,
-            timestamp=datetime.utcnow(),
-            created_at=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
+            created_at=datetime.now(timezone.utc),
         )
         
         self.db_session.add(feature_vector)

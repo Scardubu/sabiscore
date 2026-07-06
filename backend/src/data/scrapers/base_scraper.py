@@ -20,7 +20,7 @@ import os
 import random
 import time
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
@@ -103,7 +103,7 @@ class CircuitBreaker:
     def record_failure(self) -> None:
         """Record a failure and potentially open circuit."""
         self.failures += 1
-        self.last_failure_time = datetime.utcnow()
+        self.last_failure_time = datetime.now(timezone.utc)
         
         if self.failures >= self.failure_threshold:
             self.state = "open"
@@ -118,7 +118,7 @@ class CircuitBreaker:
             return True
         
         if self.state == "open" and self.last_failure_time:
-            elapsed = (datetime.utcnow() - self.last_failure_time).total_seconds()
+            elapsed = (datetime.now(timezone.utc) - self.last_failure_time).total_seconds()
             if elapsed >= self.timeout:
                 self.state = "half_open"
                 logger.info("Circuit breaker entering HALF_OPEN state")

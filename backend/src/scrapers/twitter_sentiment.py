@@ -5,7 +5,7 @@ Integrates with prediction pipeline to detect market overreactions.
 
 import logging
 from typing import Dict, List, Optional, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -146,7 +146,7 @@ class TwitterSentimentAnalyzer:
                 'market_overreaction': market_overreaction,
                 'key_topics': key_topics,
                 'credibility_weighted_score': round(credibility_score, 3),
-                'timestamp': datetime.utcnow().isoformat(),
+                'timestamp': datetime.now(timezone.utc).isoformat(),
             }
             
             # Cache result
@@ -178,7 +178,7 @@ class TwitterSentimentAnalyzer:
         tweets = client.search_recent_tweets(
             query=query,
             max_results=100,
-            start_time=datetime.utcnow() - timedelta(hours=hours),
+            start_time=datetime.now(timezone.utc) - timedelta(hours=hours),
             tweet_fields=['created_at', 'author_id', 'public_metrics'],
         )
         
@@ -387,7 +387,7 @@ class TwitterSentimentAnalyzer:
                 'shift_velocity': round(shift_velocity, 4),
                 'potential_value': round(potential_value, 3),
                 'recent_sample_size': recent_sentiment.sample_size,
-                'timestamp': datetime.utcnow().isoformat(),
+                'timestamp': datetime.now(timezone.utc).isoformat(),
             }
             
         except Exception as e:

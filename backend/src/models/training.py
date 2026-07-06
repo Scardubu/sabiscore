@@ -2,7 +2,7 @@ import hashlib
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Any, Tuple
 
 import pandas as pd
@@ -161,14 +161,14 @@ class ModelTrainer:
         return {
             "checksum": digest,
             "rows": int(len(df)),
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
         }
 
     def _update_league_metadata(self, model_filename: str, metadata: Dict[str, Any]) -> None:
         league_key = metadata.get("league", model_filename.split("_ensemble")[0]).upper()
         global_meta = self._load_global_metadata()
         global_meta.setdefault("models", {})[league_key] = metadata
-        global_meta["last_updated"] = datetime.utcnow().isoformat()
+        global_meta["last_updated"] = datetime.now(timezone.utc).isoformat()
 
         metadata_file = self.models_path / "models_metadata.json"
         with metadata_file.open("w", encoding="utf-8") as fh:
@@ -191,7 +191,7 @@ class ModelTrainer:
         """Update model metadata file"""
         try:
             metadata = {
-                'last_updated': datetime.utcnow().isoformat(),
+                'last_updated': datetime.now(timezone.utc).isoformat(),
                 'models': {}
             }
 

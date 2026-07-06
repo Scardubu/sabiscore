@@ -18,7 +18,7 @@ Form features now reconstructed from Soccerway results + Understat xG trends.
 import asyncio
 import logging
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
@@ -122,7 +122,7 @@ class DataIngestionService:
             try:
                 async with get_db_session() as db:
                     # Fetch live matches
-                    now = datetime.utcnow()
+                    now = datetime.now(timezone.utc)
                     query = select(Match).where(
                         Match.status.in_(["scheduled", "live"]),
                         Match.match_date <= now + timedelta(hours=2),
@@ -158,7 +158,7 @@ class DataIngestionService:
             try:
                 async with get_db_session() as db:
                     # Get active markets
-                    now = datetime.utcnow()
+                    now = datetime.now(timezone.utc)
                     query = select(Match).where(
                         Match.status.in_(["scheduled", "live"]),
                         Match.match_date >= now - timedelta(hours=1),
@@ -192,7 +192,7 @@ class DataIngestionService:
             try:
                 async with get_db_session() as db:
                     # Get matches about to start (within 30 minutes)
-                    now = datetime.utcnow()
+                    now = datetime.now(timezone.utc)
                     query = select(Match).where(
                         Match.status == "scheduled",
                         Match.match_date >= now,
@@ -228,8 +228,8 @@ class DataIngestionService:
                     # Find matches needing xG enrichment
                     query = select(Match).where(
                         Match.status.in_(["scheduled", "live"]),
-                        Match.match_date >= datetime.utcnow(),
-                        Match.match_date <= datetime.utcnow() + timedelta(days=3),
+                        Match.match_date >= datetime.now(timezone.utc),
+                        Match.match_date <= datetime.now(timezone.utc) + timedelta(days=3),
                     )
                     result = await db.execute(query)
                     matches = result.scalars().all()
@@ -265,7 +265,7 @@ class DataIngestionService:
             try:
                 async with get_db_session() as db:
                     # Get unique leagues from upcoming matches
-                    now = datetime.utcnow()
+                    now = datetime.now(timezone.utc)
                     query = select(Match.league_id).distinct().where(
                         Match.match_date >= now,
                         Match.match_date <= now + timedelta(days=7),
@@ -364,7 +364,7 @@ class DataIngestionService:
                         "away": odds_data.get("away_spread", 0.02),
                     },
                     "total_matched": odds_data.get("total_matched", 0),
-                    "fetched_at": datetime.utcnow().isoformat(),
+                    "fetched_at": datetime.now(timezone.utc).isoformat(),
                 }
                 # Cache for 30 seconds
                 cache_manager.set(cache_key, result, ttl=30)
@@ -401,7 +401,7 @@ class DataIngestionService:
             league_code = self._get_league_code(match.league_id)
             fd_data = self.football_data.download_season_data(
                 league=league_code,
-                season=datetime.utcnow().strftime("%y") + str(int(datetime.utcnow().strftime("%y")) + 1),
+                season=datetime.now(timezone.utc).strftime("%y") + str(int(datetime.now(timezone.utc).strftime("%y")) + 1),
                 use_cache=True
             )
 
@@ -516,7 +516,7 @@ class DataIngestionService:
             home_win=runners[0].get("last_price_traded"),
             draw=runners[1].get("last_price_traded") if len(runners) > 1 else None,
             away_win=runners[2].get("last_price_traded") if len(runners) > 2 else None,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             market_type="MATCH_ODDS",
         )
         db.add(odds)
@@ -532,7 +532,7 @@ class DataIngestionService:
             home_win=closing_data.get("home"),
             draw=closing_data.get("draw"),
             away_win=closing_data.get("away"),
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             market_type="CLOSING_LINE",
         )
         db.add(odds)

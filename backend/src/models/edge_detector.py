@@ -12,7 +12,7 @@ Features:
 
 import logging
 from typing import Dict, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -207,7 +207,7 @@ class EdgeDetector:
                     "edge": round(edge, 4),
                     "edge_percentage": round(edge * 100, 2),
                     "kelly_stake": kelly_calc,
-                    "detected_at": datetime.utcnow().isoformat(),
+                    "detected_at": datetime.now(timezone.utc).isoformat(),
                 }
         
         if best_bet:

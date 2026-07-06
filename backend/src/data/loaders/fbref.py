@@ -9,7 +9,7 @@ Features:
 """
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 import aiohttp
@@ -199,7 +199,7 @@ class FBrefLoader:
                 source="fbref",
                 job_type="historical_load",
                 status="started",
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
                 metadata={"league": league, "season": season},
             )
             db_session.add(log)

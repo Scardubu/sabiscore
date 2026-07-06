@@ -7,7 +7,7 @@ Not authorised for production use. Raises DataUnavailableError on all data calls
 
 import logging
 from typing import Dict, Optional, Any
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..core.exceptions import DataUnavailableError
 
@@ -192,7 +192,7 @@ class FBrefScoutingScraper:
                 'touches_in_box_per_90': 5.8,
                 'market_value_millions': 85.0,
                 'replacement_quality': 0.85,  # 0-1 scale
-                'timestamp': datetime.utcnow().isoformat(),
+                'timestamp': datetime.now(timezone.utc).isoformat(),
             }
             
             # Cache for 6 hours
@@ -263,7 +263,7 @@ class FBrefScoutingScraper:
                     'interceptions': 12,
                     'aerial_duels_won': 15,
                 },
-                'timestamp': datetime.utcnow().isoformat(),
+                'timestamp': datetime.now(timezone.utc).isoformat(),
             }
             
             # Cache for 24 hours (match reports are static)

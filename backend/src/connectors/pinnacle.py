@@ -10,7 +10,7 @@ Requires Pinnacle credentials (set in environment):
 import asyncio
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Callable
 import aiohttp
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -118,7 +118,7 @@ class PinnacleConnector:
             "sport_id": data.get("sportId"),
             "last_updated": data.get("last"),
             "leagues": [],
-            "fetched_at": datetime.utcnow().isoformat(),
+            "fetched_at": datetime.now(timezone.utc).isoformat(),
         }
 
         for league in data.get("leagues", []):
@@ -206,7 +206,7 @@ class PinnacleConnector:
                                 "away_odds": moneyline.get("away"),
                                 "draw_odds": moneyline.get("draw"),
                                 "cutoff": period.get("cutoff"),
-                                "fetched_at": datetime.utcnow().isoformat(),
+                                "fetched_at": datetime.now(timezone.utc).isoformat(),
                             }
         except Exception as e:
             logger.error(f"Error extracting closing odds: {e}")
@@ -289,7 +289,7 @@ class PinnacleConnector:
         """Mock Pinnacle odds for testing"""
         return {
             "sport_id": 29,
-            "last_updated": datetime.utcnow().isoformat(),
+            "last_updated": datetime.now(timezone.utc).isoformat(),
             "leagues": [
                 {
                     "league_id": 1980,
@@ -317,7 +317,7 @@ class PinnacleConnector:
                     ]
                 }
             ],
-            "fetched_at": datetime.utcnow().isoformat(),
+            "fetched_at": datetime.now(timezone.utc).isoformat(),
             "mock": True,
         }
 

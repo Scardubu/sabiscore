@@ -8,7 +8,7 @@ import logging
 import os
 import time
 from typing import Any, Dict, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..ml_ultra.ultra_predictor import UltraPredictor
 from ..schemas.prediction import MatchPredictionRequest, PredictionResponse
@@ -112,7 +112,7 @@ class UltraPredictionService:
                 home_team_id=hash(request.home_team) % 10000,
                 away_team_id=hash(request.away_team) % 10000,
                 league_id=hash(request.league) % 100,
-                match_date=datetime.utcnow(),
+                match_date=datetime.now(timezone.utc),
                 features=features
             )
             

@@ -11,7 +11,7 @@ Data sources:
 """
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
 from urllib.parse import urljoin
@@ -237,8 +237,8 @@ class FootballDataLoader:
                 country=country,
                 tier=tier,
                 active=True,
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
             )
             db_session.add(league)
             db_session.commit()
@@ -271,8 +271,8 @@ class FootballDataLoader:
                         league_id=league_code,
                         country=country,
                         active=True,
-                        created_at=datetime.utcnow(),
-                        updated_at=datetime.utcnow(),
+                        created_at=datetime.now(timezone.utc),
+                        updated_at=datetime.now(timezone.utc),
                     )
                     db_session.add(home_team)
                 
@@ -287,8 +287,8 @@ class FootballDataLoader:
                         league_id=league_code,
                         country=country,
                         active=True,
-                        created_at=datetime.utcnow(),
-                        updated_at=datetime.utcnow(),
+                        created_at=datetime.now(timezone.utc),
+                        updated_at=datetime.now(timezone.utc),
                     )
                     db_session.add(away_team)
                 
@@ -317,8 +317,8 @@ class FootballDataLoader:
                     home_score=match_data["home_score"],
                     away_score=match_data["away_score"],
                     referee=match_data["referee"],
-                    created_at=datetime.utcnow(),
-                    updated_at=datetime.utcnow(),
+                    created_at=datetime.now(timezone.utc),
+                    updated_at=datetime.now(timezone.utc),
                 )
                 db_session.add(match)
                 db_session.flush()
@@ -329,7 +329,7 @@ class FootballDataLoader:
                         match_id=match.id,
                         team_id=home_team.id,
                         **match_data["stats_home"],
-                        created_at=datetime.utcnow(),
+                        created_at=datetime.now(timezone.utc),
                     )
                     db_session.add(stats_home)
                 
@@ -338,7 +338,7 @@ class FootballDataLoader:
                         match_id=match.id,
                         team_id=away_team.id,
                         **match_data["stats_away"],
-                        created_at=datetime.utcnow(),
+                        created_at=datetime.now(timezone.utc),
                     )
                     db_session.add(stats_away)
                 
@@ -389,13 +389,13 @@ class FootballDataLoader:
                 source="football_data_co_uk",
                 job_type="historical_load",
                 status="started",
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
                 metadata={"leagues": leagues, "seasons": seasons},
             )
             db_session.add(log)
             db_session.commit()
             
-            start_time = datetime.utcnow()
+            start_time = datetime.now(timezone.utc)
             total_loaded = 0
             
             try:
@@ -407,7 +407,7 @@ class FootballDataLoader:
                         total_loaded += count
                 
                 # Update log
-                execution_time = (datetime.utcnow() - start_time).total_seconds()
+                execution_time = (datetime.now(timezone.utc) - start_time).total_seconds()
                 log.status = "success"
                 log.records_processed = total_loaded
                 log.execution_time_seconds = execution_time

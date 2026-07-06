@@ -13,7 +13,7 @@ Features:
 import asyncio
 import json
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional
 from urllib.parse import urljoin
 
@@ -187,7 +187,7 @@ class UnderstatLoader:
                     "home_shots": home_shots,
                     "away_shots": away_shots,
                     "match_info": match_info,
-                    "scraped_at": datetime.utcnow().isoformat(),
+                    "scraped_at": datetime.now(timezone.utc).isoformat(),
                 }
                 
                 # Cache result
@@ -283,7 +283,7 @@ class UnderstatLoader:
                     match_id=match.id,
                     team_id=match.home_team_id,
                     expected_goals=xg_data["home_xg"],
-                    created_at=datetime.utcnow(),
+                    created_at=datetime.now(timezone.utc),
                 )
                 db_session.add(home_stats)
             
@@ -298,7 +298,7 @@ class UnderstatLoader:
                     match_id=match.id,
                     team_id=match.away_team_id,
                     expected_goals=xg_data["away_xg"],
-                    created_at=datetime.utcnow(),
+                    created_at=datetime.now(timezone.utc),
                 )
                 db_session.add(away_stats)
             
@@ -319,7 +319,7 @@ class UnderstatLoader:
                         "last_action": shot["last_action"],
                     },
                     source="understat",
-                    timestamp=datetime.utcnow(),
+                    timestamp=datetime.now(timezone.utc),
                 )
                 db_session.add(event)
             
@@ -339,7 +339,7 @@ class UnderstatLoader:
                         "last_action": shot["last_action"],
                     },
                     source="understat",
-                    timestamp=datetime.utcnow(),
+                    timestamp=datetime.now(timezone.utc),
                 )
                 db_session.add(event)
             
@@ -362,14 +362,14 @@ class UnderstatLoader:
                 source="understat",
                 job_type="incremental_update",
                 status="started",
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
                 metadata={"days": days},
             )
             db_session.add(log)
             db_session.commit()
             
-            start_time = datetime.utcnow()
-            cutoff_date = datetime.utcnow() - timedelta(days=days)
+            start_time = datetime.now(timezone.utc)
+            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
             
             # Find matches without xG data
             matches = (
@@ -403,7 +403,7 @@ class UnderstatLoader:
                     await asyncio.sleep(0.5)  # Rate limiting
                 
                 # Update log
-                execution_time = (datetime.utcnow() - start_time).total_seconds()
+                execution_time = (datetime.now(timezone.utc) - start_time).total_seconds()
                 log.status = "success"
                 log.records_processed = success_count
                 log.records_failed = failed_count

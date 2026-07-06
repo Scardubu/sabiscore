@@ -10,7 +10,7 @@ Features:
 """
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 import aiohttp
@@ -108,7 +108,7 @@ class TransfermarktLoader:
             age_elem = soup.find("span", {"itemprop": "birthDate"})
             age = None
             if age_elem:
-                from datetime import datetime
+                from datetime import datetime, timezone
                 birth_date = age_elem.get("data-birthdate")
                 if birth_date:
                     birth_year = int(birth_date.split("-")[0])
@@ -121,7 +121,7 @@ class TransfermarktLoader:
                 "currency": currency,
                 "position": position,
                 "age": age,
-                "fetched_at": datetime.utcnow().isoformat(),
+                "fetched_at": datetime.now(timezone.utc).isoformat(),
             }
             
             logger.info(f"Fetched valuation for {player_name}: €{market_value:,.0f}")
@@ -202,7 +202,7 @@ class TransfermarktLoader:
                         currency=valuation["currency"],
                         position=valuation.get("position"),
                         age=valuation.get("age"),
-                        valuation_date=datetime.utcnow(),
+                        valuation_date=datetime.now(timezone.utc),
                     )
                     db_session.add(player_val)
                     updated_count += 1
@@ -235,7 +235,7 @@ class TransfermarktLoader:
                 source="transfermarkt",
                 job_type="historical_load",
                 status="started",
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
                 metadata={"league": league},
             )
             db_session.add(log)

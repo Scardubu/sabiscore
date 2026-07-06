@@ -6,7 +6,7 @@ Can be extended with APM integrations (Datadog, New Relic, etc.)
 import time
 import logging
 from typing import Dict, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import wraps
 
 logger = logging.getLogger(__name__)
@@ -23,14 +23,14 @@ class MetricsCollector:
             'cache_misses': 0,
             'errors': 0,
         }
-        self.start_time = datetime.utcnow()
+        self.start_time = datetime.now(timezone.utc)
     
     def record_latency(self, endpoint: str, duration_ms: float):
         """Record API endpoint latency"""
         self.metrics['api_latency'].append({
             'endpoint': endpoint,
             'duration_ms': duration_ms,
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': datetime.now(timezone.utc).isoformat(),
         })
         
         # Keep only last 1000 records
@@ -41,7 +41,7 @@ class MetricsCollector:
         """Record prediction generation time"""
         self.metrics['prediction_time'].append({
             'duration_ms': duration_ms,
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': datetime.now(timezone.utc).isoformat(),
         })
         
         if len(self.metrics['prediction_time']) > 1000:
@@ -65,7 +65,7 @@ class MetricsCollector:
         total_cache_ops = self.metrics['cache_hits'] + self.metrics['cache_misses']
         
         summary = {
-            'uptime_seconds': (datetime.utcnow() - self.start_time).total_seconds(),
+            'uptime_seconds': (datetime.now(timezone.utc) - self.start_time).total_seconds(),
             'total_requests': total_requests,
             'total_predictions': len(self.metrics['prediction_time']),
             'total_errors': self.metrics['errors'],

@@ -3,7 +3,7 @@ import logging
 import random
 import re
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 from urllib.parse import quote_plus
@@ -39,7 +39,7 @@ class CircuitBreaker:
     def record_failure(self) -> None:
         """Record a failure and potentially open circuit."""
         self.failures += 1
-        self.last_failure_time = datetime.utcnow()
+        self.last_failure_time = datetime.now(timezone.utc)
         
         if self.failures >= self.failure_threshold:
             self.state = "open"
@@ -54,7 +54,7 @@ class CircuitBreaker:
             return True
         
         if self.state == "open" and self.last_failure_time:
-            elapsed = (datetime.utcnow() - self.last_failure_time).total_seconds()
+            elapsed = (datetime.now(timezone.utc) - self.last_failure_time).total_seconds()
             if elapsed >= self.timeout:
                 self.state = "half_open"
                 logger.info("Circuit breaker entering half-open state")
@@ -136,7 +136,7 @@ class BaseScraper:
                     raise requests.HTTPError(f"Server error {response.status_code}")
                 
                 response.raise_for_status()
-                self.last_scrape_at = datetime.utcnow()
+                self.last_scrape_at = datetime.now(timezone.utc)
                 
                 # Success - update metrics and circuit breaker
                 self.metrics["requests_success"] += 1
@@ -263,7 +263,7 @@ def _apply_data_retention(df: pd.DataFrame, date_column: str = "date") -> pd.Dat
         return df
 
     dates = pd.to_datetime(df[date_column], errors="coerce")
-    cutoff = datetime.utcnow() - timedelta(days=retention_days)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
     mask = dates >= cutoff
 
     if mask.all():

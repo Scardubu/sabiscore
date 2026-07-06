@@ -13,7 +13,7 @@ shot_quality_diff is permanently DATA_GAP per PHASE7_FEATURES_ALWAYS_DATA_GAP.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -293,7 +293,7 @@ class UpcomingMatchFeatureProjector:
         data_gaps so the frontend can render the PARTIAL verdict and DATA_GAP badges.
         """
         if match_date is None:
-            match_date = datetime.utcnow()
+            match_date = datetime.now(timezone.utc)
 
         season = self._derive_season(match_date)
 

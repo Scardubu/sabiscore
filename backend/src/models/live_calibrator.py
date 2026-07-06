@@ -9,7 +9,7 @@ to adjust predicted probabilities in real-time.
 import asyncio
 import logging
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Dict, Optional, Tuple
 from sklearn.linear_model import LogisticRegression
 from sklearn.isotonic import IsotonicRegression
@@ -66,7 +66,7 @@ class PlattCalibrator:
             try:
                 # Check circuit breaker
                 if circuit_open:
-                    elapsed = (datetime.utcnow() - last_failure_time).total_seconds()
+                    elapsed = (datetime.now(timezone.utc) - last_failure_time).total_seconds()
                     if elapsed >= circuit_reset_time:
                         circuit_open = False
                         failure_count = 0
@@ -92,7 +92,7 @@ class PlattCalibrator:
                 
                 if failure_count >= 3:
                     circuit_open = True
-                    last_failure_time = datetime.utcnow()
+                    last_failure_time = datetime.now(timezone.utc)
                     logger.warning("Circuit breaker OPENED due to repeated failures")
                 
                 await asyncio.sleep(interval_seconds)
@@ -107,7 +107,7 @@ class PlattCalibrator:
                 
                 if failure_count >= 3:
                     circuit_open = True
-                    last_failure_time = datetime.utcnow()
+                    last_failure_time = datetime.now(timezone.utc)
                 
                 await asyncio.sleep(interval_seconds)
 
@@ -158,7 +158,7 @@ class PlattCalibrator:
                 outcomes
             )
             
-            self.last_calibration = datetime.utcnow()
+            self.last_calibration = datetime.now(timezone.utc)
             logger.info(f"Calibration complete: a={self.platt_a:.4f}, b={self.platt_b:.4f}")
             
             return True
@@ -247,7 +247,7 @@ class PlattCalibrator:
         
         try:
             # Fetch live prediction keys from last N hours (async)
-            cutoff_time = datetime.utcnow() - self.calibration_window
+            cutoff_time = datetime.now(timezone.utc) - self.calibration_window
             cutoff_timestamp = cutoff_time.timestamp()
             
             # Use Redis SCAN for efficient key iteration (non-blocking)
@@ -329,7 +329,7 @@ class PlattCalibrator:
                 mapping={
                     "platt_a": str(self.platt_a),
                     "platt_b": str(self.platt_b),
-                    "last_update": datetime.utcnow().isoformat(),
+                    "last_update": datetime.now(timezone.utc).isoformat(),
                 }
             )
             

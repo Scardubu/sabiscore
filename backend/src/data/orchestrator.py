@@ -5,7 +5,7 @@ Runs periodic scraping jobs, handles errors, and maintains data freshness
 
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional
 import json
 from sqlalchemy import select, and_
@@ -74,7 +74,7 @@ class DataPipelineOrchestrator:
         Returns:
             Summary dict with stats for each stage
         """
-        job_start = datetime.utcnow()
+        job_start = datetime.now(timezone.utc)
         job_id = f"pipeline_{job_start.strftime('%Y%m%d_%H%M%S')}"
         
         logger.info(f"Starting pipeline job {job_id} for leagues: {leagues}")
@@ -114,7 +114,7 @@ class DataPipelineOrchestrator:
             logger.error(f"Pipeline job {job_id} failed: {e}", exc_info=True)
             results["errors"].append({"stage": "pipeline", "error": str(e)})
         
-        job_end = datetime.utcnow()
+        job_end = datetime.now(timezone.utc)
         results["end_time"] = job_end.isoformat()
         results["duration_seconds"] = (job_end - job_start).total_seconds()
         
@@ -404,12 +404,12 @@ class DataPipelineOrchestrator:
         """
         logger.info("Starting data pipeline scheduler")
         
-        last_tactical_run = datetime.utcnow() - timedelta(seconds=self.TACTICAL_INTERVAL)
-        last_xg_run = datetime.utcnow() - timedelta(seconds=self.XG_INTERVAL)
+        last_tactical_run = datetime.now(timezone.utc) - timedelta(seconds=self.TACTICAL_INTERVAL)
+        last_xg_run = datetime.now(timezone.utc) - timedelta(seconds=self.XG_INTERVAL)
         
         while True:
             try:
-                now = datetime.utcnow()
+                now = datetime.now(timezone.utc)
                 
                 # Check if tactical scraping is due
                 if (now - last_tactical_run).total_seconds() >= self.TACTICAL_INTERVAL:
