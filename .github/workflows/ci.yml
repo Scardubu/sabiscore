@@ -104,6 +104,9 @@ jobs:
           ! grep -rn "hardcoded_odds" src/services src/api src/providers --include="*.py"
           ! grep -rn "Base\.metadata\.create_all" alembic --include="*.py"
           ! grep -rn "full_kelly_fraction" src --include="*.py"
+          # datetime.utcnow() deprecated (Python 3.12+): enforce clean canonical paths
+          # database.py SQLAlchemy column callable defaults are exempt (requires SQLAlchemy migration)
+          ! grep -rn "datetime\.utcnow" src/api src/services src/providers/espn src/models/orchestrator.py src/core/security.py --include="*.py"
           cd ..
           ! grep -rn "full_kelly\|Full-Kelly\|Full Kelly" apps/web/src --include="*.ts" --include="*.tsx"
           ! grep -rn "NEXT_PUBLIC_KELLY_FRACTION" vercel.json .env.example backend/.env.example 2>/dev/null

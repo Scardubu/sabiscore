@@ -284,6 +284,24 @@ run the full release matrix before tagging the release.
 3. Roll back database schema only with reviewed Alembic downgrade or forward-fix migration.
 4. Re-run `python -m src.cli providers doctor` and `make verify` before restoring traffic.
 
+## vΩ.5 Changes (2026-07-06)
+
+- **`datetime.utcnow()` purged — entire backend/src** (except `database.py` SQLAlchemy column callable defaults, which require a dedicated SQLAlchemy migration). All 30 remaining non-canonical files (`cli/`, `connectors/`, `data/loaders/`, `models/`, `scrapers/`, `services/`) updated to `datetime.now(timezone.utc)`. `grep -rn "datetime\.utcnow" backend/src --include="*.py" | grep -v database.py` → 0 matches. CI zero-fab scan now enforces this on canonical paths (`src/api`, `src/services`, `src/providers/espn`, `src/models/orchestrator.py`, `src/core/security.py`).
+- **Ultra service Kelly cap reads `LeaguePolicy.kelly_cap`** — `services/ultra_prediction_service.py` `_detect_value_bets()` now calls `get_league_policy(league_key)` with fallback to `0.04` on `LeaguePolicyUnavailableError`. League model files (`premier_league.py`, `la_liga.py`, `ligue_1.py`, `serie_a.py`) use `_KELLY_CAP` module constant from `get_league_policy()`. `grep -rn "min(kelly_fraction, 0.04)" backend/src` → 0 matches.
+- **`render.yaml` metadata corrected** — `MODEL_VERSION: v5_phase7` (was `3.0`), `FEATURES_COUNT: 86` (was `220`).
+- **Pydantic v2 migration complete** — `ultra_predictions.py` `UltraMatchFeatures` migrated from `class Config:` to `model_config = ConfigDict(...)`. `grep -rn "class Config:" backend/src` → 0 matches. All production schemas on Pydantic v2 API.
+- **Duplicate globals removed from `main.py`** — second `model_instance`/`model_load_in_progress` declaration block removed.
+
+## vΩ.4 Changes (2026-07-05)
+
+- **Quarter-Kelly full sweep** — all `kelly_fraction=0.125` (⅛-Kelly) defaults changed to `0.25` across `schemas/prediction.py`, `schemas/value_bet.py`, `models/edge_detector.py`, `services/ultra_prediction.py`, `services/ultra_prediction_service.py`. League model inline Kelly post-multipliers (`* 0.125`) replaced with policy-cap pattern in `premier_league.py`, `la_liga.py`, `ligue_1.py`, `serie_a.py`. `grep -rn "kelly_fraction.*0\.125" backend/src` → 0 matches.
+- **Orchestrator stale accuracy strings removed** — `models/orchestrator.py` `_get_accuracy_target()` hardcoded 76.2%/74.8% etc. removed; method returns `""` with walk-forward note.
+- **Integration test gate fixed** — `tests/test_prediction_pipeline.py` gated purely on `RUN_INTEGRATION_TESTS=1`. `tests/integration/test_end_to_end.py::test_feature_transformation` asserts fail-closed `DataUnavailableError` contract. Both files green: 18 passed, 9 skipped, 0 failed.
+- **`CalibratedEnsemble cv="prefit"`** — `models/enhanced_training.py` prevents re-fitting a trained `StackingClassifier` via k-fold (data leakage). Regression guard in `test_zero_fabrication_contract.py`.
+- **Pydantic v2 partial migration** — All 7 production schema classes in `backend/src/schemas/` migrated.
+- **Ruff zero-issue** — All bare `except:` fixed, E402 annotated, E701/E741 resolved.
+- **ws service Dockerfile** — `production` target added, port aligned to `WS_PORT=8001`, `# syntax` directive dropped. Duplicate `Dockerfile.ws` deleted. CORS `allow_credentials=False`.
+
 ## vΩ.3 Changes (2026-07-05)
 
 - **SECURITY — Upstash Redis credential purged.** A live Upstash token (`known-amoeba-10186.upstash.io`) had been committed as an env default across 10 tracked files (`apps/ws/main.py`, `apps/api/ingestion/redis_client.py`, `start_backend.bat`, and 6 docs). All occurrences removed: code/scripts now default to inert `redis://localhost:6379/0`, docs to a `<UPSTASH_REDIS_TOKEN>` placeholder. **Action required: rotate this token in the Upstash console** — it stays in Git history until a reviewed history rewrite is scheduled.

@@ -595,7 +595,7 @@ If any system-level change is made:
 
 ---
 
-# VERIFIED COMPONENT STATE (2026-06-28 — override all prior docs)
+# VERIFIED COMPONENT STATE (2026-07-06 — override all prior docs)
 
 ## Routing implications from verified ground truth
 

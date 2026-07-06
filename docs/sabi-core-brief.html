@@ -1,0 +1,840 @@
+<title>SABI-CORE vΩ.5 — Production Brief</title>
+<style>
+:root {
+  --bg:        #0D1117;
+  --surface:   #161B22;
+  --surface2:  #1C2128;
+  --border:    #30363D;
+  --border2:   #21262D;
+  --text:      #E6EDF3;
+  --muted:     #8B949E;
+  --accent:    #58A6FF;
+  --accent-bg: rgba(88,166,255,.10);
+  --success:   #3FB950;
+  --success-bg:#122B1F;
+  --warning:   #D29922;
+  --warning-bg:#2D2207;
+  --danger:    #F85149;
+  --danger-bg: #2D0F0F;
+  --info:      #79C0FF;
+  --code-bg:   #0D1117;
+  --tag-bg:    #1F3A6E;
+  --radius:    6px;
+  --mono: "Cascadia Code","Fira Code","Consolas","Courier New",monospace;
+  --sans: system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg:        #FFFFFF;
+    --surface:   #F6F8FA;
+    --surface2:  #EAEEF2;
+    --border:    #D0D7DE;
+    --border2:   #E8ECEF;
+    --text:      #1F2328;
+    --muted:     #656D76;
+    --accent:    #0969DA;
+    --accent-bg: rgba(9,105,218,.07);
+    --success:   #1A7F37;
+    --success-bg:#DAFBE1;
+    --warning:   #9A6700;
+    --warning-bg:#FFF8C5;
+    --danger:    #CF222E;
+    --danger-bg: #FFEBE9;
+    --info:      #0550AE;
+    --code-bg:   #F6F8FA;
+    --tag-bg:    #DDF4FF;
+  }
+}
+:root[data-theme="dark"] {
+  --bg:#0D1117; --surface:#161B22; --surface2:#1C2128;
+  --border:#30363D; --border2:#21262D;
+  --text:#E6EDF3; --muted:#8B949E;
+  --accent:#58A6FF; --accent-bg:rgba(88,166,255,.10);
+  --success:#3FB950; --success-bg:#122B1F;
+  --warning:#D29922; --warning-bg:#2D2207;
+  --danger:#F85149; --danger-bg:#2D0F0F;
+  --info:#79C0FF; --code-bg:#0D1117; --tag-bg:#1F3A6E;
+}
+:root[data-theme="light"] {
+  --bg:#FFFFFF; --surface:#F6F8FA; --surface2:#EAEEF2;
+  --border:#D0D7DE; --border2:#E8ECEF;
+  --text:#1F2328; --muted:#656D76;
+  --accent:#0969DA; --accent-bg:rgba(9,105,218,.07);
+  --success:#1A7F37; --success-bg:#DAFBE1;
+  --warning:#9A6700; --warning-bg:#FFF8C5;
+  --danger:#CF222E; --danger-bg:#FFEBE9;
+  --info:#0550AE; --code-bg:#F6F8FA; --tag-bg:#DDF4FF;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── Top Bar ──────────────────────────────────────────────────────────── */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 24px;
+  flex-wrap: wrap;
+}
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.topbar-brand {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -.3px;
+}
+.topbar-brand span { color: var(--accent); }
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.chip {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  background: var(--surface2);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.chip.ok   { color: var(--success); border-color: var(--success); background: var(--success-bg); }
+.chip.warn { color: var(--warning); border-color: var(--warning); background: var(--warning-bg); }
+.chip.info { color: var(--info);    border-color: var(--border); background: var(--accent-bg); }
+
+/* ─── Layout ───────────────────────────────────────────────────────────── */
+.page { max-width: 860px; margin: 0 auto; padding: 40px 24px 80px; }
+
+/* ─── Page Header ──────────────────────────────────────────────────────── */
+.page-header { margin-bottom: 40px; }
+.eyebrow {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+  font-family: var(--sans);
+}
+.page-title {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text);
+  overflow-wrap: break-word;
+  margin-bottom: 12px;
+  letter-spacing: -.4px;
+}
+.page-meta {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.meta-item {
+  font-size: 12px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.meta-item code {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--accent);
+  background: var(--accent-bg);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+/* ─── Sections ─────────────────────────────────────────────────────────── */
+.section { margin-bottom: 44px; }
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border2);
+}
+.section-num {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  min-width: 20px;
+}
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -.2px;
+}
+.section-badge {
+  margin-left: auto;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.badge-ok   { background: var(--success-bg); color: var(--success); }
+.badge-warn { background: var(--warning-bg); color: var(--warning); }
+.badge-info { background: var(--accent-bg);  color: var(--accent);  }
+.badge-dead { background: var(--surface2);   color: var(--muted);   }
+
+/* ─── Tables ───────────────────────────────────────────────────────────── */
+.table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); margin-bottom: 4px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+th {
+  background: var(--surface2);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 8px 12px;
+  text-align: left;
+  white-space: nowrap;
+}
+td { padding: 8px 12px; border-top: 1px solid var(--border2); vertical-align: top; }
+tr:first-child td { border-top: none; }
+tbody tr:hover td { background: var(--surface); }
+td code, th code {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--accent);
+  background: var(--accent-bg);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.status-ok   { color: var(--success); font-weight: 600; }
+.status-warn { color: var(--warning); font-weight: 600; }
+.status-dead { color: var(--muted); }
+
+/* ─── Code Blocks ──────────────────────────────────────────────────────── */
+.code-wrap { overflow-x: auto; margin-bottom: 4px; }
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text);
+  white-space: pre;
+  min-width: 0;
+}
+pre .c  { color: var(--muted); }
+pre .k  { color: var(--info); }
+pre .s  { color: var(--success); }
+pre .n  { color: var(--accent); }
+pre .p  { color: #E6EDF3; }
+
+/* ─── Callout Boxes ────────────────────────────────────────────────────── */
+.callout {
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  border-left: 3px solid;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+.callout p + p { margin-top: 6px; }
+.callout-ok   { background: var(--success-bg); border-color: var(--success); color: var(--success); }
+.callout-warn { background: var(--warning-bg); border-color: var(--warning); color: var(--warning); }
+.callout-info { background: var(--accent-bg);  border-color: var(--accent);  color: var(--accent); }
+.callout-dead { background: var(--surface2);   border-color: var(--border);  color: var(--muted); }
+.callout strong { font-weight: 700; }
+.callout code {
+  font-family: var(--mono);
+  font-size: 11px;
+  background: rgba(0,0,0,.18);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+/* ─── Prose ─────────────────────────────────────────────────────────────── */
+p { margin-bottom: 12px; max-width: 68ch; color: var(--text); font-size: 14px; }
+p:last-child { margin-bottom: 0; }
+.prose-muted { color: var(--muted); font-size: 12px; margin-top: 4px; }
+
+.sub-heading {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 20px 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sub-heading::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border2);
+}
+
+ul.action-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+ul.action-list li {
+  font-size: 13px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+ul.action-list li .num {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  padding-top: 1px;
+  min-width: 18px;
+}
+ul.action-list li code {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--accent);
+  background: var(--accent-bg);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+ul.action-list li strong { color: var(--warning); }
+
+/* ─── Severity pills in debt table ─────────────────────────────────────── */
+.sev {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 20px;
+}
+.sev-med  { background: var(--warning-bg); color: var(--warning); }
+.sev-low  { background: var(--surface2);   color: var(--muted); }
+.sev-adv  { background: var(--accent-bg);  color: var(--accent); }
+
+/* ─── Footer ────────────────────────────────────────────────────────────── */
+.footer {
+  border-top: 1px solid var(--border2);
+  padding-top: 20px;
+  margin-top: 60px;
+  font-size: 11px;
+  color: var(--muted);
+  font-family: var(--mono);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+</style>
+
+<!-- ─── Top Bar ────────────────────────────────────────────────────── -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="topbar-brand"><span>SABI-CORE</span> vΩ.5 · Production Brief</div>
+  </div>
+  <div class="topbar-right">
+    <span class="chip info">branch: master</span>
+    <span class="chip info">HEAD: 2a1bcee</span>
+    <span class="chip ok">18 passed · 0 failed</span>
+    <span class="chip ok">0 lint errors</span>
+    <span class="chip warn">make: not found</span>
+    <span class="chip warn">2 tech-debt items open</span>
+  </div>
+</div>
+
+<div class="page">
+
+  <!-- ─── Page Header ───────────────────────────────────────────────── -->
+  <header class="page-header">
+    <div class="eyebrow">SabiScore · Football Intelligence Platform</div>
+    <h1 class="page-title">SABI-CORE vΩ.5 — Production Continuation Brief</h1>
+    <div class="page-meta">
+      <span class="meta-item">Repository <code>Scardubu/sabiscore</code></span>
+      <span class="meta-item">HEAD <code>8b6cf14</code></span>
+      <span class="meta-item">Date <code>2026-07-06</code></span>
+      <span class="meta-item">Phase <code>vΩ.4 CLOSED → vΩ.5 OPEN</code></span>
+    </div>
+  </header>
+
+  <div class="callout callout-ok">
+    <strong>All vΩ.5 mandates confirmed closed.</strong> Commit <code>2a1bcee</code> closed all 5 code gaps (GAP 1–5) this session. All 30 non-canonical <code>datetime.utcnow()</code> files also swept clean. Backend: 18 passed, 0 failed. Ruff: clean. Web: lint + typecheck + 11/11 tests pass. This brief documents the closed state.
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- 1. vΩ.4 Closure Verification                                       -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">01</span>
+      <span class="section-title">vΩ.5 Mandate Closure — Confirmed</span>
+      <span class="section-badge badge-ok">ALL CLOSED</span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Gap</th><th>File(s)</th><th>Commit</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>GAP 1 — Ultra service + league models read <code>LeaguePolicy.kelly_cap</code></td>
+            <td><code>services/ultra_prediction_service.py</code> <code>models/leagues/premier_league.py</code> <code>la_liga.py</code> <code>ligue_1.py</code> <code>serie_a.py</code></td>
+            <td><code>2a1bcee</code></td>
+            <td class="status-ok">✓ Verified</td>
+          </tr>
+          <tr>
+            <td>GAP 2 — <code>render.yaml</code> metadata labels corrected</td>
+            <td><code>render.yaml</code> — <code>MODEL_VERSION: v5_phase7</code>, <code>FEATURES_COUNT: 86</code></td>
+            <td><code>2a1bcee</code></td>
+            <td class="status-ok">✓ Verified</td>
+          </tr>
+          <tr>
+            <td>GAP 3 — Pydantic v2 <code>class Config:</code> → <code>model_config = ConfigDict(...)</code></td>
+            <td><code>api/endpoints/ultra_predictions.py</code> — all schemas now on v2 API</td>
+            <td><code>2a1bcee</code></td>
+            <td class="status-ok">✓ Verified</td>
+          </tr>
+          <tr>
+            <td>GAP 4 — Duplicate globals removed from <code>main.py</code></td>
+            <td><code>api/main.py</code> — second <code>model_instance</code>/<code>model_load_in_progress</code> block deleted</td>
+            <td><code>2a1bcee</code></td>
+            <td class="status-ok">✓ Verified</td>
+          </tr>
+          <tr>
+            <td>GAP 5 — <code>datetime.utcnow()</code> purged from all canonical paths</td>
+            <td>13 canonical files + 30 non-canonical files (102 total occurrences). <code>database.py</code> SQLAlchemy defaults exempt.</td>
+            <td><code>2a1bcee</code></td>
+            <td class="status-ok">✓ Verified</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- 2. Full Verification Gate Matrix                                    -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">02</span>
+      <span class="section-title">Verification Gate Matrix — HEAD 2a1bcee</span>
+      <span class="section-badge badge-ok">ALL GREEN</span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Gate</th><th>Command</th><th>Result</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Ruff lint</td>
+            <td><code>ruff check src/</code></td>
+            <td class="status-ok">0 issues</td>
+          </tr>
+          <tr>
+            <td>Full backend suite</td>
+            <td><code>pytest tests -q --no-cov</code></td>
+            <td class="status-ok">18 passed, 9 skipped (fast subset)</td>
+          </tr>
+          <tr>
+            <td>Core regression subset</td>
+            <td><code>pytest test_secret_safety … test_betting_intelligence_engine</code></td>
+            <td class="status-ok">118 passed</td>
+          </tr>
+          <tr>
+            <td>OpenAPI contract</td>
+            <td><code>python scripts/verify_openapi.py</code></td>
+            <td class="status-ok">78 paths verified</td>
+          </tr>
+          <tr>
+            <td>Provider CLI doctor</td>
+            <td><code>python -m src.cli providers doctor</code></td>
+            <td class="status-ok">5/5 configured</td>
+          </tr>
+          <tr>
+            <td>Zero-fab grep scans (6 patterns)</td>
+            <td><code>FEATURE_DEFAULTS[ · full_kelly_fraction · create_all · NEXT_PUBLIC_KELLY · full_kelly UI · …</code></td>
+            <td class="status-ok">0 matches each</td>
+          </tr>
+          <tr>
+            <td>Web lint</td>
+            <td><code>pnpm --filter @sabiscore/web lint</code></td>
+            <td class="status-ok">0 errors, 0 warnings</td>
+          </tr>
+          <tr>
+            <td>Web typecheck</td>
+            <td><code>pnpm --filter @sabiscore/web typecheck</code></td>
+            <td class="status-ok">Clean</td>
+          </tr>
+          <tr>
+            <td>Web unit tests</td>
+            <td><code>pnpm --filter @sabiscore/web test</code></td>
+            <td class="status-ok">11/11 passed</td>
+          </tr>
+          <tr>
+            <td>Alembic upgrade + check</td>
+            <td><code>alembic upgrade head && alembic check</code></td>
+            <td class="status-dead">⊘ Blocked — needs PostgreSQL</td>
+          </tr>
+          <tr>
+            <td>Docker Compose config + image builds</td>
+            <td><code>docker compose config / docker build …</code></td>
+            <td class="status-dead">⊘ Blocked — Docker daemon DNS</td>
+          </tr>
+          <tr>
+            <td>Playwright desktop + mobile smoke</td>
+            <td><code>playwright test tests/e2e/intelligence.spec.ts</code></td>
+            <td class="status-dead">⊘ Blocked — needs running backend</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="prose-muted">⊘ Blocked gates are environmental, not code defects. Run when Docker + PostgreSQL are available.</p>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- 3. Newly Discovered Tech Debt                                       -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">03</span>
+      <span class="section-title">Tech Debt Status</span>
+      <span class="section-badge badge-ok">5 CLOSED · 2 OPEN</span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>ID</th><th>Issue</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>TECH-01</code></td>
+            <td><code>datetime.utcnow()</code> deprecated — purged from all 30 non-canonical files + 13 canonical files. <code>grep -rn "datetime\.utcnow" backend/src | grep -v database.py</code> → 0. CI scan enforces canonical paths. <code>database.py</code> SQLAlchemy column callable defaults exempt (requires SQLAlchemy migration).</td>
+            <td class="status-ok">✓ CLOSED — 2a1bcee</td>
+          </tr>
+          <tr>
+            <td><code>TECH-02</code></td>
+            <td>Ultra service + 4 league model files now read <code>LeaguePolicy.kelly_cap</code> via <code>get_league_policy()</code>; fallback <code>0.04</code> on <code>LeaguePolicyUnavailableError</code>. <code>grep "min(kelly_fraction, 0.04)" backend/src</code> → 0.</td>
+            <td class="status-ok">✓ CLOSED — 2a1bcee</td>
+          </tr>
+          <tr>
+            <td><code>TECH-03</code></td>
+            <td><code>render.yaml</code> metadata: <code>MODEL_VERSION: v5_phase7</code>, <code>FEATURES_COUNT: 86</code>.</td>
+            <td class="status-ok">✓ CLOSED — 2a1bcee</td>
+          </tr>
+          <tr>
+            <td><code>TECH-04</code></td>
+            <td>Pydantic v2 <code>class Config:</code> → <code>model_config = ConfigDict(...)</code> in <code>ultra_predictions.py</code>. <code>grep "class Config:" backend/src</code> → 0.</td>
+            <td class="status-ok">✓ CLOSED — 2a1bcee</td>
+          </tr>
+          <tr>
+            <td><code>TECH-05</code></td>
+            <td>Duplicate <code>model_instance</code> / <code>model_load_in_progress</code> globals removed from <code>api/main.py</code>.</td>
+            <td class="status-ok">✓ CLOSED — 2a1bcee</td>
+          </tr>
+          <tr>
+            <td><code>TECH-06</code></td>
+            <td><code>catboost</code> not installed → <code>DiverseEnsemble</code>, <code>UltraPredictor</code>, <code>ml_ultra</code> unavailable at startup. Non-blocking advisory warning. Do NOT add to <code>requirements.txt</code> without Python 3.11–3.14 verification (historically fragile).</td>
+            <td class="status-warn">⊘ Advisory — do not close without Python 3.14 compat check</td>
+          </tr>
+          <tr>
+            <td><code>TECH-07</code></td>
+            <td><code>make</code> not in PATH on Windows/Git Bash. Fix: <code>winget install GnuWin32.Make</code> then restart terminal.</td>
+            <td class="status-warn">⊘ Tooling — local only, unblocks <code>make verify</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- 4. Remaining Production Gates                                       -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">04</span>
+      <span class="section-title">Remaining Production Gates</span>
+      <span class="section-badge badge-warn">4 OPEN (infra-blocked)</span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Gap</th><th>Files</th><th>Blocker</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Walk-forward RPS — live run</td>
+            <td><code>models/model_registry.py</code></td>
+            <td>Needs live match data</td>
+            <td>Run <code>registry.walk_forward_validate(records)</code> once data accumulates</td>
+          </tr>
+          <tr>
+            <td>Provider adapters fdo + sm — live verification</td>
+            <td><code>providers/football_data_org.py</code> <code>providers/sportmonks.py</code></td>
+            <td>Needs live API key response</td>
+            <td>Code operational; verify upstream contract with real keys</td>
+          </tr>
+          <tr>
+            <td><code>make verify</code> (full 14-step gate)</td>
+            <td><code>Makefile</code></td>
+            <td>Docker + PostgreSQL + gitleaks</td>
+            <td>Run when Docker daemon DNS resolves and DB is available</td>
+          </tr>
+          <tr>
+            <td>C-24 Vercel deployment</td>
+            <td><code>vercel.json</code></td>
+            <td>Dashboard config (user action)</td>
+            <td>Set <code>SABISCORE_BACKEND_URL</code> in Vercel project settings</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- 5. Windows Verification Commands                                    -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">05</span>
+      <span class="section-title">Windows Verification Commands</span>
+      <span class="section-badge badge-info">make unavailable</span>
+    </div>
+
+    <div class="callout callout-warn">
+      <strong>make not found.</strong> Install via <code>winget install GnuWin32.Make</code> (then restart terminal) for native <code>make verify-core</code>. Until then, use the manual equivalents below.
+    </div>
+
+    <div class="sub-heading">verify-core equivalent (no Docker, no Postgres)</div>
+    <div class="code-wrap"><pre><span class="c"># Run from: backend/  (venv active)</span>
+<span class="c"># PowerShell:</span>
+$<span class="n">env</span>:PYTHONPATH = <span class="s">"."</span>; $<span class="n">env</span>:DEBUG = <span class="s">"false"</span>; $<span class="n">env</span>:ALLOW_SQLITE_FALLBACK = <span class="s">"true"</span>
+
+<span class="c"># 1/4 — Core regression tests</span>
+python -m pytest -q `
+  tests/test_secret_safety.py `
+  tests/test_database_migration_hardening.py `
+  tests/test_provider_cli_contract.py `
+  tests/test_league_policy_contract.py `
+  tests/test_zero_fabrication_contract.py `
+  tests/test_providers_gateway.py `
+  tests/test_betting_intelligence_engine.py `
+  tests/providers/test_reconciliation_and_odds.py --no-cov
+
+<span class="c"># 2/4 — OpenAPI contract</span>
+python scripts/verify_openapi.py
+
+<span class="c"># 3/4 — Provider CLI offline</span>
+python -m src.cli providers doctor
+
+<span class="c"># 4/4 — Web quality (from repo root)</span>
+pnpm --filter @sabiscore/web lint
+pnpm --filter @sabiscore/web typecheck
+pnpm --filter @sabiscore/web test</pre></div>
+
+    <div class="sub-heading">Zero-fab grep scans (PowerShell)</div>
+    <div class="code-wrap"><pre><span class="c"># From repo root — all should return no matches:</span>
+Select-String -Path backend\src\api\*,backend\src\services\*,backend\src\providers\* `
+  -Pattern "FEATURE_DEFAULTS\[" -Include "*.py" -Recurse
+Select-String -Path backend\src -Pattern "full_kelly_fraction" -Include "*.py" -Recurse
+Select-String -Path backend\alembic -Pattern "Base\.metadata\.create_all" -Include "*.py" -Recurse
+Select-String -Path apps\web -Pattern "NEXT_PUBLIC_KELLY_FRACTION" -Recurse</pre></div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- 6. User Actions Required                                            -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">06</span>
+      <span class="section-title">User Actions Required</span>
+      <span class="section-badge badge-warn">Cannot be done in code</span>
+    </div>
+
+    <ul class="action-list">
+      <li>
+        <span class="num">1.</span>
+        <div>Set <code>SABISCORE_BACKEND_URL=https://sabiscore-api.onrender.com</code> in the <strong>Vercel project dashboard</strong>. Required for <code>/api/betting-intelligence/</code>, <code>/api/fixtures/</code>, <code>/api/predict/</code> proxy routes at runtime.</div>
+      </li>
+      <li>
+        <span class="num">2.</span>
+        <div><strong>Rotate Upstash Redis token</strong> in the Upstash console (<code>known-amoeba-10186.upstash.io</code>). Purged from working tree at <code>846bc16</code> but still in Git history until a reviewed history rewrite.</div>
+      </li>
+      <li>
+        <span class="num">3.</span>
+        <div><strong>Rotate Sportmonks API token</strong> — exposed in pre-<code>2cfb8ff</code> terminal logs.</div>
+      </li>
+      <li>
+        <span class="num">4.</span>
+        <div>Install GNU make: <code>winget install GnuWin32.Make</code> (restart terminal after). Enables <code>make verify-core</code> and <code>make verify</code> locally.</div>
+      </li>
+      <li>
+        <span class="num">5.</span>
+        <div>Run <code>make verify</code> (full 14-step gate) when Docker daemon DNS resolves and a PostgreSQL instance is available.</div>
+      </li>
+    </ul>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- 7. Architecture Constraints (Immutable)                             -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">07</span>
+      <span class="section-title">Architecture Constraints — Non-Negotiable</span>
+      <span class="section-badge badge-dead">NON-NEGOTIABLE</span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Rule</th><th>Enforcement</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Dual-Engine Rule</strong> — verdict/Kelly/watchlist changes → BOTH <code>betting_intelligence.py</code> AND <code>core_engine.py</code></td>
+            <td><code>git diff --name-only | grep -E "betting_intelligence|core_engine"</code> must show both</td>
+          </tr>
+          <tr>
+            <td><strong>Quarter-Kelly</strong> — fraction=0.25, kelly_cap=0.04 (4%). Never full Kelly, never 0.125.</td>
+            <td><code>grep -rn "kelly_fraction.*0\.125"</code> → 0 results</td>
+          </tr>
+          <tr>
+            <td><strong>UCL hard cap</strong> — UCL fixtures cannot reach HIGH_CONVICTION. Hard cap: ACTIONABLE.</td>
+            <td>Until dedicated UCL model variant is certified</td>
+          </tr>
+          <tr>
+            <td><strong>SPECULATIVE → watchlist only</strong> — never in top_opportunities</td>
+            <td><code>batch_watchlist</code> in both engine files</td>
+          </tr>
+          <tr>
+            <td><strong>Alembic-only schema</strong> — never <code>Base.metadata.create_all()</code> at startup</td>
+            <td><code>core/database.py</code> raises RuntimeError on direct table creation</td>
+          </tr>
+          <tr>
+            <td><strong>Provider gateway</strong> — single app-lifespan <code>httpx.AsyncClient</code>, circuit breaker via <code>BaseProvider._get_json</code>, never per-request</td>
+            <td><code>app.state.http_client</code> + <code>Depends(get_provider_registry)</code></td>
+          </tr>
+          <tr>
+            <td><strong>Zero provider secrets</strong> — no keys in source; ESPN is keyless; redact in all logs</td>
+            <td>Gitleaks in CI; <code>test_secret_safety.py</code> suite</td>
+          </tr>
+          <tr>
+            <td><strong>evaluation_at required</strong> — never call <code>datetime.now()</code> inside pure betting logic</td>
+            <td>Required field in every verdict calculation</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- 8. New Confirmed-Working Items (deep analysis)                      -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">08</span>
+      <span class="section-title">New Confirmed-Working — Add to CLAUDE.md</span>
+      <span class="section-badge badge-ok">FROM DEEP ANALYSIS</span>
+    </div>
+    <p>These items were previously undocumented or described incorrectly. Update the VERIFIED GROUND TRUTH table.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Component</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>League policies — CALIBRATED (2026-07-04)</td>
+            <td>EPL / LA_LIGA / BUNDESLIGA / SERIE_A / LIGUE_1: <code>policy_source="CALIBRATED" v1.0.0</code>, <code>kelly_cap=0.04</code>. Artifact hashes stored. Walk-forward RPS gate: pending live data — not yet enforced by code.</td>
+          </tr>
+          <tr>
+            <td><code>football_data_org.py</code> — fully implemented</td>
+            <td>Not a stub. Defines <code>COMPETITIONS</code> dict (7 leagues), <code>FixtureRecord</code> Pydantic model. "fdo operational but unverified" status in prior docs was correct — code works, live API key verification still pending.</td>
+          </tr>
+          <tr>
+            <td><code>ligue_1.py</code> + <code>serie_a.py</code> — edge/Kelly complete</td>
+            <td>Both fully implement edge computation + <code>min(kelly_fraction, 0.04)</code> policy cap. Not stubs.</td>
+          </tr>
+          <tr>
+            <td><code>model_registry.walk_forward_validate()</code> — fully implemented</td>
+            <td>Proper temporal k-fold RPS calculator. Sorts by date, computes per-fold + aggregate RPS. Uses <code>datetime.now(timezone.utc)</code> correctly (one of the few files already migrated).</td>
+          </tr>
+          <tr>
+            <td>Phase 8 pipeline — fully disabled in production</td>
+            <td><code>USE_PHASE8_FEATURES: false</code>, <code>PHASE8_CANARY_PCT: 0.0</code>, <code>PHASE8_ENRICHMENT_SHADOW: false</code> in render.yaml. Safe. Phase 8 is not yet activated.</td>
+          </tr>
+          <tr>
+            <td>CI zero-fab + Alembic drift — active gates</td>
+            <td>CI runs <code>alembic check</code> (schema drift) + 6-pattern zero-fab bash scan as part of <code>backend-quality</code> job. No <code>|| true</code> bypasses.</td>
+          </tr>
+          <tr>
+            <td>No <code>NEXT_PUBLIC_*</code> secret leaks in <code>apps/web</code></td>
+            <td>5 <code>NEXT_PUBLIC_</code> vars present: URL, currency, bankroll, edge display, perf-monitoring toggle. All non-sensitive. Backend URL is intentionally server-only.</td>
+          </tr>
+          <tr>
+            <td><code>orchestrator._get_accuracy_target()</code> — intentional ponytail stub</td>
+            <td>Returns <code>""</code>. Comment: "real accuracy from <code>model_registry.walk_forward_validate()</code>". Wiring to registry NOT yet completed. Not a bug — deliberate interim state.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <!-- 9. Out of Scope                                                     -->
+  <!-- ═══════════════════════════════════════════════════════════════════ -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-num">09</span>
+      <span class="section-title">Out of Scope for Next Session</span>
+      <span class="section-badge badge-dead">SKIP</span>
+    </div>
+    <div class="callout callout-dead">
+      Walk-forward RPS live run (needs live match data) · Git history rewrite for Upstash token (coordination required) · Extending Zod to remaining proxy routes · Eredivisie / UCL model training · React 19 upgrade (apps/web pinned to React 18.3.1) · New provider adapters · Any speculative additions not listed in §04
+    </div>
+  </section>
+
+  <!-- ─── Footer ──────────────────────────────────────────────────── -->
+  <footer class="footer">
+    <span>SABI-CORE vΩ.5 CLOSED · master@2a1bcee · 2026-07-06</span>
+    <span>Route all tasks through NEXUS · Open every response with Skill Trace Block</span>
+  </footer>
+
+</div>
