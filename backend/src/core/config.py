@@ -579,6 +579,13 @@ class Settings(BaseSettings):
         # CSV fallback
         return [host.strip() for host in s.split(",") if host.strip()]
 
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def _coerce_empty_database_url(cls, v):
+        if isinstance(v, str) and not v.strip():
+            return "postgresql://sabi@localhost:5432/sabiscore"
+        return v
+
     @field_validator("models_path", "data_path", mode="before")
     @classmethod
     def _ensure_path(cls, value):

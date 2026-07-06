@@ -1,3 +1,4 @@
+import asyncio
 import json
 from contextlib import asynccontextmanager
 import httpx
@@ -82,6 +83,15 @@ class CustomJSONEncoder(json.JSONEncoder):
             return obj.model_dump()
         return str(obj)  # Fallback to string representation
 
+async def _background_fixture_sync() -> None:
+    """Non-blocking task: seed upcoming fixtures from football-data.org."""
+    try:
+        from ..services.fixture_sync_service import run_fixture_sync
+        await run_fixture_sync()
+    except Exception:
+        logger.exception("Background fixture sync failed")
+
+
 # Lifespan context manager for modern FastAPI startup/shutdown
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -116,7 +126,11 @@ async def lifespan(app: FastAPI):
         logger.info("Async database initialized")
     except Exception:
         logger.exception("Startup: failed to initialize async database")
-    
+
+    # Seed upcoming fixtures in the background so the intelligence dashboard
+    # has data immediately after first deploy. Swallows all errors internally.
+    asyncio.create_task(_background_fixture_sync())
+
     # Strict model initialization (blocking) - startup must fail if models are unavailable.
     try:
         _startup_load_models_strict(app)
