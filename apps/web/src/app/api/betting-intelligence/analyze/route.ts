@@ -8,14 +8,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { proxyFixtureRequest } from "@/app/api/fixtures/proxy";
 
-const AnalyzeRequestSchema = z.object({
-  matches: z
-    .array(z.object({ fixture_id: z.string().min(1).max(64) }))
-    .min(1)
-    .optional(),
-  bookmaker: z.string().optional(),
-  odds: z.record(z.number()).optional(),
-});
+const FixtureIdSchema = z.string().min(1).max(64).regex(/^[a-zA-Z0-9_-]+$/);
+
+const AnalyzeRequestSchema = z.union([
+  // Batch path
+  z.object({ matches: z.array(z.object({ fixture_id: FixtureIdSchema })).min(1) }),
+  // Single path — fixture_id required, odds must be valid decimal (> 1.0)
+  z.object({
+    fixture_id: FixtureIdSchema,
+    bookmaker: z.string().optional(),
+    odds: z.record(z.number().gt(1.0)).optional(),
+  }),
+]);
 
 export async function POST(req: NextRequest) {
   let body: string;
@@ -38,7 +42,7 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
-    if (Array.isArray(validation.data.matches)) {
+    if ("matches" in validation.data) {
       backendPath = "/api/v1/betting-intelligence/analyze";
     }
   } catch {

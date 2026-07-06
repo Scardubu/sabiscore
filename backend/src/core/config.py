@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import List, Optional
 import json
 
-from pydantic import AliasChoices, Field, ValidationError, field_validator, model_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -610,76 +610,19 @@ class Settings(BaseSettings):
     def _validate_environment(self) -> "Settings":
         env = self.app_env.lower()
         if env not in {"development", "staging", "production", "test"}:
-            raise ValidationError(
-                [
-                    {
-                        "loc": ("app_env",),
-                        "msg": "app_env must be one of development, staging, production, test",
-                        "type": "value_error",
-                    }
-                ],
-                Settings,
-            )
+            raise ValueError("app_env must be one of development, staging, production, test")
 
         if env == "production":
             if self.debug:
-                raise ValidationError(
-                    [
-                        {
-                            "loc": ("debug",),
-                            "msg": "debug must be disabled in production",
-                            "type": "value_error",
-                        }
-                    ],
-                    Settings,
-                )
+                raise ValueError("debug must be disabled in production")
             if self.secret_key == _DEFAULT_SECRET or len(self.secret_key) < 32:
-                raise ValidationError(
-                    [
-                        {
-                            "loc": ("secret_key",),
-                            "msg": "SECRET_KEY must be provided and at least 32 characters in production",
-                            "type": "value_error",
-                        }
-                    ],
-                    Settings,
-                )
-
+                raise ValueError("SECRET_KEY must be provided and at least 32 characters in production")
             if not self.enable_security_headers:
-                raise ValidationError(
-                    [
-                        {
-                            "loc": ("enable_security_headers",),
-                            "msg": "Security headers must remain enabled in production",
-                            "type": "value_error",
-                        }
-                    ],
-                    Settings,
-                )
-
+                raise ValueError("Security headers must remain enabled in production")
             if self.scraper_allow_insecure_fallback:
-                raise ValidationError(
-                    [
-                        {
-                            "loc": ("scraper_allow_insecure_fallback",),
-                            "msg": "SCRAPER_ALLOW_INSECURE_FALLBACK must be disabled in production",
-                            "type": "value_error",
-                        }
-                    ],
-                    Settings,
-                )
-
+                raise ValueError("SCRAPER_ALLOW_INSECURE_FALLBACK must be disabled in production")
             if self.allow_sqlite_fallback:
-                raise ValidationError(
-                    [
-                        {
-                            "loc": ("allow_sqlite_fallback",),
-                            "msg": "ALLOW_SQLITE_FALLBACK must be disabled in production",
-                            "type": "value_error",
-                        }
-                    ],
-                    Settings,
-                )
+                raise ValueError("ALLOW_SQLITE_FALLBACK must be disabled in production")
 
         return self
 

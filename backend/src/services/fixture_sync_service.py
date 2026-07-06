@@ -78,7 +78,7 @@ async def sync_upcoming_fixtures(session: AsyncSession) -> int:
 
         raw_date = raw.get("match_date", "")
         try:
-            match_date = datetime.fromisoformat(raw_date.replace("Z", "+00:00"))
+            match_date = datetime.fromisoformat(raw_date.replace("Z", "+00:00")).replace(tzinfo=None)
         except Exception:
             logger.debug("fixture_sync: unparseable date %r — skipping %s", raw_date, match_id)
             continue

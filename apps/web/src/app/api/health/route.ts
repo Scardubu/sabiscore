@@ -1,63 +1,68 @@
 /**
  * Health Check API Route
- * 
- * Provides system health status for monitoring.
- * Edge-compatible version that doesn't rely on localStorage.
+ *
+ * Proxies backend /health/ready for live infrastructure status.
+ * Baseline ML metrics (Phase 7 walk-forward) are returned as-is until
+ * live prediction data accumulates — hasSufficientData stays false until
+ * the walk-forward RPS run completes with live match data.
  */
 
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
 
-export const runtime = 'edge';
-export const dynamic = 'force-dynamic';
+export const runtime = "edge";
+export const dynamic = "force-dynamic";
+
+const BACKEND_URL = process.env.SABISCORE_BACKEND_URL;
+
+// Phase 7 walk-forward validated baseline — not simulated
+const PHASE7_BASELINE = {
+  accuracy: 0.51,
+  brierScore: 0.225,
+  rpsGate: 0.210,
+  avgEdgePct: 0.084,
+};
 
 export async function GET() {
-  try {
-    // Phase 8 baseline metrics (walk-forward validated, not simulated).
-    // Actual live metrics tracked client-side via localStorage.
-    const health = {
-      status: 'healthy' as const,
-      accuracy: 0.53,           // Phase 8 ensemble ~53% 3-class accuracy
-      brierScore: 0.225,        // Multiclass Brier (avg of 3 binary Brier scores)
-      rpsGate: 0.210,           // RPS gate — model must be ≤ this to release
-      avgEdgePct: 0.084,        // +8.4% average value bet edge when detected
-      predictionCount: 0,
-      issues: [] as string[],
-      hasSufficientData: false,
-      lastUpdate: Date.now(),
-    };
+  let backendStatus = "unavailable";
+  let backendChecks: Record<string, unknown> = {};
 
-    return NextResponse.json({
-      status: health.status,
-      accuracy: health.accuracy,
-      brierScore: health.brierScore,
-      rpsGate: health.rpsGate,
-      avgEdgePct: health.avgEdgePct,
-      predictionCount: health.predictionCount,
-      metrics: {
-        accuracy: health.accuracy,
-        brierScore: health.brierScore,
-        rpsGate: health.rpsGate,
-        avgEdgePct: health.avgEdgePct,
-        predictionCount: health.predictionCount,
-      },
-      issues: health.issues,
-      hasSufficientData: health.hasSufficientData,
-      lastUpdate: new Date(health.lastUpdate).toISOString(),
-      timestamp: new Date().toISOString(),
-      modelVersion: 'phase8-ensemble',
-      note: 'Edge health check - live model metrics served by backend /health/ready',
-    }, {
-      status: 200,
-      headers: {
-        'Cache-Control': 'public, max-age=60, stale-while-revalidate=120',
-      },
-    });
-  } catch (error) {
-    console.error('Health check failed:', error);
-    return NextResponse.json({
-      status: 'critical',
-      error: 'Health check failed',
-      timestamp: new Date().toISOString(),
-    }, { status: 503 });
+  if (BACKEND_URL) {
+    try {
+      const res = await fetch(`${BACKEND_URL}/health/ready`, {
+        signal: AbortSignal.timeout(5000),
+        headers: { Accept: "application/json" },
+      });
+      if (res.ok) {
+        const data = (await res.json()) as Record<string, unknown>;
+        backendStatus = (data.status as string) ?? "unknown";
+        backendChecks = (data.checks as Record<string, unknown>) ?? {};
+      } else {
+        backendStatus = "degraded";
+      }
+    } catch {
+      backendStatus = "unavailable";
+    }
   }
+
+  const isHealthy = backendStatus === "ready" || backendStatus === "healthy";
+
+  return NextResponse.json(
+    {
+      status: isHealthy ? "healthy" : "degraded",
+      backendStatus,
+      backendChecks,
+      ...PHASE7_BASELINE,
+      predictionCount: 0,
+      metrics: { ...PHASE7_BASELINE, predictionCount: 0 },
+      issues: isHealthy ? [] : [`Backend status: ${backendStatus}`],
+      hasSufficientData: false,
+      lastUpdate: new Date().toISOString(),
+      timestamp: new Date().toISOString(),
+      modelVersion: "v5_phase7",
+    },
+    {
+      status: 200,
+      headers: { "Cache-Control": "no-store" },
+    },
+  );
 }

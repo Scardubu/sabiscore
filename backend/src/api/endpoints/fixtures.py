@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import and_, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from ...db.models import Match, Odds, Prediction
 from ...db.session import get_async_session
@@ -167,7 +168,11 @@ def _team_label(value: Any) -> str:
 
 
 async def _get_fixture_or_404(db: AsyncSession, fixture_id: str) -> Match:
-    result = await db.execute(select(Match).where(Match.id == fixture_id))
+    result = await db.execute(
+        select(Match)
+        .options(selectinload(Match.home_team), selectinload(Match.away_team))
+        .where(Match.id == fixture_id)
+    )
     fixture = result.scalar_one_or_none()
     if fixture is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fixture not found")
@@ -202,8 +207,8 @@ def _fixture_summary(fixture: Match, odds: Optional[Odds], prediction: Optional[
     return FixtureSummary(
         fixture_id=str(fixture.id),
         competition=str(fixture.league_id or "EPL"),
-        home_team=_team_label(fixture.home_team_id),
-        away_team=_team_label(fixture.away_team_id),
+        home_team=str(fixture.home_team.name) if fixture.home_team else _team_label(fixture.home_team_id),
+        away_team=str(fixture.away_team.name) if fixture.away_team else _team_label(fixture.away_team_id),
         kickoff_utc=kickoff,
         status=str(fixture.status or "scheduled"),
         venue=fixture.venue,
@@ -423,6 +428,7 @@ async def fixtures_upcoming(
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     query = (
         select(Match)
+        .options(selectinload(Match.home_team), selectinload(Match.away_team))
         .where(and_(Match.match_date >= now, Match.status == "scheduled"))
         .order_by(Match.match_date.asc())
         .limit(limit)
@@ -486,8 +492,8 @@ async def refresh_fixture_evidence(
         {
             "fixture_id": fixture_id,
             "competition": str(fixture.league_id or "EPL"),
-            "home_team": _team_label(fixture.home_team_id),
-            "away_team": _team_label(fixture.away_team_id),
+            "home_team": str(fixture.home_team.name) if fixture.home_team else _team_label(fixture.home_team_id),
+            "away_team": str(fixture.away_team.name) if fixture.away_team else _team_label(fixture.away_team_id),
             "kickoff_utc": fixture.match_date,
         },
         payload.profile,
@@ -599,8 +605,8 @@ async def analyze_fixture(
 
     req = MatchAnalysisRequest(
         match_id=fixture_id,
-        home_team=_team_label(fixture.home_team_id),
-        away_team=_team_label(fixture.away_team_id),
+        home_team=str(fixture.home_team.name) if fixture.home_team else _team_label(fixture.home_team_id),
+        away_team=str(fixture.away_team.name) if fixture.away_team else _team_label(fixture.away_team_id),
         competition=_competition_to_enum(str(fixture.league_id or "EPL")),
         kickoff_utc=fixture.match_date.replace(tzinfo=timezone.utc)
         if fixture.match_date.tzinfo is None
