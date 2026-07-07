@@ -150,6 +150,30 @@ jobs:
       - name: Lint web
         run: pnpm --filter @sabiscore/web lint
 
+      - name: Responsible gambling copy scan
+        shell: bash
+        run: |
+          # "guaranteed" in negation is REQUIRED responsible-gambling copy — filter it out.
+          # "lock" in camelCase identifiers/imports is a UI utility — filter those too.
+          hits=$(grep -rPn --include="*.tsx" --include="*.ts" \
+            '\bbanker\b|sure\s+bet|free\s+money|execute\s+immediately|\block\b' \
+            apps/web/src/ 2>/dev/null \
+            | grep -Pv ':\s*(import|//|\*)' \
+            | grep -Pv '[Ll]ock[A-Z]|[A-Z][a-z]*Lock\b|use-scroll' \
+            || true)
+          guaranteed_hits=$(grep -rPn --include="*.tsx" --include="*.ts" \
+            '\bguaranteed\b' apps/web/src/ 2>/dev/null \
+            | grep -Pv ':\s*(import|//|\*)' \
+            | grep -Piv '(?:not|no|never)\s+(?:\w+\s+)?(?:is\s+)?(?:a\s+)?guaranteed|as guaranteed' \
+            || true)
+          all_hits="${hits}${guaranteed_hits}"
+          if [ -n "$all_hits" ]; then
+            printf '%s\n' "$all_hits"
+            echo "ERROR: Prohibited gambling copy found — see matches above"
+            exit 1
+          fi
+          echo "✓ No prohibited gambling copy"
+
       - name: Typecheck web
         run: pnpm --filter @sabiscore/web typecheck
 
