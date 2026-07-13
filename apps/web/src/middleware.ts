@@ -29,6 +29,7 @@ export function middleware(request: NextRequest) {
     `connect-src 'self' ${backendUrl}`,
     "object-src 'none'",
     "frame-ancestors 'none'",
+    "frame-src 'self' https://vercel.live",
     "base-uri 'self'",
     "form-action 'self'",
   ].join("; ");

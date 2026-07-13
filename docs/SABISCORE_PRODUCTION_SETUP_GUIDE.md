@@ -1,6 +1,6 @@
 ﻿# SabiScore Production Setup Guide
 
-Last updated: 2026-07-04
+Last updated: 2026-07-13
 
 This is the authoritative setup and deployment guide for the finalized production shape.
 
@@ -283,6 +283,13 @@ run the full release matrix before tagging the release.
 2. Keep the backend up so the web app can render fail-closed outage states.
 3. Roll back database schema only with reviewed Alembic downgrade or forward-fix migration.
 4. Re-run `python -m src.cli providers doctor` and `make verify` before restoring traffic.
+
+## vΩ.8 Changes (2026-07-13)
+
+- **⚠️ DEPLOY BLOCKER — Render service suspended.** `https://sabiscore-api.onrender.com` returns an HTML "This service has been suspended" page (503) on every endpoint. All Vercel proxy 503s are downstream of this. Resume the service in the Render dashboard, then verify `GET /health/ready` → 200. Independently, `SABISCORE_BACKEND_URL=https://sabiscore-api.onrender.com` must be set in the Vercel project dashboard (proxies default to `http://localhost:8000` without it).
+- **CSP `frame-src` added** — `middleware.ts` CSP now includes `frame-src 'self' https://vercel.live` so the Vercel preview toolbar iframe loads. `frame-ancestors 'none'` unchanged.
+- **Transition screen zero-fabrication cleanup** — the match loading screens no longer invent data: fabricated per-team form/GF/GA/table-position cards replaced with labeled evidence-sync skeletons; fake poll community percentages removed (user's own pick only); fabricated "AI Confidence 77%" line removed; promotional profit/ROI facts removed; footer claim corrected. `LOADING_FACTS`/`FUN_FACTS` deduped into `apps/web/src/components/loading/loading-facts.ts`.
+- **Loading screen a11y** — `useReducedMotion` disables infinite pulse/shimmer/particle animations; progress bars expose `role="progressbar"` with live `aria-valuenow`.
 
 ## vΩ.5 Changes (2026-07-06)
 

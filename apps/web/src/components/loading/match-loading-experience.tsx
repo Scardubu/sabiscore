@@ -1,12 +1,20 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
-import { motion, AnimatePresence, PanInfo, useMotionValue, useTransform } from "framer-motion";
+import {
+  motion,
+  AnimatePresence,
+  PanInfo,
+  useMotionValue,
+  useTransform,
+  useReducedMotion,
+} from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getTeamData, LEAGUE_CONFIG, resolveTeamName } from "@/components/team-display";
 import { CountryFlag, TeamLogo } from "@/components/ui/cached-logo";
 import { resolveTeamLogo } from "@/lib/assets/logo-resolver";
 import { cn } from "@/lib/utils";
+import { LOADING_FACTS, FUN_FACTS } from "@/components/loading/loading-facts";
 import {
   hashMatchup,
   loadStoredPoll,
@@ -16,28 +24,12 @@ import {
   INTERSTITIAL_SWIPE_QUESTIONS,
 } from "@/lib/interstitial-storage";
 import {
-  Trophy,
-  TrendingUp,
-  Users,
   Target,
-  Zap,
-  BarChart3,
-  Star,
-  Shield,
-  Activity,
   ChevronLeft,
   ChevronRight,
   Sparkles,
   Check,
 } from "lucide-react";
-
-interface TeamStats {
-  form: string;
-  goalsScored: number;
-  goalsConceded: number;
-  cleanSheets: number;
-  position: number;
-}
 
 interface MatchLoadingExperienceProps {
   homeTeam: string;
@@ -47,37 +39,6 @@ interface MatchLoadingExperienceProps {
   onExperienceComplete?: () => void;
 }
 
-// ============================================================================
-// DATA CONSTANTS
-// ============================================================================
-
-const FUN_FACTS = [
-  "The first ever international football match was played between Scotland and England in 1872.",
-  "Closing line value (CLV) is the most reliable indicator of long-term betting success.",
-  "xG (Expected Goals) measures the quality of chances created, not just shots taken.",
-  "Professional bettors typically achieve 53-55% win rates for consistent profit.",
-  "The Kelly Criterion helps optimize stake sizing based on edge and bankroll.",
-  "PPDA (Passes Per Defensive Action) measures pressing intensity.",
-  "Home advantage is worth approximately 0.4 goals per match on average.",
-  "Weather conditions can significantly impact over/under totals.",
-  "Sharp money typically moves lines 15-30 minutes before kickoff.",
-  "A 2% edge consistently exploited yields ~20% annual ROI.",
-  "xA (Expected Assists) measures the quality of key passes.",
-  "Deep completions track passes into the penalty area.",
-];
-
-const LOADING_FACTS = [
-  { icon: Trophy, text: "Analyzing historical head-to-head records..." },
-  { icon: TrendingUp, text: "Processing recent form data..." },
-  { icon: Users, text: "Evaluating squad strength and injuries..." },
-  { icon: Target, text: "Computing expected goals (xG) metrics..." },
-  { icon: Zap, text: "Calculating Pinnacle closing line value..." },
-  { icon: BarChart3, text: "Running ensemble prediction models..." },
-  { icon: Star, text: "Assessing key player impact ratings..." },
-  { icon: Shield, text: "Analyzing defensive organization..." },
-  { icon: Activity, text: "Processing live odds movements..." },
-];
-
 const SWIPE_QUESTIONS = INTERSTITIAL_SWIPE_QUESTIONS;
 
 const FLAG_SIZE_HEADER = 16;
@@ -86,23 +47,6 @@ const FLAG_SIZE_TINY = 12;
 const FLAG_CLASS_HEADER = "rounded-sm h-4 w-4 flex-shrink-0";
 const FLAG_CLASS_COMPACT = "rounded-sm h-3.5 w-3.5 flex-shrink-0";
 const FLAG_CLASS_TINY = "rounded-sm h-3 w-3 flex-shrink-0";
-
-// ============================================================================
-// UTILITY FUNCTIONS
-// ============================================================================
-
-function generateMockStats(teamName: string): TeamStats {
-  const seed = teamName.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const random = (offset: number) => ((seed + offset) % 100) / 100;
-
-  return {
-    form: ["W", "D", "L", "W", "W"].sort(() => random(1) - 0.5).slice(0, 5).join(""),
-    goalsScored: Math.floor(random(10) * 30) + 15,
-    goalsConceded: Math.floor(random(20) * 25) + 10,
-    cleanSheets: Math.floor(random(30) * 10) + 2,
-    position: Math.floor(random(40) * 18) + 1,
-  };
-}
 
 // ============================================================================
 // SUB-COMPONENTS
@@ -146,39 +90,18 @@ function ParticleBurst({ trigger }: { trigger: number }) {
 }
 
 /**
- * Form indicator badges (W/D/L)
+ * Team evidence card — shown while real form/standings evidence loads.
+ *
+ * Zero-fabrication contract: this card must never display invented form,
+ * goals, or table position. It renders labeled skeleton placeholders that
+ * the real prediction screen replaces with backend-verified evidence.
  */
-function FormIndicator({ form }: { form: string }) {
-  return (
-    <div className="flex gap-1">
-      {form.split("").map((result, i) => (
-        <span
-          key={i}
-          className={cn(
-            "flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold",
-            result === "W" && "bg-green-500/20 text-green-400",
-            result === "D" && "bg-yellow-500/20 text-yellow-400",
-            result === "L" && "bg-red-500/20 text-red-400"
-          )}
-        >
-          {result}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-/**
- * Mini team stats card
- */
-function TeamStatsMini({ 
-  teamName, 
-  stats, 
+function TeamEvidenceCard({
+  teamName,
   align,
-  teamData 
-}: { 
-  teamName: string; 
-  stats: TeamStats; 
+  teamData,
+}: {
+  teamName: string;
   align: "left" | "right";
   teamData: ReturnType<typeof getTeamData>;
 }) {
@@ -202,26 +125,26 @@ function TeamStatsMini({
         )}
         <span className="text-xs font-medium text-slate-400 truncate">{teamName}</span>
       </div>
-      
-      <div className="space-y-1.5">
+
+      <div className="space-y-1.5" aria-hidden="true">
         <div className={cn("flex items-center gap-2", align === "right" && "flex-row-reverse")}>
           <span className="text-[10px] text-slate-500">Form:</span>
-          <FormIndicator form={stats.form} />
+          <div className={cn("flex gap-1", align === "right" && "flex-row-reverse")}>
+            {[0, 1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-5 w-5 rounded-full bg-slate-700/50" />
+            ))}
+          </div>
         </div>
-        
-        <div className={cn("flex gap-3 text-xs", align === "right" && "justify-end")}>
-          <span className="text-slate-400">
-            <span className="text-green-400">{stats.goalsScored}</span> GF
-          </span>
-          <span className="text-slate-400">
-            <span className="text-red-400">{stats.goalsConceded}</span> GA
-          </span>
+
+        <div className={cn("flex gap-3", align === "right" && "justify-end")}>
+          <Skeleton className="h-4 w-12 rounded bg-slate-700/40" />
+          <Skeleton className="h-4 w-12 rounded bg-slate-700/40" />
         </div>
-        
-        <div className="text-[10px] text-slate-500">
-          Position: <span className="font-medium text-slate-300">#{stats.position}</span>
-        </div>
+
+        <Skeleton className={cn("h-3 w-20 rounded bg-slate-700/30", align === "right" && "ml-auto")} />
       </div>
+
+      <p className="mt-2 text-[10px] text-slate-500">Syncing form &amp; standings…</p>
     </motion.div>
   );
 }
@@ -247,20 +170,30 @@ function ProgressiveConfidenceMeter({
     });
   }, [progress, onMilestone]);
 
+  const reduceMotion = useReducedMotion();
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between text-xs">
         <span className="text-slate-400">AI Analysis Progress</span>
         <span className="font-medium text-indigo-400">{Math.round(progress)}%</span>
       </div>
-      <div className="relative h-3 overflow-hidden rounded-full bg-slate-800">
+      <div
+        className="relative h-3 overflow-hidden rounded-full bg-slate-800"
+        role="progressbar"
+        aria-label="AI analysis progress"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(progress)}
+      >
         <motion.div
           className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 bg-[length:200%_100%]"
           initial={{ width: 0 }}
-          animate={{ 
-            width: `${progress}%`,
-            backgroundPosition: ["0% 0%", "100% 0%"]
-          }}
+          animate={
+            reduceMotion
+              ? { width: `${progress}%` }
+              : { width: `${progress}%`, backgroundPosition: ["0% 0%", "100% 0%"] }
+          }
           transition={{
             width: { duration: 0.5, ease: "easeOut" },
             backgroundPosition: { duration: 2, repeat: Infinity, ease: "linear" }
@@ -276,7 +209,7 @@ function ProgressiveConfidenceMeter({
               i === 0 && "left-[25%]",
               i === 1 && "left-[50%]",
               i === 2 && "left-[75%]",
-              i === 3 && "left-[100%]"
+              i === 3 && "right-0"
             )}
           />
         ))}
@@ -293,8 +226,17 @@ function ProgressiveConfidenceMeter({
 }
 
 /**
- * Quick prediction poll (who will win)
+ * Quick prediction poll (who will win).
+ *
+ * Records the user's own pick only — it must never display fabricated
+ * community vote percentages (zero-fabrication contract).
  */
+const POLL_CHOICE_CLASSES: Record<string, string> = {
+  home: "border-indigo-500 bg-indigo-500/20 ring-2 ring-indigo-500/50",
+  draw: "border-slate-500 bg-slate-500/20 ring-2 ring-slate-500/50",
+  away: "border-emerald-500 bg-emerald-500/20 ring-2 ring-emerald-500/50",
+};
+
 function QuickPredictionPoll({
   homeTeam,
   awayTeam,
@@ -307,34 +249,22 @@ function QuickPredictionPoll({
   onVote?: (choice: string) => void;
 }) {
   const [voted, setVoted] = useState<string | null>(null);
-  const [votes, setVotes] = useState({ home: 45, draw: 25, away: 30 });
-  const [isRestored, setIsRestored] = useState(false);
 
   // Restore from localStorage
   useEffect(() => {
     const stored = loadStoredPoll(matchupId);
     if (stored) {
       setVoted(stored.choice);
-      setVotes(stored.votes as typeof votes);
-      setIsRestored(true);
     }
   }, [matchupId]);
 
   const handleVote = useCallback((choice: string) => {
     if (voted) return;
-    
-    const newVotes = {
-      ...votes,
-      [choice]: votes[choice as keyof typeof votes] + 1,
-    };
-    
-    setVoted(choice);
-    setVotes(newVotes);
-    persistPoll(matchupId, { choice, votes: newVotes, timestamp: Date.now() });
-    onVote?.(choice);
-  }, [voted, votes, matchupId, onVote]);
 
-  const total = votes.home + votes.draw + votes.away;
+    setVoted(choice);
+    persistPoll(matchupId, { choice, votes: {}, timestamp: Date.now() });
+    onVote?.(choice);
+  }, [voted, matchupId, onVote]);
 
   return (
     <motion.div
@@ -346,64 +276,56 @@ function QuickPredictionPoll({
       <div className="mb-3 flex items-center justify-center gap-2">
         <Target className="h-4 w-4 text-indigo-400" />
         <p className="text-sm font-medium text-slate-300">
-          Quick Prediction - Who will win?
+          Your call — who wins this one?
         </p>
-        {isRestored && voted && (
+        {voted && (
           <span className="rounded-full bg-green-500/20 px-2 py-0.5 text-[10px] text-green-400">
             <Check className="mr-1 inline h-3 w-3" />
-            Voted
+            Saved
           </span>
         )}
       </div>
       <div className="grid grid-cols-3 gap-2">
         {[
-          { key: "home", label: homeTeam, color: "indigo" },
-          { key: "draw", label: "Draw", color: "slate" },
-          { key: "away", label: awayTeam, color: "emerald" },
-        ].map(({ key, label, color }) => (
+          { key: "home", label: homeTeam },
+          { key: "draw", label: "Draw" },
+          { key: "away", label: awayTeam },
+        ].map(({ key, label }) => (
           <motion.button
             key={key}
+            type="button"
             onClick={() => handleVote(key)}
             disabled={!!voted}
             whileHover={!voted ? { scale: 1.02 } : undefined}
             whileTap={!voted ? { scale: 0.98 } : undefined}
+            aria-pressed={voted === key}
             className={cn(
               "relative overflow-hidden rounded-lg border p-3 text-center transition-all",
               voted === key
-                ? `border-${color}-500 bg-${color}-500/20 ring-2 ring-${color}-500/50`
+                ? POLL_CHOICE_CLASSES[key]
                 : voted
                 ? "border-slate-700 bg-slate-800/50 opacity-60"
                 : "border-slate-700 bg-slate-800/50 hover:border-indigo-500/50 hover:bg-slate-800"
             )}
           >
-            {voted && (
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${(votes[key as keyof typeof votes] / total) * 100}%` }}
-                transition={{ duration: 0.5, ease: "easeOut" }}
-                className={cn(
-                  "absolute inset-0",
-                  key === "home" && "bg-indigo-500/20",
-                  key === "draw" && "bg-slate-500/20",
-                  key === "away" && "bg-emerald-500/20"
-                )}
-              />
-            )}
             <span className="relative z-10 block text-xs font-medium text-slate-300 truncate">
               {label}
             </span>
-            {voted && (
-              <motion.span 
+            {voted === key && (
+              <motion.span
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="relative z-10 mt-1 block text-xs font-bold text-slate-400"
+                className="relative z-10 mt-1 block text-xs font-bold text-green-400"
               >
-                {Math.round((votes[key as keyof typeof votes] / total) * 100)}%
+                <Check className="inline h-3 w-3" /> Your pick
               </motion.span>
             )}
           </motion.button>
         ))}
       </div>
+      <p className="mt-2 text-center text-[10px] text-slate-500">
+        Compare your read against the model when the analysis lands.
+      </p>
     </motion.div>
   );
 }
@@ -511,7 +433,8 @@ function SwipePredictionCard({
               Swipe {leftLabel}
             </span>
             {centerLabel && (
-              <button 
+              <button
+                type="button"
                 onClick={handleCenterTap}
                 className="rounded-full bg-slate-700/50 px-3 py-1 text-slate-400 transition-colors hover:bg-slate-700"
               >
@@ -633,9 +556,10 @@ export function MatchLoadingExperience({
   const [particleTrigger, setParticleTrigger] = useState(0);
   const [swipeIndex, setSwipeIndex] = useState(0);
   const completionRef = useRef(false);
+  const reduceMotion = useReducedMotion();
 
   const matchupKey = useMemo(() => matchupId ?? hashMatchup(homeTeam, awayTeam), [homeTeam, awayTeam, matchupId]);
-  
+
   const homeTeamData = useMemo(() => getTeamData(homeTeam), [homeTeam]);
   const awayTeamData = useMemo(() => getTeamData(awayTeam), [awayTeam]);
   const homeCanonical = useMemo(() => resolveTeamName(homeTeam), [homeTeam]);
@@ -643,8 +567,6 @@ export function MatchLoadingExperience({
   const homeLogoMeta = useMemo(() => resolveTeamLogo(homeCanonical), [homeCanonical]);
   const awayLogoMeta = useMemo(() => resolveTeamLogo(awayCanonical), [awayCanonical]);
   const leagueConfig = useMemo(() => LEAGUE_CONFIG[league], [league]);
-  const homeStats = useMemo(() => generateMockStats(homeTeam), [homeTeam]);
-  const awayStats = useMemo(() => generateMockStats(awayTeam), [awayTeam]);
   const homeCountryCode = homeTeamData.countryCode || leagueConfig?.countryCode;
   const awayCountryCode = awayTeamData.countryCode || leagueConfig?.countryCode;
 
@@ -690,7 +612,7 @@ export function MatchLoadingExperience({
         animate={{ opacity: 1, y: 0 }}
         className="relative overflow-hidden rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-sm"
       >
-        <ParticleBurst trigger={particleTrigger} />
+        {!reduceMotion && <ParticleBurst trigger={particleTrigger} />}
 
         {/* Header with league */}
         <div className="border-b border-slate-700/50 bg-slate-800/50 px-4 py-2">
@@ -724,7 +646,7 @@ export function MatchLoadingExperience({
               className="flex flex-col items-center text-center"
             >
               <motion.div
-                animate={{ scale: [1, 1.05, 1] }}
+                animate={reduceMotion ? undefined : { scale: [1, 1.05, 1] }}
                 transition={{ duration: 2, repeat: Infinity }}
                 className={cn(
                   "flex h-14 w-14 items-center justify-center rounded-full shadow-lg ring-1 ring-white/10 bg-slate-800/60 overflow-hidden",
@@ -763,7 +685,7 @@ export function MatchLoadingExperience({
                 <span className="text-xs font-bold text-white">VS</span>
               </div>
               <motion.div
-                animate={{ scale: [1, 1.3, 1], opacity: [0.5, 0, 0.5] }}
+                animate={reduceMotion ? undefined : { scale: [1, 1.3, 1], opacity: [0.5, 0, 0.5] }}
                 transition={{ duration: 2, repeat: Infinity }}
                 className="absolute inset-0 rounded-full border-2 border-purple-500"
               />
@@ -776,7 +698,7 @@ export function MatchLoadingExperience({
               className="flex flex-col items-center text-center"
             >
               <motion.div
-                animate={{ scale: [1, 1.05, 1] }}
+                animate={reduceMotion ? undefined : { scale: [1, 1.05, 1] }}
                 transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
                 className={cn(
                   "flex h-14 w-14 items-center justify-center rounded-full shadow-lg ring-1 ring-white/10 bg-slate-800/60 overflow-hidden",
@@ -812,10 +734,10 @@ export function MatchLoadingExperience({
           {/* Loading tips ticker */}
           <LoadingTips />
 
-          {/* Team stats mini cards */}
+          {/* Team evidence cards — real data replaces these on the prediction screen */}
           <div className="flex gap-3">
-            <TeamStatsMini teamName={homeTeam} stats={homeStats} align="left" teamData={homeTeamData} />
-            <TeamStatsMini teamName={awayTeam} stats={awayStats} align="right" teamData={awayTeamData} />
+            <TeamEvidenceCard teamName={homeTeam} align="left" teamData={homeTeamData} />
+            <TeamEvidenceCard teamName={awayTeam} align="right" teamData={awayTeamData} />
           </div>
 
           {/* Skeleton preview of prediction layout */}
@@ -879,7 +801,7 @@ export function MatchLoadingExperience({
         transition={{ delay: 0.8 }}
         className="text-center text-[10px] text-slate-600"
       >
-        Powered by ensemble ML models • 8 data sources • Updated every 5 min
+        Ensemble ML models · calibrated per league · verified evidence only
       </motion.p>
     </div>
   );

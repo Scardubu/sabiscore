@@ -530,10 +530,16 @@ overrides all prior status docs — verify with a grep/read before acting.
 
 | CI: Responsible gambling copy scan (vΩ.7, 2026-07-07) | `.github/workflows/ci.yml` `web-quality` job — new step "Responsible gambling copy scan" after lint. Scans `apps/web/src/` for CLAUDE.md prohibited terms (`lock`, `banker`, `guaranteed`, `sure bet`, `free money`, `execute immediately`). Filters: import lines, JSDoc/comment lines, camelCase Lock identifiers, and negated `guaranteed` contexts (required responsible gambling disclaimers). Both pattern sets locally verified: 0 hits on current codebase. No `|| true`. |
 
+| CSP frame-src for Vercel toolbar (vΩ.8, 2026-07-13) | `apps/web/src/middleware.ts` CSP gains `frame-src 'self' https://vercel.live` — without it, `default-src 'self'` blocked the Vercel preview toolbar iframe. `frame-ancestors 'none'` unchanged (controls who embeds us; frame-src controls what we embed). |
+
+| Transition screen zero-fab cleanup (vΩ.8, 2026-07-13) | `match-loading-experience.tsx` + `match-loading-interstitial.tsx`: (1) `generateMockStats()` deleted — loading screen fabricated form/GF/GA/table-position from a name hash; replaced with `TeamEvidenceCard` labeled skeletons ("Syncing form & standings…"). (2) Poll fake community votes (45/25/30) removed — shows user's own pick only. (3) Interstitial fabricated "AI Confidence 77%" removed → neutral "Finalizing analysis…". (4) Promotional FUN_FACTS (profit/ROI/win-rate claims) removed; facts + LOADING_FACTS deduped into shared `components/loading/loading-facts.ts` (no bookmaker brand claims). (5) Footer "8 data sources • Updated every 5 min" → verifiable copy. (6) `useReducedMotion` gates all infinite animations + particles; progress bars gain `role="progressbar"` ARIA. Dynamic Tailwind `border-${color}-500` (never compiled under JIT) → static class map. Lint/typecheck/tests/build green. |
+
 ## Confirmed incomplete / next gates
 
 | Gap | Files | Action |
 |---|---|---|
+| **GATE 1 BLOCKED: Render service SUSPENDED** | Render dashboard (not code) | Verified 2026-07-13: `https://sabiscore-api.onrender.com/health/ready` returns 503 with an HTML "This service has been suspended" page. Every Vercel proxy 503 (`/api/upcoming`, `/api/leagues`, `/api/full-analysis`, …) is downstream of this — the proxy handlers correctly detect the HTML body and fail closed. **User action: reactivate/resume the service in the Render dashboard** (free-tier suspension or billing), then re-verify `/health/ready` → 200. |
+| Vercel env var | Vercel dashboard (not code) | Set `SABISCORE_BACKEND_URL=https://sabiscore-api.onrender.com` — proxies default to `http://localhost:8000` without it. Must be set for GATE 2 even after Render is resumed. |
 | Walk-forward RPS — live run | `models/model_registry.py` | Framework present; run `registry.walk_forward_validate(records)` once live match data accumulates |
 | Provider adapters (fdo, sm) — live verification | `football_data_org.py`, `sportmonks.py` | Code operational; needs live API key response to verify upstream contract |
 | make verify (full 14-step) | `Makefile` | Requires Postgres + Docker + all credentials active; run when Docker available |

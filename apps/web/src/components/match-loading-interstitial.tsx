@@ -1,18 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useId, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { 
-  Trophy, 
-  TrendingUp, 
-  Users, 
-  Target,
-  Zap,
-  BarChart3,
-  Star,
-  Shield,
-  Activity
-} from "lucide-react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import {
   getTeamData,
@@ -22,22 +11,7 @@ import {
 import { CountryFlag, TeamLogo } from "@/components/ui/cached-logo";
 import { resolveTeamLogo } from "@/lib/assets/logo-resolver";
 import { useScrollLock } from "@/hooks/use-scroll-lock";
-
-/**
- * Fun facts and stats that rotate during loading
- * These make the wait more engaging and informative
- */
-const LOADING_FACTS = [
-  { icon: Trophy, text: "Analyzing historical head-to-head records..." },
-  { icon: TrendingUp, text: "Processing recent form data..." },
-  { icon: Users, text: "Evaluating squad strength and injuries..." },
-  { icon: Target, text: "Computing expected goals (xG) metrics..." },
-  { icon: Zap, text: "Calculating Pinnacle closing line value..." },
-  { icon: BarChart3, text: "Running ensemble prediction models..." },
-  { icon: Star, text: "Assessing key player impact ratings..." },
-  { icon: Shield, text: "Analyzing defensive organization..." },
-  { icon: Activity, text: "Processing live odds movements..." },
-];
+import { LOADING_FACTS } from "@/components/loading/loading-facts";
 
 const FLAG_SIZE_HEADER = 16;
 const FLAG_SIZE_TEAM = 14;
@@ -49,8 +23,8 @@ const FLAG_CLASS_TEAM = "rounded-sm h-3.5 w-3.5 flex-shrink-0";
  */
 function generateH2HFact(homeTeam: string, awayTeam: string): string {
   const facts = [
-    `${homeTeam} and ${awayTeam} have faced each other numerous times in history`,
-    `This matchup often produces exciting, goal-filled encounters`,
+    `Both ${homeTeam} and ${awayTeam} will be looking to impose their style early`,
+    `Chance creation and finishing quality will shape this encounter`,
     `Home advantage could be crucial in this fixture`,
     `Both teams have quality players who can decide the match`,
     `Previous meetings suggest this could be a close contest`,
@@ -101,6 +75,7 @@ export function MatchLoadingInterstitial({
   const titleId = useId();
   const descriptionId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
+  const reduceMotion = useReducedMotion();
 
   const homeTeamData = useMemo(() => getTeamData(homeTeam), [homeTeam]);
   const awayTeamData = useMemo(() => getTeamData(awayTeam), [awayTeam]);
@@ -229,12 +204,12 @@ export function MatchLoadingInterstitial({
             className="flex flex-col items-center text-center"
           >
             <motion.div
-              animate={{ 
+              animate={reduceMotion ? undefined : {
                 scale: [1, 1.05, 1],
                 rotate: [0, 2, -2, 0]
               }}
-              transition={{ 
-                duration: 2, 
+              transition={{
+                duration: 2,
                 repeat: Infinity,
                 ease: "easeInOut"
               }}
@@ -284,7 +259,7 @@ export function MatchLoadingInterstitial({
             </div>
             {/* Pulsing ring */}
             <motion.div
-              animate={{ scale: [1, 1.3, 1], opacity: [0.5, 0, 0.5] }}
+              animate={reduceMotion ? undefined : { scale: [1, 1.3, 1], opacity: [0.5, 0, 0.5] }}
               transition={{ duration: 2, repeat: Infinity }}
               className="absolute inset-0 rounded-full border-2 border-purple-500"
             />
@@ -298,12 +273,12 @@ export function MatchLoadingInterstitial({
             className="flex flex-col items-center text-center"
           >
             <motion.div
-              animate={{ 
+              animate={reduceMotion ? undefined : {
                 scale: [1, 1.05, 1],
                 rotate: [0, -2, 2, 0]
               }}
-              transition={{ 
-                duration: 2, 
+              transition={{
+                duration: 2,
                 repeat: Infinity,
                 ease: "easeInOut",
                 delay: 0.5
@@ -370,7 +345,14 @@ export function MatchLoadingInterstitial({
         aria-atomic="true"
       >
         {/* Progress bar */}
-        <div className="relative h-2 bg-slate-700/50 rounded-full overflow-hidden">
+        <div
+          className="relative h-2 bg-slate-700/50 rounded-full overflow-hidden"
+          role="progressbar"
+          aria-label="Analysis loading progress"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.min(Math.round(progressValue), 100)}
+        >
           <motion.div
             className="absolute inset-y-0 left-0 bg-gradient-to-r from-purple-500 via-blue-500 to-green-500 rounded-full"
             initial={{ width: "0%" }}
@@ -378,11 +360,13 @@ export function MatchLoadingInterstitial({
             transition={{ duration: 0.3, ease: "easeOut" }}
           />
           {/* Shimmer effect */}
-          <motion.div
-            animate={{ x: ["-100%", "200%"] }}
-            transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-            className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/20 to-transparent"
-          />
+          {!reduceMotion && (
+            <motion.div
+              animate={{ x: ["-100%", "200%"] }}
+              transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+              className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+            />
+          )}
         </div>
 
         {/* Rotating fact */}
@@ -403,19 +387,15 @@ export function MatchLoadingInterstitial({
           </motion.div>
         </AnimatePresence>
 
-        {/* Confidence meter preview */}
+        {/* Finalizing status — never shows a fabricated confidence figure;
+            real confidence comes from the backend with the prediction */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: progressValue > 50 ? 1 : 0 }}
-          className="flex items-center justify-center gap-4 pt-2"
+          className="flex items-center justify-center gap-2 pt-2"
         >
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-xs text-slate-500">AI Confidence Building...</span>
-          </div>
-          <span className="text-sm font-mono text-green-400">
-            {Math.min(Math.round(progressValue * 0.77), 77)}%
-          </span>
+          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+          <span className="text-xs text-slate-500">Finalizing analysis…</span>
         </motion.div>
       </motion.div>
 
