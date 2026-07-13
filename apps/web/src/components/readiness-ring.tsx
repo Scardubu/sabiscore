@@ -137,7 +137,6 @@ export const ReadinessRing = memo(function ReadinessRing({ className }: { classN
     queryKey: ["sources-freshness"],
     queryFn: fetchFreshness,
     staleTime: 60_000,
-    retry: 1,
   });
 
   const stats = data ? deriveStats(data) : null;

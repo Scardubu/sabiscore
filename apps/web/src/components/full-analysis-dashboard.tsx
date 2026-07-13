@@ -1306,7 +1306,6 @@ function FullAnalysisDashboardInner({ matchId, league = "EPL" }: FullAnalysisDas
     queryKey: ["fullAnalysis", matchId, league],
     queryFn: () => getFullAnalysis(matchId, league),
     staleTime: 55_000,
-    retry: 1,
     enabled: Boolean(matchId),
   });
 

@@ -201,7 +201,6 @@ export const BestBetSpotlight = memo(function BestBetSpotlight({
     queryKey: ["best-bet-spotlight"],
     queryFn: fetchScan,
     staleTime: 5 * 60_000,
-    retry: 1,
   });
 
   const topBet =

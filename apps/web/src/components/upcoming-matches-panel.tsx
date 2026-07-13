@@ -53,7 +53,6 @@ function LeagueFilterBar({
     queryFn: fetchLeagues,
     staleTime: 3600_000,
     placeholderData: LEAGUE_FALLBACK,
-    retry: 0,
   });
 
   const items = leagues ?? LEAGUE_FALLBACK;
@@ -356,7 +355,6 @@ function UpcomingMatchesPanelInner({ league: leagueProp, title = "Upcoming Fixtu
     queryKey: ["upcomingMatches", activeLeague ?? "all"],
     queryFn: () => fetchUpcoming(activeLeague),
     staleTime: 5 * 60_000,
-    retry: 1,
   });
 
   // Derive off-season state from the matches response — avoids a redundant /api/offseason fetch.

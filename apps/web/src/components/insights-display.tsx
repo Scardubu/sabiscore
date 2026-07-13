@@ -83,7 +83,6 @@ function InsightsDisplayInner({ insights }: InsightsDisplayProps) {
     queryFn: () => apiClient.generateInsights(insights.matchup, insights.league),
     initialData: insights,
     staleTime: 60 * 1000,
-    retry: 2,
     enabled: isClient, // Only run after client hydration
   });
 

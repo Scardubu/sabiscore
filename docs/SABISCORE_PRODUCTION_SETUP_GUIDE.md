@@ -290,6 +290,7 @@ run the full release matrix before tagging the release.
 - **CSP `frame-src` added** — `middleware.ts` CSP now includes `frame-src 'self' https://vercel.live` so the Vercel preview toolbar iframe loads. `frame-ancestors 'none'` unchanged.
 - **Transition screen zero-fabrication cleanup** — the match loading screens no longer invent data: fabricated per-team form/GF/GA/table-position cards replaced with labeled evidence-sync skeletons; fake poll community percentages removed (user's own pick only); fabricated "AI Confidence 77%" line removed; promotional profit/ROI facts removed; footer claim corrected. `LOADING_FACTS`/`FUN_FACTS` deduped into `apps/web/src/components/loading/loading-facts.ts`.
 - **Loading screen a11y** — `useReducedMotion` disables infinite pulse/shimmer/particle animations; progress bars expose `role="progressbar"` with live `aria-valuenow`.
+- **Cold-start self-heal (React Query retry policy)** — `apps/web/src/lib/query-retry.ts` centralises retry behaviour for the free-tier backend: never retry permanent 4xx (except 408), but give cold-start / 5xx / network up to 3 spaced retries (2s/4s/8s capped 12s) so the dashboard recovers automatically once the Render backend finishes spinning up. Wired into the shared `QueryClient` default; per-component `retry:` overrides removed. This means a cold-start no longer leaves a permanent empty state — the UI self-heals within ~15-45s without a manual refresh.
 
 ## vΩ.5 Changes (2026-07-06)
 

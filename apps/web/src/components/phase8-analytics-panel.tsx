@@ -430,7 +430,6 @@ export const Phase8AnalyticsPanel = memo(function Phase8AnalyticsPanel({
     queryKey: ["phase8-features", matchId, league],
     queryFn: () => getPhase8Features(matchId, league),
     staleTime: 60_000,
-    retry: 1,
   });
 
   if (isLoading) return <Phase8Skeleton />;
