@@ -4,9 +4,12 @@ import type { LucideIcon } from "lucide-react";
 import {
   Activity,
   BarChart3,
+  BookOpen,
+  CalendarClock,
   Database,
   Gauge,
   ShieldCheck,
+  Sparkles,
   Trophy,
 } from "lucide-react";
 import "./globals.css";
@@ -20,6 +23,14 @@ import { ReadinessRing } from "../components/readiness-ring";
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ??
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://sabiscore.com");
+
+const WORKSPACE_LINKS: { label: string; href: string; icon: LucideIcon }[] = [
+  { label: "Intelligence", href: "/intelligence", icon: Sparkles },
+  { label: "Matches", href: "/match", icon: CalendarClock },
+  { label: "Performance", href: "/performance", icon: BarChart3 },
+  { label: "Monitoring", href: "/monitoring", icon: Activity },
+  { label: "Docs", href: "/docs", icon: BookOpen },
+];
 
 const LEAGUES = [
   { label: "Premier League", code: "EPL" },
@@ -87,8 +98,22 @@ export default function RootLayout({
                       </Link>
                     </div>
 
-                    <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="League navigation">
-                      <p className="px-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Leagues</p>
+                    <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Primary navigation">
+                      <p className="px-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Workspace</p>
+                      <div className="mt-3 space-y-1">
+                        {WORKSPACE_LINKS.map((item) => (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            className="flex min-h-11 items-center gap-2 rounded-md px-3 py-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                          >
+                            <item.icon className="h-4 w-4 text-emerald-300" aria-hidden="true" />
+                            {item.label}
+                          </Link>
+                        ))}
+                      </div>
+
+                      <p className="mt-6 px-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Leagues</p>
                       <div className="mt-3 space-y-1">
                         {LEAGUES.map((league) => (
                           <Link

@@ -11,7 +11,7 @@ export default function MatchLandingPage() {
   const featureCards = [
     {
       title: "Smart Kelly",
-      body: "Auto-sizes stakes with ⅛ Kelly and liquidity safeguards.",
+      body: "Auto-sizes stakes with Quarter Kelly and liquidity safeguards.",
     },
     {
       title: "Market Radar",
@@ -28,7 +28,7 @@ export default function MatchLandingPage() {
       <section className="space-y-4 text-center">
         <div className="inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-4 py-1 text-sm font-semibold text-indigo-200">
           <span>Live Match Insights</span>
-          <span className="text-indigo-400">Updated every 15s</span>
+          <span className="text-indigo-400">Fetched fresh per request</span>
         </div>
         <h1 className="text-4xl font-bold tracking-tight text-slate-100 md:text-5xl">
           Generate actionable edges for any fixture

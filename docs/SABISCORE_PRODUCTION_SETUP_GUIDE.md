@@ -292,6 +292,13 @@ run the full release matrix before tagging the release.
 - **Loading screen a11y** — `useReducedMotion` disables infinite pulse/shimmer/particle animations; progress bars expose `role="progressbar"` with live `aria-valuenow`.
 - **Cold-start self-heal (React Query retry policy)** — `apps/web/src/lib/query-retry.ts` centralises retry behaviour for the free-tier backend: never retry permanent 4xx (except 408), but give cold-start / 5xx / network up to 3 spaced retries (2s/4s/8s capped 12s) so the dashboard recovers automatically once the Render backend finishes spinning up. Wired into the shared `QueryClient` default; per-component `retry:` overrides removed. This means a cold-start no longer leaves a permanent empty state — the UI self-heals within ~15-45s without a manual refresh.
 
+## vΩ.9 Changes (2026-07-14)
+
+- **Single app shell — duplicate `/match` chrome removed.** `app/match/layout.tsx` was deleted: it rendered a second `<Header/>` (the `PremiumHeader` hero) and a nested `<main>` inside the root `app/layout.tsx` shell, producing two competing `sticky top-0` headers that overlapped the match analysis. All routes now use the single root shell (fixed LEAGUES sidebar + "Live workspace" header). `components/header.tsx` was deleted as dead code (its only importer was the removed match layout).
+- **Sidebar is the sole, complete nav.** The root sidebar gained a "Workspace" group (Intelligence, Matches, Performance, Monitoring, Docs) so `/performance` and `/monitoring` — previously reachable only through the broken header — are navigable again.
+- **Match landing copy corrected** — "⅛ Kelly" → "Quarter Kelly" (matches the certified Quarter-Kelly 0.25 contract) and the fabricated "Updated every 15s" cadence → "Fetched fresh per request" (the match detail page is `force-dynamic`; there is no 15s polling loop).
+- ⚠️ **Ops note:** after deleting a route `layout.tsx`, clear `apps/web/.next` before `tsc --noEmit` — Next's generated `.next/types/validator.ts` keeps a stale import to the removed layout and fails typecheck otherwise.
+
 ## vΩ.5 Changes (2026-07-06)
 
 - **`datetime.utcnow()` purged — entire backend/src** (except `database.py` SQLAlchemy column callable defaults, which require a dedicated SQLAlchemy migration). All 30 remaining non-canonical files (`cli/`, `connectors/`, `data/loaders/`, `models/`, `scrapers/`, `services/`) updated to `datetime.now(timezone.utc)`. `grep -rn "datetime\.utcnow" backend/src --include="*.py" | grep -v database.py` → 0 matches. CI zero-fab scan now enforces this on canonical paths (`src/api`, `src/services`, `src/providers/espn`, `src/models/orchestrator.py`, `src/core/security.py`).
