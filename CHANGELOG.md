@@ -7,6 +7,62 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ---
 
+## vΩ.14 — Windows release-gate tooling + loading-screen spill-over (2026-07-14)
+
+### `make verify` uses the repo venv on Windows
+
+`verify-core` and `verify` invoked bare `python` and `alembic`. In `make`'s
+bash subshell those resolve to the system `C:\Python314` (which lacks
+numpy/pandas/email-validator) or fail outright with `command not found` —
+never the project virtualenv. Two-part fix in `Makefile`:
+
+- `PYTHON_BIN` auto-detects `.venv/bin/python` (Unix) then
+  `.venv/Scripts/python.exe` (Windows), else falls back to bare `python`.
+- It is `$(CURDIR)`-prefixed so the `cd backend &&` inside recipes cannot
+  break the otherwise-relative path.
+
+All five `python` sites (gates 2/3/14) and both `alembic` sites (gate 4) now
+use `$(PYTHON_BIN)` / `$(PYTHON_BIN) -m alembic`. Verified locally: gate 1
+(secret scan) → gate 2 (6/6 deterministic core) → gate 3 (945 backend tests,
+13 skipped) all pass; gate 4 now *resolves* alembic (previously
+`command not found`) and reaches the DB config. The remaining gate-4 failure
+is the documented **needs a valid `DATABASE_URL`** limitation — set
+`DATABASE_URL`/`SABISCORE_DATABASE_URL` to the running Postgres before running
+gate 4. Gates 5–14 still require Docker + browsers.
+
+### Transition/loading screen no longer spills over
+
+The `/match/[id]` route loading screen (`MatchLoadingExperience`, the default
+under `PREDICTION_INTERSTITIAL_V2`) imposed its own
+`max-h-[calc(100vh-4rem)] overflow-y-auto` scroll trap keyed to a hardcoded
+4rem header offset. The root shell (`app/layout.tsx`) actually stacks a sticky
+~65px header + `BackendStatusBanner` + `<main>` `py-5`, so the card began
+~85px+ down the page yet was sized to nearly the full viewport — cutting off
+its footer/poll/swipe cards below the fold. Since root `<main>` already scrolls
+with the window, the trap was both wrong and redundant.
+
+- Removed the viewport-height scroll trap from `MatchLoadingExperience` and its
+  SSR skeleton so the screen flows naturally like every other page. The in-page
+  `match-selector` fixed-overlay path still bounds the same component via its
+  own outer `max-h-[calc(100vh-2rem)] overflow-y-auto`, so removal is safe there.
+- Removed an erroneous `useScrollLock(isLoading)` from the dormant
+  `MatchLoadingInterstitial` fallback — it locked **body** scroll for an inline,
+  non-modal route-loading component (its only consumer is `loading.tsx`), which
+  would trap overflow if that flag branch were ever active.
+
+Verification: web lint 0 errors, `tsc --noEmit` clean, `NODE_ENV=production`
+build ✓.
+
+### Not defects (verified, unchanged)
+
+The off-season match-page states in the accompanying screenshots — 33/33/33
+baseline, `PARTIAL`, `Abstain`, "67 data gaps", "3 of 4 sources degraded" — are
+**correct fail-closed behaviour** during the European summer break (vΩ.12).
+Real fixtures and predictions return automatically once the season resumes
+(≈8 Aug 2026). No UI change was made to those states.
+
+---
+
 ## vΩ.13 — asyncpg datetime sweep + release-gate unblock (2026-07-14)
 
 ### Live log-flood fix: naive/aware datetime binds (commits 55a962d, dc34861)

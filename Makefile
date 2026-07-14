@@ -149,7 +149,7 @@ verify: ## Run every SabiScore production release gate; requires pnpm, Postgres,
 	@echo "  3/14 Complete backend suite"
 	@cd backend && PYTHONPATH=. DEBUG=false $(PYTHON_BIN) -m pytest tests -q
 	@echo "  4/14 Alembic upgrade and schema drift check"
-	@cd backend && alembic upgrade head && alembic check
+	@cd backend && $(PYTHON_BIN) -m alembic upgrade head && $(PYTHON_BIN) -m alembic check
 	@echo "  5/14 Scraper workspace tests"
 	@pnpm --filter @sabiscore/scraper test
 	@echo "  6/14 Web lint"
@@ -169,7 +169,7 @@ verify: ## Run every SabiScore production release gate; requires pnpm, Postgres,
 	@echo "  13/14 Playwright desktop/mobile smoke"
 	@pnpm exec playwright test
 	@echo "  14/14 Final OpenAPI regeneration"
-	@cd backend && timeout 90s env PYTHONPATH=. DEBUG=false python scripts/verify_openapi.py
+	@cd backend && timeout 90s env PYTHONPATH=. DEBUG=false $(PYTHON_BIN) scripts/verify_openapi.py
 	@echo "  ✓ All production release gates passed"
 
 phase7-caches: ## Build deterministic Phase 7 cache artifacts (Elo + StatsBomb tactical cache)

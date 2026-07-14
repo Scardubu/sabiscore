@@ -10,7 +10,6 @@ import {
 } from "@/components/team-display";
 import { CountryFlag, TeamLogo } from "@/components/ui/cached-logo";
 import { resolveTeamLogo } from "@/lib/assets/logo-resolver";
-import { useScrollLock } from "@/hooks/use-scroll-lock";
 import { LOADING_FACTS } from "@/components/loading/loading-facts";
 
 const FLAG_SIZE_HEADER = 16;
@@ -87,8 +86,6 @@ export function MatchLoadingInterstitial({
   const h2hFact = useMemo(() => generateH2HFact(homeTeam, awayTeam), [homeTeam, awayTeam]);
   const homeCountryCode = homeTeamData.countryCode || leagueConfig?.countryCode;
   const awayCountryCode = awayTeamData.countryCode || leagueConfig?.countryCode;
-
-  useScrollLock(isLoading);
 
   // Rotate through loading facts
   useEffect(() => {
