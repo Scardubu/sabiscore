@@ -229,7 +229,7 @@ function OutcomeTable({ rows }: { rows?: MarketEvaluation[] | null }) {
         <div className="bi-table-wrap">
           <div className="bi-table" role="table" aria-label="All outcome market audit">
             <div className="bi-tr bi-th" role="row">
-              <span>Outcome</span><span>Model</span><span>Fair market</span><span>Odds</span><span>Edge</span><span>EV</span>
+              <span>Outcome</span><span>Model</span><span>Fair market<em className="bi-gloss">De-vigged, overround removed</em></span><span>Odds</span><span>Edge<em className="bi-gloss">Model vs fair</em></span><span>EV<em className="bi-gloss">Avg. unit return</em></span>
             </div>
             {rows.map((row) => (
               <div className="bi-tr" role="row" key={row.market_label}>
@@ -515,6 +515,8 @@ export function BettingIntelligenceDashboard() {
         .bi-note{border:1px solid rgba(255,255,255,.11);background:#0c1714;border-radius:7px;padding:12px;color:#cfe5dc}
         @media(max-width:900px){.bi-grid,.bi-two{grid-template-columns:1fr}.bi-metrics{grid-template-columns:1fr 1fr}.bi-top,.bi-status{align-items:flex-start;flex-direction:column}.bi-form-grid{grid-template-columns:1fr}}
         @media(max-width:560px){.bi-shell{padding:16px}.bi-metrics{grid-template-columns:1fr}.bi-title{font-size:24px}.bi-actions{flex-direction:column}.bi-btn{width:100%;justify-content:center}}
+        .bi-gloss{display:block;font-size:10px;opacity:0.6;margin-top:2px;font-weight:400;text-transform:none}
+        .bi-gap-summary{cursor:pointer;list-style:none;padding:8px 0;color:#9fb3aa;font-size:12px}
       `}</style>
       <div className="bi-shell">
         <header className="bi-top">
@@ -595,9 +597,9 @@ export function BettingIntelligenceDashboard() {
                 <div className="bi-panel-title"><BarChart3 size={16} /> Model Versus Market</div>
                 <div className="bi-metrics">
                   <div className="bi-metric"><span>Best Market</span><strong>{result.best_market?.replace("_ML", "") ?? "Unavailable"}</strong></div>
-                  <div className="bi-metric"><span>Edge</span><strong>{fmtPp(result.edge_percentage_points)}</strong></div>
-                  <div className="bi-metric"><span>Expected Value</span><strong>{result.expected_value == null ? "Unavailable" : result.expected_value.toFixed(4)}</strong></div>
-                  <div className="bi-metric"><span>Stake</span><strong>{result.stake}</strong></div>
+                  <div className="bi-metric"><span>Edge<em className="bi-gloss">Model prob. minus fair implied</em></span><strong>{fmtPp(result.edge_percentage_points)}</strong></div>
+                  <div className="bi-metric"><span>Expected Value<em className="bi-gloss">Avg. return per unit staked</em></span><strong>{result.expected_value == null ? "Unavailable" : result.expected_value.toFixed(4)}</strong></div>
+                  <div className="bi-metric"><span>Stake<em className="bi-gloss">Quarter-Kelly, policy-capped</em></span><strong>{result.stake}</strong></div>
                 </div>
                 <p className="bi-muted">{result.explanation}</p>
               </section>
@@ -622,9 +624,18 @@ export function BettingIntelligenceDashboard() {
                       <div className="bi-metric"><span>Availability</span><strong>{evidence.source_status.availability}</strong></div>
                     </div>
                     {evidence.data_gaps.length > 0 && (
-                      <ul className="bi-list gap">
-                        {evidence.data_gaps.map((gap) => <li key={gap}>{gap.replace(/_/g, " ")}</li>)}
-                      </ul>
+                      evidence.data_gaps.length > 5 ? (
+                        <details>
+                          <summary className="bi-gap-summary">{evidence.data_gaps.length} fields pending — show all ▸</summary>
+                          <ul className="bi-list gap">
+                            {evidence.data_gaps.map((gap) => <li key={gap}>{gap.replace(/_/g, " ")}</li>)}
+                          </ul>
+                        </details>
+                      ) : (
+                        <ul className="bi-list gap">
+                          {evidence.data_gaps.map((gap) => <li key={gap}>{gap.replace(/_/g, " ")}</li>)}
+                        </ul>
+                      )
                     )}
                   </>
                 ) : <p className="bi-muted">Evidence has not been retrieved yet.</p>}

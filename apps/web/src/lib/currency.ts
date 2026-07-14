@@ -78,7 +78,7 @@ export function formatEdge(edge: number, showSign = true): string {
  * 
  * @param bankroll - Total bankroll in Naira
  * @param edge - Edge percentage (e.g., 0.093 for 9.3%)
- * @param kellyFraction - Fraction of Kelly to use (default: 0.125 = ⅛)
+ * @param kellyFraction - Fraction of Kelly to use (default: 0.25 = ¼)
  * @returns Formatted stake like "₦53,720"
  * 
  * @example

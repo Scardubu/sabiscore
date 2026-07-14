@@ -19,6 +19,8 @@ import { ConsentProvider } from "../components/consent-banner";
 import { ErrorBoundary } from "../components/error-boundary";
 import { ClientEffects } from "./client-effects";
 import { ReadinessRing } from "../components/readiness-ring";
+import { BackendStatusBanner } from "../components/backend-status-banner";
+import { MobileNav } from "../components/mobile-nav";
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ??
@@ -156,6 +158,7 @@ export default function RootLayout({
                         >
                           <Gauge className="h-5 w-5" aria-hidden="true" />
                         </Link>
+                        <MobileNav />
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                             Live workspace
@@ -176,6 +179,7 @@ export default function RootLayout({
                       </div>
                     </div>
                   </header>
+                  <BackendStatusBanner />
 
                   <main className="min-h-[calc(100vh-65px)] px-4 py-5 sm:px-6 lg:px-8">
                     {children}

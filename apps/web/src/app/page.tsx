@@ -23,16 +23,16 @@ import { UpcomingMatchesPanel } from "@/components/upcoming-matches-panel";
 import { FeatureFlag, useFeatureFlag } from "@/lib/feature-flags";
 
 const HERO_STATS = [
-  { label: "Prediction Accuracy", value: "~53%", detail: "Phase 8 ensemble, walk-forward validated" },
-  { label: "Training Data", value: "10.7k+", detail: "Real matches only" },
-  { label: "RPS Gate", value: "<=0.21", detail: "Walk-forward validated" },
-  { label: "Avg Value Edge", value: "+6-10%", detail: "When edge is detected" },
+  { label: "Prediction Accuracy", value: "~53%", detail: "Holdout accuracy, Phase 7 ensemble walk-forward" },
+  { label: "Training Data", value: "10.7k+", detail: "Real historical matches — no synthetic injection" },
+  { label: "Model Precision Gate", value: "<=0.21", detail: "Ranked probability score — lower is better (industry avg ~0.23)" },
+  { label: "Avg Value Edge", value: "+6-10%", detail: "Estimated edge when a qualifying bet is detected" },
 ];
 
 const TRUST_BADGES = [
   { label: "Competitions", value: "7" },
   { label: "Evidence-led analysis", value: "Always" },
-  { label: "Phase 8 features", value: "86" },
+  { label: "ML features validated", value: "86" },
 ];
 
 const PREMIUM_VALUE_STREAM = [
@@ -262,7 +262,7 @@ function PremiumHome() {
                 href="/intelligence"
                 className="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-400 to-indigo-500 px-8 py-3 text-base font-semibold text-slate-950 shadow-[0_10px_35px_rgba(0,212,255,0.35)] transition hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-cyan-200"
               >
-                Open Intelligence
+                See today&apos;s value picks
               </Link>
               <Link
                 href="/docs"
@@ -343,7 +343,10 @@ function PremiumHome() {
                 <s.icon className="h-4 w-4 text-cyan-400" aria-hidden="true" />
               </div>
               <p className="text-sm font-semibold text-white">{s.label}</p>
-              <p className="text-xs leading-relaxed text-slate-400">{s.detail}</p>
+              <details className="mt-1">
+                <summary className="cursor-pointer text-xs text-slate-500 hover:text-slate-400">Technical detail ▸</summary>
+                <p className="mt-1 text-xs leading-relaxed text-slate-400">{s.detail}</p>
+              </details>
             </div>
           ))}
         </div>
@@ -423,7 +426,7 @@ function LegacyHome() {
       <section className="space-y-6 text-center animate-fade-in">
         <div className="inline-block rounded-full border border-indigo-500/20 bg-indigo-500/10 px-4 py-2">
           <span className="text-sm font-semibold text-indigo-400">
-            Phase 8 Ensemble | 86 ML Features | 7 competitions | RPS &lt;= 0.21
+            Walk-forward validated | 7 competitions | Evidence-gated verdicts
           </span>
         </div>
         <h1 className="bg-gradient-to-r from-slate-100 via-indigo-200 to-purple-200 bg-clip-text text-5xl font-bold leading-tight text-transparent md:text-7xl">
@@ -440,7 +443,7 @@ function LegacyHome() {
             href="/intelligence"
             className="rounded-xl bg-indigo-600 px-8 py-4 font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all duration-200 hover:scale-105 hover:bg-indigo-500 hover:shadow-indigo-500/40 focus:outline-none focus:ring-2 focus:ring-indigo-200"
           >
-            Open Intelligence
+            See today&apos;s value picks
           </Link>
           <Link
             href="/docs"

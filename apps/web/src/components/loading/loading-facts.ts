@@ -8,6 +8,7 @@ import {
   Star,
   Shield,
   Activity,
+  Database,
   type LucideIcon,
 } from "lucide-react";
 
@@ -18,19 +19,20 @@ export interface LoadingFact {
 
 /**
  * Rotating status lines shown while an analysis loads.
- * Each line describes a real stage of the SabiScore evidence/prediction
- * pipeline — no invented capabilities, no bookmaker brand claims.
+ * First 5 mirror the 5-step pipeline visible on the homepage.
+ * Remaining 4 are technical tips — no bookmaker brand claims.
  */
 export const LOADING_FACTS: LoadingFact[] = [
+  { icon: Database, text: "Collecting evidence from 5 independent providers..." },
+  { icon: Shield, text: "Reconciling fixture identity across providers..." },
+  { icon: BarChart3, text: "Calibrating ensemble model probabilities per league..." },
+  { icon: TrendingUp, text: "De-vigging bookmaker odds to find fair market price..." },
+  { icon: Zap, text: "Applying evidence gates and sizing the verdict..." },
   { icon: Trophy, text: "Analyzing historical head-to-head records..." },
-  { icon: TrendingUp, text: "Processing recent form data..." },
-  { icon: Users, text: "Reviewing squad availability and injuries..." },
   { icon: Target, text: "Computing expected goals (xG) metrics..." },
-  { icon: Zap, text: "Comparing model probabilities to market odds..." },
-  { icon: BarChart3, text: "Running ensemble prediction models..." },
+  { icon: Users, text: "Reviewing squad availability and injuries..." },
   { icon: Star, text: "Updating team strength ratings..." },
-  { icon: Shield, text: "Checking evidence freshness..." },
-  { icon: Activity, text: "Calibrating outcome probabilities..." },
+  { icon: Activity, text: "Checking evidence freshness and calibration coverage..." },
 ];
 
 /**

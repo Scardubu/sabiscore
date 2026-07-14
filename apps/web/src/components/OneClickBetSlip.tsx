@@ -99,7 +99,7 @@ export function OneClickBetSlip({ valueBet, bankroll }: OneClickBetSlipProps) {
           <span className="text-white font-semibold">{typeof currentBet.odds === 'number' ? currentBet.odds.toFixed(2) : '0.00'}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-slate-400">Kelly Stake (⅛):</span>
+          <span className="text-slate-400">Kelly Stake (¼):</span>
           <span className="text-green-400 font-bold text-lg">
             {formatNaira(currentBet.kelly_stake_ngn)}
           </span>

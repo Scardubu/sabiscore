@@ -216,9 +216,9 @@ function ProgressiveConfidenceMeter({
       </div>
       {/* Milestone labels */}
       <div className="flex justify-between text-[10px] text-slate-500">
-        <span>Data</span>
-        <span>Models</span>
-        <span>Confidence</span>
+        <span>Collect</span>
+        <span>Calibrate</span>
+        <span>Compare</span>
         <span>Ready</span>
       </div>
     </div>
@@ -555,6 +555,7 @@ export function MatchLoadingExperience({
   const [progress, setProgress] = useState(0);
   const [particleTrigger, setParticleTrigger] = useState(0);
   const [swipeIndex, setSwipeIndex] = useState(0);
+  const [showColdHint, setShowColdHint] = useState(false);
   const completionRef = useRef(false);
   const reduceMotion = useReducedMotion();
 
@@ -581,6 +582,11 @@ export function MatchLoadingExperience({
       });
     }, 200);
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => setShowColdHint(true), 15_000);
+    return () => clearTimeout(t);
   }, []);
 
   // Handle completion
@@ -730,6 +736,19 @@ export function MatchLoadingExperience({
 
           {/* Progressive confidence meter */}
           <ProgressiveConfidenceMeter progress={progress} onMilestone={handleMilestone} />
+
+          {/* Cold-start hint — appears after 15s if still loading */}
+          <AnimatePresence>
+            {showColdHint && (
+              <motion.p
+                initial={reduceMotion ? {} : { opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-center text-xs text-slate-500"
+              >
+                Taking longer than usual? The backend may be warming up from idle — analysis continues automatically.
+              </motion.p>
+            )}
+          </AnimatePresence>
 
           {/* Loading tips ticker */}
           <LoadingTips />

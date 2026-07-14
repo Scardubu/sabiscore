@@ -517,7 +517,7 @@ function InsightsDisplayInner({ insights }: InsightsDisplayProps) {
             </div>
 
             <div className="space-y-2">
-              <p className="text-sm text-slate-400">Kelly Stake (⅛)</p>
+              <p className="text-sm text-slate-400">Kelly Stake (¼)</p>
               <p className="text-2xl font-bold text-indigo-400">
                 {typeof bestBet.kelly_stake === 'number' ? (bestBet.kelly_stake * 100).toFixed(1) : '0.0'}%
               </p>

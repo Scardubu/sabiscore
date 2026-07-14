@@ -112,7 +112,7 @@ export function PerformancePageClient() {
           <StatCard
             label="30d ROI"
             value={roi30d !== undefined ? `${roi30d > 0 ? "+" : ""}${(roi30d * 100).toFixed(1)}%` : "—"}
-            detail="⅛ Kelly staking"
+            detail="Quarter-Kelly staking"
             positive={roi30d !== undefined ? roi30d >= 0 : undefined}
           />
           <StatCard
