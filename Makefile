@@ -74,7 +74,7 @@ validate: check-tools ## Validate registry.json against JSON Schema 2020-12
 	@echo "  ✓ $(REGISTRY) is schema-valid ($(SKILL_COUNT) skills, suite v$(SUITE_VERSION))"
 
 validate-strict: check-tools ## Validate registry AND verify all skill files exist on disk
-	@$(MAKE) validate
+	@"$(MAKE)" validate
 	@echo "  Checking skill files on disk…"
 	@missing=0; \
 	while IFS= read -r path; do \
@@ -140,7 +140,7 @@ verify: ## Run every SabiScore production release gate; requires pnpm, Postgres,
 	@echo "  1/14 Secret scan"
 	@gitleaks detect --no-git --source . --redact --exit-code 1
 	@echo "  2/14 Deterministic core gates"
-	@$(MAKE) verify-core
+	@"$(MAKE)" verify-core
 	@echo "  3/14 Complete backend suite"
 	@cd backend && PYTHONPATH=. DEBUG=false python -m pytest tests -q --no-cov
 	@echo "  4/14 Alembic upgrade and schema drift check"
@@ -222,7 +222,7 @@ bump-version: ## Bump suiteVersion in registry.json (usage: make bump-version V=
 	  jq --arg v "$(V)" --arg d "$$(date +%Y-%m-%d)" \
 	     '.suiteVersion=$$v | .updatedAt=$$d' $(REGISTRY) > "$$tmp" && \
 	  mv "$$tmp" $(REGISTRY)
-	@$(MAKE) validate
+	@"$(MAKE)" validate
 	@echo "  ✓ Suite version bumped to v$(V). Commit: git add registry.json && git commit -m 'chore: bump skill suite to v$(V)'"
 
 bump-skill: ## Bump a single skill version (usage: make bump-skill NAME=backend-systems-auditor V=1.3.0)
@@ -233,7 +233,7 @@ bump-skill: ## Bump a single skill version (usage: make bump-skill NAME=backend-
 	  jq --arg name "$(NAME)" --arg ver "$(V)" \
 	     '(.skills[] | select(.name==$$name) | .version) = $$ver' $(REGISTRY) > "$$tmp" && \
 	  mv "$$tmp" $(REGISTRY)
-	@$(MAKE) validate
+	@"$(MAKE)" validate
 	@echo "  ✓ $(NAME) bumped to v$(V)"
 
 # ── Doctor ────────────────────────────────────────────────────────────────────
