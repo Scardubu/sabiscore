@@ -7,6 +7,54 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ---
 
+## vΩ.13 — asyncpg datetime sweep + release-gate unblock (2026-07-14)
+
+### Live log-flood fix: naive/aware datetime binds (commits 55a962d, dc34861)
+
+`Match.match_date` is a naive `TIMESTAMP WITHOUT TIME ZONE` column; asyncpg
+raises `DataError: can't subtract offset-naive and offset-aware datetimes` at
+bind time when handed a tz-aware `datetime.now(timezone.utc)` bound — even
+against an empty table. Every `/api/v1/upcoming/matches` and
+`/api/v1/value-bet-scan` request was logging this (plus a cascading Pydantic
+`ValidationError` from an incomplete fallback dict). Fixed with
+`.replace(tzinfo=None)` (the vΩ.6 convention) at the three live, async,
+web-reachable sites:
+
+- `services/upcoming_match_service.py` `_get_upcoming_matches_from_db()` —
+  root of the flood; the prediction-path exception fallback dict also gained
+  `avg_edge_pct`/`source` so it always satisfies the response schema.
+- `api/endpoints/matches.py` `/api/v1/matches/upcoming`.
+- `services/upcoming_match_feature_service.py` `project_match_features()` —
+  incoming `match_date` normalized at entry (fires in-season when API ISO
+  strings carry `+00:00`).
+
+Deferred (same class, not in the deployed web `startCommand`):
+`services/data_ingestion.py` (separate CLI worker) and `tasks/background.py`
+Celery tasks (sync psycopg2). Documented in CLAUDE.md.
+
+### `make verify` gate 1 unblocked
+
+`gitleaks detect --no-git` (filesystem mode) flagged a JWT inside the local,
+gitignored, untracked `.env.local` — the allowlist covered `.env` and
+`backend/.env` but not the `.env.local` naming convention. `.gitleaks.toml`
+allowlist gains `(^|/)\.env(\.[a-z]+)?\.local$`; tracked `.env*.example`
+templates (which never end in `.local`) remain fully scannable, and CI's
+git-mode history scan is unaffected. Gate 1 now exits 0 and gate 2
+(`verify-core`) passes all 6 deterministic steps.
+
+## vΩ.12 — Off-season verified + provider enablement on Render (2026-07-14)
+
+- **Off-season is expected, not a fault**: mid-July returns `offseason: true`,
+  `next_season_start: "2026-08-08"`, `total: 0`; the 33/33/33 baseline +
+  PARTIAL/abstain on a hand-typed matchup is correct fail-closed behaviour.
+  Real fixtures return automatically ≈ 8 Aug 2026.
+- **All five providers declarable on Render**: `render.yaml` gains
+  `ENABLE_API_FOOTBALL_PROVIDER` / `ENABLE_SPORTMONKS_PROVIDER` /
+  `ENABLE_THE_ODDS_API_PROVIDER = true` and the three key vars (`sync: false`);
+  operator pastes keys in the Render dashboard and all five providers light up.
+- **Security**: credentials pasted into a chat transcript that session must be
+  rotated in their consoles; `.env*` is gitignored and none are tracked.
+
 ## vΩ.11 — Live backend cutover + match-page reload-loop fix (2026-07-14)
 
 ### Backend live at new Render URL
