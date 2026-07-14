@@ -28,9 +28,11 @@ LOG_DIR        := .logs
 
 SUITE_VERSION  := $(shell jq -r '.suiteVersion' $(REGISTRY) 2>/dev/null || echo "unknown")
 SKILL_COUNT    := $(shell jq '.skills | length' $(REGISTRY) 2>/dev/null || echo "0")
+# Absolute path via $(CURDIR): recipes `cd backend &&` first, which would break
+# a relative venv path. Unix layout first, then Windows, else bare python.
 PYTHON_BIN     := $(or \
-  $(if $(wildcard .venv/bin/python),.venv/bin/python),\
-  $(if $(wildcard .venv/Scripts/python.exe),.venv/Scripts/python.exe),\
+  $(if $(wildcard .venv/bin/python),$(CURDIR)/.venv/bin/python),\
+  $(if $(wildcard .venv/Scripts/python.exe),$(CURDIR)/.venv/Scripts/python.exe),\
   python)
 
 # ── Phony Targets ─────────────────────────────────────────────────────────────
