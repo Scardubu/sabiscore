@@ -96,6 +96,9 @@ class UpcomingMatchFeatureProjector:
             }
         """
 
+        # ponytail: Match.match_date is naive TIMESTAMP WITHOUT TIME ZONE — strip tz so asyncpg accepts range bounds
+        match_date = match_date.replace(tzinfo=None)
+
         home_team_id = await self._get_team_id_by_name(match_dict["home_team"], db)
         away_team_id = await self._get_team_id_by_name(match_dict["away_team"], db)
 

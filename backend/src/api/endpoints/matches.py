@@ -120,7 +120,7 @@ async def get_upcoming_matches(
             return response
         
         # Calculate date range
-        now = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc).replace(tzinfo=None)  # ponytail: match_date is TIMESTAMP WITHOUT TIME ZONE
         end_date = now + timedelta(days=days_ahead)
         
         # Build query

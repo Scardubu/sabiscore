@@ -284,6 +284,15 @@ run the full release matrix before tagging the release.
 3. Roll back database schema only with reviewed Alembic downgrade or forward-fix migration.
 4. Re-run `python -m src.cli providers doctor` and `make verify` before restoring traffic.
 
+## vΩ.13 Changes (2026-07-14)
+
+- **asyncpg naive/aware datetime sweep (live web paths).** `Match.match_date` is a naive `TIMESTAMP WITHOUT TIME ZONE` column, so asyncpg rejects a tz-aware `datetime.now(timezone.utc)` bound at bind time (`DataError: can't subtract offset-naive and offset-aware datetimes`) — even with an empty table. This was flooding the Render logs on `/api/v1/upcoming/matches` and `/api/v1/value-bet-scan`. Fixed the three **live, async, web-reachable** query sites by stripping tz with `.replace(tzinfo=None)` (the same convention `fixtures.py` + the vΩ.6 fixture-sync insert already use):
+  - `services/upcoming_match_service.py` `_get_upcoming_matches_from_db()` (root of the log flood; its prediction-path exception fallback dict also now includes `avg_edge_pct`/`source` so it can't cascade a secondary Pydantic `ValidationError`);
+  - `api/endpoints/matches.py` `/api/v1/matches/upcoming`;
+  - `services/upcoming_match_feature_service.py` `project_match_features()` — the incoming `match_date` param is normalized at entry, covering the internal form/goals sequence queries that fire once real (tz-aware) API fixtures return in-season.
+- **Deferred (same class, not in the deployed web `startCommand`):** `services/data_ingestion.py` (5 async sites, only started via `cli/start_ingestion.py`) and the sync-`SessionLocal()` Celery tasks in `tasks/background.py` (psycopg2, not asyncpg). Adopt the strip when that ingestion/worker deployable is next shipped.
+- **Verification:** Ruff clean on edited files; `tests/unit/test_fixture_sync.py` + `tests/test_providers_gateway.py` → 15 passed; all edited files `py_compile` OK.
+
 ## vΩ.8 Changes (2026-07-13)
 
 - **⚠️ DEPLOY BLOCKER — Render service suspended.** *(Resolved in vΩ.11: replaced by the live `sabiscore-api-bav1.onrender.com` service — see vΩ.11 section above.)* `https://sabiscore-api.onrender.com` returns an HTML "This service has been suspended" page (503) on every endpoint. All Vercel proxy 503s are downstream of this. Resume the service in the Render dashboard, then verify `GET /health/ready` → 200. Independently, `SABISCORE_BACKEND_URL` must be set in the Vercel project dashboard (proxies default to `http://localhost:8000` without it).
