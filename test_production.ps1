@@ -6,7 +6,7 @@ Write-Host "`n🚀 SabiScore Production Deployment Tests`n" -ForegroundColor Cya
 # Test 1: Render Backend Health Check
 Write-Host "Test 1: Render Backend Health Check" -ForegroundColor Yellow
 try {
-    $backend = Invoke-RestMethod -Uri "https://sabiscore-api.onrender.com/health" -Method Get -TimeoutSec 30
+    $backend = Invoke-RestMethod -Uri "https://sabiscore-api-bav1.onrender.com/health" -Method Get -TimeoutSec 30
     Write-Host "✅ Backend Status: $($backend.status)" -ForegroundColor Green
     Write-Host "   Timestamp: $($backend.timestamp)" -ForegroundColor Gray
 } catch {
@@ -19,7 +19,7 @@ Start-Sleep -Seconds 2
 # Test 2: Backend API Version
 Write-Host "`nTest 2: Backend API Version" -ForegroundColor Yellow
 try {
-    $version = Invoke-RestMethod -Uri "https://sabiscore-api.onrender.com/api/v1/health" -Method Get -TimeoutSec 30
+    $version = Invoke-RestMethod -Uri "https://sabiscore-api-bav1.onrender.com/api/v1/health" -Method Get -TimeoutSec 30
     Write-Host "✅ API Version: $($version.version)" -ForegroundColor Green
     Write-Host "   Environment: $($version.environment)" -ForegroundColor Gray
 } catch {
@@ -31,7 +31,7 @@ Start-Sleep -Seconds 2
 # Test 3: Get Upcoming Matches
 Write-Host "`nTest 3: Get Upcoming Matches (Real Data)" -ForegroundColor Yellow
 try {
-    $matches = Invoke-RestMethod -Uri "https://sabiscore-api.onrender.com/api/v1/matches/upcoming?limit=3" -Method Get -TimeoutSec 30
+    $matches = Invoke-RestMethod -Uri "https://sabiscore-api-bav1.onrender.com/api/v1/matches/upcoming?limit=3" -Method Get -TimeoutSec 30
     Write-Host "✅ Fetched $($matches.total) matches" -ForegroundColor Green
     if ($matches.matches -and $matches.matches.Count -gt 0) {
         Write-Host "   First match: $($matches.matches[0].home_team) vs $($matches.matches[0].away_team)" -ForegroundColor Gray
@@ -56,5 +56,5 @@ try {
 
 Write-Host "`n📊 Test Summary Complete`n" -ForegroundColor Cyan
 Write-Host "Frontend URL: https://sabiscore-m3gd1at7h-oversabis-projects.vercel.app" -ForegroundColor Blue
-Write-Host "Backend URL:  https://sabiscore-api.onrender.com" -ForegroundColor Blue
+Write-Host "Backend URL:  https://sabiscore-api-bav1.onrender.com" -ForegroundColor Blue
 Write-Host "`nNote: If backend tests fail, Render may still be deploying (takes 5-10 min)" -ForegroundColor Yellow

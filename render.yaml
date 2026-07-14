@@ -38,7 +38,7 @@
       - key: REDIS_ENABLED
         value: "true"
       - key: ALLOWED_HOSTS
-        value: sabiscore-api.onrender.com
+        value: sabiscore-api-bav1.onrender.com
       - key: REDIS_CACHE_TTL
         value: "900"
       - key: SECRET_KEY

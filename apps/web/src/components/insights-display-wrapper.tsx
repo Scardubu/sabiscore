@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useEffect } from "react";
 import { motion } from "framer-motion";
 import type { InsightsResponse } from "@/lib/api";
 import { ErrorBoundary, PredictionErrorFallback } from "./error-boundary";
@@ -37,6 +38,19 @@ function trackClientError(error: Error, errorInfo: React.ErrorInfo) {
 }
 
 export function InsightsDisplayWrapper({ insights }: InsightsDisplayWrapperProps) {
+  // Insights loaded — reset the cold-start auto-reload counters so a future
+  // cold-start on any matchup gets its full auto-retry budget again.
+  useEffect(() => {
+    try {
+      for (let i = sessionStorage.length - 1; i >= 0; i--) {
+        const key = sessionStorage.key(i);
+        if (key?.startsWith("ss-insights-retries:")) sessionStorage.removeItem(key);
+      }
+    } catch {
+      // storage unavailable — nothing to clear
+    }
+  }, []);
+
   return (
     <ErrorBoundary
       fallback={(error, reset) => <PredictionErrorFallback error={error} reset={reset} />}

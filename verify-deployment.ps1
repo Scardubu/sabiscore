@@ -4,12 +4,12 @@
 # ============================================================================
 # Run this after deployment to verify everything works correctly
 #
-# Usage: .\verify-deployment.ps1 -ApiUrl "https://sabiscore-api.onrender.com"
+# Usage: .\verify-deployment.ps1 -ApiUrl "https://sabiscore-api-bav1.onrender.com"
 # ============================================================================
 
 param(
     [Parameter(Mandatory=$false)]
-    [string]$ApiUrl = "https://sabiscore-api.onrender.com",
+    [string]$ApiUrl = "https://sabiscore-api-bav1.onrender.com",
     
     [Parameter(Mandatory=$false)]
     [string]$FrontendUrl = "https://sabiscore.vercel.app"

@@ -8,7 +8,7 @@
 
 param(
     [string]$FrontendUrl = "https://sabiscore-m3gd1at7h-oversabis-projects.vercel.app",
-    [string]$BackendUrl = "https://sabiscore-api.onrender.com"
+    [string]$BackendUrl = "https://sabiscore-api-bav1.onrender.com"
 )
 
 $ErrorActionPreference = "Continue"

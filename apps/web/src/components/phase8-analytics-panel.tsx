@@ -296,15 +296,12 @@ function Phase8DisabledNotice() {
       className="rounded-2xl border border-slate-700/40 bg-slate-800/20 p-5 flex flex-col gap-2"
     >
       <p className="text-sm font-semibold text-slate-400">
-        Phase 8 Analytics — Not Yet Enabled
+        Advanced Feature Intelligence — Coming Soon
       </p>
       <p className="text-xs text-slate-600 max-w-prose">
-        Phase 8 feature enrichment (Pi-ratings, Berrar ratings, EWMA form,
-        market movement, match importance) is pending v6 ensemble training
-        and gate validation. Set{" "}
-        <code className="text-slate-500 font-mono">USE_PHASE8_FEATURES=true</code>{" "}
-        after{" "}
-        <code className="text-slate-500 font-mono">ACTIVE_BASELINE_VERSION=v6_phase8</code>.
+        Deeper feature analytics (team strength ratings, form momentum, market
+        movement, match importance) are in staged rollout pending model
+        validation. The predictions and analysis above are unaffected.
       </p>
     </div>
   );

@@ -11,7 +11,7 @@ $ErrorActionPreference = "Continue"
 Write-Host "[TEST] SabiScore Production Smoke Test" -ForegroundColor Cyan
 Write-Host "========================================`n" -ForegroundColor Cyan
 
-$renderApiUrl = "https://sabiscore-api.onrender.com"
+$renderApiUrl = "https://sabiscore-api-bav1.onrender.com"
 $vercelFrontendUrl = "https://sabiscore.vercel.app"
 $testResults = @()
 

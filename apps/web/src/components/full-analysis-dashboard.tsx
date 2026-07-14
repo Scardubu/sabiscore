@@ -639,6 +639,12 @@ function EnsembleCard({ data }: { data: FullMatchAnalysisResponse["ensemble"] })
           <span className="text-xs text-slate-500">Model confidence</span>
           <span className="text-sm font-bold text-white">{pct(data.confidence)}</span>
         </div>
+        {data.model_version?.toLowerCase().includes("fallback") && (
+          <p className="rounded-md border border-amber-500/20 bg-amber-500/5 px-2 py-1.5 text-[10px] leading-snug text-amber-300/80">
+            Baseline output — live match evidence was unavailable, so probabilities default toward
+            even. Not a tradable signal.
+          </p>
+        )}
         <div className="flex items-center justify-between">
           <span className="text-[10px] text-slate-600">{data.model_version}</span>
           <div className="flex items-center gap-1">
@@ -865,16 +871,34 @@ function OddsEdgeCard({ edge }: { edge: FullMatchOddsEdge }) {
 
 function DataGapBanner({ gaps }: { gaps: string[] }) {
   if (gaps.length === 0) return null;
+  const COLLAPSE_THRESHOLD = 8;
   return (
     <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-5 py-4 flex items-start gap-3" role="alert">
       <svg className="w-4 h-4 flex-shrink-0 text-amber-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
       </svg>
-      <div className="space-y-1">
-        <p className="text-xs font-semibold text-amber-300 uppercase tracking-wider">Data gaps detected</p>
-        <p className="text-xs text-amber-200/60">
-          {gaps.map(toLabel).join(" · ")}
+      <div className="min-w-0 space-y-1">
+        <p className="text-xs font-semibold text-amber-300 uppercase tracking-wider">
+          {gaps.length} data gap{gaps.length === 1 ? "" : "s"} detected
         </p>
+        {gaps.length <= COLLAPSE_THRESHOLD ? (
+          <p className="text-xs text-amber-200/60">{gaps.map(toLabel).join(" · ")}</p>
+        ) : (
+          <>
+            <p className="text-xs text-amber-200/60">
+              Live evidence is missing for these inputs, so the model fell back to a reduced-evidence
+              baseline and the verdict stays cautious.
+            </p>
+            <details>
+              <summary className="cursor-pointer list-none text-xs font-semibold text-amber-300/80 hover:text-amber-200">
+                Show all {gaps.length} missing fields ▸
+              </summary>
+              <p className="mt-1.5 text-xs leading-relaxed text-amber-200/50">
+                {gaps.map(toLabel).join(" · ")}
+              </p>
+            </details>
+          </>
+        )}
       </div>
     </div>
   );

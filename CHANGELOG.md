@@ -7,6 +7,43 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ---
 
+## vΩ.11 — Live backend cutover + match-page reload-loop fix (2026-07-14)
+
+### Backend live at new Render URL
+
+The suspended `sabiscore-api.onrender.com` service was replaced by
+**`https://sabiscore-api-bav1.onrender.com`** (service `srv-d95kkffaqgkc73f8003g`).
+`/health/ready` → 200 with database, migrations (`0003_team_reconciliation`),
+cache, and all 5 league models (v5_phase7, 18 artifacts) reporting ready.
+GATE 1 is unblocked.
+
+**References updated:** `vercel.json` rewrites (`/api/v1/health`, `/api/v1/:path*`
+— load-bearing: the browser-side ultra API client rides these same-origin rewrites),
+`render.yaml` `ALLOWED_HOSTS`, and 5 ops scripts (`verify-deployment.ps1`,
+`test_production*.ps1`, `monitor_deployment.ps1`, `diagnose_deployment.ps1`).
+Stale `vercel.json.backup` deleted. `SABISCORE_BACKEND_URL` in the Vercel
+dashboard must point at the bav1 URL.
+
+### Match page: no more infinite reload over live results
+
+`InsightsErrorState` used to be a full-viewport hero that hard-reloaded the page
+every 30s forever whenever the ultra-insights fetch failed — even while the
+6-layer analysis below had loaded fine. Now: compact card layout (analysis stays
+visible), auto-reload capped at 2 attempts per matchup per tab session
+(sessionStorage), manual retry always available and never counted against the
+cap, and the counter clears when insights load successfully.
+
+### Reduced-evidence honesty polish
+
+- `DataGapBanner` (full-analysis dashboard): >8 gaps collapse under a native
+  `<details>` with a plain-language summary instead of a 67-item text wall.
+- `EnsembleCard`: when `model_version` is a fallback, an amber note states the
+  probabilities default toward even and are not a tradable signal.
+- Phase 8 disabled notice: backend env-var instructions replaced with
+  user-facing "staged rollout" copy.
+
+---
+
 ## Vercel env matrix, Docker build fixes, zero-fab guard (2026-07-04 session 11)
 
 ### Vercel — complete env matrix
@@ -21,7 +58,7 @@ Full Vercel environment variable mapping resolved this session.
 **Must be set in the Vercel project dashboard (never in `vercel.json`):**
 | Variable | Required | Purpose |
 |---|---|---|
-| `SABISCORE_BACKEND_URL` | **Required** | All server-side proxy routes; e.g. `https://sabiscore-api.onrender.com` |
+| `SABISCORE_BACKEND_URL` | **Required** | All server-side proxy routes; e.g. `https://sabiscore-api-bav1.onrender.com` |
 | `SECRET_KEY` | **Required** | FastAPI JWT signing key (≥32 chars) |
 | `CRON_SECRET` | Recommended | Auth for `/api/cron/*` routes |
 | `REVALIDATE_SECRET` | Recommended | Auth for `/api/revalidate` (default `dev-secret-token` is insecure in prod) |

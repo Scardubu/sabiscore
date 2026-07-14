@@ -11,7 +11,7 @@ Write-Host "║          SABISCORE DEPLOYMENT MONITOR                           
 Write-Host "║         Monitoring Post-Fix Deployments (c67dad037)                ║" -ForegroundColor Cyan
 Write-Host "╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
 
-$backendUrl = "https://sabiscore-api.onrender.com/health"
+$backendUrl = "https://sabiscore-api-bav1.onrender.com/health"
 $frontendUrl = "https://sabiscore-m3gd1at7h-oversabis-projects.vercel.app"
 
 $backendSuccess = $false
@@ -96,14 +96,14 @@ while ($attempt -lt $MaxAttempts -and (-not $backendSuccess -or -not $frontendSu
         Write-Host "║                 🎉 DEPLOYMENTS SUCCESSFUL 🎉                        ║" -ForegroundColor Green
         Write-Host "╚══════════════════════════════════════════════════════════════════════╝" -ForegroundColor Green
         Write-Host ""
-        Write-Host "✅ Backend: https://sabiscore-api.onrender.com" -ForegroundColor Green
+        Write-Host "✅ Backend: https://sabiscore-api-bav1.onrender.com" -ForegroundColor Green
         Write-Host "✅ Frontend: https://sabiscore-m3gd1at7h-oversabis-projects.vercel.app" -ForegroundColor Green
         Write-Host ""
         Write-Host "Next steps:" -ForegroundColor Cyan
         Write-Host "  1. Test matches endpoint:" -ForegroundColor White
-        Write-Host "     Invoke-RestMethod -Uri 'https://sabiscore-api.onrender.com/api/v1/matches/upcoming?limit=5'" -ForegroundColor Gray
+        Write-Host "     Invoke-RestMethod -Uri 'https://sabiscore-api-bav1.onrender.com/api/v1/matches/upcoming?limit=5'" -ForegroundColor Gray
         Write-Host "  2. Test predictions:" -ForegroundColor White
-        Write-Host "     Invoke-RestMethod -Uri 'https://sabiscore-api.onrender.com/api/v1/predictions/value-bets/today'" -ForegroundColor Gray
+        Write-Host "     Invoke-RestMethod -Uri 'https://sabiscore-api-bav1.onrender.com/api/v1/predictions/value-bets/today'" -ForegroundColor Gray
         Write-Host "  3. Visit frontend homepage:" -ForegroundColor White
         Write-Host "     Start-Process 'https://sabiscore-m3gd1at7h-oversabis-projects.vercel.app'" -ForegroundColor Gray
         Write-Host ""
