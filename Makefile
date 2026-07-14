@@ -28,7 +28,10 @@ LOG_DIR        := .logs
 
 SUITE_VERSION  := $(shell jq -r '.suiteVersion' $(REGISTRY) 2>/dev/null || echo "unknown")
 SKILL_COUNT    := $(shell jq '.skills | length' $(REGISTRY) 2>/dev/null || echo "0")
-PYTHON_BIN     := ./.venv/bin/python
+PYTHON_BIN     := $(or \
+  $(if $(wildcard .venv/bin/python),.venv/bin/python),\
+  $(if $(wildcard .venv/Scripts/python.exe),.venv/Scripts/python.exe),\
+  python)
 
 # ── Phony Targets ─────────────────────────────────────────────────────────────
 .PHONY: help install install-force install-dry validate lint lint-md lint-sh \
@@ -94,7 +97,7 @@ validate-strict: check-tools ## Validate registry AND verify all skill files exi
 verify-core: ## Run deterministic SabiScore checks without live providers or Docker
 	@echo "  SabiScore deterministic verification"
 	@echo "  1/6 Backend safety, provider, engine, and scraper regressions"
-	@cd backend && PYTHONPATH=. DEBUG=false ALLOW_SQLITE_FALLBACK=true python -m pytest -q \
+	@cd backend && PYTHONPATH=. DEBUG=false ALLOW_SQLITE_FALLBACK=true $(PYTHON_BIN) -m pytest -q \
 	  tests/test_secret_safety.py \
 	  tests/test_database_migration_hardening.py \
 	  tests/test_provider_cli_contract.py \
@@ -107,15 +110,15 @@ verify-core: ## Run deterministic SabiScore checks without live providers or Doc
 	  tests/test_no_synthetic_scrapers.py \
 	  tests/test_scrapers.py
 	@echo "  2/6 OpenAPI contract"
-	@cd backend && timeout 90s env PYTHONPATH=. DEBUG=false ALLOW_SQLITE_FALLBACK=true python scripts/verify_openapi.py
+	@cd backend && timeout 90s env PYTHONPATH=. DEBUG=false ALLOW_SQLITE_FALLBACK=true $(PYTHON_BIN) scripts/verify_openapi.py
 	@echo "  3/6 Provider CLI (offline/configuration mode)"
-	@cd backend && timeout 60s env PYTHONPATH=. DEBUG=false PROVIDER_LIVE_TESTS=false python -m src.cli providers doctor >/dev/null
+	@cd backend && timeout 60s env PYTHONPATH=. DEBUG=false PROVIDER_LIVE_TESTS=false $(PYTHON_BIN) -m src.cli providers doctor >/dev/null
 	@echo "  4/6 Scraper parser tests"
 	@node --test apps/scraper/tests/*.test.mjs
 	@echo "  5/6 Scraper source and manifest validation"
 	@node apps/scraper/src/cli.mjs validate
 	@echo "  6/6 Python compilation"
-	@python -m compileall -q backend/src backend/scripts
+	@$(PYTHON_BIN) -m compileall -q backend/src backend/scripts
 	@echo "  Zero-fabrication scan"
 	@! grep -rn --include="*.py" \
 	  "FEATURE_DEFAULTS\[" \
@@ -142,7 +145,7 @@ verify: ## Run every SabiScore production release gate; requires pnpm, Postgres,
 	@echo "  2/14 Deterministic core gates"
 	@"$(MAKE)" verify-core
 	@echo "  3/14 Complete backend suite"
-	@cd backend && PYTHONPATH=. DEBUG=false python -m pytest tests -q
+	@cd backend && PYTHONPATH=. DEBUG=false $(PYTHON_BIN) -m pytest tests -q
 	@echo "  4/14 Alembic upgrade and schema drift check"
 	@cd backend && alembic upgrade head && alembic check
 	@echo "  5/14 Scraper workspace tests"
