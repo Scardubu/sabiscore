@@ -65,7 +65,7 @@ class UpcomingMatchService:
         days_ahead: int,
         limit: int,
     ) -> Dict[str, Any]:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc).replace(tzinfo=None)  # ponytail: match_date is TIMESTAMP WITHOUT TIME ZONE
         end_date = now + timedelta(days=max(days_ahead, 1))
 
         query = (
@@ -166,6 +166,8 @@ class UpcomingMatchService:
                 "upcoming_matches": [],
                 "total": 0,
                 "matches_with_value": 0,
+                "avg_edge_pct": 0.0,
+                "source": "error",
                 "error": str(e),
             }
 
