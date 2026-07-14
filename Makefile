@@ -105,7 +105,7 @@ verify-core: ## Run deterministic SabiScore checks without live providers or Doc
 	  tests/providers/test_reconciliation_and_odds.py \
 	  tests/test_scraped_feature_store.py \
 	  tests/test_no_synthetic_scrapers.py \
-	  tests/test_scrapers.py --no-cov
+	  tests/test_scrapers.py
 	@echo "  2/6 OpenAPI contract"
 	@cd backend && timeout 90s env PYTHONPATH=. DEBUG=false ALLOW_SQLITE_FALLBACK=true python scripts/verify_openapi.py
 	@echo "  3/6 Provider CLI (offline/configuration mode)"
@@ -142,7 +142,7 @@ verify: ## Run every SabiScore production release gate; requires pnpm, Postgres,
 	@echo "  2/14 Deterministic core gates"
 	@"$(MAKE)" verify-core
 	@echo "  3/14 Complete backend suite"
-	@cd backend && PYTHONPATH=. DEBUG=false python -m pytest tests -q --no-cov
+	@cd backend && PYTHONPATH=. DEBUG=false python -m pytest tests -q
 	@echo "  4/14 Alembic upgrade and schema drift check"
 	@cd backend && alembic upgrade head && alembic check
 	@echo "  5/14 Scraper workspace tests"
