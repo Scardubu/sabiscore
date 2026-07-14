@@ -299,6 +299,26 @@ run the full release matrix before tagging the release.
 - **Match landing copy corrected** — "⅛ Kelly" → "Quarter Kelly" (matches the certified Quarter-Kelly 0.25 contract) and the fabricated "Updated every 15s" cadence → "Fetched fresh per request" (the match detail page is `force-dynamic`; there is no 15s polling loop).
 - ⚠️ **Ops note:** after deleting a route `layout.tsx`, clear `apps/web/.next` before `tsc --noEmit` — Next's generated `.next/types/validator.ts` keeps a stale import to the removed layout and fails typecheck otherwise.
 
+## vΩ.10 Changes (2026-07-14)
+
+Frontend-only session. No backend files, Alembic, or betting-engine changes.
+
+- **Backend warming-up banner (GATE A)** — `apps/web/src/components/backend-status-banner.tsx` polls `/api/health` every 30s via `useQuery`. When `backendStatus === "unavailable"` (Render cold-start/suspension), a slim amber bar renders between the sticky header and `<main>` with a calm "reconnecting automatically" message. Auto-dismisses when the backend recovers. Does NOT duplicate the existing `ReadinessRing` in the header. Wired into `layout.tsx`.
+
+- **Mobile navigation (GATE E)** — `apps/web/src/components/mobile-nav.tsx` provides a hamburger button + full-screen overlay drawer (`lg:hidden`) exposing all WORKSPACE_LINKS and LEAGUES. ESC key, backdrop click, and link click all close the drawer. Wired into the root sticky header. Previously the sidebar (`hidden lg:block`) had zero mobile navigation fallback.
+
+- **LEAGUE_COLORS extracted (GATE E)** — `apps/web/src/lib/league-colors.ts` — 7-league colour map was copy-pasted identically in `upcoming-matches-panel.tsx` and `best-bet-spotlight.tsx`. Both now import from the shared module.
+
+- **Homepage plain-language copy (GATE B)** — `apps/web/src/app/page.tsx`: HERO_STATS detail text updated to plain English; "RPS Gate" label → "Model Precision Gate"; TRUST_BADGES "Phase 8 features" → "ML features validated"; primary CTA "Open Intelligence" → "See today's value picks" (both `PremiumHome` and `LegacyHome`); LegacyHome badge de-jargoned; PIPELINE_STEPS technical `detail` text wrapped in `<details><summary>Technical detail ▸</summary></details>` so the plain-English step label leads.
+
+- **/intelligence metric glosses + gap collapse (GATE C)** — `betting-intelligence-dashboard.tsx` inline style block gains `.bi-gloss` + `.bi-gap-summary`. `<em className="bi-gloss">` spans added to Edge / Expected Value / Stake metric labels and Fair market / Edge / EV table column headers. `data_gaps.length > 5` now collapses under a native `<details>` (zero JS).
+
+- **Loading screen pipeline alignment (GATE D)** — `loading-facts.ts` LOADING_FACTS reordered: entries 1–5 now explicitly mirror the 5 homepage pipeline steps (Collect → Validate → Calibrate → Compare → Surface); `ProgressiveConfidenceMeter` milestone labels changed from `Data | Models | Confidence | Ready` → `Collect | Calibrate | Compare | Ready`; a 15-second cold-start hint appears via `AnimatePresence` if analysis is still loading (respects `useReducedMotion`).
+
+- **⅛ Kelly contract sweep** — four frontend files still showing ⅛ Kelly labels fixed: `insights-display.tsx`, `OneClickBetSlip.tsx`, `performance-page-client.tsx` (UI copy → ¼), `currency.ts` (JSDoc comment → 0.25 = ¼). `grep -rni "⅛" apps/web/src` → 0 matches.
+
+- **Verification gate:** lint 0 errors, `tsc --noEmit` clean, Vitest 16/16, `NODE_ENV=production next build` ✓, prohibited-term grep 0 actionable hits.
+
 ## vΩ.5 Changes (2026-07-06)
 
 - **`datetime.utcnow()` purged — entire backend/src** (except `database.py` SQLAlchemy column callable defaults, which require a dedicated SQLAlchemy migration). All 30 remaining non-canonical files (`cli/`, `connectors/`, `data/loaders/`, `models/`, `scrapers/`, `services/`) updated to `datetime.now(timezone.utc)`. `grep -rn "datetime\.utcnow" backend/src --include="*.py" | grep -v database.py` → 0 matches. CI zero-fab scan now enforces this on canonical paths (`src/api`, `src/services`, `src/providers/espn`, `src/models/orchestrator.py`, `src/core/security.py`).
