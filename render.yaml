@@ -86,6 +86,23 @@
         value: "https://sabiscore(-[a-z0-9-]+)?\\.vercel\\.app"
       - key: FOOTBALL_DATA_API_KEY
         sync: false
+      # ── Additional providers (enable + supply key in the Render dashboard) ────
+      # These three ship enabled=true so that the moment their key is set in the
+      # dashboard the provider lights up. Until a key is present each reports
+      # CONFIGURED=false / "needs key" (never a crash — the gateway handles the
+      # unconfigured state). Canonical key names per docs/SABISCORE_PRODUCTION_SETUP_GUIDE.md.
+      - key: ENABLE_API_FOOTBALL_PROVIDER
+        value: "true"
+      - key: API_FOOTBALL_API_KEY
+        sync: false
+      - key: ENABLE_SPORTMONKS_PROVIDER
+        value: "true"
+      - key: SPORTMONKS_API_TOKEN
+        sync: false
+      - key: ENABLE_THE_ODDS_API_PROVIDER
+        value: "true"
+      - key: THE_ODDS_API_KEY
+        sync: false
       - key: MODELS_PATH
         value: "/opt/render/project/src/models"
       - key: USE_PHASE7_MODELS

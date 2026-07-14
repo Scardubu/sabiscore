@@ -299,6 +299,22 @@ run the full release matrix before tagging the release.
 - **Match landing copy corrected** — "⅛ Kelly" → "Quarter Kelly" (matches the certified Quarter-Kelly 0.25 contract) and the fabricated "Updated every 15s" cadence → "Fetched fresh per request" (the match detail page is `force-dynamic`; there is no 15s polling loop).
 - ⚠️ **Ops note:** after deleting a route `layout.tsx`, clear `apps/web/.next` before `tsc --noEmit` — Next's generated `.next/types/validator.ts` keeps a stale import to the removed layout and fails typecheck otherwise.
 
+## vΩ.12 Changes (2026-07-14)
+
+- **Off-season is expected, not a fault.** In mid-July the top-five European leagues are on summer break. The live backend `GET /api/v1/upcoming/matches` correctly returns `offseason: true`, `next_season_start: "2026-08-08"`, `total: 0`, and the web app renders the off-season notice with a restart countdown. An empty fixtures list and a 33/33/33 baseline for a hand-typed matchup are **correct fail-closed behaviour** during the break; real fixtures and predictions return automatically once the season resumes (≈8 Aug 2026). Do not attempt to force fixtures during the break.
+- **All five providers are now declarable on Render.** The live `/api/v1/providers/health` showed only `espn` and `football_data_org` enabled — the other three were `provider_disabled` because `render.yaml` never declared them. `render.yaml` now ships `ENABLE_API_FOOTBALL_PROVIDER` / `ENABLE_SPORTMONKS_PROVIDER` / `ENABLE_THE_ODDS_API_PROVIDER = true` plus `API_FOOTBALL_API_KEY` / `SPORTMONKS_API_TOKEN` / `THE_ODDS_API_KEY` (`sync: false`). **Operator action:** paste those three keys into the Render dashboard → all five providers light up. Until a key is present the provider reports "needs key" (never a crash — the gateway handles the unconfigured state).
+
+### Provider enablement runbook (Render dashboard)
+
+1. Open the `sabiscore-api` service → **Environment**.
+2. Set the provider keys (the service already reads `FOOTBALL_DATA_API_KEY`):
+   `API_FOOTBALL_API_KEY`, `SPORTMONKS_API_TOKEN`, `THE_ODDS_API_KEY`.
+3. Save — Render redeploys automatically (`autoDeploy: true` on `master`).
+4. Verify: `GET /api/v1/providers/health` → each configured provider shows `configured: true`; after a live probe (or first real fetch) status advances toward `VERIFIED`.
+5. `SABISCORE_BACKEND_URL` in the **Vercel** dashboard must be `https://sabiscore-api-bav1.onrender.com`.
+
+> **Security:** any credential ever pasted into a chat, terminal log, or shared document is compromised and must be rotated in its provider console. `.env*` is gitignored and no real secret is tracked in the repo.
+
 ## vΩ.11 Changes (2026-07-14)
 
 - **🟢 GATE 1 UNBLOCKED — backend live at a new Render URL.** The suspended `sabiscore-api.onrender.com` service was replaced by **`https://sabiscore-api-bav1.onrender.com`** (service `srv-d95kkffaqgkc73f8003g`; Render kept the blueprint name `sabiscore-api` but assigned the unique `-bav1` subdomain). `GET /health/ready` → 200 with database connected, Alembic at head `0003_team_reconciliation`, cache connected, and all 5 league models loaded (`v5_phase7`, 18 artifacts). Set `SABISCORE_BACKEND_URL=https://sabiscore-api-bav1.onrender.com` in the Vercel dashboard.
