@@ -1,0 +1,37 @@
+# Python / backend (not needed for the Next.js web build)
+backend/
+.venv/
+__pycache__/
+*.py[cod]
+
+# Model artifacts and training data (large binaries / CSVs)
+models/
+*.pkl
+*.joblib
+*.csv
+
+# Other apps not needed for the web build
+apps/scraper/
+apps/ws/
+apps/api/
+frontend/
+
+# Version control
+.git/
+.github/
+
+# Local env / secrets
+.env*
+!.env*.example
+ssl/
+
+# Build outputs and caches that must not shadow the deps stage
+node_modules/
+.next/
+apps/web/.next/
+apps/web/node_modules/
+.turbo/
+.cache/
+
+# Stale CI artifacts
+source
