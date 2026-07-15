@@ -163,9 +163,17 @@ verify: ## Run every SabiScore production release gate; requires pnpm, Postgres,
 	@echo "  10/14 Docker Compose configuration"
 	@docker compose -f docker-compose.prod.yml config --quiet
 	@echo "  11/14 Backend image"
+ifdef SKIP_DOCKER_GATES
+	@echo "        [skipped: SKIP_DOCKER_GATES set — run without it on a fast network]"
+else
 	@docker build -f backend/Dockerfile -t sabiscore-backend:verify backend/
+endif
 	@echo "  12/14 Web image"
+ifdef SKIP_DOCKER_GATES
+	@echo "        [skipped: SKIP_DOCKER_GATES set — run without it on a fast network]"
+else
 	@docker build -f apps/web/Dockerfile -t sabiscore-web:verify .
+endif
 	@echo "  13/14 Playwright desktop/mobile smoke"
 	@pnpm exec playwright test
 	@echo "  14/14 Final OpenAPI regeneration"
