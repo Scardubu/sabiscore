@@ -8,8 +8,11 @@ ENV PIP_DEFAULT_TIMEOUT=120 \
 
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+# Install system dependencies.
+# apt over HTTPS: plain-HTTP mirrors get hijacked by carrier captive portals
+# (observed: Airtel NG zerod portal returning 400 for deb.debian.org).
+RUN sed -i 's|http://|https://|g' /etc/apt/sources.list.d/debian.sources \
+    && apt-get update && apt-get install -y \
     gcc \
     libgomp1 \
     && rm -rf /var/lib/apt/lists/*
@@ -20,7 +23,10 @@ RUN apt-get update && apt-get install -y \
 ARG REQUIREMENTS=requirements.min.txt
 COPY ${REQUIREMENTS} ./
 COPY requirements.txt ./requirements.txt
-RUN if [ -f "${REQUIREMENTS}" ]; then pip install --no-cache-dir -r ${REQUIREMENTS}; else pip install --no-cache-dir -r requirements.txt; fi
+# Cache mount: downloaded wheels survive failed builds (flaky-network resilience)
+# without ever entering the image layer.
+RUN --mount=type=cache,target=/root/.cache/pip \
+    if [ -f "${REQUIREMENTS}" ]; then pip install -r ${REQUIREMENTS}; else pip install -r requirements.txt; fi
 
 # Copy source code
 COPY src/ ./src/
@@ -34,9 +40,11 @@ CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--re
 # Production stage - updated with libgomp
 FROM python:3.11-slim AS production
 
+# PIP_NO_CACHE_DIR intentionally absent: pip's cache lives in a BuildKit cache
+# mount (never in the image), and must persist across builds so a corrupted
+# download on a flaky connection doesn't restart the full 2GB+ fetch.
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_DEFAULT_TIMEOUT=120 \
     PIP_RETRIES=5 \
@@ -44,8 +52,9 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
+# Install runtime dependencies (apt over HTTPS — see development stage note)
+RUN sed -i 's|http://|https://|g' /etc/apt/sources.list.d/debian.sources \
+    && apt-get update && apt-get install -y \
     postgresql-client \
     redis-tools \
     curl \
@@ -57,7 +66,8 @@ COPY --from=development /app /app
 
 # Install Python dependencies in production
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r requirements.txt
 
 # Create directories for volume mounts
 RUN mkdir -p /app/models /app/data
