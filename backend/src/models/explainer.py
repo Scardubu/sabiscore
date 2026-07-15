@@ -24,7 +24,7 @@ class ModelExplainer:
     def setup_explainer(self, background_data: pd.DataFrame, feature_names: List[str]) -> None:
         """Setup SHAP explainer"""
         if not SHAP_AVAILABLE:
-            logger.warning("SHAP not available, using mock explanations")
+            logger.warning("SHAP not available — explanations disabled (fail-closed)")
             return
 
         try:
@@ -170,44 +170,15 @@ class ModelExplainer:
             return []
 
     def _mock_explanation(self, features: pd.DataFrame) -> Dict[str, Any]:
-        """Generate mock explanation when SHAP is not available"""
-        logger.info("Generating mock SHAP explanation")
+        """SHAP unavailable or uninitialized — fail closed with an empty result.
 
-        # Mock feature importance
-        feature_importance = {
-            'home_attack_strength': 0.15,
-            'away_defense_strength': 0.12,
-            'home_win_rate': 0.10,
-            'head_to_head_home_wins': 0.08,
-            'home_possession_avg': 0.07,
-            'away_form_points': 0.06,
-            'home_league_position': 0.05,
-            'home_goals_avg': 0.04
-        }
-
-        # Mock waterfall data
-        waterfall_data = {
-            'base_value': 0.33,
-            'contributions': [
-                {'feature': 'home_attack_strength', 'value': 1.2, 'shap_value': 0.15},
-                {'feature': 'away_defense_strength', 'value': 0.8, 'shap_value': -0.08},
-                {'feature': 'home_win_rate', 'value': 0.65, 'shap_value': 0.10}
-            ]
-        }
-
-        # Mock top contributions
-        top_contributions = [
-            {'feature': 'home_attack_strength', 'contribution': 0.15, 'feature_value': 1.2},
-            {'feature': 'away_defense_strength', 'contribution': -0.08, 'feature_value': 0.8},
-            {'feature': 'home_win_rate', 'contribution': 0.10, 'feature_value': 0.65}
-        ]
-
-        return {
-            'shap_values': {'mock': 'explanation'},
-            'feature_importance': feature_importance,
-            'waterfall_data': waterfall_data,
-            'top_contributions': top_contributions
-        }
+        Zero-fabrication contract: never emit hardcoded feature importances.
+        The live caller (services/prediction.py _generate_explanations) treats
+        a falsy result as "no SHAP" and falls back to deterministic ranking
+        derived from the real validated feature vector.
+        """
+        logger.info("SHAP explanation unavailable — returning empty result (fail-closed)")
+        return {}
 
     def explain_model_performance(self, X_test: pd.DataFrame, y_test: pd.DataFrame) -> Dict[str, Any]:
         """Generate model performance explanations"""
@@ -253,12 +224,8 @@ class ModelExplainer:
             return []
 
     def _mock_performance_explanation(self) -> Dict[str, Any]:
-        """Mock model performance explanation"""
+        """SHAP unavailable — empty performance explanation (fail-closed, zero-fab)."""
         return {
             'summary_plot': [],
-            'feature_importance_global': {
-                'home_attack_strength': 0.15,
-                'away_defense_strength': 0.12,
-                'home_win_rate': 0.10
-            }
+            'feature_importance_global': {}
         }

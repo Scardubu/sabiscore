@@ -1,6 +1,11 @@
 # Development stage
 FROM python:3.11-slim AS development
 
+# Survive slow/flaky PyPI links: default 15s read-timeout aborts large
+# scientific wheels (xgboost/lightgbm) on constrained connections.
+ENV PIP_DEFAULT_TIMEOUT=120 \
+    PIP_RETRIES=5
+
 WORKDIR /app
 
 # Install system dependencies
@@ -33,6 +38,8 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_DEFAULT_TIMEOUT=120 \
+    PIP_RETRIES=5 \
     PORT=8000
 
 WORKDIR /app

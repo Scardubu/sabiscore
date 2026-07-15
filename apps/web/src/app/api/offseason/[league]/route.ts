@@ -15,6 +15,27 @@ export const dynamic = 'force-dynamic';
 const BACKEND_URL =
   process.env.SABISCORE_BACKEND_URL;
 
+/**
+ * Complete UNKNOWN-status body for every fallback path. The frontend contract
+ * (and e2e shape test) requires data_availability + prediction_advisory on
+ * all responses — when the backend is unreachable nothing is available.
+ */
+function unknownFallback(league: string) {
+  return {
+    league,
+    season_status: 'UNKNOWN',
+    data_availability: {
+      historical_results: false,
+      elo_ratings: false,
+      market_odds: false,
+      form_stats: false,
+      team_metadata: false,
+    },
+    prediction_advisory:
+      'Season status unavailable — backend unreachable. Predictions are not being generated from live data.',
+  };
+}
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ league: string }> },
@@ -23,7 +44,7 @@ export async function GET(
 
   if (!BACKEND_URL) {
     return NextResponse.json(
-      { error: 'Backend URL not configured', season_status: 'UNKNOWN' },
+      { error: 'Backend URL not configured', ...unknownFallback(league) },
       { status: 503 },
     );
   }
@@ -44,7 +65,7 @@ export async function GET(
         {
           error: `Upstream error ${upstream.status}`,
           detail: text.slice(0, 200),
-          season_status: 'UNKNOWN',
+          ...unknownFallback(league),
         },
         { status: upstream.status },
       );
@@ -64,7 +85,7 @@ export async function GET(
       {
         error: 'Failed to reach backend',
         detail: message,
-        season_status: 'UNKNOWN',
+        ...unknownFallback(league),
       },
       { status: 502 },
     );

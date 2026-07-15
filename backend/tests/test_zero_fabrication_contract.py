@@ -6,7 +6,6 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import numpy as np
-import pytest
 
 
 def _read_texts(root: Path, pattern: str) -> str:
@@ -86,3 +85,26 @@ def test_probability_simplex_validity() -> None:
         assert abs(probs.sum() - 1.0) < 1e-6, (
             f"Probability vector {raw} does not sum to 1.0 — invalid simplex"
         )
+
+
+def test_explainer_fallback_is_empty_not_fabricated() -> None:
+    """Regression guard: ModelExplainer must not fabricate SHAP values.
+
+    When SHAP is unavailable or uninitialized the fallback must be empty so
+    services/prediction.py falls through to deterministic ranking derived
+    from the real feature vector — never hardcoded feature importances.
+    """
+    import pandas as pd
+
+    from src.models.explainer import ModelExplainer
+
+    explainer = ModelExplainer(model=None)
+    features = pd.DataFrame([{"home_attack_strength": 1.0}])
+
+    assert explainer._mock_explanation(features) == {}, (
+        "ModelExplainer fallback fabricated explanation values — zero-fab violation"
+    )
+    perf = explainer._mock_performance_explanation()
+    assert perf.get("feature_importance_global") == {}, (
+        "ModelExplainer fabricated global feature importances — zero-fab violation"
+    )

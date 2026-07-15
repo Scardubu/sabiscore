@@ -364,8 +364,8 @@ class EnsembleModel:
         """Generate SHAP explanations via ModelExplainer on the first available base model.
 
         Uses a tree-based base model so SHAP TreeExplainer can attribute each of the 58
-        canonical features.  Falls back to ModelExplainer._mock_explanation() when SHAP
-        is unavailable or the base model is not tree-compatible.
+        canonical features.  Returns {} when SHAP is unavailable or the base model is
+        not tree-compatible (fail-closed — callers fall back to deterministic ranking).
         """
         try:
             from .explainer import ModelExplainer

@@ -1,33 +1,31 @@
 import { test, expect } from '@playwright/test';
 
-const BACKEND_HEALTH_URL = 'http://127.0.0.1:8000/api/v1/health';
-
-async function assertBackendHealthy(request: typeof test.expect.extend.arguments[0]['request']) {
-  const response = await request.get(BACKEND_HEALTH_URL);
-  expect(response.ok()).toBeTruthy();
-  const json = await response.json();
-  expect(json).toMatchObject({ status: 'healthy' });
-}
-
+// Backend-independent by design (same contract as intelligence.spec.ts):
+// assertions target static shell chrome and mocked API responses so the
+// release gate never needs a live FastAPI backend.
 test.describe('SabiScore End-to-End', () => {
-  test('loads match selector when backend is healthy', async ({ page, request }) => {
-    await assertBackendHealthy(request);
-
+  test('homepage renders hero with primary CTA into the workspace', async ({ page }) => {
     await page.goto('/');
 
-    await expect(page.getByRole('heading', { name: 'Select a Match to Analyze' })).toBeVisible();
-    await expect(page.getByLabel('Home Team')).toBeVisible();
-    await expect(page.getByLabel('Away Team')).toBeVisible();
-    await expect(page.getByRole('button', { name: /Analyze Match/i })).toBeEnabled();
+    await expect(
+      page.getByRole('link', { name: /See today's value picks/i }).first(),
+    ).toBeVisible();
   });
 
-  test('shows offline banner when backend unavailable', async ({ page }) => {
-    await page.route('**/api/v1/health', (route) => route.abort());
+  test('shows warming banner when backend reports unavailable', async ({ page }) => {
+    await page.route('**/api/health', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ status: 'degraded', backendStatus: 'unavailable' }),
+      }),
+    );
 
     await page.goto('/');
 
-    await expect(page.getByText('Connection Error')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible();
+    await expect(
+      page.getByRole('alert').getByText(/Prediction engine warming up/i),
+    ).toBeVisible();
   });
 });
 
