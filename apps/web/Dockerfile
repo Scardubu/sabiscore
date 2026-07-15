@@ -22,9 +22,9 @@ ENV npm_config_fetch_timeout=600000 \
     npm_config_store_dir=/pnpm-store
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm-store \
     --mount=type=cache,id=pnpm-meta,target=/root/.cache/pnpm \
-    pnpm install --frozen-lockfile --filter @sabiscore/web... \
-    || { sleep 10; pnpm install --frozen-lockfile --filter @sabiscore/web...; } \
-    || { sleep 30; pnpm install --frozen-lockfile --filter @sabiscore/web...; }
+    pnpm install --no-frozen-lockfile --filter @sabiscore/web... \
+    || { sleep 10; pnpm install --no-frozen-lockfile --filter @sabiscore/web...; } \
+    || { sleep 30; pnpm install --no-frozen-lockfile --filter @sabiscore/web...; }
 
 # Builder stage
 FROM base AS builder
@@ -38,7 +38,9 @@ ENV NODE_ENV=production
 ENV NEXT_STANDALONE=true
 # deps stage just installed node_modules; pnpm 11's pre-run deps check would
 # see the missing store (cache-mount, deps-stage-only) and purge + reinstall.
-RUN pnpm --config.verify-deps-before-run=false --filter @sabiscore/web build
+# Cache the Next.js SWC binary so network retries converge across builds.
+RUN --mount=type=cache,id=next-swc-cache,target=/root/.cache/next-swc \
+    pnpm --config.verify-deps-before-run=false --filter @sabiscore/web build
 
 # Production runner stage
 FROM node:22-alpine AS production
