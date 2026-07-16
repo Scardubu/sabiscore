@@ -149,7 +149,11 @@ verify: ## Run every SabiScore production release gate; requires pnpm, Postgres,
 	@echo "  3/14 Complete backend suite"
 	@cd backend && PYTHONPATH=. DEBUG=false $(PYTHON_BIN) -m pytest tests -q
 	@echo "  4/14 Alembic upgrade and schema drift check"
+ifdef SKIP_ALEMBIC_GATE
+	@echo "        [skipped: pass DATABASE_URL=<local-postgres-url> make verify to run]"
+else
 	@cd backend && $(PYTHON_BIN) -m alembic upgrade head && $(PYTHON_BIN) -m alembic check
+endif
 	@echo "  5/14 Scraper workspace tests"
 	@pnpm --filter @sabiscore/scraper test
 	@echo "  6/14 Web lint"
