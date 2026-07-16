@@ -1,11 +1,11 @@
 {
-  "name": "SabiScore - Football Intelligence",
+  "name": "SabiScore — Football Intelligence",
   "short_name": "SabiScore",
-  "description": "Sub-150ms football predictions with +18% ROI",
+  "description": "Backend-owned football prediction, market value, and risk analytics.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#6366f1",
+  "background_color": "#07110f",
+  "theme_color": "#07110f",
   "orientation": "portrait-primary",
   "icons": [
     {
@@ -14,24 +14,18 @@
       "type": "image/x-icon"
     },
     {
-      "src": "/logo-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/logo-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
     }
   ],
-  "categories": ["sports", "entertainment", "utilities"],
+  "categories": ["sports", "utilities"],
   "shortcuts": [
     {
-      "name": "Live Matches",
-      "short_name": "Live",
-      "description": "View live match predictions",
+      "name": "Match Analysis",
+      "short_name": "Matches",
+      "description": "Open the match analysis workspace",
       "url": "/match",
       "icons": [{ "src": "/favicon.ico", "sizes": "48x48" }]
     }

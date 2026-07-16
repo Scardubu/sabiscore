@@ -54,8 +54,23 @@ export const metadata: Metadata = {
     "Backend-owned football prediction, market value, and risk analytics for SabiScore.",
   authors: [{ name: "Sabiscore Team" }],
   creator: "Sabiscore",
+  manifest: "/manifest.json",
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
+  },
+  openGraph: {
+    type: "website",
+    siteName: "Sabiscore",
+    title: "Sabiscore Analytics",
+    description:
+      "Backend-owned football prediction, market value, and risk analytics.",
+    url: SITE_URL,
+  },
+  twitter: {
+    card: "summary",
+    title: "Sabiscore Analytics",
+    description:
+      "Backend-owned football prediction, market value, and risk analytics.",
   },
   robots: {
     index: true,
