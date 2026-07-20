@@ -23,7 +23,7 @@ export interface LoadingFact {
  * Remaining 4 are technical tips — no bookmaker brand claims.
  */
 export const LOADING_FACTS: LoadingFact[] = [
-  { icon: Database, text: "Collecting evidence from 5 independent providers..." },
+  { icon: Database, text: "Collecting evidence from configured backend providers..." },
   { icon: Shield, text: "Reconciling fixture identity across providers..." },
   { icon: BarChart3, text: "Calibrating ensemble model probabilities per league..." },
   { icon: TrendingUp, text: "De-vigging bookmaker odds to find fair market price..." },

@@ -2,19 +2,20 @@
  * Health Check API Route
  *
  * Proxies backend /health/ready for live infrastructure status.
- * Baseline ML metrics (Phase 7 walk-forward) are returned as-is until
+ * Historical Phase 7 artifact benchmarks are returned as-is until
  * live prediction data accumulates — hasSufficientData stays false until
  * the walk-forward RPS run completes with live match data.
  */
 
 import { NextResponse } from "next/server";
+import { backendHealthIssues, isHealthyBackendStatus } from "@/lib/health-status";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const BACKEND_URL = process.env.SABISCORE_BACKEND_URL;
 
-// Phase 7 walk-forward validated baseline — not simulated
+// Historical Phase 7 artifact benchmark. These are not labelled live results.
 const PHASE7_BASELINE = {
   accuracy: 0.51,
   brierScore: 0.225,
@@ -44,7 +45,7 @@ export async function GET() {
     }
   }
 
-  const isHealthy = backendStatus === "ready" || backendStatus === "healthy";
+  const isHealthy = isHealthyBackendStatus(backendStatus);
 
   return NextResponse.json(
     {
@@ -54,7 +55,7 @@ export async function GET() {
       ...PHASE7_BASELINE,
       predictionCount: 0,
       metrics: { ...PHASE7_BASELINE, predictionCount: 0 },
-      issues: isHealthy ? [] : [`Backend status: ${backendStatus}`],
+      issues: backendHealthIssues(backendStatus),
       hasSufficientData: false,
       lastUpdate: new Date().toISOString(),
       timestamp: new Date().toISOString(),

@@ -5,7 +5,7 @@
  * Tiered asset resolution with caching and fallbacks:
  * 1. API-Football team logos (free tier: 100 req/day)
  * 2. FlagCDN country flags (SVG, unlimited)
- * 3. Emoji fallback (guaranteed render)
+ * 3. Emoji fallback (reliable render)
  * 
  * @version 1.2.0 - Removed TheSportsDB (unreliable URL patterns)
  */
@@ -410,5 +410,4 @@ export function prewarmLogoCache(teamNames: string[]): void {
 
 // Export constants for external use
 export { FLAGCDN_SVG, FLAGCDN_PNG, API_SPORTS_TEAM_LOGO };
-
 

@@ -23,10 +23,10 @@ import { UpcomingMatchesPanel } from "@/components/upcoming-matches-panel";
 import { FeatureFlag, useFeatureFlag } from "@/lib/feature-flags";
 
 const HERO_STATS = [
-  { label: "Prediction Accuracy", value: "~53%", detail: "Holdout accuracy, Phase 7 ensemble walk-forward" },
+  { label: "Live Performance", value: "Pending", detail: "Awaiting sufficient labelled production results" },
   { label: "Training Data", value: "10.7k+", detail: "Real historical matches — no synthetic injection" },
   { label: "Model Precision Gate", value: "<=0.21", detail: "Ranked probability score — lower is better (industry avg ~0.23)" },
-  { label: "Avg Value Edge", value: "+6-10%", detail: "Estimated edge when a qualifying bet is detected" },
+  { label: "Current Model", value: "Phase 7", detail: "Five-league certified artifact set" },
 ];
 
 const TRUST_BADGES = [
@@ -38,15 +38,15 @@ const TRUST_BADGES = [
 const PREMIUM_VALUE_STREAM = [
   {
     title: "Edge telemetry",
-    description: "Live anomaly detection across 5 independent providers with automatic fallbacks and DATA_GAP surfacing.",
+    description: "Evidence checks across configured providers with automatic fallbacks and DATA_GAP surfacing.",
     icon: BarChart3,
-    footer: "Integrity SLA 99.7%",
+    footer: "Fail-closed evidence checks",
   },
   {
-    title: "Phase 8 enrichment",
-    description: "86-feature vector: Pi-ratings, Berrar, EWMA form, market drift, match importance, and Elo momentum.",
+    title: "Phase 8 candidate enrichment",
+    description: "Candidate feature vector remains shadow-only pending model validation and promotion evidence.",
     icon: Microscope,
-    footer: "86 walk-forward features",
+    footer: "Shadow evaluation only",
   },
   {
     title: "CLV + Kelly toolkit",
@@ -59,12 +59,12 @@ const PREMIUM_VALUE_STREAM = [
 const PREMIUM_PILLARS = [
   {
     title: "Data integrity",
-    detail: "5 independent providers cross-checked with automatic failover",
+    detail: "Configured providers reconciled with explicit gaps and provenance",
     icon: ShieldCheck,
   },
   {
     title: "Model governance",
-    detail: "Live calibration + drift alerts, walk-forward validation only",
+    detail: "Certified artifacts with live validation status shown explicitly",
     icon: Settings2,
   },
   {
@@ -76,8 +76,8 @@ const PREMIUM_PILLARS = [
 
 const LEGACY_FEATURES = [
   {
-    title: "Phase 8 Enrichment",
-    description: "86-feature vector: Pi-ratings, Berrar, EWMA form, market drift, match importance, and Elo momentum. All B13-compliant — no synthetic injection.",
+    title: "Phase 8 Candidate Enrichment",
+    description: "Candidate feature intelligence is available for shadow evaluation only and is not active in production verdicts.",
     icon: Database,
   },
   {
@@ -86,8 +86,8 @@ const LEGACY_FEATURES = [
     icon: Target,
   },
   {
-    title: "Walk-Forward Validated",
-    description: "RPS <= 0.21 gate, draw recall >= 0.25. Temporal splits only, with SHAP ablation per feature family.",
+    title: "Promotion-Gated Validation",
+    description: "RPS <= 0.21 remains the promotion threshold; live walk-forward evidence is still pending.",
     icon: CheckCircle2,
   },
 ] satisfies Array<{ title: string; description: string; icon: LucideIcon }>;
@@ -97,7 +97,7 @@ const PIPELINE_STEPS = [
   {
     step: "01",
     label: "Collect evidence",
-    detail: "5 independent providers queried per fixture: fixtures, lineups, injuries, odds, and standings.",
+    detail: "Configured sources are queried for fixtures, lineups, injuries, odds, and standings when available.",
     icon: Database,
   },
   {
@@ -109,7 +109,7 @@ const PIPELINE_STEPS = [
   {
     step: "03",
     label: "Calibrate probabilities",
-    detail: "Per-league ensemble model produces 1X2 probabilities, isotonic-calibrated against walk-forward hold-out.",
+    detail: "Certified per-league Phase 7 artifacts produce calibrated 1X2 probabilities when required evidence is available.",
     icon: Filter,
   },
   {
@@ -166,7 +166,7 @@ const VERDICT_DEFINITIONS = [
   {
     enum: "HIGH_CONVICTION",
     label: "Strong Value Signal",
-    detail: "Strong edge confirmed across 4+ independent providers. Not a guaranteed outcome.",
+    detail: "Strong edge supported by sufficient independent evidence. Outcomes remain uncertain.",
     className: "border-cyan-400/20 bg-cyan-400/5",
     badge: "text-cyan-300 bg-cyan-900/40",
   },
@@ -205,7 +205,7 @@ export default function HomePage() {
         <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 px-5 py-4 text-sm text-amber-200/80">
           <strong className="text-amber-300">Responsible use:</strong>{" "}
           Staking suggestions are illustrative and depend on your stated bankroll.
-          Never stake more than you can afford to lose. No prediction is guaranteed.
+          Never stake more than you can afford to lose. No prediction is certain.
           If gambling is affecting you or someone you know, seek support at{" "}
           <a
             href="https://www.begambleaware.org"
@@ -372,7 +372,7 @@ function PremiumHome() {
           ))}
         </div>
         <p className="mt-4 text-[11px] text-slate-500">
-          No verdict is a guaranteed outcome. Stronger evidence reduces uncertainty — it does not eliminate it.
+          No verdict is a certain outcome. Stronger evidence reduces uncertainty — it does not eliminate it.
         </p>
       </section>
 

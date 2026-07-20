@@ -47,7 +47,7 @@ export function safeMessage(value: unknown): string {
 }
 
 /**
- * Parse any error into a guaranteed string message
+ * Parse any error into a stable string message
  * Combines parseApiError with safeMessage for complete safety
  */
 export function safeErrorMessage(error: unknown): string {

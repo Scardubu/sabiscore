@@ -10,6 +10,7 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Activity, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import type { HealthMetrics, RollingMetrics, DriftReport } from '@/lib/monitoring/free-analytics';
+import { liveMetricLabel } from '@/lib/health-status';
 
 export function MonitoringDashboard() {
   const [health, setHealth] = useState<HealthMetrics | null>(null);
@@ -75,18 +76,18 @@ export function MonitoringDashboard() {
           <div className="grid grid-cols-3 gap-4 mb-4">
             <MetricCard
               label="Accuracy"
-              value={`${(typeof health.accuracy === 'number' ? (health.accuracy * 100).toFixed(1) : '0.0')}%`}
-              status={health.accuracy >= 0.65 ? 'good' : health.accuracy >= 0.50 ? 'warning' : 'critical'}
+              value={liveMetricLabel(health.hasSufficientData, `${(typeof health.accuracy === 'number' ? (health.accuracy * 100).toFixed(1) : '0.0')}%`)}
+              status={health.hasSufficientData ? (health.accuracy >= 0.65 ? 'good' : health.accuracy >= 0.50 ? 'warning' : 'critical') : 'neutral'}
             />
             <MetricCard
               label="Brier Score"
-              value={typeof health.brierScore === 'number' ? health.brierScore.toFixed(3) : '0.000'}
-              status={health.brierScore <= 0.20 ? 'good' : health.brierScore <= 0.25 ? 'warning' : 'critical'}
+              value={liveMetricLabel(health.hasSufficientData, typeof health.brierScore === 'number' ? health.brierScore.toFixed(3) : '0.000')}
+              status={health.hasSufficientData ? (health.brierScore <= 0.20 ? 'good' : health.brierScore <= 0.25 ? 'warning' : 'critical') : 'neutral'}
             />
             <MetricCard
               label="ROI"
-              value={`${typeof health.roi === 'number' ? health.roi.toFixed(1) : '0.0'}%`}
-              status={health.roi >= 5 ? 'good' : health.roi >= 0 ? 'warning' : 'critical'}
+              value={liveMetricLabel(health.hasSufficientData, `${typeof health.roi === 'number' ? health.roi.toFixed(1) : '0.0'}%`)}
+              status={health.hasSufficientData ? (health.roi >= 5 ? 'good' : health.roi >= 0 ? 'warning' : 'critical') : 'neutral'}
             />
           </div>
           
@@ -308,11 +309,12 @@ function DriftBadge({ severity }: { severity: 'none' | 'low' | 'medium' | 'high'
   );
 }
 
-function MetricCard({ label, value, status }: { label: string; value: string; status: 'good' | 'warning' | 'critical' }) {
+function MetricCard({ label, value, status }: { label: string; value: string; status: 'good' | 'warning' | 'critical' | 'neutral' }) {
   const colors = {
     good: 'text-emerald-600 dark:text-emerald-400',
     warning: 'text-yellow-600 dark:text-yellow-400',
     critical: 'text-red-600 dark:text-red-400',
+    neutral: 'text-neutral-600 dark:text-neutral-300',
   };
   
   return (

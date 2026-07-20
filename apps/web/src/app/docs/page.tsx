@@ -99,9 +99,9 @@ export default function DocsPage() {
               Model Performance
             </h2>
             <ul className="space-y-3 text-slate-300">
-              <li>• <strong>~53%</strong> 3-way accuracy (Phase 8 Ensemble, walk-forward validated)</li>
-              <li>• <strong>RPS ≤ 0.21</strong> release gate — ranked probability score vs market</li>
-              <li>• <strong>+6–10%</strong> average edge on value bets when detected</li>
+              <li>• <strong>Pending</strong> live accuracy until sufficient labelled production results exist</li>
+              <li>• <strong>RPS ≤ 0.21</strong> promotion threshold — live walk-forward validation pending</li>
+              <li>• No public average-edge figure is shown before labelled live outcomes are available</li>
               <li>• CLV computed against closing-line implied probability only</li>
             </ul>
           </div>
@@ -120,8 +120,8 @@ export default function DocsPage() {
               Technical Stack
             </h2>
             <ul className="space-y-3 text-slate-300">
-              <li>• <strong>Models</strong>: Phase 8 Ensemble (RF, XGB, LightGBM + isotonic calibration)</li>
-              <li>• <strong>Features</strong>: 86 Phase 8 signals (form, Pi-ratings, Berrar, market drift)</li>
+              <li>• <strong>Models</strong>: certified Phase 7 artifacts for five calibrated leagues</li>
+              <li>• <strong>Phase 8</strong>: candidate feature intelligence remains shadow-only</li>
               <li>• <strong>Data</strong>: 10.7k+ real historical matches, no synthetic injection</li>
               <li>• <strong>Update</strong>: Live enrichment every 180 s; off-season notice when no fixtures</li>
             </ul>
@@ -152,7 +152,7 @@ export default function DocsPage() {
               </div>
               <div className="space-y-1">
                 <p className="font-semibold text-slate-200">Phase 2 — 86-dim retrain scaffold</p>
-                <p className="text-slate-400">Auto-detects Phase 8 feature availability. Recency-weighted training (half-life 2 seasons), RPS ≤ 0.210 walk-forward gate.</p>
+                <p className="text-slate-400">Auto-detects candidate feature availability for shadow evaluation. RPS ≤ 0.210 remains a promotion threshold pending live validation.</p>
               </div>
               <div className="space-y-1">
                 <p className="font-semibold text-slate-200">Phase 3 — Per-league calibration</p>

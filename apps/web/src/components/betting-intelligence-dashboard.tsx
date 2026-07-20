@@ -771,7 +771,7 @@ export function BettingIntelligenceDashboard() {
 
             <section className="bi-panel">
               <div className="bi-panel-title"><AlertTriangle size={16} /> Responsible Use</div>
-              <p className="bi-muted">This interface provides statistical analysis only. A pass, hold, or partial verdict is an intentional safety state. Never treat model output as guaranteed return.</p>
+              <p className="bi-muted">This interface provides statistical analysis only. A pass, hold, or partial verdict is an intentional safety state. Never treat model output as assured return.</p>
             </section>
           </main>
         </div>

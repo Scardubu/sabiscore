@@ -7,6 +7,48 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ---
 
+## vΩ.17 — Production readiness and public model truth (2026-07-20)
+
+### Readiness semantics
+
+- `/api/health` now normalizes backend `ok`, `ready`, and `healthy` as healthy,
+  so a ready Render backend no longer produces the contradictory
+  `Backend status: ok` issue.
+- The global header ring now measures the four authoritative readiness checks:
+  database, migrations, cache, and models. Source freshness remains available in
+  match/evidence views, where its fixture-level context is meaningful.
+
+### Public truthfulness and copy safety
+
+- Homepage, match selector, Docs, monitoring, and performance surfaces no longer
+  present unlabelled artifact accuracy, average-edge, completed walk-forward, or
+  Phase 8 production claims as live results. Live metrics show `Pending` until
+  sufficient labelled outcomes exist; Phase 8 remains candidate/shadow-only.
+- Removed prohibited certainty language from active web source and added a static
+  copy-contract test covering the prohibited terms and one-eighth-Kelly variants.
+- Production rollback guidance now keeps `PROVIDER_FAIL_CLOSED=true`, diagnoses
+  with readiness/provider health and redacted logs, and disables only the affected
+  provider when isolation is required.
+
+### Verification and operational limits
+
+- Web lint and typecheck passed; Vitest passed 30/30; the production Next.js
+  15.5.19 build passed; Playwright `/intelligence` desktop/mobile smoke passed 4/4.
+- Focused backend provider/source tests passed 75/75. `make verify-core` remains
+  blocked in the current Windows shell by missing `jq` and POSIX `PYTHONPATH`
+  semantics. Full `make verify` was not run with the database password disclosed
+  in chat; that credential must be rotated before the PostgreSQL/Alembic gate.
+- Live probes confirmed Render readiness (`ok`, four checks ready), safe
+  `CONFIGURED_UNVERIFIED` provider states, and the expected off-season response
+  (`total: 0`, `offseason: true`, `next_season_start: 2026-08-08`). The deployed
+  Vercel `/api/health` still reflects the pre-release code until this commit is
+  deployed.
+- Gitleaks filesystem mode passed with no current-tree leaks. Full-history mode
+  still reports two pre-existing, redacted findings in historical
+  `backend/.env.example` commits; history rewriting remains out of scope.
+- Deferred: the 232 kB `/performance` first-load bundle, internal legacy `90%+`
+  comments, and Phase 9 source-registry freshness plumbing.
+
 ## vΩ.14 — Windows release-gate tooling + loading-screen spill-over (2026-07-14)
 
 ### `make verify` uses the repo venv on Windows

@@ -74,8 +74,12 @@ If a credential or feature flag change caused the rollback, revert only those va
 | FDO 400 errors | Rotate `FOOTBALL_DATA_API_KEY` in provider console; update env |
 | API-Football quota | Set `API_FOOTBALL_DAILY_REQUEST_LIMIT` lower; or set `ENABLE_API_FOOTBALL_PROVIDER=false` |
 | Odds API credit burn | Set `THE_ODDS_API_MONTHLY_CREDIT_LIMIT`; or disable with `ENABLE_THE_ODDS_API_PROVIDER=false` |
-| All providers failing | Set `PROVIDER_FAIL_CLOSED=false` temporarily to diagnose (NEVER in production beyond 15 min) |
+| All providers failing | Keep `PROVIDER_FAIL_CLOSED=true`; inspect `/api/v1/providers/health` and redacted backend logs, then disable only the affected provider flags while diagnosing |
 | Mock data in prod | Confirm `MOCK_MODE=false` and `DEBUG=false` |
+
+Never disable fail-closed behavior in production, including during diagnosis.
+Provider isolation must use the individual `ENABLE_*_PROVIDER=false` switches;
+missing evidence must continue to surface as a structured gap or `PARTIAL` state.
 
 ---
 

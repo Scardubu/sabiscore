@@ -1,6 +1,6 @@
 ﻿# SabiScore Production Setup Guide
 
-Last updated: 2026-07-13
+Last updated: 2026-07-20
 
 This is the authoritative setup and deployment guide for the finalized production shape.
 
@@ -283,6 +283,60 @@ run the full release matrix before tagging the release.
 2. Keep the backend up so the web app can render fail-closed outage states.
 3. Roll back database schema only with reviewed Alembic downgrade or forward-fix migration.
 4. Re-run `python -m src.cli providers doctor` and `make verify` before restoring traffic.
+
+## vΩ.17 Changes (2026-07-20)
+
+- **Readiness is infrastructure-backed.** The web `/api/health` route accepts the
+  backend statuses `ok`, `ready`, and `healthy`; its global header ring aggregates
+  database, migrations, cache, and models. Provider/source freshness remains a
+  match/evidence concern and is not used as a global platform-readiness score.
+- **Live performance is pending.** Public web surfaces do not advertise static
+  accuracy, average-edge, completed live walk-forward, or Phase 8 production
+  claims. Historical numbers are artifact benchmarks only. Live accuracy, Brier,
+  ROI, and promotion claims remain pending until sufficient labelled results
+  exist. Phase 8 stays shadow-only.
+- **Fail-closed rollback.** Keep `PROVIDER_STRICT_QUOTA_MODE=true` and
+  `PROVIDER_FAIL_CLOSED=true`. Diagnose with `/health/ready`,
+  `/api/v1/providers/health`, and redacted service logs. If one provider is the
+  fault domain, disable only its `ENABLE_*_PROVIDER` switch and restart; never
+  relax the global fail-closed policy.
+
+### Staged provider activation checkpoint
+
+The Blueprint already declares the provider switches and secret names. Do not add
+another adapter or duplicate environment wiring. The Render dashboard is the
+operator checkpoint because this checkout has no Render CLI/API credentials.
+
+1. Rotate the PostgreSQL password disclosed outside the secret store before any
+   production or release-gate use. Update local and hosted secret stores without
+   committing or logging the replacement.
+2. Activate in order: API-Football, Sportmonks, then The Odds API.
+3. Before each toggle, set an account-appropriate hard quota and retain
+   `PROVIDER_STRICT_QUOTA_MODE=true` and `PROVIDER_FAIL_CLOSED=true`.
+4. Restart, then call only the non-live `GET /api/v1/providers/health` endpoint.
+   `enabled: true`, `configured: true`, and `CONFIGURED_UNVERIFIED` is the
+   expected stage-one state. Do not spend live quota for off-season validation.
+5. If the state is unexpected, disable only that provider and inspect redacted
+   logs before continuing to the next stage.
+
+### Verification evidence and deferred backlog
+
+On 2026-07-20, web lint/typecheck passed, Vitest passed 30/30, the production
+Next.js 15.5.19 build passed, and the desktop/mobile `/intelligence` Playwright
+smoke passed 4/4. Focused backend provider/source tests passed 75/75. Live Render
+reported `status: ok` with database, migrations, cache, and models ready; provider
+health remained offline-safe; upcoming matches correctly returned `total: 0`,
+`offseason: true`, and `next_season_start: 2026-08-08`.
+
+Gitleaks filesystem mode passed with no current-tree leaks. Full-history mode
+still reports two redacted legacy findings in historical `backend/.env.example`
+commits; do not rewrite shared history as part of this maintenance release.
+
+`make verify-core` is currently blocked in this Windows shell by missing `jq` and
+POSIX `PYTHONPATH` recipe semantics. Full `make verify` additionally awaits the
+newly rotated PostgreSQL credential; SQLite fallback and the disclosed credential
+must not be used. Deferred work: the 232 kB `/performance` first-load bundle,
+internal legacy `90%+` comments, and Phase 9 source-registry freshness plumbing.
 
 ## vΩ.14 Changes (2026-07-14)
 

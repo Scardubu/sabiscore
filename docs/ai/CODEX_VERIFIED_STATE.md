@@ -1,6 +1,6 @@
 # Codex Verified Repository State
 
-Last reviewed: 2026-07-05
+Last reviewed: 2026-07-20
 
 This is a dated navigation aid, not a substitute for inspecting current code,
 tests, Git history, and runtime configuration. Update it only with fresh evidence.
@@ -91,6 +91,38 @@ tests, Git history, and runtime configuration. Update it only with fresh evidenc
   not mergeable. Local bundle backups for all non-master remote branches are in
   `artifacts/branch-backups/20260705-000338/`. Do not delete non-master branches
   while PR #4 remains open and release gates are blocked.
+
+## Fresh maintenance evidence from 2026-07-20
+
+- Live Render readiness returned `status: ok`; database, migrations, cache, and
+  models were all `ready`. Alembic head/applied was
+  `0003_team_reconciliation`; five Phase 7 leagues and 18 artifacts were loaded.
+- The non-live provider-health endpoint returned `CONFIGURED_UNVERIFIED` for ESPN
+  and Football-Data.org. API-Football, Sportmonks, and The Odds API were
+  configured but still disabled. Provider activation is a Render-dashboard
+  operator checkpoint and did not occur in this code session.
+- Render and Vercel same-origin upcoming-match probes returned `total: 0`,
+  `offseason: true`, and `next_season_start: "2026-08-08"`; no fixtures were
+  forced. The deployed Vercel `/api/health` still showed the pre-release
+  contradiction (`backendStatus: ok` plus `status: degraded`) before this commit.
+- Local web gates passed: lint, typecheck, 30/30 Vitest tests, Next.js 15.5.19
+  production build, and 4/4 Playwright `/intelligence` desktop/mobile smoke.
+- Focused backend provider/source coverage passed 75/75. The provider/source test
+  run emitted legacy pytest-asyncio deprecation warnings but no failures.
+- Static copy tests enforce zero active-source hits for `lock`, `banker`,
+  `guaranteed`, `sure bet`, `free money`, `execute immediately`, and one-eighth
+  Kelly variants.
+- Gitleaks `--no-git` filesystem mode passed with no current-tree leaks. Full
+  history still contains two redacted legacy findings from old
+  `backend/.env.example` commits; history rewriting remains out of scope.
+- `make verify-core` did not complete in the current Windows command-shell path:
+  `jq` is unavailable and the recipe's POSIX `PYTHONPATH=.` assignment is not
+  recognized. Full `make verify` was not run with the PostgreSQL password exposed
+  in chat; it must be rotated and supplied through a secure secret store first.
+  SQLite fallback was not used.
+- Deferred without expansion: the `/performance` first-load bundle remains
+  232 kB, internal legacy `90%+` comments, and Phase 9 source-registry freshness
+  plumbing.
 
 ## Verification rule
 

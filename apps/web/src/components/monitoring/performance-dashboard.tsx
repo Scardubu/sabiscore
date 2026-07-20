@@ -10,6 +10,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Activity, TrendingUp, AlertTriangle, CheckCircle, XCircle, Target, Download, FileJson, FileSpreadsheet } from 'lucide-react';
 import type { HealthMetrics, DriftReport } from '@/lib/monitoring/free-analytics';
+import { liveMetricLabel } from '@/lib/health-status';
 
 export function PerformanceDashboard() {
   const [health, setHealth] = useState<HealthMetrics | null>(null);
@@ -89,28 +90,31 @@ export function PerformanceDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <MetricCard
               label="Accuracy"
-              value={`${typeof health.accuracy === 'number' ? (health.accuracy * 100).toFixed(1) : '0.0'}%`}
+              value={liveMetricLabel(health.hasSufficientData, `${typeof health.accuracy === 'number' ? (health.accuracy * 100).toFixed(1) : '0.0'}%`)}
               target={75}
               current={typeof health.accuracy === 'number' ? health.accuracy * 100 : 0}
               icon={Target}
               color="blue"
+              showTarget={health.hasSufficientData}
             />
             <MetricCard
               label="Brier Score"
-              value={typeof health.brierScore === 'number' ? health.brierScore.toFixed(3) : '0.000'}
+              value={liveMetricLabel(health.hasSufficientData, typeof health.brierScore === 'number' ? health.brierScore.toFixed(3) : '0.000')}
               target={0.25}
               current={typeof health.brierScore === 'number' ? health.brierScore : 0}
               icon={Activity}
               color="purple"
               inverse
+              showTarget={health.hasSufficientData}
             />
             <MetricCard
               label="ROI"
-              value={`${typeof health.roi === 'number' ? (health.roi > 0 ? '+' : '') + health.roi.toFixed(1) : '0.0'}%`}
+              value={liveMetricLabel(health.hasSufficientData, `${typeof health.roi === 'number' ? (health.roi > 0 ? '+' : '') + health.roi.toFixed(1) : '0.0'}%`)}
               target={0}
               current={typeof health.roi === 'number' ? health.roi : 0}
               icon={TrendingUp}
               color={typeof health.roi === 'number' && health.roi >= 0 ? 'green' : 'red'}
+              showTarget={health.hasSufficientData}
             />
           </div>
         )}
@@ -276,9 +280,10 @@ interface MetricCardProps {
   icon: React.ComponentType<{ className?: string }>;
   color: string;
   inverse?: boolean;
+  showTarget?: boolean;
 }
 
-function MetricCard({ label, value, target, current, icon: Icon, color, inverse = false }: MetricCardProps) {
+function MetricCard({ label, value, target, current, icon: Icon, color, inverse = false, showTarget = true }: MetricCardProps) {
   const isGood = inverse ? current <= target : current >= target;
   
   const colorClasses = {
@@ -302,7 +307,7 @@ function MetricCard({ label, value, target, current, icon: Icon, color, inverse 
         <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">{label}</span>
       </div>
       <p className="text-2xl font-bold text-neutral-900 dark:text-white">{value}</p>
-      <div className="mt-2 flex items-center gap-2">
+      {showTarget && <div className="mt-2 flex items-center gap-2">
         {isGood ? (
           <CheckCircle className="w-3 h-3 text-green-600 dark:text-green-400" />
         ) : (
@@ -311,7 +316,7 @@ function MetricCard({ label, value, target, current, icon: Icon, color, inverse 
         <span className="text-xs font-medium text-neutral-600 dark:text-neutral-400">
           Target: {inverse ? '≤' : '≥'} {target}{label === 'Accuracy' ? '%' : ''}
         </span>
-      </div>
+      </div>}
     </div>
   );
 }
