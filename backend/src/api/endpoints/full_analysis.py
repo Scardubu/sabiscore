@@ -424,8 +424,10 @@ def _build_actionability(
     # Exclude structural always-gap features from user-visible caveat count
     important_gaps = [g for g in data_gaps if g not in ("shot_quality_diff",)]
     if important_gaps:
+        human = [g.replace("_", " ").title() for g in important_gaps[:3]]
+        suffix = f" and {len(important_gaps) - 3} more" if len(important_gaps) > 3 else ""
         caveats.append(
-            f"{len(important_gaps)} live data gap(s): {', '.join(important_gaps[:3])}"
+            f"{len(important_gaps)} live data gap(s): {', '.join(human)}{suffix}"
         )
     if not rl_rec.abstain and edge_score < settings.edge_quality_abstain_threshold:
         caveats.append(

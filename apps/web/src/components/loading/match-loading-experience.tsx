@@ -571,16 +571,13 @@ export function MatchLoadingExperience({
   const homeCountryCode = homeTeamData.countryCode || leagueConfig?.countryCode;
   const awayCountryCode = awayTeamData.countryCode || leagueConfig?.countryCode;
 
-  // Simulate progress (in production, this would be driven by actual loading state)
+  // ponytail: cubic ease-out asymptotes at 90% over the 28s client budget
   useEffect(() => {
+    const start = Date.now();
     const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 95) return prev;
-        // Accelerate at start, slow near end for suspense
-        const increment = prev < 30 ? 8 : prev < 60 ? 5 : prev < 80 ? 3 : 1;
-        return Math.min(prev + increment, 95);
-      });
-    }, 200);
+      const t = Math.min((Date.now() - start) / 28_000, 1);
+      setProgress(Math.floor(90 * (1 - Math.pow(1 - t, 3))));
+    }, 300);
     return () => clearInterval(interval);
   }, []);
 

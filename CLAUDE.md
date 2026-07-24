@@ -566,6 +566,12 @@ overrides all prior status docs — verify with a grep/read before acting.
 
 | Vercel keepalive cron registered (vΩ.19, 2026-07-24) | `vercel.json` gains `"crons": [{ "path": "/api/cron/ping-backend", "schedule": "*/10 * * * *" }]`. The route handler (`apps/web/src/app/api/cron/ping-backend/route.ts`, Edge runtime, 30 s timeout) was already implemented; only the Vercel cron registration was missing. Prevents Render 15-min free-tier cold-start spindown. Operator must set `BACKEND_URL=https://sabiscore-api-bav1.onrender.com` in Vercel dashboard (server-side only — never `NEXT_PUBLIC_`). Distinct from `SABISCORE_BACKEND_URL` which the proxy routes use. |
 
+| Deploy-parity stamp (vΩ.19, 2026-07-24) | `apps/web/src/app/api/health/route.ts` gains `sha: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0,7) ?? "local"` in the JSON response. `apps/web/src/app/layout.tsx` gains a muted `<footer>` rendering `NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA.slice(0,7)` — only visible on Vercel deployments (env var absent locally). Stale deployment snapshots are now detectable in one `/api/health` probe. |
+
+| Caveat humanization (vΩ.19, 2026-07-24) | `backend/src/api/endpoints/full_analysis.py` — `important_gaps[:3]` are now transformed via `.replace("_", " ").title()` before joining into the caveat string; when more than 3 gaps exist, `" and N more"` is appended. Caveats now read "66 live data gap(s): Away Attack Vs Home Defense, Away Draws Last5 Away, Away Form Last5 Away and 63 more" instead of raw snake_case. `toLabel()` in the frontend `DataGapBanner` path is unaffected. Backend suite 962/962 green. |
+
+| Progress meter retune (vΩ.19, 2026-07-24) | `apps/web/src/components/loading/match-loading-experience.tsx` — replaced fixed-increment ticker (200 ms interval, hit 95% in ~6.4 s) with a time-budget-aware cubic ease-out: `Math.floor(90 * (1 - Math.pow(1 - t, 3)))` over `t = elapsed / 28_000`. At 7 s → ~52%; at 14 s → ~79%; at 28 s → 90%. Progress bar is now an honest visual of the 28 s client budget. `useReducedMotion` gating, 15 s cold-start hint, and `TeamEvidenceCard` skeletons untouched. |
+
 ## Confirmed incomplete / next gates
 
 | Gap | Files | Action |

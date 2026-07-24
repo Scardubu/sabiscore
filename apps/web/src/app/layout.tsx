@@ -203,6 +203,11 @@ export default function RootLayout({
                   <main id="main-content" className="min-h-[calc(100vh-65px)] px-4 py-5 sm:px-6 lg:px-8">
                     {children}
                   </main>
+                  {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA && (
+                    <footer className="py-2 text-center text-[10px] text-slate-600 select-none">
+                      {process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA.slice(0, 7)}
+                    </footer>
+                  )}
                 </div>
               </div>
             </ConsentProvider>

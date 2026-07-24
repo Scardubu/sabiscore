@@ -7,16 +7,30 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ---
 
-## vΩ.19 — Vercel keepalive cron registered (2026-07-24)
+## vΩ.19 — Deploy-parity, caveat humanization, progress retune (2026-07-24)
 
 ### Infrastructure
 
 - Added `"crons": [{ "path": "/api/cron/ping-backend", "schedule": "*/10 * * * *" }]`
-  to `vercel.json`. The route handler at `apps/web/src/app/api/cron/ping-backend/route.ts`
-  (Edge runtime, 30 s AbortController timeout, GETs `BACKEND_URL/health/ready`) was
-  already implemented but not wired to Vercel's scheduler. Cron prevents Render's
-  15-minute free-tier cold-start spindown. Operator action required: set `BACKEND_URL`
-  (server-side, never `NEXT_PUBLIC_`) in Vercel project dashboard.
+  to `vercel.json`. The route handler (`apps/web/src/app/api/cron/ping-backend/route.ts`,
+  Edge runtime, 30 s timeout) was already implemented. Prevents Render free-tier
+  cold-start spindown. Operator: set `BACKEND_URL` (server-side) in Vercel dashboard.
+- `/api/health` JSON response gains `sha` field (`VERCEL_GIT_COMMIT_SHA?.slice(0,7) ?? "local"`).
+  `layout.tsx` renders the 7-char SHA as a muted footer when `NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA`
+  is set (Vercel system var, auto-populated at build time). Stale deployments are now
+  identifiable in one probe.
+
+### Backend
+
+- `full_analysis.py` — actionability caveat strings now show human-readable gap names
+  (`.replace("_"," ").title()`) with "and N more" suffix for >3 gaps. Was: raw
+  snake_case feature names. Backend suite 962/962.
+
+### Frontend
+
+- `match-loading-experience.tsx` — progress bar replaced fixed-increment tick (hit 95%
+  in ~6.4 s) with cubic ease-out over the 28 s client budget (`1-(1-t)³` → 90%`).
+  At 7 s → ~52%; at 14 s → ~79%; at 28 s → 90%.
 
 ---
 

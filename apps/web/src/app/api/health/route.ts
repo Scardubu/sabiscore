@@ -76,6 +76,7 @@ export async function GET() {
       lastUpdate: new Date().toISOString(),
       timestamp: new Date().toISOString(),
       modelVersion: "v5_phase7",
+      sha: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "local",
     },
     {
       status: 200,
