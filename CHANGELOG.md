@@ -22,10 +22,23 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
   remaining project.
 - `vercel.json` cron downgraded `*/10 * * * *` → `0 9 * * *`: Vercel Hobby
   rejects sub-daily crons and **blocked every production deploy** until fixed.
-- New `.github/workflows/keepalive.yml` — GitHub Actions pings
-  `https://sabiscore-api-bav1.onrender.com/health/ready` every 10 minutes
-  (free on public repos). This replaces the "external pinger" operator action
-  and is now the production warm-up path for the Render free tier.
+
+### ⚠️ Blocker surfaced — GitHub Actions account billing lock
+
+- The Render keepalive **already exists** in the repo: `.github/workflows/keep_alive.yml`
+  (every 14 min) → `scripts/keep_alive.py` pings `BACKEND_URL/health/ready` with
+  latency telemetry. No new workflow was needed — an earlier attempt added a
+  redundant `keepalive.yml`, since removed.
+- **But no workflow runs.** Every recent Actions run — `CI - Canonical Platform`,
+  `Secret Scan`, `Block large files`, `Keep-alive ping` — fails to start with
+  *"The job was not started because your account is locked due to a billing
+  issue."* The runner never boots (`runner_name: ""`, 0 steps). This means the
+  **entire CI pipeline and the keepalive are both dark** until the account
+  billing lock is cleared. **Operator action:** resolve the GitHub billing issue,
+  then set repo secret `BACKEND_URL=https://sabiscore-api-bav1.onrender.com`. As a
+  billing-independent fallback, point a free external pinger (cron-job.org /
+  UptimeRobot) at `https://sabiscore-api-bav1.onrender.com/health/ready` every
+  10–14 min.
 
 ### CORS (audit findings)
 

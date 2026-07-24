@@ -322,15 +322,25 @@ run the full release matrix before tagging the release.
 - **Legacy Vercel projects decommissioned.** `sabiscore` (the pre-vΩ.8
   `sabiscore-d37gxx4gs` UI) and `sabiscore-web` were permanently deleted via
   `vercel project rm`. `web` is the sole remaining Vercel project.
-- **Keepalive moved to GitHub Actions.** Vercel Hobby rejects sub-daily crons at
-  deploy time, so the vΩ.19 `*/10 * * * *` schedule **blocked every production
-  deploy**. `vercel.json` is now `0 9 * * *` (daily), and the real 10-minute
-  warm-up path is `.github/workflows/keepalive.yml` — a scheduled GitHub Actions
-  job that curls `https://sabiscore-api-bav1.onrender.com/health/ready` every
-  10 minutes (free on the public repo, with a `workflow_dispatch` fallback and a
-  `test "$code" = "200"` assertion). This removes the earlier "set up an external
-  pinger" operator action. Note: GitHub pauses schedules after 60 days of repo
-  inactivity; any push or a manual dispatch resumes it.
+- **Keepalive cron downgraded; a warm-up workflow already exists.** Vercel Hobby
+  rejects sub-daily crons at deploy time, so the vΩ.19 `*/10 * * * *` schedule
+  **blocked every production deploy**; `vercel.json` is now `0 9 * * *` (daily).
+  The sub-15-minute warm-up is the pre-existing `.github/workflows/keep_alive.yml`
+  (every 14 min → `scripts/keep_alive.py` → `BACKEND_URL/health/ready` with
+  latency telemetry) — no new workflow was needed.
+- **⚠️ BLOCKER — GitHub Actions account billing lock.** Every recent Actions run
+  (`CI - Canonical Platform`, `Secret Scan`, `Block large files`, `Keep-alive
+  ping`) fails to start with *"The job was not started because your account is
+  locked due to a billing issue."* The runner never boots. Consequently **no CI
+  gate has actually executed on recent pushes and the keepalive does not run.**
+  Operator actions, in order:
+  1. Resolve the GitHub billing issue (unlocks CI + keepalive together).
+  2. Set repo secret `BACKEND_URL=https://sabiscore-api-bav1.onrender.com`
+     (server-side; the `keep_alive.py` script reads it).
+  3. Billing-independent fallback: point a free external pinger (cron-job.org /
+     UptimeRobot) at `https://sabiscore-api-bav1.onrender.com/health/ready` every
+     10–14 minutes.
+  Until the lock clears, local `make verify` is the only enforced gate.
 - **CORS regex wired + production origins.** `backend/src/api/middleware.py` now
   passes `allow_origin_regex=settings.cors_origin_regex or None` to
   `CORSMiddleware`; the `CORS_ORIGIN_REGEX` value was configured but never
