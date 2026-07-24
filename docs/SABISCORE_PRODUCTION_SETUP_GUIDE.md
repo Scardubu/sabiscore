@@ -78,7 +78,14 @@ gitleaks detect --source . --redact --verbose
 
 ## Install
 
-Python 3.11 through 3.14 is supported for the API runtime. Python 3.14 installs use newer wheel-backed scientific packages in `backend/requirements.txt`. Optional training/experiment packages such as CatBoost, SHAP, MLflow, and Great Expectations remain Python <3.14 extras because they are not required for API boot or provider intelligence and have historically been fragile on brand-new Python releases.
+Production is Python 3.11: `.python-version` pins 3.11.13, Render requests
+3.11.9, and backend Docker images use Python 3.11. On that dependency branch,
+`backend/requirements*.txt` installs FastAPI 0.104.1, Uvicorn 0.24.0,
+Pydantic 2.9.2, and SQLAlchemy 2.0.23. Python 3.14 is a supported local
+compatibility path with newer wheel-backed packages, including FastAPI 0.115.x;
+it is not the active Render runtime. Optional training/experiment packages such
+as CatBoost, SHAP, MLflow, and Great Expectations remain Python <3.14 extras
+because they are not required for API boot or provider intelligence.
 
 Kafka clients and browser automation packages are optional worker dependencies on Python 3.14/Windows and are not part of the canonical API/provider-gateway boot path. Install them in a Python 3.11-3.13 worker environment if Kafka or dynamic browser scraping is explicitly enabled.
 
@@ -190,6 +197,18 @@ public backend schemas or frontend TypeScript contracts.
 
 Only critical gaps force a `PARTIAL` verdict: missing/invalid required model probabilities, unresolved fixture identity, missing coherent 1X2 market data for value analysis, or stale required inputs. Advisory gaps and risks such as provisional lineups, optional injury context, or low-confidence contextual signals may reduce confidence or hold promotion, but they do not trigger `PARTIAL` by themselves. Conflicting source evidence remains fail-closed and is reported separately from critical gaps.
 
+The unified full-analysis route has a typed Pydantic/OpenAPI response. Consumers
+must use `prediction_status`, `prediction_source`, `probabilities_available`,
+`evidence_quality`, `effective_kelly_cap`, and `stake_permitted`. The legacy
+`data_gaps` field remains an alias of `evidence_quality.all_gaps`, and
+`ensemble.confidence` remains a deprecated alias of
+`ensemble.top_outcome_probability`. Diagnostic/default-vector baselines are
+never official probabilities and cannot produce edge or stake output.
+
+Effective public stake caps are resolved from `LeaguePolicy`: 4% for the five
+calibrated domestic leagues, 2.5% for pending-calibration Eredivisie, and 2% for
+UCL, all beneath the 5% global ceiling. Public sizing remains Quarter-Kelly.
+
 Market rules:
 
 - Analysis uses one bookmaker's coherent 1X2 snapshot.
@@ -210,6 +229,14 @@ expected value, Quarter-Kelly sizing, critical gaps, advisory gaps, conflicts,
 and decision identifiers. It must not recompute official verdicts, expected
 value, or stake sizing in the browser. Do not expose `NEXT_PUBLIC_KELLY_FRACTION`
 or any provider credential to the web bundle.
+
+Match-analysis proxies wait at most 25 seconds upstream. Clients use a 28-second
+total budget with one infrastructure retry, then require manual retry. HTTP 500
+is classified as `backend_internal_error`; cold-start copy is reserved for
+explicit cold-start responses or recognized 502/503/504 wake-up conditions.
+Readiness and provider configuration/enabled/live states share one platform
+health view model. Freshness failures render `UNAVAILABLE`, `FETCH_FAILED`, or
+`UNKNOWN` rather than an empty list or inferred percentage.
 
 ## Scraper Boundaries
 
@@ -358,7 +385,7 @@ internal legacy `90%+` comments, and Phase 9 source-registry freshness plumbing.
 - **CSP `frame-src` added** — `middleware.ts` CSP now includes `frame-src 'self' https://vercel.live` so the Vercel preview toolbar iframe loads. `frame-ancestors 'none'` unchanged.
 - **Transition screen zero-fabrication cleanup** — the match loading screens no longer invent data: fabricated per-team form/GF/GA/table-position cards replaced with labeled evidence-sync skeletons; fake poll community percentages removed (user's own pick only); fabricated "AI Confidence 77%" line removed; promotional profit/ROI facts removed; footer claim corrected. `LOADING_FACTS`/`FUN_FACTS` deduped into `apps/web/src/components/loading/loading-facts.ts`.
 - **Loading screen a11y** — `useReducedMotion` disables infinite pulse/shimmer/particle animations; progress bars expose `role="progressbar"` with live `aria-valuenow`.
-- **Cold-start self-heal (React Query retry policy)** — `apps/web/src/lib/query-retry.ts` centralises retry behaviour for the free-tier backend: never retry permanent 4xx (except 408), but give cold-start / 5xx / network up to 3 spaced retries (2s/4s/8s capped 12s) so the dashboard recovers automatically once the Render backend finishes spinning up. Wired into the shared `QueryClient` default; per-component `retry:` overrides removed. This means a cold-start no longer leaves a permanent empty state — the UI self-heals within ~15-45s without a manual refresh.
+- **Bounded match-analysis retry policy** — general queries retain the shared React Query policy, while match analysis uses a strict 25-second upstream proxy timeout and 28-second total client budget. It performs one automatic retry only for recognized infrastructure failures, then requires manual retry. HTTP 500 is `backend_internal_error`; cold-start copy is reserved for explicit cold-start/readiness evidence or recognized 502/503/504 wake-up conditions.
 
 ## vΩ.9 Changes (2026-07-14)
 
@@ -387,7 +414,7 @@ internal legacy `90%+` comments, and Phase 9 source-registry freshness plumbing.
 
 - **🟢 GATE 1 UNBLOCKED — backend live at a new Render URL.** The suspended `sabiscore-api.onrender.com` service was replaced by **`https://sabiscore-api-bav1.onrender.com`** (service `srv-d95kkffaqgkc73f8003g`; Render kept the blueprint name `sabiscore-api` but assigned the unique `-bav1` subdomain). `GET /health/ready` → 200 with database connected, Alembic at head `0003_team_reconciliation`, cache connected, and all 5 league models loaded (`v5_phase7`, 18 artifacts). Set `SABISCORE_BACKEND_URL=https://sabiscore-api-bav1.onrender.com` in the Vercel dashboard.
 - **URL references updated to bav1** — `vercel.json` rewrites (`/api/v1/health`, `/api/v1/:path*`): these are load-bearing because the browser-side `ultra-api-client.ts` intentionally fetches relative `/api/v1/ultra/*` so requests stay same-origin and ride the rewrite; with the old suspended host they returned 503 HTML. Also `render.yaml` `ALLOWED_HOSTS` and the 5 root ops scripts (`verify-deployment.ps1`, `test_production.ps1`, `test_production_smoke.ps1`, `monitor_deployment.ps1`, `diagnose_deployment.ps1`). Stale `vercel.json.backup` deleted.
-- **Match page reload loop fixed.** `insights-error-state.tsx` was a full-viewport hero that hard-reloaded the page every 30 s indefinitely whenever the ultra-insights fetch failed — while the 6-layer analysis below it had loaded fine (`match/[id]/page.tsx` mounts both). It is now a compact card that leaves the live analysis visible; auto-reload is capped at 2 attempts per matchup per tab session (`sessionStorage`), manual retry is always available and never counted, and `insights-display-wrapper.tsx` clears the counters once insights load.
+- **Match page reload loop removed.** `insights-error-state.tsx` is a compact card that leaves any available analysis visible. The analysis client performs the single bounded infrastructure retry; after that, recovery is manual. There is no timed page reload or session retry counter.
 - **Reduced-evidence honesty.** `DataGapBanner` collapses >8 gaps under a native `<details>` with a plain-language summary (previously a 67-item text wall); `EnsembleCard` shows an amber "Baseline output — not a tradable signal" note when the backend reports a fallback model version; the Phase 8 disabled notice no longer prints backend env-var instructions to end users.
 - **Verification:** lint 0 errors, `tsc --noEmit` clean, Vitest 16/16, `NODE_ENV=production next build` ✓, prohibited-term + ⅛-Kelly greps clean.
 
@@ -395,7 +422,7 @@ internal legacy `90%+` comments, and Phase 9 source-registry freshness plumbing.
 
 Frontend-only session. No backend files, Alembic, or betting-engine changes.
 
-- **Backend warming-up banner (GATE A)** — `apps/web/src/components/backend-status-banner.tsx` polls `/api/health` every 30s via `useQuery`. When `backendStatus === "unavailable"` (Render cold-start/suspension), a slim amber bar renders between the sticky header and `<main>` with a calm "reconnecting automatically" message. Auto-dismisses when the backend recovers. Does NOT duplicate the existing `ReadinessRing` in the header. Wired into `layout.tsx`.
+- **Backend availability banner (GATE A)** — `apps/web/src/components/backend-status-banner.tsx` shares the platform-health query with readiness/provider consumers. When readiness is unavailable, a slim amber bar states that live readiness and provider status cannot be verified; it does not infer a cold start from a generic failure. The banner dismisses when authoritative health recovers.
 
 - **Mobile navigation (GATE E)** — `apps/web/src/components/mobile-nav.tsx` provides a hamburger button + full-screen overlay drawer (`lg:hidden`) exposing all WORKSPACE_LINKS and LEAGUES. ESC key, backdrop click, and link click all close the drawer. Wired into the root sticky header. Previously the sidebar (`hidden lg:block`) had zero mobile navigation fallback.
 

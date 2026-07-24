@@ -5,27 +5,28 @@ import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   getFullAnalysis,
-  APIError,
+} from "@/lib/api";
+import {
+  mapFullAnalysisPresentation,
   type FullMatchAnalysisResponse,
   type FullMatchEloContext,
   type FullMatchUncertainty,
   type FullMatchRLRecommendation,
   type FullMatchOddsEdge,
   type MatchActionability,
-} from "@/lib/api";
+} from "@/lib/full-analysis-contract";
 import { cn } from "@/lib/utils";
-import { PanelWarmingState } from "@/components/panel-warming-state";
 import { InsightsTeaseStrip } from "@/components/insights-tease-strip";
 
 // ─── Verdict description copy (Phase 3) ──────────────────────────────────────
 
 const VERDICT_COPY: Record<string, string> = {
   HIGH_CONVICTION: "All signals align — model, market, and causal drivers agree.",
-  ACTIONABLE: "Positive edge with sufficient model confidence and causal support.",
-  SPECULATIVE: "Model is confident. No causal drivers confirm the signal yet.",
+  ACTIONABLE: "Positive edge with sufficient certified probability and causal support.",
+  SPECULATIVE: "Watchlist only. No stake is permitted without stronger evidence.",
   HOLD: "Model and market are aligned. No edge above threshold.",
   NO_BET: "Verified data is available, but no market currently offers positive value.",
-  PARTIAL: "Feature data gaps limit verdict reliability. See data quality panel.",
+  PARTIAL: "No bet. Critical evidence gaps or conflicts block action.",
 };
 
 // ─── Derive action chip (Phase 3) ────────────────────────────────────────────
@@ -40,6 +41,7 @@ interface FullAnalysisDashboardProps {
 // ─── Verdict config ───────────────────────────────────────────────────────────
 
 type Verdict = FullMatchAnalysisResponse["verdict"];
+type FullAnalysisPresentation = ReturnType<typeof mapFullAnalysisPresentation>;
 
 const VERDICT_META: Record<
   Verdict,
@@ -105,22 +107,22 @@ function parseTeams(matchId: string): [string, string] {
 // Deterministic hype copy — template table, never LLM-generated at render time
 const HYPE_COPY: Record<string, string[]> = {
   HIGH_CONVICTION: [
-    "The Elo gap is doing the talking here.",
-    "Sharp money and our model agree.",
-    "Model conviction peaks today.",
-    "The data is clear. The edge is real.",
+    "Verified evidence gates passed.",
+    "Model and market evidence are aligned.",
+    "The certified model is available.",
+    "Risk controls permit a bounded stake.",
   ],
   ACTIONABLE: [
-    "Real edge. Real signal.",
-    "The numbers back this one.",
-    "A clear lean with data behind it.",
-    "Model has spoken — action available.",
+    "Verified evidence supports analysis.",
+    "The evidence gates are satisfied.",
+    "A bounded decision is available.",
+    "League staking limits remain enforced.",
   ],
   SPECULATIVE: [
-    "High variance. Tread carefully.",
-    "Interesting odds. Data is thin.",
-    "Proceed with position sizing in mind.",
-    "Speculation with reason — not without.",
+    "Watchlist only; no stake is permitted.",
+    "Evidence is not sufficient for action.",
+    "Monitor for stronger causal evidence.",
+    "Speculative evidence remains non-actionable.",
   ],
   HOLD: [
     "Market has this priced in.",
@@ -144,11 +146,19 @@ function sabiInsightCopy(verdict: Verdict, matchId: string): string {
 
 // ─── Sabi Insights badge (E.6) ────────────────────────────────────────────────
 
-function SabiInsightsBadge({ verdict, matchId }: { verdict: Verdict; matchId: string }) {
-  const copy = sabiInsightCopy(verdict, matchId);
+function SabiInsightsBadge({
+  verdict,
+  matchId,
+  copy,
+}: {
+  verdict: Verdict;
+  matchId: string;
+  copy?: string;
+}) {
+  const displayedCopy = copy ?? sabiInsightCopy(verdict, matchId);
   return (
-    <p className="text-[11px] text-slate-500 italic leading-relaxed truncate" aria-label={`Sabi Insights: ${copy}`}>
-      {copy}
+    <p className="text-[11px] text-slate-500 italic leading-relaxed truncate" aria-label={`Sabi Insights: ${displayedCopy}`}>
+      {displayedCopy}
     </p>
   );
 }
@@ -184,9 +194,10 @@ interface OrbProps {
   value: number;
   strokeColor: string;
   isTop: boolean;
+  available?: boolean;
 }
 
-function ProbabilityOrb({ label, value, strokeColor, isTop }: OrbProps) {
+function ProbabilityOrb({ label, value, strokeColor, isTop, available = true }: OrbProps) {
   const prefersReduced = useReducedMotion();
   const r = 32;
   const circumference = 2 * Math.PI * r;
@@ -198,7 +209,7 @@ function ProbabilityOrb({ label, value, strokeColor, isTop }: OrbProps) {
         width="88"
         height="88"
         viewBox="0 0 88 88"
-        aria-label={`${label}: ${Math.round(value * 100)}%`}
+        aria-label={available ? `${label}: ${Math.round(value * 100)}%` : `${label}: unavailable`}
         role="img"
         className="flex-shrink-0"
       >
@@ -210,7 +221,7 @@ function ProbabilityOrb({ label, value, strokeColor, isTop }: OrbProps) {
           cy="44"
           r={r}
           fill="none"
-          stroke={strokeColor}
+          stroke={available ? strokeColor : "#334155"}
           strokeWidth="6"
           strokeLinecap="round"
           strokeDasharray={`${circumference} ${circumference}`}
@@ -223,7 +234,7 @@ function ProbabilityOrb({ label, value, strokeColor, isTop }: OrbProps) {
           x="44" y="40" textAnchor="middle" dominantBaseline="middle"
           fontSize="13" fontWeight="700" fill={isTop ? "white" : "#94a3b8"}
         >
-          {Math.round(value * 100)}%
+          {available ? `${Math.round(value * 100)}%` : "—"}
         </text>
         {isTop && (
           <text x="44" y="56" textAnchor="middle" fontSize="8" fill="#34d399">
@@ -243,17 +254,19 @@ function ProbabilityOrb({ label, value, strokeColor, isTop }: OrbProps) {
 function EnhancedMatchHero({
   matchId,
   data,
+  presentation,
   league = "EPL",
 }: {
   matchId: string;
   data: FullMatchAnalysisResponse;
+  presentation: FullAnalysisPresentation;
   league?: string;
 }) {
   const prefersReduced = useReducedMotion();
   const meta = VERDICT_META[data.verdict];
   const [home, away] = parseTeams(matchId);
   const { ensemble } = data;
-  const max = Math.max(ensemble.home_win_prob, ensemble.draw_prob, ensemble.away_win_prob);
+  const probabilities = presentation.displayedProbabilities;
 
   const slideIn = (direction: "left" | "right") =>
     prefersReduced
@@ -287,21 +300,24 @@ function EnhancedMatchHero({
       <div className="flex items-end justify-around py-2" role="group" aria-label="Match outcome probabilities">
         <ProbabilityOrb
           label="Home Win"
-          value={ensemble.home_win_prob}
+          value={probabilities?.home ?? 0}
           strokeColor="hsl(var(--home-accent))"
-          isTop={ensemble.home_win_prob === max}
+          isTop={presentation.topOutcome === "home_win"}
+          available={presentation.predictionAvailable}
         />
         <ProbabilityOrb
           label="Draw"
-          value={ensemble.draw_prob}
+          value={probabilities?.draw ?? 0}
           strokeColor="hsl(var(--draw-accent))"
-          isTop={ensemble.draw_prob === max}
+          isTop={presentation.topOutcome === "draw"}
+          available={presentation.predictionAvailable}
         />
         <ProbabilityOrb
           label="Away Win"
-          value={ensemble.away_win_prob}
+          value={probabilities?.away ?? 0}
           strokeColor="hsl(var(--away-accent))"
-          isTop={ensemble.away_win_prob === max}
+          isTop={presentation.topOutcome === "away_win"}
+          available={presentation.predictionAvailable}
         />
       </div>
 
@@ -322,8 +338,12 @@ function EnhancedMatchHero({
           <p className="text-xs font-semibold text-slate-200 tabular-nums">{fmt(data.elo_context.away_elo)}</p>
         </div>
         <div>
-          <p className="text-[10px] uppercase tracking-wider text-slate-500">Confidence</p>
-          <p className="text-xs font-bold text-white tabular-nums">{pct(ensemble.confidence)}</p>
+          <p className="text-[10px] uppercase tracking-wider text-slate-500">Top outcome probability</p>
+          <p className="text-xs font-bold text-white tabular-nums">
+            {presentation.topOutcomeProbability === null
+              ? "Unavailable"
+              : pct(presentation.topOutcomeProbability)}
+          </p>
         </div>
       </div>
 
@@ -358,7 +378,7 @@ function EnhancedMatchHero({
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative inline-flex">
             <VerdictBadge verdict={data.verdict} />
-            <VictorySparkle active={data.verdict === "HIGH_CONVICTION"} />
+            <VictorySparkle active={presentation.stakePermitted && data.verdict === "HIGH_CONVICTION"} />
           </div>
           <FreshnessPill
             tag={data.freshness_tag ?? (data.staleness_seconds > 0 ? (data.staleness_seconds < 86400 ? "RECENT" : "STALE") : "LIVE")}
@@ -392,7 +412,7 @@ function EnhancedMatchHero({
             </span>
           )}
         </div>
-        <SabiInsightsBadge verdict={data.verdict} matchId={matchId} />
+        <SabiInsightsBadge verdict={data.verdict} matchId={matchId} copy={presentation.reason} />
       </div>
       {/* ── Verdict description (Phase 3) ── */}
       <p className="text-xs text-slate-500 leading-relaxed border-t border-slate-800/30 pt-2">
@@ -403,38 +423,16 @@ function EnhancedMatchHero({
 }
 
 function getActionabilitySummary(data: FullMatchAnalysisResponse) {
-  if (data.partial_intelligence) {
-    return {
-      action: "Use caution",
-      rationale: `${data.data_gaps.length} live input gaps are forcing a partial verdict.`,
-      coverage: `${data.data_gaps.length} live gaps · ${data.freshness_tag.toLowerCase()} data`,
-      tone: "text-fuchsia-300 border-fuchsia-500/20 bg-fuchsia-500/8",
-    };
-  }
-
-  if (data.rl_recommendation.abstain) {
-    return {
-      action: "No bet",
-      rationale: data.rl_recommendation.reason || "The RL layer recommends abstaining.",
-      coverage: `${data.uncertainty.confidence_tier === "LOW_EVIDENCE" ? "Low evidence" : "Risk-managed hold"}`,
-      tone: "text-amber-300 border-amber-500/20 bg-amber-500/8",
-    };
-  }
-
-  if (data.odds_edge && data.odds_edge.edge > 0) {
-    return {
-      action: `Consider ${toLabel(data.odds_edge.market)}`,
-      rationale: `Model edge ${pct(data.odds_edge.edge)} with Kelly sizing ${pct(data.odds_edge.kelly_stake, 2)}.`,
-      coverage: `${pct(data.ensemble.confidence)} model confidence`,
-      tone: "text-emerald-300 border-emerald-500/20 bg-emerald-500/8",
-    };
-  }
-
+  const presentation = mapFullAnalysisPresentation(data);
   return {
-    action: `Lean ${toLabel(data.ensemble.prediction)}`,
-    rationale: "The model has a directional lean, but no live market edge is available.",
-    coverage: `${pct(data.ensemble.confidence)} confidence · ${data.freshness_tag.toLowerCase()} data`,
-    tone: "text-cyan-300 border-cyan-500/20 bg-cyan-500/8",
+    action: presentation.primaryDecision,
+    rationale: presentation.reason,
+    coverage: `${presentation.evidenceCounts.critical} critical / ${presentation.evidenceCounts.advisory} advisory / ${presentation.evidenceCounts.conflicts} conflicts`,
+    tone: presentation.stakePermitted
+      ? "text-emerald-300 border-emerald-500/20 bg-emerald-500/8"
+      : presentation.primaryDecision === "Watchlist"
+        ? "text-amber-300 border-amber-500/20 bg-amber-500/8"
+        : "text-rose-300 border-rose-500/20 bg-rose-500/8",
   };
 }
 
@@ -608,13 +606,14 @@ function ProbBar({
 
 function EnsembleCard({ data }: { data: FullMatchAnalysisResponse["ensemble"] }) {
   const max = Math.max(data.home_win_prob, data.draw_prob, data.away_win_prob);
+  const available = data.probabilities_available;
   return (
     <div className="glass-card p-6 space-y-5 border border-slate-800/60">
       <div className="flex items-center justify-between">
         <p className="text-xs uppercase tracking-wider text-slate-500">Ensemble Prediction</p>
         <span className="text-xs text-slate-500">{data.league}</span>
       </div>
-      <div className="space-y-3">
+      {available ? <div className="space-y-3">
         <ProbBar
           label="Home Win"
           value={data.home_win_prob}
@@ -633,13 +632,19 @@ function EnsembleCard({ data }: { data: FullMatchAnalysisResponse["ensemble"] })
           color="bg-gradient-to-r from-[hsl(var(--away-accent))] to-emerald-400"
           isTop={data.away_win_prob === max}
         />
-      </div>
+      </div> : (
+        <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-4 text-sm text-amber-200/80">
+          Official outcome probabilities are unavailable. Diagnostic baseline values are not displayed.
+        </div>
+      )}
       <div className="pt-1 border-t border-slate-800/50 space-y-1.5">
         <div className="flex items-center justify-between">
-          <span className="text-xs text-slate-500">Model confidence</span>
-          <span className="text-sm font-bold text-white">{pct(data.confidence)}</span>
+          <span className="text-xs text-slate-500">Top outcome probability</span>
+          <span className="text-sm font-bold text-white">
+            {available ? pct(data.top_outcome_probability) : "Unavailable"}
+          </span>
         </div>
-        {data.model_version?.toLowerCase().includes("fallback") && (
+        {!available && (
           <p className="rounded-md border border-amber-500/20 bg-amber-500/5 px-2 py-1.5 text-[10px] leading-snug text-amber-300/80">
             Baseline output — live match evidence was unavailable, so probabilities default toward
             even. Not a tradable signal.
@@ -673,11 +678,20 @@ function EnsembleCard({ data }: { data: FullMatchAnalysisResponse["ensemble"] })
 
 // ─── RL recommendation card ───────────────────────────────────────────────────
 
-function RLCard({ rec }: { rec: FullMatchRLRecommendation }) {
-  const MAX_KELLY = 0.025;
+function RLCard({
+  rec,
+  effectiveKellyCap,
+  stakePermitted,
+}: {
+  rec: FullMatchRLRecommendation;
+  effectiveKellyCap: number;
+  stakePermitted: boolean;
+}) {
   const gaugeRadius = 38;
   const circumference = Math.PI * gaugeRadius;
-  const fillPct = rec.abstain ? 0 : Math.min(1, rec.stake_fraction / MAX_KELLY);
+  const fillPct = stakePermitted && effectiveKellyCap > 0
+    ? Math.min(1, rec.stake_fraction / effectiveKellyCap)
+    : 0;
   const strokeOffset = circumference * (1 - fillPct);
   const arcColor = rec.abstain
     ? "#f59e0b"
@@ -692,7 +706,7 @@ function RLCard({ rec }: { rec: FullMatchRLRecommendation }) {
       <p className="text-xs uppercase tracking-wider text-slate-500">RL Bet Recommendation</p>
 
       <div className="flex items-center gap-5">
-        <svg viewBox="0 0 92 54" className="w-28 flex-shrink-0" aria-label={rec.abstain ? "Abstain" : `Stake ${pct(rec.stake_fraction, 2)}`} role="img">
+        <svg viewBox="0 0 92 54" className="w-28 flex-shrink-0" aria-label={!stakePermitted ? "No bet" : `Stake ${pct(rec.stake_fraction, 2)} of ${pct(effectiveKellyCap)} cap`} role="img">
           <path d="M9,46 A38,38 0 0,1 83,46" fill="none" stroke="#1e293b" strokeWidth="9" strokeLinecap="round" />
           <path
             d="M9,46 A38,38 0 0,1 83,46"
@@ -704,13 +718,16 @@ function RLCard({ rec }: { rec: FullMatchRLRecommendation }) {
             strokeDashoffset={strokeOffset}
           />
           <text x="46" y="46" textAnchor="middle" fontSize="10" fill="#94a3b8" dominantBaseline="middle">
-            {rec.abstain ? "HOLD" : pct(rec.stake_fraction, 2)}
+            {!stakePermitted ? "NO BET" : pct(rec.stake_fraction, 2)}
           </text>
         </svg>
 
         <div className="space-y-2">
-          <p className={cn("text-lg font-bold", rec.abstain ? "text-amber-300" : "text-emerald-300")}>
-            {rec.abstain ? "Abstain" : `Stake ${pct(rec.stake_fraction, 2)}`}
+          <p className={cn("text-lg font-bold", !stakePermitted ? "text-amber-300" : "text-emerald-300")}>
+            {!stakePermitted ? "No bet" : `Stake ${pct(rec.stake_fraction, 2)}`}
+          </p>
+          <p className="text-[10px] uppercase tracking-wider text-slate-600">
+            Effective Kelly cap {pct(effectiveKellyCap, 1)}
           </p>
           {rec.reason && (
             <p className="text-xs text-slate-400 leading-relaxed max-w-xs">{rec.reason}</p>
@@ -983,19 +1000,41 @@ interface SourceFreshnessItem {
   enabled: boolean;
 }
 
+interface SourceFreshnessResponse {
+  status: "AVAILABLE" | "UNAVAILABLE" | "FETCH_FAILED" | "UNKNOWN";
+  sources: SourceFreshnessItem[];
+}
+
 function DataFreshnessSection() {
-  const { data } = useQuery<SourceFreshnessItem[]>({
+  const { data } = useQuery<SourceFreshnessResponse>({
     queryKey: ["sourcesFreshness"],
     queryFn: async () => {
       const res = await fetch("/api/sources/freshness", { cache: "no-store" });
-      if (!res.ok) return [];
-      return res.json();
+      const payload = await res.json().catch(() => null) as SourceFreshnessResponse | null;
+      if (!payload || !Array.isArray(payload.sources)) {
+        return { status: "UNKNOWN", sources: [] };
+      }
+      return payload;
     },
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
 
-  if (!data || data.length === 0) return null;
+  if (!data) return null;
+  if (data.status !== "AVAILABLE") {
+    return (
+      <div className="rounded-xl border border-slate-800/40 bg-slate-900/30 px-5 py-3 text-xs text-slate-500">
+        Source freshness: <span className="font-semibold text-amber-300">{data.status}</span>
+      </div>
+    );
+  }
+  if (data.sources.length === 0) {
+    return (
+      <div className="rounded-xl border border-slate-800/40 bg-slate-900/30 px-5 py-3 text-xs text-slate-500">
+        Source freshness: <span className="font-semibold">UNKNOWN</span>
+      </div>
+    );
+  }
 
   const dotColor: Record<string, string> = {
     LIVE: "#22c55e",
@@ -1008,7 +1047,7 @@ function DataFreshnessSection() {
     <div className="rounded-xl border border-slate-800/40 bg-slate-900/30 px-5 py-3">
       <p className="text-[10px] uppercase tracking-wider text-slate-600 mb-2">Source Freshness</p>
       <div className="flex flex-wrap gap-4">
-        {data.slice(0, 6).map((src) => (
+        {data.sources.slice(0, 6).map((src) => (
           <div
             key={src.name}
             className="flex items-center gap-1.5"
@@ -1299,7 +1338,7 @@ function DashboardError({
 
 const NARRATIVE_CLIP = 240;
 
-function NarrativeBlock({ text }: { text: string }) {
+export function NarrativeBlock({ text }: { text: string }) {
   const needsClip = text.length > NARRATIVE_CLIP;
   const [expanded, setExpanded] = useState(false);
   const displayed = needsClip && !expanded ? `${text.slice(0, NARRATIVE_CLIP)}…` : text;
@@ -1307,11 +1346,11 @@ function NarrativeBlock({ text }: { text: string }) {
   return (
     <div className="rounded-2xl border border-slate-800/50 bg-slate-900/50 px-6 py-5">
       <p className="text-xs uppercase tracking-wider text-slate-500 mb-2">Narrative</p>
-      <p className="text-sm leading-relaxed text-slate-200">{displayed}</p>
+      <p id="narrative-text" className="text-sm leading-relaxed text-slate-200">{displayed}</p>
       {needsClip && (
         <button
           onClick={() => setExpanded((v) => !v)}
-          className="mt-2 text-[11px] font-medium text-slate-500 hover:text-slate-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-500 rounded"
+          className="mt-2 inline-flex min-h-11 items-center rounded px-2 text-[11px] font-medium text-slate-500 transition-colors hover:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500"
           aria-expanded={expanded}
           aria-controls="narrative-text"
         >
@@ -1331,6 +1370,7 @@ function FullAnalysisDashboardInner({ matchId, league = "EPL" }: FullAnalysisDas
     queryFn: () => getFullAnalysis(matchId, league),
     staleTime: 55_000,
     enabled: Boolean(matchId),
+    retry: false,
   });
 
   if (isLoading) return (
@@ -1341,19 +1381,12 @@ function FullAnalysisDashboardInner({ matchId, league = "EPL" }: FullAnalysisDas
   );
 
   if (error) {
-    if (error instanceof APIError && error.code === "COLD_START") {
-      return (
-        <PanelWarmingState
-          label="Intelligence"
-          onRetry={() => void refetch()}
-        />
-      );
-    }
     const msg = error instanceof Error ? error.message : "Unknown error";
     return <DashboardError message={msg} onRetry={() => void refetch()} />;
   }
 
   if (!data) return null;
+  const presentation = mapFullAnalysisPresentation(data);
 
   return (
     <motion.section
@@ -1364,12 +1397,12 @@ function FullAnalysisDashboardInner({ matchId, league = "EPL" }: FullAnalysisDas
       className="space-y-5"
     >
       {/* ── Enhanced match hero (E.1 + Phase F) ── */}
-      <EnhancedMatchHero matchId={matchId} data={data} league={league} />
+      <EnhancedMatchHero matchId={matchId} data={data} presentation={presentation} league={league} />
 
       <ActionabilityStrip data={data} />
 
       {/* ── CLV Evidence Panel (Sprint 4 Slice A) ── */}
-      {data.actionability && (
+      {data.actionability && presentation.stakePermitted && (
         <ActionabilityEvidencePanel actionability={data.actionability} />
       )}
 
@@ -1382,7 +1415,11 @@ function FullAnalysisDashboardInner({ matchId, league = "EPL" }: FullAnalysisDas
       {/* ── Ensemble + RL (2-col) ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <EnsembleCard data={data.ensemble} />
-        <RLCard rec={data.rl_recommendation} />
+        <RLCard
+          rec={data.rl_recommendation}
+          effectiveKellyCap={presentation.effectiveKellyCap}
+          stakePermitted={presentation.stakePermitted}
+        />
       </div>
 
       {/* ── Causal · Elo · Uncertainty (3-col) ── */}
@@ -1419,7 +1456,9 @@ function FullAnalysisDashboardInner({ matchId, league = "EPL" }: FullAnalysisDas
 
       {/* ── Footer ── */}
       <p className="text-[11px] text-slate-600 text-right tabular-nums">
-        Generated {new Date(data.generated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+        Generated <time dateTime={data.generated_at} title={presentation.generatedAbsoluteLagos}>
+          {presentation.generatedRelative} ({presentation.generatedAbsoluteLagos} WAT)
+        </time>
         {" · "}match {data.match_id}
       </p>
     </motion.section>

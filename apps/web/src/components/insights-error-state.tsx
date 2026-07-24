@@ -2,25 +2,57 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import {
+  isRetryableInfrastructureError,
+  type AnalysisErrorCategory,
+} from "@/lib/full-analysis-contract";
 
 interface InsightsErrorStateProps {
-  errorType: "timeout" | "server" | "unknown";
+  errorType: AnalysisErrorCategory;
   matchup: string;
 }
 
 const CONFIG = {
-  timeout: {
+  cold_start: {
     countdown: 30,
     accent: "amber",
     label: "Engine Warming Up",
     heading: "Full AI insights are on their way",
     showWhyNote: true,
   },
-  server: {
+  upstream_timeout: {
+    countdown: 20,
+    accent: "amber",
+    label: "Backend Response Delayed",
+    heading: "Analysis is taking longer than expected",
+    showWhyNote: false,
+  },
+  upstream_unavailable: {
+    countdown: 30,
+    accent: "amber",
+    label: "Backend Temporarily Unavailable",
+    heading: "Analysis service is reconnecting",
+    showWhyNote: false,
+  },
+  network_error: {
+    countdown: 15,
+    accent: "amber",
+    label: "Network Unavailable",
+    heading: "The analysis request could not connect",
+    showWhyNote: false,
+  },
+  backend_internal_error: {
     countdown: 45,
     accent: "rose",
     label: "Service Temporarily Unavailable",
     heading: "We hit a snag",
+    showWhyNote: false,
+  },
+  invalid_response: {
+    countdown: 30,
+    accent: "rose",
+    label: "Invalid Backend Response",
+    heading: "The analysis contract could not be verified",
     showWhyNote: false,
   },
   unknown: {
@@ -36,7 +68,7 @@ const CONFIG = {
 // the countdown stops and only manual retry remains. Prevents an infinite
 // full-page reload loop when the insights endpoint stays down while the
 // analysis sections below are already rendering live data.
-const MAX_AUTO_RELOADS = 2;
+const MAX_AUTO_RELOADS = 0;
 
 export const retryStorageKey = (matchup: string) => `ss-insights-retries:${matchup}`;
 
@@ -69,6 +101,7 @@ function bumpAttempts(matchup: string) {
 export function InsightsErrorState({ errorType, matchup }: InsightsErrorStateProps) {
   const cfg = CONFIG[errorType];
   const isAmber = cfg.accent === "amber";
+  const mayAutoRetry = isRetryableInfrastructureError(errorType);
 
   const [countdown, setCountdown] = useState<number>(cfg.countdown);
   const [refreshing, setRefreshing] = useState(false);
@@ -77,10 +110,10 @@ export function InsightsErrorState({ errorType, matchup }: InsightsErrorStatePro
   // Read the per-matchup reload count after mount (sessionStorage is
   // client-only; reading in render would break SSR hydration).
   useEffect(() => {
-    if (readAttempts(matchup) >= MAX_AUTO_RELOADS) {
+    if (!mayAutoRetry || readAttempts(matchup) >= MAX_AUTO_RELOADS) {
       setAutoRetryExhausted(true);
     }
-  }, [matchup]);
+  }, [matchup, mayAutoRetry]);
 
   useEffect(() => {
     if (autoRetryExhausted || refreshing) return;
@@ -101,9 +134,17 @@ export function InsightsErrorState({ errorType, matchup }: InsightsErrorStatePro
   };
 
   const body =
-    errorType === "timeout"
+    errorType === "cold_start"
       ? `The prediction engine is starting up for ${matchup} — this takes 30–60 seconds after idle.`
-      : errorType === "server"
+      : errorType === "upstream_timeout"
+      ? `The backend did not complete the ${matchup} analysis within the request budget.`
+      : errorType === "upstream_unavailable"
+      ? `The analysis backend is temporarily unavailable for ${matchup}.`
+      : errorType === "network_error"
+      ? `The ${matchup} request could not reach the analysis backend.`
+      : errorType === "invalid_response"
+      ? `The response for ${matchup} failed contract validation and was not displayed.`
+      : errorType === "backend_internal_error"
       ? `The prediction service is temporarily unavailable for ${matchup}. This usually resolves within a few minutes.`
       : `Something unexpected happened while generating insights for ${matchup}. This usually resolves on retry.`;
 
@@ -179,7 +220,7 @@ export function InsightsErrorState({ errorType, matchup }: InsightsErrorStatePro
               type="button"
               disabled={refreshing}
               onClick={handleRetryNow}
-              className="inline-flex items-center gap-2 rounded-lg border border-indigo-500/60 bg-indigo-500/20 px-4 py-2 text-sm font-semibold text-indigo-200 transition hover:bg-indigo-500/30 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-indigo-500/60 bg-indigo-500/20 px-4 py-2 text-sm font-semibold text-indigo-200 transition hover:bg-indigo-500/30 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
             >
               <svg
                 className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
@@ -195,7 +236,7 @@ export function InsightsErrorState({ errorType, matchup }: InsightsErrorStatePro
             </button>
             <Link
               href="/match"
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-700/60 bg-slate-800/40 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500"
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-700/60 bg-slate-800/40 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500"
             >
               Pick another matchup
             </Link>

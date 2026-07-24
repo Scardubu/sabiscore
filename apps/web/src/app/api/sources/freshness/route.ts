@@ -13,13 +13,25 @@ export async function GET() {
     const body = await response.text().catch(() => "");
 
     if (!response.ok || isHtmlBody(body)) {
-      return NextResponse.json([], { status: 503 });
+      return NextResponse.json(
+        { status: "UNAVAILABLE", sources: [] },
+        { status: 503, headers: { "Cache-Control": "no-store" } },
+      );
     }
-
-    return NextResponse.json(JSON.parse(body), {
+    const parsed = JSON.parse(body) as unknown;
+    if (!Array.isArray(parsed)) {
+      return NextResponse.json(
+        { status: "UNKNOWN", sources: [] },
+        { status: 502, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+    return NextResponse.json({ status: "AVAILABLE", sources: parsed }, {
       headers: { "Cache-Control": "no-store" },
     });
   } catch {
-    return NextResponse.json([], { status: 500 });
+    return NextResponse.json(
+      { status: "FETCH_FAILED", sources: [] },
+      { status: 500, headers: { "Cache-Control": "no-store" } },
+    );
   }
 }

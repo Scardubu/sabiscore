@@ -8,7 +8,7 @@ table from the APEX-SabiScore spec v6.0:
   ACTIONABLE      — confidence_tier OK, RL does not abstain, ≥1 causal driver.
   SPECULATIVE     — confidence_tier OK, no causal drivers fire.
   HOLD            — confidence_tier LOW_EVIDENCE OR RL abstains.
-  PARTIAL         — any DATA_GAP in the live feature vector (overrides others).
+  PARTIAL         — any critical evidence gap or conflict (overrides others).
 
 Behavioral contracts honoured:
   B11 — narrative ≤280 characters.
@@ -19,7 +19,7 @@ Behavioral contracts honoured:
 from __future__ import annotations
 
 import textwrap
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from typing import List, Optional
 
@@ -86,6 +86,92 @@ class MatchActionability:
     caveats: List[str]
 
 
+@dataclass(frozen=True)
+class EvidenceQuality:
+    """One normalized evidence collection for gates, counts, and presentation."""
+
+    critical_gaps: List[str]
+    advisory_gaps: List[str]
+    conflicts: List[str]
+    all_gaps: List[str]
+
+    def to_dict(self) -> dict:
+        return {
+            "critical_gaps": self.critical_gaps,
+            "advisory_gaps": self.advisory_gaps,
+            "conflicts": self.conflicts,
+            "all_gaps": self.all_gaps,
+            "critical_gap_count": len(self.critical_gaps),
+            "advisory_gap_count": len(self.advisory_gaps),
+            "conflict_count": len(self.conflicts),
+            "total_gap_count": len(self.all_gaps),
+        }
+
+
+_CRITICAL_GAP_MARKERS = (
+    "ensemble_prediction",
+    "model_prediction",
+    "model_probabilit",
+    "feature_vector",
+    "fixture_identity",
+    "verified_evidence",
+    "coherent_1x2_market",
+    "market_data",
+    "market_odds",
+    "league_policy",
+    "stale_required",
+)
+
+
+def _dedupe_gaps(values: List[str]) -> List[str]:
+    seen: set[str] = set()
+    result: List[str] = []
+    for raw in values:
+        value = " ".join(str(raw).strip().split())
+        key = value.casefold()
+        if value and key not in seen:
+            seen.add(key)
+            result.append(value)
+    return result
+
+
+def normalize_evidence_quality(
+    data_gaps: Optional[List[str]] = None,
+    critical_gaps: Optional[List[str]] = None,
+    advisory_gaps: Optional[List[str]] = None,
+    conflicts: Optional[List[str]] = None,
+) -> EvidenceQuality:
+    """Normalize and classify evidence without treating advisory gaps as blockers."""
+
+    explicit_critical = _dedupe_gaps(list(critical_gaps or []))
+    explicit_advisory = _dedupe_gaps(list(advisory_gaps or []))
+    explicit_conflicts = _dedupe_gaps(list(conflicts or []))
+    classified_critical: List[str] = []
+    classified_advisory: List[str] = []
+    classified_conflicts: List[str] = []
+
+    known = {
+        value.casefold()
+        for value in explicit_critical + explicit_advisory + explicit_conflicts
+    }
+    for gap in _dedupe_gaps(list(data_gaps or [])):
+        if gap.casefold() in known:
+            continue
+        lowered = gap.casefold()
+        if lowered.startswith("conflicting") or " conflict" in lowered:
+            classified_conflicts.append(gap)
+        elif any(marker in lowered for marker in _CRITICAL_GAP_MARKERS):
+            classified_critical.append(gap)
+        else:
+            classified_advisory.append(gap)
+
+    critical = _dedupe_gaps(explicit_critical + classified_critical)
+    advisory = _dedupe_gaps(explicit_advisory + classified_advisory)
+    conflict_values = _dedupe_gaps(explicit_conflicts + classified_conflicts)
+    all_gaps = _dedupe_gaps(critical + advisory + conflict_values)
+    return EvidenceQuality(critical, advisory, conflict_values, all_gaps)
+
+
 # ---------------------------------------------------------------------------
 # Output type
 # ---------------------------------------------------------------------------
@@ -102,8 +188,15 @@ class FullMatchAnalysisResponse:
     elo_context: EloContext
     odds_edge: Optional[OddsEdge]
     narrative: str                           # B11: ≤280 chars
-    partial_intelligence: bool              # True when any DATA_GAP present
+    partial_intelligence: bool              # True only for critical gaps/conflicts
     data_gaps: List[str]
+    evidence_quality: EvidenceQuality
+    prediction_status: str = "AVAILABLE"
+    prediction_source: str = "CERTIFIED_MODEL"
+    probabilities_available: bool = True
+    is_reduced_evidence_baseline: bool = False
+    effective_kelly_cap: float = 0.0
+    stake_permitted: bool = False
     staleness_seconds: int = 0              # Age of oldest live feature source
     staleness_available: bool = True        # False means freshness is unknown, never LIVE
     feature_freshness_seconds: dict = field(default_factory=dict)  # Phase 8: feature_name → seconds (None = DATA_GAP)
@@ -129,18 +222,27 @@ class FullMatchAnalysisResponse:
         return {
             "match_id": self.match_id,
             "verdict": self.verdict,
+            "prediction_status": self.prediction_status,
+            "prediction_source": self.prediction_source,
+            "probabilities_available": self.probabilities_available,
+            "is_reduced_evidence_baseline": self.is_reduced_evidence_baseline,
+            "top_outcome_probability": self.ensemble.confidence,
+            "effective_kelly_cap": self.effective_kelly_cap,
+            "stake_permitted": self.stake_permitted,
+            "evidence_quality": self.evidence_quality.to_dict(),
             "ensemble": {
                 "home_win_prob": self.ensemble.home_win_prob,
                 "draw_prob": self.ensemble.draw_prob,
                 "away_win_prob": self.ensemble.away_win_prob,
                 "prediction": self.ensemble.prediction,
                 "confidence": self.ensemble.confidence,
+                "top_outcome_probability": self.ensemble.confidence,
                 "league": self.ensemble.league,
                 "model_version": self.ensemble.model_version,
                 "calibration_method": self.ensemble.calibration_method,
                 "calibration_applied": self.ensemble.calibration_applied,
                 "overlay_applied": self.ensemble.overlay_applied,
-                "probabilities_available": self.ensemble.confidence > 0,
+                "probabilities_available": self.probabilities_available,
             },
             "uncertainty": {
                 "epistemic_unc": self.uncertainty.epistemic_unc,
@@ -230,10 +332,23 @@ class IntelligenceSynthesizer:
         odds_edge: Optional[OddsEdge] = None,
         data_gaps: Optional[List[str]] = None,
         actionability: Optional[MatchActionability] = None,
+        critical_gaps: Optional[List[str]] = None,
+        advisory_gaps: Optional[List[str]] = None,
+        conflicts: Optional[List[str]] = None,
+        prediction_status: str = "AVAILABLE",
+        prediction_source: str = "CERTIFIED_MODEL",
+        effective_kelly_cap: float = 0.0,
         **kwargs,
     ) -> FullMatchAnalysisResponse:
-        gaps = list(data_gaps or [])
-        partial = len(gaps) > 0
+        evidence_quality = normalize_evidence_quality(
+            data_gaps=data_gaps,
+            critical_gaps=critical_gaps,
+            advisory_gaps=advisory_gaps,
+            conflicts=conflicts,
+        )
+        gaps = evidence_quality.all_gaps
+        partial = bool(evidence_quality.critical_gaps or evidence_quality.conflicts)
+        probabilities_available = prediction_status == "AVAILABLE"
 
         active_drivers = [
             r.name
@@ -248,20 +363,68 @@ class IntelligenceSynthesizer:
             rl_rec=rl_rec,
             partial=partial,
         )
+        if ensemble.league.strip().upper() in {"UCL", "UEFA_CHAMPIONS_LEAGUE"}:
+            if verdict == "HIGH_CONVICTION":
+                verdict = "ACTIONABLE"
+
+        effective_kelly_cap = round(max(0.0, min(0.05, effective_kelly_cap)), 6)
+        stake_permitted = bool(
+            probabilities_available
+            and not partial
+            and verdict in {"ACTIONABLE", "HIGH_CONVICTION"}
+            and not rl_rec.abstain
+            and rl_rec.stake_fraction > 0
+            and effective_kelly_cap > 0
+        )
+
+        # Public stake values are fail-closed. Non-actionable and unavailable
+        # states may retain diagnostic evidence, but never an executable stake.
+        if not stake_permitted:
+            rl_rec = replace(
+                rl_rec,
+                stake_fraction=0.0,
+                abstain=True,
+                reason=rl_rec.reason or "Public stake gate is closed.",
+            )
+            if odds_edge is not None:
+                odds_edge = replace(odds_edge, kelly_stake=0.0)
+            if actionability is not None:
+                actionability = replace(
+                    actionability,
+                    suggested_stake_pct=0.0,
+                    abstain=True,
+                    abstain_reason=(
+                        actionability.abstain_reason
+                        or "Public stake gate is closed for this verdict."
+                    ),
+                )
 
         # Extract Phase 8 signals from features_dict when provided (not data gaps)
         features_dict: dict = kwargs.get("features_dict") or {}
         phase8_ctx = self._phase8_context(features_dict, gaps)
 
-        narrative = self._compose_narrative(
-            ensemble=ensemble,
-            uncertainty=uncertainty,
-            verdict=verdict,
-            active_drivers=active_drivers,
-            elo_ctx=elo_ctx,
-            rl_rec=rl_rec,
-            phase8_ctx=phase8_ctx,
-        )
+        if not probabilities_available or partial:
+            narrative = textwrap.shorten(
+                f"[{verdict}] No bet — insufficient verified evidence. "
+                f"{len(evidence_quality.critical_gaps)} critical gap(s), "
+                f"{len(evidence_quality.conflicts)} conflict(s).",
+                width=280,
+                placeholder="…",
+            )
+        elif verdict == "SPECULATIVE":
+            narrative = "[SPECULATIVE] Watchlist only — no stake is permitted."
+        elif verdict in {"HOLD", "NO_BET"}:
+            narrative = f"[{verdict}] No bet — the public stake gate is closed."
+        else:
+            narrative = self._compose_narrative(
+                ensemble=ensemble,
+                uncertainty=uncertainty,
+                verdict=verdict,
+                active_drivers=active_drivers,
+                elo_ctx=elo_ctx,
+                rl_rec=rl_rec,
+                phase8_ctx=phase8_ctx,
+            )
 
         staleness = int(kwargs.get("staleness_seconds", 0))
         staleness_available = bool(kwargs.get("staleness_available", True))
@@ -290,6 +453,13 @@ class IntelligenceSynthesizer:
             narrative=narrative,
             partial_intelligence=partial,
             data_gaps=gaps,
+            evidence_quality=evidence_quality,
+            prediction_status=prediction_status,
+            prediction_source=prediction_source,
+            probabilities_available=probabilities_available,
+            is_reduced_evidence_baseline=prediction_status == "REDUCED_EVIDENCE_BASELINE",
+            effective_kelly_cap=effective_kelly_cap,
+            stake_permitted=stake_permitted,
             staleness_seconds=staleness,
             staleness_available=staleness_available,
             feature_freshness_seconds=freshness,

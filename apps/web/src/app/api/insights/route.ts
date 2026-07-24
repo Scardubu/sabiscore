@@ -14,6 +14,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import {
   resolveBackendBaseUrl,
   proxyHeaders,
@@ -26,10 +27,18 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
-const COLD_START_BODY = {
-  error: "cold_start",
-  detail: "The prediction engine is starting up.",
-} as const;
+const insightsRequestSchema = z.object({
+  matchup: z.string().trim().min(3).max(240),
+  league: z.enum([
+    "EPL",
+    "LA_LIGA",
+    "BUNDESLIGA",
+    "SERIE_A",
+    "LIGUE_1",
+    "EREDIVISIE",
+    "UCL",
+  ]),
+});
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   let body: unknown;
@@ -41,6 +50,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       { status: 400, headers: ERROR_CACHE_HEADERS },
     );
   }
+  const parsed = insightsRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "invalid_request", detail: "A valid matchup and league are required." },
+      { status: 400, headers: ERROR_CACHE_HEADERS },
+    );
+  }
 
   const backendUrl = `${resolveBackendBaseUrl()}/api/v1/insights`;
 
@@ -49,27 +65,39 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     backendRes = await fetch(backendUrl, {
       method: "POST",
       headers: proxyHeaders(),
-      body: JSON.stringify(body),
+      body: JSON.stringify(parsed.data),
       cache: "no-store",
+      signal: AbortSignal.timeout(25_000),
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Network error";
     console.error("[insights proxy] fetch error:", message);
-    return NextResponse.json(COLD_START_BODY, {
-      status: 503,
+    const timedOut = err instanceof Error && (
+      err.name === "AbortError" || err.name === "TimeoutError"
+    );
+    return NextResponse.json({
+      error: timedOut ? "upstream_timeout" : "upstream_unavailable",
+      detail: timedOut
+        ? "The backend did not respond within 25 seconds."
+        : "The backend could not be reached.",
+    }, {
+      status: timedOut ? 504 : 502,
       headers: ERROR_CACHE_HEADERS,
     });
   }
 
   const responseBody = await backendRes.text().catch(() => "");
 
-  if (isHtmlBody(responseBody)) {
+  if (isHtmlBody(responseBody) && [502, 503, 504].includes(backendRes.status)) {
     console.error(
       "[insights proxy] HTML response from backend (status %d) — cold start",
       backendRes.status,
     );
-    return NextResponse.json(COLD_START_BODY, {
-      status: 503,
+    return NextResponse.json({
+      error: "cold_start",
+      detail: "The prediction engine is starting up.",
+    }, {
+      status: backendRes.status,
       headers: ERROR_CACHE_HEADERS,
     });
   }
@@ -82,7 +110,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       responseBody.slice(0, 200),
     );
     return NextResponse.json(
-      { error: "Backend error", detail },
+      {
+        error: backendRes.status === 500
+          ? "backend_internal_error"
+          : [502, 503, 504].includes(backendRes.status)
+            ? "upstream_unavailable"
+            : "backend_error",
+        detail,
+      },
       { status: backendRes.status, headers: ERROR_CACHE_HEADERS },
     );
   }
@@ -98,5 +133,5 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  return NextResponse.json(data);
+  return NextResponse.json(data, { headers: ERROR_CACHE_HEADERS });
 }

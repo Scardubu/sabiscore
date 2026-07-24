@@ -17,7 +17,12 @@
  * provider hosts directly.
  */
 
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  fetchPlatformHealth,
+  PLATFORM_HEALTH_QUERY_KEY,
+  type BackendHealthPayload,
+} from "@/lib/health-status";
 
 type ProviderStatus =
   | "VERIFIED"
@@ -38,11 +43,6 @@ interface ProviderRow {
   status: ProviderStatus;
   trust_tier: string;
   requires_key: boolean;
-}
-
-interface HealthResponse {
-  providers: ProviderRow[];
-  generated_at: string;
 }
 
 // Canonical display order matching directive registry
@@ -86,38 +86,17 @@ function statusBadge(row: ProviderRow): { icon: string; label: string; className
 }
 
 export function ProviderMeter() {
-  const [rows, setRows] = useState<ProviderRow[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [lastChecked, setLastChecked] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function fetchHealth() {
-      try {
-        const res = await fetch("/api/providers/health", { cache: "no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data: HealthResponse = await res.json();
-        if (!cancelled) {
-          setRows(data.providers ?? []);
-          setLastChecked(data.generated_at ?? null);
-          setError(null);
-        }
-      } catch {
-        if (!cancelled) {
-          setError("Provider status unavailable — backend unreachable");
-        }
-      }
-    }
-
-    fetchHealth();
-    // Refresh every 60s so stale status eventually clears
-    const interval = setInterval(fetchHealth, 60_000);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, []);
+  const { data, isLoading } = useQuery<BackendHealthPayload>({
+    queryKey: PLATFORM_HEALTH_QUERY_KEY,
+    queryFn: fetchPlatformHealth,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+  const rows = data?.providers as ProviderRow[] | undefined;
+  const error = data && data.backendStatus === "unavailable"
+    ? "Provider status unavailable — backend unreachable"
+    : null;
+  const lastChecked = typeof data?.timestamp === "string" ? data.timestamp : null;
 
   // Sort by canonical order; append unknown providers at end
   const sorted = rows
@@ -144,7 +123,7 @@ export function ProviderMeter() {
 
       {error ? (
         <p className="pm-error">{error}</p>
-      ) : sorted === null ? (
+      ) : isLoading || sorted === null ? (
         <div className="pm-loading" aria-busy="true">Checking providers…</div>
       ) : (
         <ul className="pm-list" role="list">

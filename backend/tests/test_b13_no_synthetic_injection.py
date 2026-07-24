@@ -317,15 +317,15 @@ class TestPhase8MarketDriftNoSyntheticInjection:
         )
 
     @pytest.mark.parametrize("market_feature", PHASE8_FEATURES_MARKET)
-    def test_market_drift_gap_sets_verdict_partial(self, market_feature: str):
-        """Missing market drift feature must produce PARTIAL verdict (B13)."""
+    def test_market_drift_gap_is_advisory(self, market_feature: str):
+        """Phase 8 drift is optional and must not block otherwise valid evidence."""
         result = self._synth_with_freshness(
             data_gaps=[market_feature],
             freshness={market_feature: None},
         )
-        assert result.verdict == "PARTIAL", (
-            f"Expected PARTIAL when '{market_feature}' is DATA_GAP, got {result.verdict!r}"
-        )
+        assert result.verdict == "SPECULATIVE"
+        assert result.partial_intelligence is False
+        assert market_feature in result.evidence_quality.advisory_gaps
 
     @pytest.mark.parametrize("market_feature", PHASE8_FEATURES_MARKET)
     def test_market_drift_gap_freshness_is_none_not_zero(self, market_feature: str):
@@ -352,14 +352,16 @@ class TestPhase8MarketDriftNoSyntheticInjection:
         )
         for feature in PHASE8_FEATURES_MARKET:
             assert feature in result.data_gaps, f"'{feature}' not in data_gaps"
-        assert result.verdict == "PARTIAL"
+        assert result.verdict == "SPECULATIVE"
+        assert result.partial_intelligence is False
 
-    def test_partial_intelligence_true_when_market_drift_gap(self):
+    def test_partial_intelligence_false_when_only_market_drift_is_missing(self):
         result = self._synth_with_freshness(
             data_gaps=["odds_drift_home"],
             freshness={"odds_drift_home": None},
         )
-        assert result.partial_intelligence is True
+        assert result.partial_intelligence is False
+        assert result.evidence_quality.critical_gaps == []
 
     def test_fresh_market_feature_does_not_set_none_freshness(self):
         """A live market drift feature must have a non-None freshness value."""
@@ -422,7 +424,8 @@ class TestPhase8MatchContextNoSyntheticInjection:
             feature_freshness_seconds={context_feature: None},
         )
         assert context_feature in result.data_gaps
-        assert result.verdict == "PARTIAL"
+        assert result.verdict == "SPECULATIVE"
+        assert context_feature in result.evidence_quality.advisory_gaps
         assert result.feature_freshness_seconds.get(context_feature) is None
 
     def test_default_importance_score_not_present_without_data_gap(self):
@@ -476,7 +479,8 @@ class TestPhase8MatchContextNoSyntheticInjection:
             feature_freshness_seconds={"match_importance_score": None},
         )
         assert result.feature_freshness_seconds.get("match_importance_score") is None
-        assert result.verdict == "PARTIAL"
+        assert result.verdict == "SPECULATIVE"
+        assert "match_importance_score" in result.evidence_quality.advisory_gaps
 
 
 # ---------------------------------------------------------------------------

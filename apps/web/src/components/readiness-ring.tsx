@@ -5,16 +5,11 @@ import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import {
   deriveBackendReadiness,
-  type BackendHealthPayload,
+  fetchPlatformHealth,
+  PLATFORM_HEALTH_QUERY_KEY,
 } from "@/lib/health-status";
 
 // ─── Data fetching ────────────────────────────────────────────────────────────
-
-async function fetchBackendHealth(): Promise<BackendHealthPayload> {
-  const res = await fetch("/api/health", { cache: "no-store" });
-  if (!res.ok) return {};
-  return (await res.json()) as BackendHealthPayload;
-}
 
 // ─── SVG Ring ─────────────────────────────────────────────────────────────────
 
@@ -97,8 +92,8 @@ function RingSkeleton() {
 
 export const ReadinessRing = memo(function ReadinessRing({ className }: { className?: string }) {
   const { data, isLoading } = useQuery({
-    queryKey: ["backend-readiness"],
-    queryFn: fetchBackendHealth,
+    queryKey: PLATFORM_HEALTH_QUERY_KEY,
+    queryFn: fetchPlatformHealth,
     staleTime: 60_000,
   });
 

@@ -7,6 +7,48 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ---
 
+## vΩ.18 — Full-analysis production integrity (2026-07-20)
+
+### Evidence and staking contract
+
+- Added a typed Pydantic/OpenAPI full-analysis response with explicit prediction
+  availability/source, normalized critical/advisory/conflict evidence, retained
+  compatibility aliases, league-specific effective Kelly caps, and an explicit
+  stake-permission gate.
+- Projection and model fallbacks now remain diagnostic, force a grounded no-bet
+  state, and expose neither market edge nor stake. Advisory-only gaps no longer
+  force `PARTIAL`; conflicts and critical gaps remain fail-closed.
+- Preserved the independent betting engines and verified their Quarter-Kelly,
+  UCL ceiling, zero-stake, and watchlist invariants without modifying them.
+
+### Web contract and resilience
+
+- Consolidated both clients on one Zod-validated full-analysis contract and one
+  presentation mapper. Unavailable/baseline/blocked evidence has one dominant
+  `No bet` conclusion, speculative results are watchlist-only, and the Kelly
+  gauge uses the backend-provided effective cap.
+- Standardized the 25-second proxy and 28-second client budgets with one bounded
+  infrastructure retry. HTTP 500 now maps to `backend_internal_error`, health
+  queries share one readiness/provider model, and freshness failures are visible.
+- Phase 8 stays hidden while disabled, generated times include relative and
+  Africa/Lagos absolute context, and keyboard/reduced-motion safeguards were
+  strengthened.
+
+### Runtime documentation
+
+- Corrected the production runtime to Python 3.11/FastAPI 0.104.1 while retaining
+  the separate Python 3.14/FastAPI 0.115.x local compatibility branch. Updated
+  stale one-eighth-Kelly skill guidance to Quarter-Kelly plus league policy caps.
+
+### Gate verification (2026-07-24)
+
+- Confirmed all vΩ.18 working-tree changes pass: ESLint 0, TypeScript 0,
+  Vitest 46/46, `NODE_ENV=production` Next.js build clean, ruff 0, pytest 962/962.
+- `getFullAnalysis` retry contract verified: 503 → 1 retry → `UPSTREAM_UNAVAILABLE`;
+  500 → no retry → `backend_internal_error`; Zod failure → `INVALID_RESPONSE`.
+- Dual `APIError` classes confirmed non-conflicting (module-scoped independently).
+- `docs/SABISCORE*.txt` added to `.gitignore` to exclude session directive documents.
+
 ## vΩ.17 — Production readiness and public model truth (2026-07-20)
 
 ### Readiness semantics

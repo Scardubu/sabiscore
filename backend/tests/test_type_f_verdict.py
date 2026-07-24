@@ -116,8 +116,8 @@ SYNTH = IntelligenceSynthesizer()
 
 
 class TestVerdictGateTable:
-    def test_data_gap_always_partial(self):
-        """B13: any data gap must yield PARTIAL regardless of all other signals."""
+    def test_advisory_gap_does_not_force_partial(self):
+        """Optional Elo evidence reduces coverage without blocking a valid analysis."""
         result = SYNTH.synthesize(
             **_synth(
                 data_gaps=["elo_ratings"],
@@ -129,18 +129,43 @@ class TestVerdictGateTable:
                 elo_ctx=_elo(120.0),
             )
         )
-        assert result.verdict == "PARTIAL"
-        assert result.partial_intelligence is True
+        assert result.verdict == "HIGH_CONVICTION"
+        assert result.partial_intelligence is False
+        assert result.evidence_quality.advisory_gaps == ["elo_ratings"]
 
     def test_data_gap_empty_list_not_partial(self):
         """Empty data_gaps list must not trigger PARTIAL."""
         result = SYNTH.synthesize(**_synth(data_gaps=[]))
         assert result.verdict != "PARTIAL"
 
-    def test_multiple_data_gaps_still_partial(self):
+    def test_multiple_advisory_gaps_do_not_force_partial(self):
         result = SYNTH.synthesize(**_synth(data_gaps=["elo_ratings", "causal_analysis"]))
-        assert result.verdict == "PARTIAL"
+        assert result.verdict == "HIGH_CONVICTION"
+        assert result.partial_intelligence is False
         assert result.data_gaps == ["elo_ratings", "causal_analysis"]
+
+    def test_critical_gap_forces_partial(self):
+        result = SYNTH.synthesize(
+            **_synth(data_gaps=["MODEL_PREDICTION_UNAVAILABLE"])
+        )
+        assert result.verdict == "PARTIAL"
+        assert result.partial_intelligence is True
+        assert result.evidence_quality.critical_gaps == [
+            "MODEL_PREDICTION_UNAVAILABLE"
+        ]
+
+    def test_conflict_forces_partial_and_remains_separate(self):
+        result = SYNTH.synthesize(
+            **_synth(
+                data_gaps=["lineup_context"],
+                conflicts=["CONFLICTING_MARKET_SNAPSHOTS"],
+            )
+        )
+        assert result.verdict == "PARTIAL"
+        assert result.evidence_quality.advisory_gaps == ["lineup_context"]
+        assert result.evidence_quality.conflicts == [
+            "CONFLICTING_MARKET_SNAPSHOTS"
+        ]
 
     def test_low_evidence_yields_hold(self):
         result = SYNTH.synthesize(**_synth(uncertainty=_uncertainty("LOW_EVIDENCE")))
@@ -274,6 +299,18 @@ class TestDataPropagation:
         gaps = ["elo_ratings", "causal_analysis"]
         result = SYNTH.synthesize(**_synth(data_gaps=gaps))
         assert result.data_gaps == gaps
+
+    def test_evidence_gaps_are_deduplicated_with_counts(self):
+        result = SYNTH.synthesize(
+            **_synth(
+                data_gaps=["elo_ratings", "ELO_RATINGS", "lineup_context"],
+                advisory_gaps=["lineup_context"],
+            )
+        )
+        quality = result.evidence_quality.to_dict()
+        assert quality["advisory_gaps"] == ["lineup_context", "elo_ratings"]
+        assert quality["advisory_gap_count"] == 2
+        assert quality["total_gap_count"] == 2
 
     def test_partial_intelligence_flag_matches_gaps(self):
         result_with = SYNTH.synthesize(**_synth(data_gaps=["ensemble_prediction"]))

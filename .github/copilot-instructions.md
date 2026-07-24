@@ -79,7 +79,7 @@ This is a polyglot monorepo. Product verticals use different stacks — never co
 
 | Layer | SabiScore | TaxBridge · Hashablanca · SwarmX |
 |---|---|---|
-| Backend | **FastAPI 0.115+, Python 3.11–3.14** | Fastify 5, Effect-TS |
+| Backend | **Python 3.11 production (FastAPI 0.104.1); Python 3.14 local compatibility (FastAPI 0.115.x)** | Fastify 5, Effect-TS |
 | ORM / Migrations | **SQLAlchemy 2, Alembic** | Prisma 5 |
 | Async HTTP | **httpx.AsyncClient** | Native fetch / undici |
 | Job Queue | Redis (direct) + optional BullMQ bridge | BullMQ, ioredis |

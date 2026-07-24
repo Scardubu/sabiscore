@@ -12,7 +12,7 @@ test.describe('SabiScore End-to-End', () => {
     ).toBeVisible();
   });
 
-  test('shows warming banner when backend reports unavailable', async ({ page }) => {
+  test('shows an evidence-safe banner when backend reports unavailable', async ({ page }) => {
     await page.route('**/api/health', (route) =>
       route.fulfill({
         status: 200,
@@ -24,7 +24,7 @@ test.describe('SabiScore End-to-End', () => {
     await page.goto('/');
 
     await expect(
-      page.getByRole('alert').getByText(/Prediction engine warming up/i),
+      page.getByRole('alert').getByText(/live readiness and provider status cannot be verified/i),
     ).toBeVisible();
   });
 });

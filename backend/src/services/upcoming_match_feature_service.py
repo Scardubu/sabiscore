@@ -278,6 +278,11 @@ class UpcomingMatchFeatureProjector:
             "league": league,
             "feature_freshness_seconds": phase8_freshness,
             "feature_source": phase8_sources,
+            "data_quality": dict(projected.get("data_quality") or {}),
+            "fixture_identity_verified": True,
+            "is_reduced_evidence_baseline": bool(
+                (projected.get("data_quality") or {}).get("is_synthetic", False)
+            ),
         }
 
     async def build_live_feature_vector_from_matchup(
@@ -378,6 +383,11 @@ class UpcomingMatchFeatureProjector:
             "league": league,
             "feature_freshness_seconds": phase8_freshness,
             "feature_source": phase8_sources,
+            "data_quality": dict(projected.get("data_quality") or {}),
+            "fixture_identity_verified": False,
+            "is_reduced_evidence_baseline": bool(
+                (projected.get("data_quality") or {}).get("is_synthetic", False)
+            ),
         }
 
     async def _inject_phase8_features(

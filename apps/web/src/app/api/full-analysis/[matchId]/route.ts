@@ -10,6 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import {
   resolveBackendBaseUrl,
   proxyHeaders,
@@ -22,10 +23,18 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
-const COLD_START_BODY = {
-  error: "cold_start",
-  detail: "The prediction engine is starting up.",
-} as const;
+const routeParamsSchema = z.object({
+  matchId: z.string().trim().min(1).max(240),
+  league: z.enum([
+    "EPL",
+    "LA_LIGA",
+    "BUNDESLIGA",
+    "SERIE_A",
+    "LIGUE_1",
+    "EREDIVISIE",
+    "UCL",
+  ]),
+});
 
 export async function GET(
   request: NextRequest,
@@ -33,40 +42,55 @@ export async function GET(
 ): Promise<NextResponse> {
   const { matchId } = await params;
 
-  if (!matchId || typeof matchId !== "string") {
+  const parsed = routeParamsSchema.safeParse({
+    matchId,
+    league: request.nextUrl.searchParams.get("league") ?? "EPL",
+  });
+  if (!parsed.success) {
     return NextResponse.json(
-      { error: "matchId is required" },
+      { error: "invalid_request", detail: "A valid matchId and league are required." },
       { status: 400, headers: ERROR_CACHE_HEADERS },
     );
   }
 
-  const league = request.nextUrl.searchParams.get("league") ?? "EPL";
-  const backendUrl = `${resolveBackendBaseUrl()}/api/v1/matches/upcoming/${encodeURIComponent(matchId)}/full-analysis?league=${encodeURIComponent(league)}`;
+  const backendUrl = `${resolveBackendBaseUrl()}/api/v1/matches/upcoming/${encodeURIComponent(parsed.data.matchId)}/full-analysis?league=${encodeURIComponent(parsed.data.league)}`;
 
   let backendRes: Response;
   try {
     backendRes = await fetch(backendUrl, {
       headers: proxyHeaders(),
       cache: "no-store",
+      signal: AbortSignal.timeout(25_000),
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Network error";
     console.error("[full-analysis proxy] fetch error:", message);
-    return NextResponse.json(COLD_START_BODY, {
-      status: 503,
+    const timedOut = err instanceof Error && (
+      err.name === "AbortError" || err.name === "TimeoutError"
+    );
+    return NextResponse.json({
+      error: timedOut ? "upstream_timeout" : "upstream_unavailable",
+      detail: timedOut
+        ? "The backend did not respond within 25 seconds."
+        : "The backend could not be reached.",
+    }, {
+      status: timedOut ? 504 : 502,
       headers: ERROR_CACHE_HEADERS,
     });
   }
 
   const body = await backendRes.text().catch(() => "");
 
-  if (isHtmlBody(body)) {
+  if (isHtmlBody(body) && [502, 503, 504].includes(backendRes.status)) {
     console.error(
       "[full-analysis proxy] HTML response from backend (status %d) — cold start",
       backendRes.status,
     );
-    return NextResponse.json(COLD_START_BODY, {
-      status: 503,
+    return NextResponse.json({
+      error: "cold_start",
+      detail: "The prediction engine is starting up.",
+    }, {
+      status: backendRes.status,
       headers: ERROR_CACHE_HEADERS,
     });
   }
@@ -79,7 +103,14 @@ export async function GET(
       body.slice(0, 200),
     );
     return NextResponse.json(
-      { error: "Backend error", detail },
+      {
+        error: backendRes.status === 500
+          ? "backend_internal_error"
+          : [502, 503, 504].includes(backendRes.status)
+            ? "upstream_unavailable"
+            : "backend_error",
+        detail,
+      },
       { status: backendRes.status, headers: ERROR_CACHE_HEADERS },
     );
   }
@@ -96,8 +127,6 @@ export async function GET(
   }
 
   return NextResponse.json(data, {
-    headers: {
-      "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120",
-    },
+    headers: ERROR_CACHE_HEADERS,
   });
 }

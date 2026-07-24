@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   backendHealthIssues,
   deriveBackendReadiness,
+  derivePlatformHealth,
   isHealthyBackendStatus,
   liveMetricLabel,
 } from "./health-status";
@@ -26,6 +27,24 @@ describe("health status normalization", () => {
     expect(backendHealthIssues("degraded")).toEqual([
       "Backend status: degraded",
     ]);
+  });
+});
+
+describe("platform provider health", () => {
+  it("keeps configured, enabled, and live provider counts distinct", () => {
+    const health = derivePlatformHealth({
+      backendStatus: "ok",
+      backendChecks: { models: { status: "ready" } },
+      providers: [
+        { configured: true, enabled: true, status: "VERIFIED" },
+        { configured: true, enabled: true, status: "CONFIGURED_UNVERIFIED" },
+        { configured: false, enabled: false, status: "UNCONFIGURED" },
+      ],
+    });
+    expect(health.configured).toBe(2);
+    expect(health.enabled).toBe(2);
+    expect(health.live).toBe(1);
+    expect(health.modelsReady).toBe(true);
   });
 });
 

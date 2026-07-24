@@ -26,19 +26,34 @@ const PHASE7_BASELINE = {
 export async function GET() {
   let backendStatus = "unavailable";
   let backendChecks: Record<string, unknown> = {};
+  let providers: Array<Record<string, unknown>> = [];
 
   if (BACKEND_URL) {
     try {
-      const res = await fetch(`${BACKEND_URL}/health/ready`, {
-        signal: AbortSignal.timeout(5000),
-        headers: { Accept: "application/json" },
-      });
-      if (res.ok) {
-        const data = (await res.json()) as Record<string, unknown>;
+      const [readinessRes, providersRes] = await Promise.all([
+        fetch(`${BACKEND_URL}/health/ready`, {
+          signal: AbortSignal.timeout(5000),
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+        }),
+        fetch(`${BACKEND_URL}/api/v1/providers/health`, {
+          signal: AbortSignal.timeout(5000),
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+        }),
+      ]);
+      if (readinessRes.ok) {
+        const data = (await readinessRes.json()) as Record<string, unknown>;
         backendStatus = (data.status as string) ?? "unknown";
         backendChecks = (data.checks as Record<string, unknown>) ?? {};
       } else {
         backendStatus = "degraded";
+      }
+      if (providersRes.ok) {
+        const providerData = (await providersRes.json()) as { providers?: unknown };
+        providers = Array.isArray(providerData.providers)
+          ? providerData.providers as Array<Record<string, unknown>>
+          : [];
       }
     } catch {
       backendStatus = "unavailable";
@@ -52,6 +67,7 @@ export async function GET() {
       status: isHealthy ? "healthy" : "degraded",
       backendStatus,
       backendChecks,
+      providers,
       ...PHASE7_BASELINE,
       predictionCount: 0,
       metrics: { ...PHASE7_BASELINE, predictionCount: 0 },

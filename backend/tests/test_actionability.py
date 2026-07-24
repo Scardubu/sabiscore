@@ -441,8 +441,12 @@ class TestToDict:
         assert d["actionability"]["edge_quality_score"] == pytest.approx(0.72)
         assert d["actionability"]["clv_pct"] is None
         assert d["actionability"]["closing_line_convergence_delta"] == pytest.approx(0.025)
-        assert d["actionability"]["suggested_stake_pct"] == pytest.approx(4.5)
-        assert d["actionability"]["abstain"] is False
-        assert d["actionability"]["abstain_reason"] is None
+        # No causal driver produces SPECULATIVE, which is watchlist-only and
+        # must serialize a closed public stake gate across compatibility fields.
+        assert d["verdict"] == "SPECULATIVE"
+        assert d["stake_permitted"] is False
+        assert d["actionability"]["suggested_stake_pct"] == 0.0
+        assert d["actionability"]["abstain"] is True
+        assert d["actionability"]["abstain_reason"] is not None
         assert len(d["actionability"]["top_evidence"]) == 2
         assert d["actionability"]["caveats"] == []

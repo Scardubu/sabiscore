@@ -11,6 +11,7 @@
 import dynamic from "next/dynamic";
 import { Suspense } from "react";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { FeatureFlag, useFeatureFlag } from "@/lib/feature-flags";
 
 const Phase8AnalyticsPanel = dynamic(
   () =>
@@ -52,6 +53,19 @@ export function Phase8AnalyticsSection({
   matchId,
   league = "EPL",
 }: Phase8AnalyticsSectionProps) {
+  const enabled = useFeatureFlag(FeatureFlag.PHASE8_ANALYTICS);
+
+  if (!enabled) {
+    return (
+      <aside
+        className="rounded-xl border border-slate-800/50 bg-slate-900/30 px-4 py-3 text-xs text-slate-500"
+        aria-label="Phase 8 availability"
+      >
+        Phase 8 enrichment is disabled; no Phase 8 signals influence this analysis.
+      </aside>
+    );
+  }
+
   return (
     <section aria-label="Phase 8 feature analytics">
       <div className="flex items-center gap-3 mb-5">

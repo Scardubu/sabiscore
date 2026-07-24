@@ -6,7 +6,6 @@ import {
   BarChart3,
   BookOpen,
   CalendarClock,
-  Database,
   Gauge,
   ShieldCheck,
   Sparkles,
@@ -21,6 +20,7 @@ import { ClientEffects } from "./client-effects";
 import { ReadinessRing } from "../components/readiness-ring";
 import { BackendStatusBanner } from "../components/backend-status-banner";
 import { MobileNav } from "../components/mobile-nav";
+import { PlatformHealthPills } from "../components/platform-health-pills";
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ??
@@ -95,6 +95,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen bg-[#07110f] text-slate-100 antialiased">
+        <a
+          href="#main-content"
+          className="sr-only fixed left-3 top-3 z-[100] min-h-11 items-center rounded-md bg-emerald-300 px-4 py-2 font-semibold text-slate-950 focus:not-sr-only focus:flex focus:outline-none focus:ring-2 focus:ring-white"
+        >
+          Skip to main content
+        </a>
         <ErrorBoundary>
           <Providers>
             <ClientEffects />
@@ -185,9 +191,7 @@ export default function RootLayout({
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2">
-                        <StatusPill icon={Database} label="Postgres" value="Readiness gated" />
-                        <StatusPill icon={Activity} label="Providers" value="Backend only" />
-                        <StatusPill icon={BarChart3} label="Models" value="Artifact checked" />
+                        <PlatformHealthPills />
                         <div className="min-w-[132px] rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
                           <ReadinessRing />
                         </div>
@@ -196,7 +200,7 @@ export default function RootLayout({
                   </header>
                   <BackendStatusBanner />
 
-                  <main className="min-h-[calc(100vh-65px)] px-4 py-5 sm:px-6 lg:px-8">
+                  <main id="main-content" className="min-h-[calc(100vh-65px)] px-4 py-5 sm:px-6 lg:px-8">
                     {children}
                   </main>
                 </div>
@@ -206,25 +210,5 @@ export default function RootLayout({
         </ErrorBoundary>
       </body>
     </html>
-  );
-}
-
-function StatusPill({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex min-h-11 items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
-      <Icon className="h-4 w-4 text-emerald-300" aria-hidden="true" />
-      <span>
-        <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</span>
-        <span className="block text-xs text-slate-300">{value}</span>
-      </span>
-    </div>
   );
 }

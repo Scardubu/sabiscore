@@ -2,10 +2,9 @@
 // Supports Cloudflare KV → Upstash Redis → PostgreSQL cache hierarchy
 
 
-// Tunables for slow upstreams (Render free tier can stall)
-// NOTE: Vercel Hobby has 10s function timeout, so we use 8s to leave headroom
-const INSIGHTS_TIMEOUT_MS = Number(process.env.INSIGHTS_TIMEOUT_MS ?? process.env.NEXT_PUBLIC_INSIGHTS_TIMEOUT_MS ?? 8000);
-const INSIGHTS_MAX_RETRIES = Number(process.env.INSIGHTS_MAX_RETRIES ?? process.env.NEXT_PUBLIC_INSIGHTS_MAX_RETRIES ?? 0);
+// Match analysis has one bounded retry inside a 28-second client budget.
+const INSIGHTS_TIMEOUT_MS = 28_000;
+const INSIGHTS_MAX_RETRIES = 1;
 
 // Performance optimization: Enable connection reuse
 const ENABLE_KEEPALIVE = true;
@@ -498,24 +497,14 @@ export async function getMatchInsights(
         );
       }
 
-      // Any 503 from our proxy = cold_start (proxy always sets this on Render suspension)
-      if (response.status === 503) {
-        let detail = "The prediction engine is warming up.";
-        try {
-          const errJson = JSON.parse(bodyText) as Record<string, string>;
-          detail = errJson.detail || errJson.error || detail;
-        } catch { /* ignore parse errors */ }
-        throw new APIError(detail, 503, "COLD_START");
-      }
-
-      // Other HTTP errors
       let errorMessage = `HTTP ${response.status}`;
+      let errorBody: Record<string, string> = {};
       try {
-        const errJson = JSON.parse(bodyText) as Record<string, string>;
-        errorMessage = errJson.detail || errJson.message || errJson.error || errorMessage;
+        errorBody = JSON.parse(bodyText) as Record<string, string>;
+        errorMessage = errorBody.detail || errorBody.message || errorBody.error || errorMessage;
       } catch { /* ignore */ }
-
-      throw new APIError(errorMessage, response.status, "INSIGHTS_ERROR");
+      const category = classifyAnalysisError({ status: response.status, body: errorBody });
+      throw new APIError(errorMessage, response.status, category.toUpperCase());
     }
 
     return (await response.json()) as InsightsResponse;
@@ -523,8 +512,7 @@ export async function getMatchInsights(
     console.error("Insights fetch error:", error);
     if (error instanceof APIError) throw error;
     const msg = error instanceof Error ? error.message : "Unknown error";
-    // Network/parse failures during cold-start should show the warm-up UI
-    throw new APIError(msg, 503, "COLD_START");
+    throw new APIError(msg, 0, "NETWORK_ERROR");
   }
 }
 
@@ -560,172 +548,100 @@ export const apiClient = {
 // Phase 7-D: FullMatchAnalysisResponse types and client
 // ---------------------------------------------------------------------------
 
-/** CLV-centered advisory actionability block (Sprint 4 Slice A). */
-export interface MatchActionability {
-  /** Composite 0.0–1.0 score: confidence×0.40 + market_alignment×0.30 + drift×0.20 + completeness×0.10 */
-  edge_quality_score: number;
-  /** Closing-line value % points. Always null pre-kick-off. */
-  clv_pct: number | null;
-  /** Implied-probability drift since opening odds snapshot (positive = sharp-money confirms model). Null if DATA_GAP. */
-  closing_line_convergence_delta: number | null;
-  /** Fractional Kelly × 100. 0.0 when abstain=true or edge quality below threshold. */
-  suggested_stake_pct: number;
-  /** True when RL layer advises no bet OR edge quality is below the configured threshold. */
-  abstain: boolean;
-  /** Human-readable abstain reason. Null when abstain=false. */
-  abstain_reason: string | null;
-  /** Up to 3 key signals behind this edge assessment (causal drivers, market edge, drift). */
-  top_evidence: string[];
-  /** Data-gap or quality warnings that reduce confidence. */
-  caveats: string[];
-}
+export type {
+  FullMatchAnalysisResponse,
+  FullMatchEloContext,
+  FullMatchEnsemble,
+  FullMatchOddsEdge,
+  FullMatchRLRecommendation,
+  FullMatchUncertainty,
+  MatchActionability,
+} from "./full-analysis-contract";
 
-export interface FullMatchEnsemble {
-  home_win_prob: number;
-  draw_prob: number;
-  away_win_prob: number;
-  prediction: string;
-  confidence: number;
-  league: string;
-  model_version: string;
-  /** Phase D: calibration method applied ("raw" | "isotonic" | "platt" | …). */
-  calibration_method?: string;
-  /** Phase D: true when a FittedCalibrator was applied at inference time. */
-  calibration_applied?: boolean;
-  /** Phase D: true when BivariatePoissonDrawOverlay was applied (alpha > 0). */
-  overlay_applied?: boolean;
-}
-
-export interface FullMatchUncertainty {
-  epistemic_unc: number;
-  aleatoric_unc: number;
-  concentration: number;
-  credible_interval: [number, number];
-  confidence_tier: string;
-}
-
-export interface FullMatchRLRecommendation {
-  stake_fraction: number;
-  abstain: boolean;
-  reason: string;
-  reward_components: Record<string, number>;
-}
-
-export interface FullMatchEloContext {
-  home_elo: number;
-  away_elo: number;
-  elo_difference: number;
-  home_elo_trend_5: number;
-  away_elo_trend_5: number;
-  elo_momentum_cross: number;
-}
-
-export interface FullMatchOddsEdge {
-  market: string;
-  market_odds: number;
-  model_prob: number;
-  edge: number;
-  kelly_stake: number;
-}
-
-export interface FullMatchAnalysisResponse {
-  match_id: string;
-  verdict: "HIGH_CONVICTION" | "ACTIONABLE" | "SPECULATIVE" | "HOLD" | "NO_BET" | "PARTIAL";
-  ensemble: FullMatchEnsemble;
-  uncertainty: FullMatchUncertainty;
-  causal_drivers: string[];
-  rl_recommendation: FullMatchRLRecommendation;
-  elo_context: FullMatchEloContext;
-  odds_edge: FullMatchOddsEdge | null;
-  narrative: string;
-  partial_intelligence: boolean;
-  data_gaps: string[];
-  /** Age in seconds of the oldest live feature source used. 0 means cache-fresh or unavailable. */
-  staleness_seconds: number;
-  /** "LIVE" | "RECENT" | "STALE" — derived from staleness_seconds on the backend. */
-  freshness_tag: "LIVE" | "RECENT" | "STALE" | "UNKNOWN";
-  /**
-   * Per-feature staleness map (Phase 8 Sprint 4). Keys are canonical feature names.
-   * null value = DATA_GAP (feature could not be live-computed).
-   * 0 = fresh (parquet/cache). >0 = staleness in seconds.
-   */
-  feature_freshness_seconds: Record<string, number | null>;
-  /** Per-feature data source identifier (Phase 8 Sprint 4). e.g. "odds_service", "league_standings". */
-  feature_source: Record<string, string>;
-  /** CLV-centered advisory actionability block (Sprint 4 Slice A). Null when not computed. */
-  actionability: MatchActionability | null;
-  generated_at: string;
-  /** Phase F: composite importance score 0.0–1.0. ≥0.70 = High Stakes (UCL knockout, title run-ins). Null when feature not computed. */
-  match_importance_score?: number | null;
-  /** Phase F: competition stage string (qualifying | group | r16 | qf | sf | final). UCL only. */
-  competition_stage?: string | null;
-  /**
-   * Phase 9 / V4 shadow-mode candidate metadata. Present only when USE_PHASE9_CANDIDATE_FEATURES=true.
-   * Never influences probabilities, verdicts, or value bets — informational only.
-   */
-  phase9_candidate_features?: {
-    hybrid_xg?: Record<string, number>;
-    market_efficiency?: {
-      bookmaker_margin?: number;
-      market_complete?: boolean;
-      market_sharpness?: "sharp" | "standard" | "unknown";
-      has_value?: boolean;
-      value_bets?: Array<{
-        outcome: string;
-        ev: number;
-        edge: number;
-        kelly_fraction?: number;
-      }>;
-      recommended_kelly_fraction?: number;
-      clv_available?: boolean;
-    };
-  } | null;
-  /** True when phase9_candidate_features is present and phase9_shadow_only=true. */
-  phase9_shadow_only?: boolean;
-}
+import {
+  classifyAnalysisError,
+  fullMatchAnalysisSchema,
+  isRetryableInfrastructureError,
+  type FullMatchAnalysisResponse,
+} from "./full-analysis-contract";
 
 export async function getFullAnalysis(
   matchId: string,
   league: string = "EPL",
 ): Promise<FullMatchAnalysisResponse> {
   const url = `/api/full-analysis/${encodeURIComponent(matchId)}?league=${encodeURIComponent(league)}`;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 8_000);
+  const deadline = Date.now() + 28_000;
+  let lastError: APIError | null = null;
 
-  try {
-    const response = await fetch(url, {
-      headers: { Accept: "application/json" },
-      next: { revalidate: 60 },
-      signal: controller.signal,
-    } as RequestInit);
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(
+      () => controller.abort(),
+      Math.max(1, deadline - Date.now()),
+    );
+    try {
+      const response = await fetch(url, {
+        headers: { Accept: "application/json" },
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      const body = await response.json().catch(() => null) as unknown;
 
-    if (!response.ok) {
-      let detail = `HTTP ${response.status}`;
-      try {
-        const err = await response.json();
-        if (err.error === "cold_start") {
-          throw new APIError(
-            err.detail || "The prediction engine is warming up.",
-            503,
-            "COLD_START",
-          );
+      if (!response.ok) {
+        const category = classifyAnalysisError({
+          status: response.status,
+          body,
+        });
+        const detail = body && typeof body === "object"
+          ? String(
+              (body as { detail?: unknown; error?: unknown }).detail ??
+                (body as { error?: unknown }).error ??
+                `HTTP ${response.status}`,
+            )
+          : `HTTP ${response.status}`;
+        const failure = new APIError(detail, response.status, category.toUpperCase());
+        if (attempt === 0 && isRetryableInfrastructureError(category) && Date.now() < deadline) {
+          lastError = failure;
+          continue;
         }
-        detail = err.detail || err.error || detail;
-      } catch (parseErr) {
-        if (parseErr instanceof APIError) throw parseErr;
+        throw failure;
       }
-      throw new APIError(detail, response.status, "FULL_ANALYSIS_ERROR");
-    }
 
-    return (await response.json()) as FullMatchAnalysisResponse;
-  } catch (err) {
-    if (err instanceof Error && err.name === "AbortError") {
-      throw new APIError("Full analysis timed out (8s)", 408, "FULL_ANALYSIS_TIMEOUT");
+      const parsed = fullMatchAnalysisSchema.safeParse(body);
+      if (!parsed.success) {
+        throw new APIError(
+          "The backend returned an invalid full-analysis contract.",
+          502,
+          "INVALID_RESPONSE",
+        );
+      }
+      return parsed.data;
+    } catch (error) {
+      const failure = error instanceof APIError
+        ? error
+        : error instanceof Error && error.name === "AbortError"
+          ? new APIError("Full analysis timed out after 28 seconds.", 408, "UPSTREAM_TIMEOUT")
+          : new APIError(
+              error instanceof Error ? error.message : "Network request failed.",
+              0,
+              "NETWORK_ERROR",
+            );
+      const category = classifyAnalysisError({
+        status: failure.status,
+        code: failure.code,
+        networkError: failure.code === "NETWORK_ERROR",
+      });
+      if (attempt === 0 && isRetryableInfrastructureError(category) && Date.now() < deadline) {
+        lastError = failure;
+        continue;
+      }
+      throw failure;
+    } finally {
+      clearTimeout(timeoutId);
     }
-    throw err;
-  } finally {
-    clearTimeout(timeoutId);
   }
+
+  throw lastError ?? new APIError("Full analysis unavailable.", 503, "UPSTREAM_UNAVAILABLE");
 }
 
 // ---------------------------------------------------------------------------

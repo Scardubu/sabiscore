@@ -64,6 +64,8 @@ coverage/
 docs/Sabi-Engine-Upgrade-docs
 # Vendored upstream reference repo (read-only endpoint intelligence, not a dependency)
 docs/Public-ESPN-API-main/
+# Session directive documents (pasted in chat, not repository content)
+docs/SABISCORE*.txt
 
 # Misc
 *.bak

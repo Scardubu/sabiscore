@@ -318,83 +318,7 @@ export interface RefreshEvidenceResponse {
   refreshed_at: string;
 }
 
-// --- Legacy Full-Analysis Types (backward-compatible, hardened) ---------------
-
-/** Phase 7-D (hardened): now includes NO_BET verdict */
-export interface FullMatchAnalysisResponse {
-  match_id: string;
-  // UPDATED: NO_BET added to verdict union
-  verdict: Verdict;
-  ensemble: {
-    home_win_prob: number;
-    draw_prob: number;
-    away_win_prob: number;
-    prediction: string;
-    confidence: number;
-    league: string;
-    model_version: string;
-    calibration_method?: string;
-    calibration_applied?: boolean;
-    overlay_applied?: boolean;
-    /** HARDENED: false when prediction is unavailable (was missing previously) */
-    probabilities_available?: boolean;
-  };
-  uncertainty: {
-    epistemic_unc: number;
-    aleatoric_unc: number;
-    concentration: number;
-    credible_interval: [number, number];
-    confidence_tier: EvidenceTier;
-  };
-  causal_drivers: string[];
-  rl_recommendation: {
-    stake_fraction: number;
-    abstain: boolean;
-    reason: string | null;
-    reward_components: Record<string, number>;
-  };
-  elo_context: {
-    home_elo: number;
-    away_elo: number;
-    elo_difference: number;
-    home_elo_trend_5: number;
-    away_elo_trend_5: number;
-    elo_momentum_cross: number;
-  };
-  /** HARDENED: now includes expected_value and edge_pct (de-vigged) */
-  odds_edge: {
-    market: string;
-    market_odds: number;
-    model_prob: number;
-    edge: number;          // de-vigged edge
-    kelly_stake: number;
-    edge_pct: number;      // NEW
-    expected_value: number; // NEW
-  } | null;
-  narrative: string;
-  partial_intelligence: boolean;
-  data_gaps: string[];
-  staleness_seconds: number;
-  /** HARDENED: false means staleness is unknown - never renders as LIVE */
-  staleness_available?: boolean;
-  /** HARDENED: "UNKNOWN" is now possible when staleness_available=false */
-  freshness_tag: "LIVE" | "RECENT" | "STALE" | "UNKNOWN";
-  feature_freshness_seconds: Record<string, number | null>;
-  feature_source: Record<string, string>;
-  actionability: {
-    edge_quality_score: number;
-    clv_pct: number | null;
-    closing_line_convergence_delta: number | null;
-    suggested_stake_pct: number;
-    abstain: boolean;
-    abstain_reason: string | null;
-    top_evidence: string[];
-    caveats: string[];
-  } | null;
-  generated_at: string;
-  match_importance_score?: number | null;
-  competition_stage?: string | null;
-}
+export type { FullMatchAnalysisResponse } from "./full-analysis-contract";
 
 // --- API Client Functions -----------------------------------------------------
 
@@ -524,12 +448,5 @@ export async function analyzeFixture(fixtureId: string): Promise<MatchAnalysisRe
   );
 }
 
-/** Legacy full-analysis route (backward-compatible, hardened). */
-export async function getFullAnalysis(
-  matchId: string,
-  league = "EPL",
-): Promise<FullMatchAnalysisResponse> {
-  return apiFetch<FullMatchAnalysisResponse>(
-    `/api/full-analysis/${encodeURIComponent(matchId)}?league=${league}`,
-  );
-}
+/** Backward-compatible re-export of the single validated full-analysis client. */
+export { getFullAnalysis } from "./api";

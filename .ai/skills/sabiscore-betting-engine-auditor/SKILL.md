@@ -53,16 +53,22 @@ fair_market_i   = raw_implied_i / overround
 edge_i          = model_probability_i - fair_market_i
 expected_value_i = model_probability_i * odds_i - 1
 full_kelly_i    = max(0, expected_value_i / (odds_i - 1))
-stake_i         = min(full_kelly_i * KELLY_FRACTION, MAX_KELLY_CAP)
+effective_cap_i = min(LeaguePolicy(competition).kelly_cap, GLOBAL_KELLY_CEILING)
+stake_i         = min(full_kelly_i * KELLY_FRACTION, effective_cap_i)
 ```
 
 Constants must match:
 ```python
 MIN_ACTIONABLE_EDGE = 0.042
-KELLY_FRACTION      = 0.125
-MAX_KELLY_CAP       = 0.025
+KELLY_FRACTION      = 0.25
+GLOBAL_KELLY_CEILING = 0.05
 SPECULATIVE_CAP     = 0.0025
 ```
+
+Current league caps are 0.04 for EPL, La Liga, Bundesliga, Serie A, and
+Ligue 1; 0.025 for pending-calibration Eredivisie; and 0.02 for UCL. Never
+replace the league policy with a frontend constant or expose a cap above the
+0.05 global ceiling.
 
 ### Verdict Invariants
 

@@ -15,6 +15,7 @@ export enum FeatureFlag {
   ASSET_AUDIT_V2 = "ASSET_AUDIT_V2",
   FULL_ANALYSIS_V7 = "FULL_ANALYSIS_V7",
   UPCOMING_PANEL = "UPCOMING_PANEL",
+  PHASE8_ANALYTICS = "PHASE8_ANALYTICS",
 }
 
 const LOCAL_STORAGE_KEY = "sabiscore.featureFlags";
@@ -25,6 +26,7 @@ export const FEATURE_FLAG_DEFAULTS: Record<FeatureFlag, boolean> = {
   [FeatureFlag.ASSET_AUDIT_V2]: false,
   [FeatureFlag.FULL_ANALYSIS_V7]: true,
   [FeatureFlag.UPCOMING_PANEL]: true,
+  [FeatureFlag.PHASE8_ANALYTICS]: false,
 };
 
 type FeatureFlagState = Record<FeatureFlag, boolean>;

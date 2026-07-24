@@ -4,6 +4,10 @@ import { FullAnalysisSection } from "@/components/full-analysis-section";
 import { Phase8AnalyticsSection } from "@/components/phase8-analytics-section";
 import { InsightsErrorState } from "@/components/insights-error-state";
 import { getMatchInsights, APIError } from "@/lib/api";
+import {
+  classifyAnalysisError,
+  type AnalysisErrorCategory,
+} from "@/lib/full-analysis-contract";
 
 // Force fully-dynamic rendering: each request fetches live data.
 // Removing revalidate + fetchCache = "force-no-store" eliminates the ISR
@@ -59,12 +63,12 @@ export default async function MatchInsightsPage({ params, searchParams }: PagePr
   const matchup = decodeURIComponent(id);
 
   // ── Fetch insights ─────────────────────────────────────────────────────────
-  // Handle ALL backend errors inline rather than throwing to error.tsx.
+  // Handle backend errors inline rather than throwing to error.tsx.
   // In Next.js 15 production mode, error.tsx receives a sanitised error object
   // (message is stripped, digest is an opaque hash), so the error page cannot
   // distinguish timeout from server-error from unknown. Rendering inline lets
-  // us show the correct copy and auto-retry logic for each error class.
-  let errorType: "timeout" | "server" | "unknown" | null = null;
+  // us show the correct copy for each explicit error class.
+  let errorType: AnalysisErrorCategory | null = null;
 
   try {
     const insights = await getMatchInsights(matchup, league);
@@ -87,28 +91,15 @@ export default async function MatchInsightsPage({ params, searchParams }: PagePr
         notFound();
       }
 
-      // Treat any 5xx as "warming up" — on Render free tier, every 5xx
-      // during the cold-start window should trigger the warm-up UI.
-      const isTimeout =
-        (error.status !== undefined && error.status >= 500) ||
-        error.status === 408 ||
-        error.code === "TIMEOUT" ||
-        error.code === "FULL_ANALYSIS_TIMEOUT" ||
-        error.code === "COLD_START" ||
-        error.code === "MAX_RETRIES_EXCEEDED";
-
-      errorType = isTimeout ? "timeout" : "unknown";
+      // Preserve status and code: HTTP 500 remains an internal error, while
+      // only explicit/recognized wake-up failures receive cold-start copy.
+      errorType = classifyAnalysisError({
+        status: error.status,
+        code: error.code,
+      });
     } else if (error instanceof Error) {
-      const msg = error.message.toLowerCase();
-      // Non-APIError (network/parse failures) during cold-start → warm-up UI
-      errorType =
-        msg.includes("timeout") ||
-        msg.includes("warming") ||
-        msg.includes("abort") ||
-        msg.includes("network") ||
-        msg.includes("fetch")
-          ? "timeout"
-          : "unknown";
+      // A generic network failure is unavailable, not proof of a cold start.
+      errorType = classifyAnalysisError({ networkError: true });
     } else {
       errorType = "unknown";
     }

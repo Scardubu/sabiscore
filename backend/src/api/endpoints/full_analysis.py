@@ -31,10 +31,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...core.cache import cache
 from ...core.config import settings
+from ...core.league_policy import LeaguePolicyUnavailableError, get_league_policy
 from ...data.elo_engine import EloContext
 from ...db.session import get_async_session
 from ...models.causal_selector import CausalFeatureResult
 from ...models.feature_registry import active_canonical_features
+from ...schemas.full_analysis import (
+    FullMatchAnalysisResponseSchema,
+    PredictionSource,
+    PredictionStatus,
+)
 from ...services.intelligence_synthesizer import (
     EnsemblePrediction,
     FullMatchAnalysisResponse,
@@ -52,13 +58,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/matches", tags=["intelligence"])
 
 _CACHE_TTL_SECONDS = 60
+_GLOBAL_KELLY_CAP = 0.05
+_QUARTER_KELLY = 0.25
 
 
 def _default_live_vector(
     league: str,
     canonical_features: List[str],
 ) -> Dict[str, Any]:
-    """Return a zero-filled live payload with all canonical features marked as data gaps."""
+    """Return an explicitly non-actionable diagnostic vector after projection failure."""
     features = np.zeros(len(canonical_features), dtype=np.float32)
     features_dict = {f: 0.0 for f in canonical_features}
     return {
@@ -71,7 +79,27 @@ def _default_live_vector(
         "elo_pre_match": 0.0,
         "league": league,
         "odds": None,
+        "fixture_identity_verified": False,
+        "is_reduced_evidence_baseline": True,
+        "data_quality": {
+            "historical_data_ratio": 0.0,
+            "defaults_used_count": len(canonical_features),
+            "is_synthetic": True,
+        },
     }
+
+
+def _effective_kelly_cap(league: str) -> tuple[float, Optional[str], int]:
+    """Resolve the league cap and freshness limit without a global fallback."""
+    try:
+        policy = get_league_policy(league)
+    except LeaguePolicyUnavailableError:
+        return 0.0, "LEAGUE_POLICY_UNAVAILABLE", 0
+    return (
+        min(float(policy.kelly_cap), _GLOBAL_KELLY_CAP),
+        None,
+        int(policy.model_feature_freshness_ttl_seconds),
+    )
 
 
 def _empty_ensemble(league: str) -> EnsemblePrediction:
@@ -181,6 +209,7 @@ def _causal_results_from_report(
 def _rl_from_ensemble(
     ensemble: EnsemblePrediction,
     odds: Optional[Dict[str, float]] = None,
+    effective_kelly_cap: float = 0.0,
 ) -> RLRecommendationPayload:
     probs = {
         "home_win": ensemble.home_win_prob,
@@ -194,12 +223,22 @@ def _rl_from_ensemble(
             reward_components={"R_pnl": 0.0, "R_ic": 0.0, "R_cal": 0.0, "R_risk": 0.0, "R_abs": 0.05},
             reason="Abstained: market odds unavailable",
         )
-    agent = RLBettingAgent()
-    return agent.recommend(
+    agent = RLBettingAgent(max_kelly_cap=effective_kelly_cap)
+    recommendation = agent.recommend(
         probabilities=probs,
         odds=odds,
         confidence=ensemble.confidence,
         epistemic_unc=0.12,
+    )
+    public_stake = 0.0 if recommendation.abstain else min(
+        recommendation.stake_fraction * _QUARTER_KELLY,
+        effective_kelly_cap,
+    )
+    return RLRecommendationPayload(
+        stake_fraction=public_stake,
+        abstain=recommendation.abstain,
+        reward_components=dict(recommendation.reward_components),
+        reason=recommendation.reason,
     )
 
 
@@ -217,6 +256,7 @@ def _elo_from_features(features: Dict[str, Any]) -> EloContext:
 def _odds_edge_from_features(
     ensemble: EnsemblePrediction,
     odds: Optional[Dict[str, float]],
+    effective_kelly_cap: float = 0.0,
 ) -> Optional[OddsEdge]:
     if odds is None:
         return None
@@ -255,14 +295,12 @@ def _odds_edge_from_features(
         return None
 
     market, market_odds, model_prob, edge, kelly = best
-    from ...core.config import settings
-
     return OddsEdge(
         market=market,
         market_odds=market_odds,
         model_prob=model_prob,
         edge=edge,
-        kelly_stake=min(kelly, settings.rl_max_kelly_cap),
+        kelly_stake=min(kelly * _QUARTER_KELLY, effective_kelly_cap),
     )
 
 
@@ -409,7 +447,7 @@ def _build_actionability(
 @router.get(
     "/upcoming/{match_id}/full-analysis",
     summary="Unified 6-layer match intelligence",
-    response_model=None,
+    response_model=FullMatchAnalysisResponseSchema,
 )
 async def get_full_analysis(
     match_id: str,
@@ -424,7 +462,7 @@ async def get_full_analysis(
       are built without requiring a DB match record (P7-E live data wiring).
     """
 
-    cache_key = f"full_analysis:{match_id}:{league}"
+    cache_key = f"full_analysis:v2:{match_id}:{league}"
     cached = cache.get(cache_key) if cache else None
     if cached:
         try:
@@ -473,6 +511,29 @@ async def get_full_analysis(
 
     league = str(live.get("league", league) or league)
     data_gaps: List[str] = list(live.get("data_gaps", []))
+    critical_gaps: List[str] = list(live.get("critical_gaps", []))
+    advisory_gaps: List[str] = list(live.get("advisory_gaps", []))
+    conflicts: List[str] = list(live.get("conflicts", []))
+    effective_kelly_cap, policy_gap, model_freshness_limit = _effective_kelly_cap(league)
+    if policy_gap:
+        critical_gaps.append(policy_gap)
+    if not bool(live.get("fixture_identity_verified", not _is_matchup)):
+        critical_gaps.append("FIXTURE_IDENTITY_UNVERIFIED")
+    data_quality = dict(live.get("data_quality") or {})
+    reduced_evidence_input = bool(live.get("is_reduced_evidence_baseline", False))
+    if data_quality.get("is_synthetic"):
+        reduced_evidence_input = True
+        critical_gaps.append("REQUIRED_MODEL_INPUTS_UNAVAILABLE")
+    staleness_available = bool(
+        live.get("staleness_available", "staleness_seconds" in live)
+    )
+    staleness_seconds = int(live.get("staleness_seconds", 0))
+    if (
+        staleness_available
+        and model_freshness_limit > 0
+        and staleness_seconds > model_freshness_limit
+    ):
+        critical_gaps.append("STALE_REQUIRED_EVIDENCE")
 
     # Layer 1: Ensemble prediction (Phase 8 canonical path — full feature vector)
     try:
@@ -494,9 +555,17 @@ async def get_full_analysis(
         raw_pred = {}
 
     ensemble = _ensemble_from_prediction(raw_pred, league)
+    prediction_status = PredictionStatus.AVAILABLE
+    prediction_source = PredictionSource.CERTIFIED_MODEL
     if ensemble is None:
-        data_gaps.append("ensemble_prediction")
+        critical_gaps.append("MODEL_PREDICTION_UNAVAILABLE")
         ensemble = _empty_ensemble(league)
+        prediction_status = PredictionStatus.UNAVAILABLE
+        prediction_source = PredictionSource.NONE
+    elif str(raw_pred.get("model_version", "")).casefold() == "fallback" or reduced_evidence_input:
+        critical_gaps.append("MODEL_PREDICTION_REDUCED_EVIDENCE")
+        prediction_status = PredictionStatus.REDUCED_EVIDENCE_BASELINE
+        prediction_source = PredictionSource.DIAGNOSTIC_BASELINE
     features_dict = live.get("features_dict", {})
 
     # Layer 2: BNN uncertainty
@@ -509,7 +578,11 @@ async def get_full_analysis(
 
     # Layer 4: RL recommendation
     market_odds: Optional[Dict[str, float]] = live.get("odds") or None
-    rl_rec = _rl_from_ensemble(ensemble, odds=market_odds)
+    rl_rec = _rl_from_ensemble(
+        ensemble,
+        odds=market_odds,
+        effective_kelly_cap=effective_kelly_cap,
+    )
 
     # Layer 5: Elo context
     elo_ctx = _elo_from_features(features_dict)
@@ -517,7 +590,28 @@ async def get_full_analysis(
         data_gaps.append("elo_ratings")
 
     # Layer 6: Odds edge (optional)
-    odds_edge = _odds_edge_from_features(ensemble, market_odds)
+    odds_edge = _odds_edge_from_features(
+        ensemble,
+        market_odds,
+        effective_kelly_cap=effective_kelly_cap,
+    )
+    if odds_edge is None:
+        critical_gaps.append("COHERENT_1X2_MARKET_UNAVAILABLE")
+
+    if prediction_status != PredictionStatus.AVAILABLE or critical_gaps or conflicts:
+        rl_rec = RLRecommendationPayload(
+            stake_fraction=0.0,
+            abstain=True,
+            reward_components={
+                "R_pnl": 0.0,
+                "R_ic": 0.0,
+                "R_cal": 0.0,
+                "R_risk": 0.0,
+                "R_abs": 0.05,
+            },
+            reason="Abstained: insufficient verified evidence",
+        )
+        odds_edge = None
 
     # Advisory actionability block (Sprint 4 Slice A)
     deduped_gaps = sorted(set(data_gaps))
@@ -542,9 +636,15 @@ async def get_full_analysis(
         elo_ctx=elo_ctx,
         odds_edge=odds_edge,
         data_gaps=deduped_gaps,
+        critical_gaps=critical_gaps,
+        advisory_gaps=advisory_gaps,
+        conflicts=conflicts,
+        prediction_status=prediction_status.value,
+        prediction_source=prediction_source.value,
+        effective_kelly_cap=effective_kelly_cap,
         actionability=actionability,
-        staleness_seconds=int(live.get("staleness_seconds", 0)),
-        staleness_available=bool(live.get("staleness_available", "staleness_seconds" in live)),
+        staleness_seconds=staleness_seconds,
+        staleness_available=staleness_available,
         feature_freshness_seconds=dict(live.get("feature_freshness_seconds") or {}),
         feature_source=dict(live.get("feature_source") or {}),
         features_dict=features_dict,
