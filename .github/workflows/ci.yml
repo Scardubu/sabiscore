@@ -155,13 +155,19 @@ jobs:
         run: |
           # "guaranteed" in negation is REQUIRED responsible-gambling copy — filter it out.
           # "lock" in camelCase identifiers/imports is a UI utility — filter those too.
+          # Exclude *.test.*/*.spec.* — the copy-contract test file holds the prohibited
+          # terms as a regex literal (its own Vitest scan already excludes test files).
           hits=$(grep -rPn --include="*.tsx" --include="*.ts" \
+            --exclude="*.test.ts" --exclude="*.test.tsx" \
+            --exclude="*.spec.ts" --exclude="*.spec.tsx" \
             '\bbanker\b|sure\s+bet|free\s+money|execute\s+immediately|\block\b' \
             apps/web/src/ 2>/dev/null \
             | grep -Pv ':\s*(import|//|\*)' \
             | grep -Pv '[Ll]ock[A-Z]|[A-Z][a-z]*Lock\b|use-scroll' \
             || true)
           guaranteed_hits=$(grep -rPn --include="*.tsx" --include="*.ts" \
+            --exclude="*.test.ts" --exclude="*.test.tsx" \
+            --exclude="*.spec.ts" --exclude="*.spec.tsx" \
             '\bguaranteed\b' apps/web/src/ 2>/dev/null \
             | grep -Pv ':\s*(import|//|\*)' \
             | grep -Piv '(?:not|no|never)\s+(?:\w+\s+)?(?:is\s+)?(?:a\s+)?guaranteed|as guaranteed' \

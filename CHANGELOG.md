@@ -7,6 +7,57 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ---
 
+## vΩ.21 — Full-analysis contract null-parse fix, CI copy-scan fix (2026-07-24)
+
+### Fixed
+
+- **`/match/[id]` "The backend returned an invalid full-analysis contract" — root cause.**
+  `apps/web/src/lib/full-analysis-contract.ts` typed `phase9_shadow_only:
+  z.boolean().optional()`, which accepts `undefined` but rejects `null`. The
+  backend (`backend/src/schemas/full_analysis.py`) declares
+  `phase9_shadow_only: Optional[bool] = None` and returns `null` whenever phase9
+  is inactive — the production default. So a perfectly valid off-season baseline
+  (`REDUCED_EVIDENCE_BASELINE`, `stake_permitted: false`, well-formed gaps) failed
+  the entire Zod parse and rendered the generic contract-error card. Changed to
+  `z.boolean().nullable().optional()`, matching the sibling
+  `phase9_candidate_features` which was already `.nullable().optional()`.
+  **This was a HEAD bug affecting every analysis while phase9 is off, not only the
+  off-season.**
+- **Diagnosis was live-first.** The reporting screenshot was on preview
+  `web-g17zhf2p5`, which `/api/health` confirmed was at HEAD `25bafbe` (not
+  stale). The backend returned HTTP 200 valid JSON; running the real schema
+  against the captured live response isolated exactly one failing path —
+  `[phase9_shadow_only] Expected boolean, received null`.
+- **CI copy-scan self-match.** `.github/workflows/ci.yml`'s "Responsible gambling
+  copy scan" grep now excludes `*.test.*`/`*.spec.*`. It previously flagged
+  `copy-contract.test.ts`'s own regex literal (the Vitest scan already excludes
+  test files) — a latent `web-quality` job failure that would have fired the
+  moment the GitHub Actions billing lock clears.
+
+### Added
+
+- Regression test in `full-analysis-contract.test.ts` — "accepts null phase9
+  fields from an inactive-phase9 baseline response". The prior 11 tests passed
+  only because the fixture omitted the field (→ `undefined`); none sent `null`.
+
+### Deferred (not changed)
+
+- `render.yaml` `CORS_ORIGIN_REGEX` still matches the deleted `sabiscore*` project
+  prefix rather than the sole `web*` project. Moot for production (all
+  browser→backend traffic is same-origin proxied; no direct-to-backend fetch is
+  mounted). Fix only when a browser-side direct fetch is activated.
+
+### Verification
+
+- Web vitest 47/47 (was 46 + 1 new regression), typecheck clean, lint 0.
+- Live re-parse of the off-season `Arsenal vs Aston Villa` backend response →
+  schema parse OK. Backend gates unchanged and green (`make verify-core` 6/6;
+  full backend suite 962 passed, 13 skipped). GitHub Actions still billing-locked
+  (verified via public REST API — keepalive run `30118559412`: `runner_name: ""`,
+  0 steps, ~2 s failure).
+
+---
+
 ## vΩ.20 — Production cutover verified, legacy decommission, keepalive (2026-07-24)
 
 ### Delivery

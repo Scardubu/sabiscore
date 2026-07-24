@@ -159,7 +159,11 @@ export const fullMatchAnalysisSchema = z
     competition_stage: z.string().nullable().optional(),
     generated_at: z.string().datetime({ offset: true }),
     phase9_candidate_features: phase9CandidateSchema.nullable().optional(),
-    phase9_shadow_only: z.boolean().optional(),
+    // Backend declares Optional[bool] = None (schemas/full_analysis.py): null when
+    // phase9 is inactive, which is the production default. Must mirror the sibling
+    // phase9_candidate_features nullability — .optional() alone rejects null and
+    // fails the whole parse ("invalid full-analysis contract" on every baseline).
+    phase9_shadow_only: z.boolean().nullable().optional(),
   })
   .superRefine((value, ctx) => {
     if (JSON.stringify(value.data_gaps) !== JSON.stringify(value.evidence_quality.all_gaps)) {

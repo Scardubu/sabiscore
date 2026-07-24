@@ -201,6 +201,34 @@ describe("full-analysis Zod contract and presentation", () => {
     expect(view.stakePermitted).toBe(false);
   });
 
+  it("accepts null phase9 fields from an inactive-phase9 baseline response", () => {
+    // Regression: the live backend returns phase9_shadow_only: null (Optional[bool]
+    // = None) whenever phase9 is off — the production default. The schema previously
+    // typed it .optional() (undefined only), so every real baseline failed to parse
+    // and rendered "invalid full-analysis contract". The fixture omits the field, so
+    // only an explicit null exercises this path.
+    const evidence = blockedEvidence("critical");
+    const result = fullMatchAnalysisSchema.safeParse({
+      ...payload(),
+      verdict: "PARTIAL",
+      prediction_status: "REDUCED_EVIDENCE_BASELINE",
+      prediction_source: "DIAGNOSTIC_BASELINE",
+      probabilities_available: false,
+      is_reduced_evidence_baseline: true,
+      partial_intelligence: true,
+      stake_permitted: false,
+      evidence_quality: evidence,
+      data_gaps: evidence.all_gaps,
+      ensemble: { ...payload().ensemble, probabilities_available: false },
+      rl_recommendation: { stake_fraction: 0, abstain: true, reason: "No bet", reward_components: {} },
+      odds_edge: null,
+      actionability: null,
+      phase9_shadow_only: null,
+      phase9_candidate_features: null,
+    });
+    expect(result.success).toBe(true);
+  });
+
   it("rejects a non-simplex available prediction", () => {
     const valid = payload();
     const result = fullMatchAnalysisSchema.safeParse({

@@ -311,6 +311,32 @@ run the full release matrix before tagging the release.
 3. Roll back database schema only with reviewed Alembic downgrade or forward-fix migration.
 4. Re-run `python -m src.cli providers doctor` and `make verify` before restoring traffic.
 
+## vΩ.21 Changes (2026-07-24)
+
+- **Full-analysis contract null-parse fix (the real `/match` error).** The web
+  match page showed "We hit a snag" + "Intelligence unavailable — The backend
+  returned an invalid full-analysis contract" for hand-typed off-season matchups.
+  Live-first diagnosis proved this was **not** a stale deployment (the preview was
+  at HEAD `25bafbe`) and **not** a backend fault (HTTP 200, well-formed
+  `REDUCED_EVIDENCE_BASELINE` contract). The frontend Zod schema
+  (`apps/web/src/lib/full-analysis-contract.ts`) typed `phase9_shadow_only` as
+  `.optional()` (rejects `null`), while the backend legitimately returns `null`
+  for that field whenever phase9 is inactive — the production default. One field's
+  `null` failed the whole parse. Fixed to `.nullable().optional()` to match the
+  backend's `Optional[bool] = None` and the already-correct sibling
+  `phase9_candidate_features`. Regression test added; web vitest 47/47, typecheck
+  and lint clean; the captured live response now parses cleanly. This affected
+  every analysis while phase9 is off, not only the off-season break.
+- **CI copy-scan self-match fixed.** `.github/workflows/ci.yml`'s responsible
+  gambling copy scan now excludes `*.test.*`/`*.spec.*` files, so it no longer
+  flags `copy-contract.test.ts`'s own prohibited-term regex literal — a latent
+  `web-quality` failure that would fire once the Actions billing lock clears.
+- **CORS regex staleness noted, not changed.** `render.yaml` `CORS_ORIGIN_REGEX`
+  still targets the deleted `sabiscore*` project prefix. It is moot for production
+  (same-origin proxying; no browser-side direct-to-backend fetch is mounted) and
+  was deliberately left alone; fix it to a `web*` pattern only when such a fetch is
+  activated.
+
 ## vΩ.20 Changes (2026-07-24)
 
 - **Production cutover verified.** A fresh Vercel production deploy of `master`
