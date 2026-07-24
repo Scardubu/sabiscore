@@ -69,5 +69,8 @@
       "destination": "/api/health",
       "permanent": false
     }
+  ],
+  "crons": [
+    { "path": "/api/cron/ping-backend", "schedule": "*/10 * * * *" }
   ]
 }

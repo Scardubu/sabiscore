@@ -7,6 +7,19 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ---
 
+## vΩ.19 — Vercel keepalive cron registered (2026-07-24)
+
+### Infrastructure
+
+- Added `"crons": [{ "path": "/api/cron/ping-backend", "schedule": "*/10 * * * *" }]`
+  to `vercel.json`. The route handler at `apps/web/src/app/api/cron/ping-backend/route.ts`
+  (Edge runtime, 30 s AbortController timeout, GETs `BACKEND_URL/health/ready`) was
+  already implemented but not wired to Vercel's scheduler. Cron prevents Render's
+  15-minute free-tier cold-start spindown. Operator action required: set `BACKEND_URL`
+  (server-side, never `NEXT_PUBLIC_`) in Vercel project dashboard.
+
+---
+
 ## vΩ.18 — Full-analysis production integrity (2026-07-20)
 
 ### Evidence and staking contract

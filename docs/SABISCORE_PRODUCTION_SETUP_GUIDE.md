@@ -311,6 +311,25 @@ run the full release matrix before tagging the release.
 3. Roll back database schema only with reviewed Alembic downgrade or forward-fix migration.
 4. Re-run `python -m src.cli providers doctor` and `make verify` before restoring traffic.
 
+## vΩ.19 Changes (2026-07-24)
+
+- **Vercel keepalive cron registered.** `vercel.json` now declares
+  `"crons": [{ "path": "/api/cron/ping-backend", "schedule": "*/10 * * * *" }]`.
+  The route handler (`apps/web/src/app/api/cron/ping-backend/route.ts`, Edge
+  runtime, 30 s timeout, GETs `BACKEND_URL/health/ready`) already existed; only
+  the scheduler registration was missing. This keeps the Render free-tier
+  backend warm, eliminating the 15-minute cold-start spindown that surfaces on
+  first request as the "Engine Warming Up" retry state. **Operator action:** set
+  `BACKEND_URL=https://sabiscore-api-bav1.onrender.com` (server-side, never
+  `NEXT_PUBLIC_`) in the Vercel dashboard — distinct from `SABISCORE_BACKEND_URL`
+  used by the proxy routes.
+- **No UI/backend code change.** A live-first diagnostic (2026-07-24) confirmed
+  the reported "errors" were a stale Vercel deployment (`web-15ykeatxv-…`,
+  predating vΩ.17/vΩ.18) plus correct off-season fail-closed states
+  (`offseason: true`, `total: 0`, `next_season_start: 2026-08-08`). Live backend
+  `status: ok`, all four readiness checks ready. The loading screen (vΩ.14) and
+  compact no-loop error state (vΩ.18) are already the fixed versions on `master`.
+
 ## vΩ.17 Changes (2026-07-20)
 
 - **Readiness is infrastructure-backed.** The web `/api/health` route accepts the
