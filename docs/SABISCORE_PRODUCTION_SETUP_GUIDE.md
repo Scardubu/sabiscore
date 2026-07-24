@@ -311,6 +311,38 @@ run the full release matrix before tagging the release.
 3. Roll back database schema only with reviewed Alembic downgrade or forward-fix migration.
 4. Re-run `python -m src.cli providers doctor` and `make verify` before restoring traffic.
 
+## vΩ.22 Changes (2026-07-25)
+
+- **Insights panel timestamp coherence.** `apps/web/src/components/insights-display.tsx`
+  formatted its two "Generated" timestamps with bare browser-local
+  `toLocaleString()` — no timezone, no semantic markup — while the canonical
+  full-analysis footer already used `<time dateTime=…>` + an Africa/Lagos (WAT)
+  absolute. Both insights sites now reuse the exported `formatLagosTimestamp()`
+  and render `<time dateTime={…}>… WAT</time>`. This closes the one live
+  cross-surface timestamp drift on `/match/[id]`; it adds no helper and no
+  dependency.
+- **Production-finalization re-verification (no code change beyond the above).**
+  The CODEX finalization directive's 14 defect hypotheses were re-checked against
+  HEAD; 13 were already implemented in vΩ.17/vΩ.18 and were **not** re-built.
+  Two hypotheses were verified as *incorrect for this codebase* and deliberately
+  left unchanged:
+  - The Phase-7 insights `confidence` field is the model's confidence scalar (or a
+    `0.50` baseline sentinel), **not** max-class-probability
+    (`backend/src/insights/engine.py` `_forecast_match_outcome`). Relabelling it
+    "Top probability" would have been a regression. The screenshots' 33.4%
+    "confidence" came from the full-analysis fallback `max(h,d,a)`, already
+    relabelled "Top outcome probability" in vΩ.18. Off-season the insights
+    endpoint returns HTTP 422 (zero-fab guard), so the confident tile is not
+    rendered at all.
+  - `MAX_KELLY = 0.025` does not exist in `apps/web`. The RL gauge scales to
+    `0.05` (`settings.rl_max_kelly_cap`, distinct from the value-bet league caps)
+    and the canonical Kelly gauge reads the backend `effectiveKellyCap`.
+- **Validation.** Web lint 0, typecheck 0, Vitest 47/47, responsible-gambling
+  copy scan 0 hits, `NODE_ENV=production` build ✓. Backend untouched (ruff 0,
+  pytest 962/962, gitleaks clean earlier the same cycle). Live probes: backend
+  `/health/ready` `status: ok`; `/api/v1/upcoming/matches` `offseason: true`,
+  `total: 0`, `next_season_start: 2026-08-08`.
+
 ## vΩ.21 Changes (2026-07-24)
 
 - **Full-analysis contract null-parse fix (the real `/match` error).** The web

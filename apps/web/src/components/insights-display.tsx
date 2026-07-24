@@ -21,6 +21,7 @@ import {
 } from "@/lib/interstitial-storage";
 import { FeatureFlag, useFeatureFlag } from "@/lib/feature-flags";
 import { cn } from "@/lib/utils";
+import { formatLagosTimestamp } from "@/lib/full-analysis-contract";
 import { UncertaintyDisplay } from "./uncertainty-display";
 import { CausalInsights } from "./causal-insights";
 import { BettingAgentPanel } from "./betting-agent-panel";
@@ -442,7 +443,9 @@ function InsightsDisplayInner({ insights }: InsightsDisplayProps) {
           <div className="rounded-lg border border-slate-800/50 bg-slate-900/50 p-3">
             <p className="text-xs uppercase tracking-wide text-slate-500">Generated</p>
             <p className="text-slate-100 font-semibold">
-              {current.generated_at ? new Date(current.generated_at).toLocaleString() : "--"}
+              {current.generated_at ? (
+                <time dateTime={current.generated_at}>{formatLagosTimestamp(current.generated_at)} WAT</time>
+              ) : "--"}
             </p>
             {source.retrieved_at && (
               <p className="text-xs text-slate-500">Fetched {new Date(source.retrieved_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
@@ -659,7 +662,7 @@ function InsightsDisplayInner({ insights }: InsightsDisplayProps) {
         <p className="text-slate-300 leading-relaxed">{insights.narrative}</p>
         
         <div className="pt-4 border-t border-slate-800/50 text-xs text-slate-500">
-          Generated at {new Date(insights.generated_at).toLocaleString()}
+          Generated <time dateTime={insights.generated_at}>{formatLagosTimestamp(insights.generated_at)} WAT</time>
         </div>
       </div>
 

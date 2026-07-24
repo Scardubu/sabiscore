@@ -7,6 +7,58 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ---
 
+## vΩ.22 — Insights timestamp coherence; production finalization re-verification (2026-07-25)
+
+### Fixed
+
+- **`insights-display.tsx` "Generated" timestamps aligned to the canonical WAT +
+  `<time>` idiom.** The Phase-7 `InsightsDisplay` panel (which renders directly
+  above the vΩ.18-hardened `FullAnalysisSection` on `/match/[id]`) formatted its
+  two "Generated" timestamps with bare browser-local `new Date(...).toLocaleString()`
+  — no timezone label, no semantic markup — while the canonical
+  `full-analysis-dashboard.tsx` footer uses `<time dateTime=…>` + an
+  Africa/Lagos (WAT) absolute. This was the one live cross-surface drift matching
+  the finalization directive's timestamp-clarity item. Both sites now reuse the
+  already-exported `formatLagosTimestamp()` and render
+  `<time dateTime={…}>… WAT</time>`. No new helper, no new dependency; a11y +
+  timezone ambiguity resolved on a second surface.
+
+### Verified (no change — trap avoided)
+
+- **Section-10 defect hypotheses from the CODEX finalization directive were
+  re-verified against HEAD; 13 of 14 were already implemented** in vΩ.17/vΩ.18
+  (baseline-as-prediction, zero-fill safety, critical/advisory gap normalization,
+  decision vocabulary, "Top outcome probability" labelling, warm-up error taxonomy,
+  timeout budget, health/freshness coherence, single canonical
+  `FullMatchAnalysisResponse` Zod contract, gated `VictorySparkle`, compact Phase 8
+  notice). No re-implementation performed.
+- **Did NOT relabel the Phase-7 "Confidence" stat to "Top probability."** The
+  directive hypothesised it was max-class-probability mislabelled. Verified in
+  `backend/src/insights/engine.py`: the insights `confidence` is the model's
+  confidence scalar (`_forecast_match_outcome`, model path) or a `0.50` baseline
+  sentinel (`is_baseline: True`) — **not** `max(probs)`. Relabelling it would have
+  introduced a *new* mislabelling. The 33.4% "confidence" in the referenced
+  screenshots came from the full-analysis fallback `confidence=max(h,d,a)`
+  (`full_analysis.py:147`), which vΩ.18 already relabelled "Top outcome
+  probability". Off-season, `getMatchInsights` returns HTTP 422 (zero-fab guard),
+  so `InsightsDisplay` is not even rendered — the page shows `InsightsErrorState`.
+- **`MAX_KELLY = 0.025` does not exist** in `apps/web`. The `betting-agent-panel`
+  gauge scales to `0.05` (`settings.rl_max_kelly_cap`, the RL agent's global
+  ceiling — a distinct control from the value-bet league caps) and the canonical
+  Kelly gauge reads the backend `effectiveKellyCap`. No frontend Kelly hardcode
+  conflicts with backend policy.
+
+### Validation
+
+- Web lint 0, typecheck 0, Vitest 47/47, responsible-gambling copy scan 0 hits,
+  `NODE_ENV=production` build ✓. Backend untouched (ruff 0, pytest 962/962, and
+  gitleaks all green earlier the same cycle). Live probes: backend `/health/ready`
+  `status: ok` (all four checks ready, `v5_phase7`, 18 artifacts);
+  `/api/v1/upcoming/matches` `offseason: true`, `total: 0`,
+  `next_season_start: 2026-08-08` (correct fail-closed).
+
+---
+
 ## vΩ.21 — Full-analysis contract null-parse fix, CI copy-scan fix (2026-07-24)
 
 ### Fixed
