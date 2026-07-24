@@ -1,0 +1,26 @@
+name: Backend keepalive
+
+# Render free tier spins the backend down after 15 minutes of inactivity.
+# Vercel Hobby caps crons at once per day, so this workflow is the production
+# warm-up path: ping /health/ready every 10 minutes. Free on public repos.
+# GitHub pauses schedules after 60 days without repo activity — a manual
+# workflow_dispatch run (or any push) resumes it.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping Render backend readiness
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 90 \
+            https://sabiscore-api-bav1.onrender.com/health/ready)
+          echo "GET /health/ready -> HTTP $code"
+          test "$code" = "200"

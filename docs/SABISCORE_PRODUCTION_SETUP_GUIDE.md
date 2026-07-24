@@ -1,6 +1,6 @@
 ﻿# SabiScore Production Setup Guide
 
-Last updated: 2026-07-20
+Last updated: 2026-07-24
 
 This is the authoritative setup and deployment guide for the finalized production shape.
 
@@ -311,6 +311,46 @@ run the full release matrix before tagging the release.
 3. Roll back database schema only with reviewed Alembic downgrade or forward-fix migration.
 4. Re-run `python -m src.cli providers doctor` and `make verify` before restoring traffic.
 
+## vΩ.20 Changes (2026-07-24)
+
+- **Production cutover verified.** A fresh Vercel production deploy of `master`
+  (`web-7zrnnpsbk`, aliased `https://web-lac-theta-42.vercel.app`) is live and
+  supersedes the stale `web-15ykeatxv` snapshot behind the vΩ.19 screenshots.
+  Live `/api/health` returns `"sha": "fd4949e"` (the deploy-parity stamp works),
+  `backendStatus: ok`, and all four readiness checks ready. Stale-deployment
+  bugs are now diagnosable in a single `/api/health` probe.
+- **Legacy Vercel projects decommissioned.** `sabiscore` (the pre-vΩ.8
+  `sabiscore-d37gxx4gs` UI) and `sabiscore-web` were permanently deleted via
+  `vercel project rm`. `web` is the sole remaining Vercel project.
+- **Keepalive moved to GitHub Actions.** Vercel Hobby rejects sub-daily crons at
+  deploy time, so the vΩ.19 `*/10 * * * *` schedule **blocked every production
+  deploy**. `vercel.json` is now `0 9 * * *` (daily), and the real 10-minute
+  warm-up path is `.github/workflows/keepalive.yml` — a scheduled GitHub Actions
+  job that curls `https://sabiscore-api-bav1.onrender.com/health/ready` every
+  10 minutes (free on the public repo, with a `workflow_dispatch` fallback and a
+  `test "$code" = "200"` assertion). This removes the earlier "set up an external
+  pinger" operator action. Note: GitHub pauses schedules after 60 days of repo
+  inactivity; any push or a manual dispatch resumes it.
+- **CORS regex wired + production origins.** `backend/src/api/middleware.py` now
+  passes `allow_origin_regex=settings.cors_origin_regex or None` to
+  `CORSMiddleware`; the `CORS_ORIGIN_REGEX` value was configured but never
+  applied, so Vercel preview URLs failed CORS. `render.yaml` `CORS_ORIGINS` adds
+  `https://sabiscore.com` and `https://web-lac-theta-42.vercel.app`.
+- **Reloading results page — manual retry only.** `insights-error-state.tsx`
+  dropped its dead auto-reload countdown (`MAX_AUTO_RELOADS = 0` since vΩ.18 made
+  it unreachable). The card no longer flashes a contradictory "Auto-retrying…" →
+  "Auto-retry paused" sequence; recovery is an explicit "Retry now" button.
+- **Loading screen sizing.** `match-loading-experience.tsx` widened from a fixed
+  `max-w-lg` to `w-full max-w-lg sm:max-w-xl lg:max-w-2xl` (main card and SSR
+  skeleton) so the interstitial no longer renders as a narrow strip that snaps to
+  the `max-w-6xl` results layout. The unreachable `onExperienceComplete`
+  completion effect was removed. `match-selector.tsx` corrected an unverifiable
+  "Updated Every 5min" footer to "Fetched fresh per request".
+- **Verification.** Web lint 0, typecheck clean, Vitest 46/46,
+  `NODE_ENV=production` Next.js build ✓; Ruff clean on `middleware.py`; live
+  probes: backend `/health/ready` 200 `ok`, web `/api/health` 200 `healthy` with
+  the parity SHA.
+
 ## vΩ.19 Changes (2026-07-24)
 
 - **Vercel keepalive cron registered.** `vercel.json` now declares
@@ -322,7 +362,8 @@ run the full release matrix before tagging the release.
   first request as the "Engine Warming Up" retry state. **Operator action:** set
   `BACKEND_URL=https://sabiscore-api-bav1.onrender.com` (server-side, never
   `NEXT_PUBLIC_`) in the Vercel dashboard — distinct from `SABISCORE_BACKEND_URL`
-  used by the proxy routes.
+  used by the proxy routes. *(Superseded in vΩ.20: the cron is now daily and the
+  10-minute warm-up runs from GitHub Actions.)*
 - **No UI/backend code change.** A live-first diagnostic (2026-07-24) confirmed
   the reported "errors" were a stale Vercel deployment (`web-15ykeatxv-…`,
   predating vΩ.17/vΩ.18) plus correct off-season fail-closed states

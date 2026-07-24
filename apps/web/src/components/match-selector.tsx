@@ -481,7 +481,7 @@ export function MatchSelector() {
             <span>•</span>
             <span>5 Providers Configured</span>
             <span>•</span>
-            <span>Updated Every 5min</span>
+            <span>Fetched fresh per request</span>
           </div>
         </div>
         </div>

@@ -7,6 +7,57 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ---
 
+## vΩ.20 — Production cutover verified, legacy decommission, keepalive (2026-07-24)
+
+### Delivery
+
+- Vercel production deploy of `master` shipped and verified live:
+  `web-7zrnnpsbk-oversabis-projects.vercel.app` aliased to
+  `https://web-lac-theta-42.vercel.app`. Live `/api/health` returns
+  `"sha":"fd4949e"` — the vΩ.19 deploy-parity stamp confirmed working in
+  production. Backend `status: ok`, all four readiness checks ready,
+  5 league models loaded.
+- Legacy Vercel projects `sabiscore` (pre-vΩ.8 UI, the `sabiscore-d37gxx4gs`
+  deployment) and `sabiscore-web` permanently deleted — `web` is the sole
+  remaining project.
+- `vercel.json` cron downgraded `*/10 * * * *` → `0 9 * * *`: Vercel Hobby
+  rejects sub-daily crons and **blocked every production deploy** until fixed.
+- New `.github/workflows/keepalive.yml` — GitHub Actions pings
+  `https://sabiscore-api-bav1.onrender.com/health/ready` every 10 minutes
+  (free on public repos). This replaces the "external pinger" operator action
+  and is now the production warm-up path for the Render free tier.
+
+### CORS (audit findings)
+
+- `backend/src/api/middleware.py` — `allow_origin_regex=settings.cors_origin_regex`
+  now actually passed to `CORSMiddleware`; the `CORS_ORIGIN_REGEX` env var was
+  wired to Settings but silently unused, so Vercel preview URLs always failed CORS.
+- `render.yaml` `CORS_ORIGINS` gains `https://sabiscore.com` and
+  `https://web-lac-theta-42.vercel.app` (production domains were absent).
+
+### Frontend
+
+- `insights-error-state.tsx` — dead auto-reload machinery removed. With
+  `MAX_AUTO_RELOADS = 0` (vΩ.18) the countdown/sessionStorage code could never
+  reload, yet flashed "Auto-retrying in 30s" then pinned a contradictory
+  "Auto-retry paused" message. Recovery is manual-only and the card now says so.
+- `match-loading-experience.tsx` — container widened responsively
+  (`max-w-lg sm:max-w-xl lg:max-w-2xl`, was fixed 512px) so the loading →
+  `max-w-6xl` results transition no longer snaps; applied to SSR skeleton too.
+  Dead `onExperienceComplete`/`completionRef` completion effect deleted — its
+  `progress >= 95` trigger became unreachable after the vΩ.19 90%-cap retune
+  and no consumer ever passed the callback.
+- `match-selector.tsx` — unverifiable "Updated Every 5min" footer claim →
+  "Fetched fresh per request" (same contract as the vΩ.9 match-landing fix).
+
+### Verification
+
+- Web: lint 0, typecheck clean, Vitest 46/46, `NODE_ENV=production` build ✓.
+- Ruff clean on `middleware.py`. Live probes: backend `/health/ready` 200 ok;
+  web `/api/health` 200 healthy with parity SHA.
+
+---
+
 ## vΩ.19 — Deploy-parity, caveat humanization, progress retune (2026-07-24)
 
 ### Infrastructure

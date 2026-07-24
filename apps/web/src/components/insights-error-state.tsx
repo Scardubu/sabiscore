@@ -1,11 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import {
-  isRetryableInfrastructureError,
-  type AnalysisErrorCategory,
-} from "@/lib/full-analysis-contract";
+import { useState } from "react";
+import type { AnalysisErrorCategory } from "@/lib/full-analysis-contract";
 
 interface InsightsErrorStateProps {
   errorType: AnalysisErrorCategory;
@@ -14,79 +11,48 @@ interface InsightsErrorStateProps {
 
 const CONFIG = {
   cold_start: {
-    countdown: 30,
     accent: "amber",
     label: "Engine Warming Up",
     heading: "Full AI insights are on their way",
     showWhyNote: true,
   },
   upstream_timeout: {
-    countdown: 20,
     accent: "amber",
     label: "Backend Response Delayed",
     heading: "Analysis is taking longer than expected",
     showWhyNote: false,
   },
   upstream_unavailable: {
-    countdown: 30,
     accent: "amber",
     label: "Backend Temporarily Unavailable",
     heading: "Analysis service is reconnecting",
     showWhyNote: false,
   },
   network_error: {
-    countdown: 15,
     accent: "amber",
     label: "Network Unavailable",
     heading: "The analysis request could not connect",
     showWhyNote: false,
   },
   backend_internal_error: {
-    countdown: 45,
     accent: "rose",
     label: "Service Temporarily Unavailable",
     heading: "We hit a snag",
     showWhyNote: false,
   },
   invalid_response: {
-    countdown: 30,
     accent: "rose",
     label: "Invalid Backend Response",
     heading: "The analysis contract could not be verified",
     showWhyNote: false,
   },
   unknown: {
-    countdown: 30,
     accent: "rose",
     label: "Unexpected Error",
     heading: "We hit a snag",
     showWhyNote: false,
   },
 } as const;
-
-// Auto-reload at most this many times per matchup per tab session; after that
-// the countdown stops and only manual retry remains. Prevents an infinite
-// full-page reload loop when the insights endpoint stays down while the
-// analysis sections below are already rendering live data.
-const MAX_AUTO_RELOADS = 0;
-
-export const retryStorageKey = (matchup: string) => `ss-insights-retries:${matchup}`;
-
-function readAttempts(matchup: string): number {
-  try {
-    return Number(sessionStorage.getItem(retryStorageKey(matchup)) ?? "0") || 0;
-  } catch {
-    return 0;
-  }
-}
-
-function bumpAttempts(matchup: string) {
-  try {
-    sessionStorage.setItem(retryStorageKey(matchup), String(readAttempts(matchup) + 1));
-  } catch {
-    // storage unavailable — auto-retry cap simply won't persist
-  }
-}
 
 /**
  * Inline error state for the match insights page.
@@ -96,38 +62,15 @@ function bumpAttempts(matchup: string) {
  *
  * Compact card (not a full-viewport hero): the 6-layer analysis and Phase 8
  * sections mount below it and load independently, so this must not push them
- * off screen or keep reloading a page that already shows live results.
+ * off screen. Recovery is manual only — the API client already performed its
+ * single bounded infrastructure retry before this card rendered, so there is
+ * no countdown and no automatic page reload here.
  */
 export function InsightsErrorState({ errorType, matchup }: InsightsErrorStateProps) {
   const cfg = CONFIG[errorType];
   const isAmber = cfg.accent === "amber";
-  const mayAutoRetry = isRetryableInfrastructureError(errorType);
-
-  const [countdown, setCountdown] = useState<number>(cfg.countdown);
   const [refreshing, setRefreshing] = useState(false);
-  const [autoRetryExhausted, setAutoRetryExhausted] = useState(false);
 
-  // Read the per-matchup reload count after mount (sessionStorage is
-  // client-only; reading in render would break SSR hydration).
-  useEffect(() => {
-    if (!mayAutoRetry || readAttempts(matchup) >= MAX_AUTO_RELOADS) {
-      setAutoRetryExhausted(true);
-    }
-  }, [matchup, mayAutoRetry]);
-
-  useEffect(() => {
-    if (autoRetryExhausted || refreshing) return;
-    if (countdown <= 0) {
-      bumpAttempts(matchup);
-      setRefreshing(true);
-      window.location.reload();
-      return;
-    }
-    const t = setTimeout(() => setCountdown((c) => (c > 0 ? c - 1 : 0)), 1000);
-    return () => clearTimeout(t);
-  }, [countdown, refreshing, autoRetryExhausted, matchup]);
-
-  // Manual retry never counts against the auto-reload cap.
   const handleRetryNow = () => {
     setRefreshing(true);
     window.location.reload();
@@ -152,11 +95,7 @@ export function InsightsErrorState({ errorType, matchup }: InsightsErrorStatePro
     <div
       role="status"
       aria-live="polite"
-      aria-label={
-        autoRetryExhausted
-          ? `${cfg.label} — auto-retry paused, retry manually`
-          : `${cfg.label} — auto-retrying in ${countdown} seconds`
-      }
+      aria-label={`${cfg.label} — retry manually when ready`}
       className={`rounded-2xl border p-5 sm:p-6 ${
         isAmber
           ? "border-amber-500/25 bg-amber-500/[0.04]"
@@ -240,17 +179,6 @@ export function InsightsErrorState({ errorType, matchup }: InsightsErrorStatePro
             >
               Pick another matchup
             </Link>
-            {!autoRetryExhausted && countdown > 0 && !refreshing && (
-              <span className={`text-xs ${isAmber ? "text-amber-200/80" : "text-slate-400"}`}>
-                Auto-retrying in{" "}
-                <span className="font-mono font-bold tabular-nums">{countdown}s</span>
-              </span>
-            )}
-            {autoRetryExhausted && !refreshing && (
-              <span className="text-xs text-slate-500">
-                Auto-retry paused — use the button when ready.
-              </span>
-            )}
           </div>
 
           {cfg.showWhyNote && (

@@ -36,7 +36,6 @@ interface MatchLoadingExperienceProps {
   awayTeam: string;
   league: string;
   matchupId?: string;
-  onExperienceComplete?: () => void;
 }
 
 const SWIPE_QUESTIONS = INTERSTITIAL_SWIPE_QUESTIONS;
@@ -550,13 +549,11 @@ export function MatchLoadingExperience({
   awayTeam,
   league,
   matchupId,
-  onExperienceComplete,
 }: MatchLoadingExperienceProps) {
   const [progress, setProgress] = useState(0);
   const [particleTrigger, setParticleTrigger] = useState(0);
   const [swipeIndex, setSwipeIndex] = useState(0);
   const [showColdHint, setShowColdHint] = useState(false);
-  const completionRef = useRef(false);
   const reduceMotion = useReducedMotion();
 
   const matchupKey = useMemo(() => matchupId ?? hashMatchup(homeTeam, awayTeam), [homeTeam, awayTeam, matchupId]);
@@ -586,18 +583,6 @@ export function MatchLoadingExperience({
     return () => clearTimeout(t);
   }, []);
 
-  // Handle completion
-  useEffect(() => {
-    if (progress >= 95 && !completionRef.current) {
-      completionRef.current = true;
-      // Small delay for final animation
-      setTimeout(() => {
-        setProgress(100);
-        setTimeout(() => onExperienceComplete?.(), 500);
-      }, 800);
-    }
-  }, [progress, onExperienceComplete]);
-
   const handleMilestone = useCallback((milestone: number) => {
     setParticleTrigger((p) => p + 1);
     
@@ -608,7 +593,8 @@ export function MatchLoadingExperience({
   }, []);
 
   return (
-    <div className="mx-auto max-w-lg space-y-4 p-4">
+    // ponytail: width steps toward the max-w-6xl results page so the loading→results transition doesn't snap
+    <div className="mx-auto w-full max-w-lg space-y-4 p-4 sm:max-w-xl lg:max-w-2xl">
       {/* Main card with team matchup */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -828,7 +814,7 @@ export function MatchLoadingExperience({
  */
 export function MatchLoadingExperienceSkeleton() {
   return (
-    <div className="mx-auto max-w-lg space-y-4 p-4">
+    <div className="mx-auto w-full max-w-lg space-y-4 p-4 sm:max-w-xl lg:max-w-2xl">
       <div className="rounded-2xl border border-slate-700/50 bg-slate-900/50 p-4">
         {/* Header skeleton */}
         <div className="mb-4 flex justify-between">
