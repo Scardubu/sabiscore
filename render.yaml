@@ -78,7 +78,7 @@
       - key: RATE_LIMIT_WINDOW
         value: "60"
       - key: CORS_ORIGINS
-        value: https://sabiscore.vercel.app,https://sabiscore-web.vercel.app,http://localhost:3000,http://localhost:3001,http://localhost:5173
+        value: https://sabiscore.com,https://web-lac-theta-42.vercel.app,https://sabiscore.vercel.app,https://sabiscore-web.vercel.app,http://localhost:3000,http://localhost:3001,http://localhost:5173
       # Regex to allow Vercel preview deployments (e.g. sabiscore-git-fix-cors-scar.vercel.app).
       # Starlette's CORSMiddleware does not support glob patterns in allow_origins, so
       # we use allow_origin_regex for preview URL coverage.
