@@ -18,22 +18,22 @@ import {
   sanitizeBackendError,
   ERROR_CACHE_HEADERS,
 } from "@/lib/proxy-utils";
+import { canonicalLeagueId, type CanonicalLeague } from "@/lib/league";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
+// Accepts either vocabulary ("La Liga" or "LA_LIGA") and normalizes. A bare enum
+// rejected every display-form link with a 400 — see lib/league.ts.
 const routeParamsSchema = z.object({
   matchId: z.string().trim().min(1).max(240),
-  league: z.enum([
-    "EPL",
-    "LA_LIGA",
-    "BUNDESLIGA",
-    "SERIE_A",
-    "LIGUE_1",
-    "EREDIVISIE",
-    "UCL",
-  ]),
+  league: z
+    .string()
+    .transform((value) => canonicalLeagueId(value))
+    .refine((value): value is CanonicalLeague => value !== null, {
+      message: "unsupported league",
+    }),
 });
 
 export async function GET(

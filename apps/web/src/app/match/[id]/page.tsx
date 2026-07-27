@@ -5,6 +5,7 @@ import { Phase8AnalyticsSection } from "@/components/phase8-analytics-section";
 import { InsightsErrorState } from "@/components/insights-error-state";
 import { APIError } from "@/lib/api";
 import { getMatchInsights } from "@/lib/insights-server";
+import { canonicalLeagueId } from "@/lib/league";
 import {
   classifyAnalysisError,
   type AnalysisErrorCategory,
@@ -56,7 +57,9 @@ export default async function MatchInsightsPage({ params, searchParams }: PagePr
     const resolvedParams = await params;
     id = resolvedParams.id;
     const resolvedSearchParams = searchParams ? await searchParams : undefined;
-    league = resolvedSearchParams?.league || "EPL";
+    // Links in the wild carry either vocabulary ("La Liga" or "LA_LIGA");
+    // everything downstream expects the canonical id.
+    league = canonicalLeagueId(resolvedSearchParams?.league) ?? "EPL";
   } catch {
     notFound();
   }

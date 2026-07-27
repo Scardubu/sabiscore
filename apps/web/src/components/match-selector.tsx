@@ -23,6 +23,7 @@ const MatchLoadingExperience = dynamic(
 );
 import { FeatureFlag, useFeatureFlag } from "@/lib/feature-flags";
 import { hashMatchup } from "@/lib/interstitial-storage";
+import { canonicalLeagueId } from "@/lib/league";
 import { cn } from "@/lib/utils";
 import { CountryFlag } from "@/components/ui/cached-logo";
 
@@ -266,9 +267,12 @@ export function MatchSelector() {
     }
 
     try {
-      // Navigate to match insights page
+      // Navigate to match insights page. `league` is the display-form id that
+      // keys the team lists, so normalize it for the URL — the API layer speaks
+      // the canonical vocabulary.
       const encodedMatchup = encodeURIComponent(matchup);
-      router.push(`/match/${encodedMatchup}?league=${league}`);
+      const leagueParam = canonicalLeagueId(league) ?? "EPL";
+      router.push(`/match/${encodedMatchup}?league=${leagueParam}`);
       
       // Clear persisted state after successful navigation to avoid stale team selections
       try {

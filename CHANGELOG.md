@@ -7,6 +7,61 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ---
 
+## vΩ.26 — League vocabulary unified (every non-EPL match page was 400ing) (2026-07-27)
+
+Frontend-only. No backend, Alembic, or betting-engine changes.
+
+### Fixed — `?league=La Liga` returned HTTP 400
+
+Reported from `/match/Athletic Club vs Atletico Madrid?league=La Liga`, which
+rendered "Intelligence unavailable — A valid matchId and league are required"
+with two console 400s.
+
+**Two league vocabularies coexisted in `apps/web`,** and both are load-bearing:
+
+- **Display form** (`"La Liga"`, `"Serie A"`, `"Ligue 1"`) keys the team lists,
+  logo resolver, and colour maps (`team-data.ts`, `logo-resolver.ts`,
+  `league-colors.ts`). `match-selector.tsx` used it for its `LEAGUES` ids.
+- **Canonical form** (`LA_LIGA`, `SERIE_A`, `LIGUE_1`) is what the sidebar, the
+  proxy Zod enums, and `betting-intelligence-api.ts` speak.
+
+`match-selector.tsx` pushed `/match/<matchup>?league=La Liga`; the full-analysis
+proxy's `z.enum` accepted only `LA_LIGA` and rejected it before the request ever
+reached the backend. **EPL masked the defect entirely** — it is the one league
+both vocabularies spell identically, which is why every prior session's EPL
+testing passed. The backend was never at fault: its `canonical_league_id`
+already accepts either spelling.
+
+- **`apps/web/src/lib/league.ts`** — new `canonicalLeagueId()`, mirroring
+  `backend/src/core/league_policy.py` `canonical_league_id` rule-for-rule
+  (lowercase → fold separators to `_` → alias lookup → else upper-case) so the
+  two sides cannot drift. Returns `null` for anything outside the closed
+  7-competition set rather than guessing.
+- **Normalized at the proxy boundary** (`full-analysis`, `insights`,
+  `phase8-features`) — this is the load-bearing fix: links already in the wild,
+  bookmarks, and backend-supplied league values on `/team/[slug]` and
+  `upcoming-matches-panel` all resolve regardless of which vocabulary produced
+  them. Unsupported leagues still 400 (`phase8-features` degrades to EPL, since
+  it is a supplementary panel rather than the primary analysis).
+- **Normalized at the source** — `match-selector.tsx` emits the canonical id in
+  the URL while keeping the display form for team lookup, and
+  `app/match/[id]/page.tsx` normalizes `searchParams.league` before passing it
+  to the server-side insights fetch and the client analysis sections.
+
+Verified end-to-end against the live backend: `?league=La Liga` went **400 → 200**,
+with `ensemble.league: "LA_LIGA"` and `effective_kelly_cap: 0.04` — the correct
+calibrated-league policy, not the `0.0` / `LEAGUE_POLICY_UNAVAILABLE` fallback an
+unrecognized league would have produced. `?league=Primeira Liga` still returns 400.
+
+### Verification
+
+Web lint 0, typecheck 0, Vitest 62/62 (+4 covering the display vocabulary,
+canonical pass-through, casing/hyphen variants, and fail-closed on unsupported
+input), `NODE_ENV=production` build ✓, Playwright 4/4, Gitleaks clean. Backend
+untouched.
+
+---
+
 ## vΩ.25 — Loading interstitial layout; in-place retry; dead-code removal (2026-07-27)
 
 Frontend-only. No backend, Alembic, or betting-engine changes.

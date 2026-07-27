@@ -22,6 +22,7 @@ import {
   sanitizeBackendError,
   ERROR_CACHE_HEADERS,
 } from "@/lib/proxy-utils";
+import { canonicalLeagueId } from "@/lib/league";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,7 +46,9 @@ export async function GET(
     );
   }
 
-  const league = request.nextUrl.searchParams.get("league") ?? "EPL";
+  // Normalize rather than reject: this surface is supplementary, so an odd
+  // league should degrade to EPL instead of failing the panel.
+  const league = canonicalLeagueId(request.nextUrl.searchParams.get("league")) ?? "EPL";
   const backendUrl = `${resolveBackendBaseUrl()}/api/v1/matches/upcoming/${encodeURIComponent(matchId)}/phase8-features?league=${encodeURIComponent(league)}`;
 
   let backendRes: Response;

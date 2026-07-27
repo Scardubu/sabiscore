@@ -311,6 +311,33 @@ run the full release matrix before tagging the release.
 3. Roll back database schema only with reviewed Alembic downgrade or forward-fix migration.
 4. Re-run `python -m src.cli providers doctor` and `make verify` before restoring traffic.
 
+## vΩ.26 Changes (2026-07-27)
+
+- **League vocabulary unified — every non-EPL match page was returning HTTP 400.**
+  `/match/<matchup>?league=La Liga` rendered "Intelligence unavailable — A valid
+  matchId and league are required". Two league vocabularies coexist in `apps/web`
+  and both are load-bearing: the display form (`"La Liga"`, `"Serie A"`,
+  `"Ligue 1"`) keys the team lists, logo resolver, and colour maps, while the
+  canonical form (`LA_LIGA`, `SERIE_A`, `LIGUE_1`) is what the sidebar and the
+  proxy schemas speak. The match selector emitted the display form; the
+  full-analysis proxy's enum accepted only the canonical form and rejected the
+  request before it reached the backend. The backend was never at fault — its
+  `canonical_league_id` already accepts either spelling.
+- **EPL masked the defect.** It is the one league both vocabularies spell
+  identically, so all prior EPL-based verification passed. When validating any
+  league-related change, test a non-EPL league.
+- **`apps/web/src/lib/league.ts`** provides `canonicalLeagueId()`, mirroring
+  `backend/src/core/league_policy.py` rule-for-rule so the two cannot drift. It
+  is applied at the proxy boundary (`full-analysis`, `insights`,
+  `phase8-features`) — which also rescues links already in circulation and
+  backend-supplied league values — and at the source (match selector navigation,
+  `/match/[id]` search params). Unsupported leagues still fail closed with 400;
+  the supplementary `phase8-features` panel degrades to EPL instead.
+- **Validation.** Verified against the live backend: `?league=La Liga` went
+  400 → 200 with `effective_kelly_cap: 0.04` (the correct calibrated-league
+  policy). Web lint 0, typecheck 0, Vitest 62/62, `NODE_ENV=production` build ✓,
+  Playwright 4/4, Gitleaks clean. Backend untouched.
+
 ## vΩ.25 Changes (2026-07-27)
 
 - **Loading interstitial matches the results container.** The `/match/[id]` loading
