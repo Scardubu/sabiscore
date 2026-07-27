@@ -267,6 +267,8 @@ function EnhancedMatchHero({
   const [home, away] = parseTeams(matchId);
   const { ensemble } = data;
   const probabilities = presentation.displayedProbabilities;
+  // Absent ratings arrive as a neutral 1500 default — do not render them as measured.
+  const eloMeasured = !presentation.isReducedEvidenceBaseline;
 
   const slideIn = (direction: "left" | "right") =>
     prefersReduced
@@ -325,17 +327,23 @@ function EnhancedMatchHero({
       <div className="flex items-center justify-between border-t border-slate-800/40 pt-3 text-center">
         <div>
           <p className="text-[10px] uppercase tracking-wider text-slate-500">Home Elo</p>
-          <p className="text-xs font-semibold text-slate-200 tabular-nums">{fmt(data.elo_context.home_elo)}</p>
+          <p className="text-xs font-semibold text-slate-200 tabular-nums">
+            {eloMeasured ? fmt(data.elo_context.home_elo) : "—"}
+          </p>
         </div>
         <div>
           <p className="text-[10px] uppercase tracking-wider text-slate-500">Elo Δ</p>
-          <p className={cn("text-xs font-bold tabular-nums", data.elo_context.elo_difference > 0 ? "text-emerald-400" : data.elo_context.elo_difference < 0 ? "text-rose-400" : "text-slate-400")}>
-            {data.elo_context.elo_difference >= 0 ? "+" : ""}{fmt(data.elo_context.elo_difference)}
+          <p className={cn("text-xs font-bold tabular-nums", !eloMeasured ? "text-slate-400" : data.elo_context.elo_difference > 0 ? "text-emerald-400" : data.elo_context.elo_difference < 0 ? "text-rose-400" : "text-slate-400")}>
+            {eloMeasured
+              ? `${data.elo_context.elo_difference >= 0 ? "+" : ""}${fmt(data.elo_context.elo_difference)}`
+              : "—"}
           </p>
         </div>
         <div>
           <p className="text-[10px] uppercase tracking-wider text-slate-500">Away Elo</p>
-          <p className="text-xs font-semibold text-slate-200 tabular-nums">{fmt(data.elo_context.away_elo)}</p>
+          <p className="text-xs font-semibold text-slate-200 tabular-nums">
+            {eloMeasured ? fmt(data.elo_context.away_elo) : "—"}
+          </p>
         </div>
         <div>
           <p className="text-[10px] uppercase tracking-wider text-slate-500">Top outcome probability</p>
@@ -503,10 +511,13 @@ function PredictionAgePill({
 
   const title = `Prediction generated at ${new Date(generatedAt).toLocaleString()}. Regenerate for latest signal.`;
 
+  // Wording is deliberately about the ANALYSIS, not the evidence. A bare "Fresh"
+  // sat beside the evidence-freshness pill and read as a claim about the data,
+  // which can be UNKNOWN at the same moment the analysis was just produced.
   if (ageSecs < 30 * 60) {
     return (
       <span className="text-[10px] font-medium text-emerald-400" title={title}>
-        Fresh
+        Analyzed just now
       </span>
     );
   }
@@ -514,7 +525,7 @@ function PredictionAgePill({
     const mins = Math.round(ageSecs / 60);
     return (
       <span className="text-[10px] text-slate-500" title={title}>
-        {mins}m old
+        Analyzed {mins}m ago
       </span>
     );
   }
@@ -525,7 +536,7 @@ function PredictionAgePill({
         className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-400"
         title={title}
       >
-        {hrs}h old — regenerate?
+        Analyzed {hrs}h ago — regenerate?
       </span>
     );
   }
@@ -778,9 +789,33 @@ function CausalDriversCard({ drivers }: { drivers: string[] }) {
 
 // ─── Elo context card ─────────────────────────────────────────────────────────
 
-function EloContextCard({ elo }: { elo: FullMatchEloContext }) {
+/**
+ * `measured` is false when the analysis ran on a reduced-evidence baseline. The
+ * backend fills absent ratings with a neutral 1500 default, so rendering the
+ * numbers then would present a placeholder as a measurement.
+ */
+export function EloContextCard({ elo, measured }: { elo: FullMatchEloContext; measured: boolean }) {
   const diff = elo.elo_difference;
   const diffColor = diff > 50 ? "text-emerald-400" : diff < -50 ? "text-rose-400" : "text-slate-300";
+
+  if (!measured) {
+    return (
+      <div className="rounded-xl bg-slate-900/60 border border-slate-800/60 p-5 space-y-3">
+        <p className="text-xs uppercase tracking-wider text-slate-500">Elo Context</p>
+        <div className="space-y-2">
+          {["Home Elo", "Away Elo", "Elo Diff", "Momentum"].map((label) => (
+            <div key={label} className="flex justify-between text-sm">
+              <span className="text-slate-400">{label}</span>
+              <span className="font-semibold text-slate-500 tabular-nums" aria-label={`${label} unavailable`}>—</span>
+            </div>
+          ))}
+        </div>
+        <p className="text-[11px] text-slate-500">
+          Ratings need verified match history, which is unavailable for this fixture.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-xl bg-slate-900/60 border border-slate-800/60 p-5 space-y-3">
@@ -811,7 +846,7 @@ function EloContextCard({ elo }: { elo: FullMatchEloContext }) {
 
 // ─── Uncertainty card ─────────────────────────────────────────────────────────
 
-function UncertaintyCard({ unc }: { unc: FullMatchUncertainty }) {
+export function UncertaintyCard({ unc, available }: { unc: FullMatchUncertainty; available: boolean }) {
   const isLow = unc.confidence_tier === "LOW_EVIDENCE";
   return (
     <div className="rounded-xl bg-slate-900/60 border border-slate-800/60 p-5 space-y-3">
@@ -839,11 +874,20 @@ function UncertaintyCard({ unc }: { unc: FullMatchUncertainty }) {
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-slate-400">CI</span>
-          <span className="font-semibold tabular-nums text-slate-200">
-            [{pct(unc.credible_interval[0])}, {pct(unc.credible_interval[1])}]
+          {/* A credible interval around a prediction that was never produced is
+              not interpretable — the backend still emits a placeholder range. */}
+          <span className={cn("font-semibold tabular-nums", available ? "text-slate-200" : "text-slate-500")}>
+            {available
+              ? `[${pct(unc.credible_interval[0])}, ${pct(unc.credible_interval[1])}]`
+              : "—"}
           </span>
         </div>
       </div>
+      {!available && (
+        <p className="text-[11px] text-slate-500">
+          Spread reflects missing evidence, not model disagreement about an outcome.
+        </p>
+      )}
     </div>
   );
 }
@@ -1425,8 +1469,8 @@ function FullAnalysisDashboardInner({ matchId, league = "EPL" }: FullAnalysisDas
       {/* ── Causal · Elo · Uncertainty (3-col) ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         <CausalDriversCard drivers={data.causal_drivers} />
-        <EloContextCard elo={data.elo_context} />
-        <UncertaintyCard unc={data.uncertainty} />
+        <EloContextCard elo={data.elo_context} measured={!presentation.isReducedEvidenceBaseline} />
+        <UncertaintyCard unc={data.uncertainty} available={presentation.predictionAvailable} />
       </div>
 
       {/* ── Edge delta bar (CE-2): model vs market gap ── */}

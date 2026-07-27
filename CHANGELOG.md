@@ -7,6 +7,52 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ---
 
+## vΩ.24 — Reduced-evidence display honesty; /performance bundle (2026-07-27)
+
+Frontend-only follow-up to vΩ.23. No backend, Alembic, or betting-engine changes.
+
+### Fixed — defaults were rendered as measurements
+
+- **Elo Context showed `1500 / 1500 / +0 / 0.00` as if measured.** Verified against
+  the live payload for an off-season fixture: `elo_context` is exactly
+  `{home_elo: 1500, away_elo: 1500, elo_difference: 0, elo_momentum_cross: 0}`
+  while `is_reduced_evidence_baseline: true` and 71 data gaps are reported.
+  `_elo_from_features` (`full_analysis.py:245`) fills absent ratings with a neutral
+  1500 default, and the dashboard rendered them verbatim next to a
+  "REQUIRED MODEL INPUTS UNAVAILABLE" critical gap — the same class of defect as the
+  vΩ.23 backend fabrication, on the display surface. `EloContextCard` and the
+  quick-stat strip now render `—` plus a one-line reason when the analysis ran on a
+  reduced-evidence baseline. The predicate is contract-guaranteed: the Zod schema
+  already enforces
+  `is_reduced_evidence_baseline === (prediction_status === "REDUCED_EVIDENCE_BASELINE")`.
+- **BNN credible interval showed `[0.0%, 0.2%]` for a prediction that was never
+  produced.** Live payload: `credible_interval: [0, 0.00196]` with
+  `probabilities_available: false`. An interval around a non-existent prediction is
+  not interpretable, so it now renders `—` with a note that the spread reflects
+  missing evidence rather than model disagreement. Epistemic/aleatoric remain
+  visible — 100% epistemic is a meaningful statement about evidence.
+- **"Fresh" sat beside an "Unknown" evidence-freshness pill.** `PredictionAgePill`
+  describes how recently the *analysis* ran, not how fresh the *data* is, but the
+  bare label read as a claim about the evidence. Relabelled to
+  "Analyzed just now" / "Analyzed 12m ago" / "Analyzed 3h ago — regenerate?".
+
+### Changed — performance
+
+- **`/performance` first-load JS: 232 kB → 127 kB** (route size 111 kB → 6.11 kB).
+  `RollingAccuracyChart` statically imported recharts (~100 kB) into the initial
+  bundle. It is now `next/dynamic` with `ssr: false` and a skeleton fallback —
+  recharts renders client-side only anyway, since it measures its container. This
+  closes the deferred bundle item recorded in the vΩ.17 backlog.
+
+### Verification
+
+Web lint 0, typecheck 0, Vitest 52/52 (+3 regression tests asserting neutral-default
+Elo and the placeholder credible interval are not displayed),
+`NODE_ENV=production` build ✓, Playwright 4/4 (chromium + mobile-chrome). Backend
+untouched this cycle.
+
+---
+
 ## vΩ.23 — Phase-7 insights fail closed; server-component fetch repaired (2026-07-27)
 
 Two independent live defects that had been masking each other on `/match/[id]`.

@@ -311,6 +311,25 @@ run the full release matrix before tagging the release.
 3. Roll back database schema only with reviewed Alembic downgrade or forward-fix migration.
 4. Re-run `python -m src.cli providers doctor` and `make verify` before restoring traffic.
 
+## vΩ.24 Changes (2026-07-27)
+
+- **Reduced-evidence surfaces no longer display neutral defaults as measurements.**
+  The match dashboard rendered `Home Elo 1500 / Away Elo 1500 / Elo Diff +0` and a
+  `CI [0.0%, 0.2%]` credible interval for fixtures whose analysis was an explicit
+  reduced-evidence baseline with no probabilities. Those figures are backend
+  placeholders (`_elo_from_features` defaults to 1500), not observations. Both now
+  render `—` with a short reason. Epistemic/aleatoric uncertainty remains visible,
+  since 100% epistemic is a meaningful statement about evidence.
+- **Freshness copy disambiguated.** The prediction-age indicator said "Fresh" next
+  to an evidence-freshness pill reading "Unknown". It now says "Analyzed just now" /
+  "Analyzed {n}m ago", making clear it describes the analysis, not the data.
+- **`/performance` first-load JS reduced 232 kB → 127 kB** by loading
+  `RollingAccuracyChart` (recharts) via `next/dynamic` with `ssr: false`. This closes
+  the deferred bundle item from the vΩ.17 backlog. Use the same pattern for any new
+  chart surface.
+- **Validation.** Web lint 0, typecheck 0, Vitest 52/52, `NODE_ENV=production`
+  build ✓, Playwright 4/4. Backend untouched.
+
 ## vΩ.23 Changes (2026-07-27)
 
 - **Phase-7 insights now fail closed.** `POST /api/v1/insights` previously returned

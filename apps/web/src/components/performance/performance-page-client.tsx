@@ -1,8 +1,23 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { useQuery } from "@tanstack/react-query";
-import { RollingAccuracyChart } from "@/components/rolling-accuracy-chart";
+// recharts is ~100 kB and renders client-side only (it measures its container),
+// so it is loaded on demand rather than in the /performance first-load bundle.
+const RollingAccuracyChart = dynamic(
+  () => import("@/components/rolling-accuracy-chart").then((m) => m.RollingAccuracyChart),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        className="h-80 animate-pulse rounded-2xl bg-slate-800/50"
+        role="status"
+        aria-label="Loading accuracy chart"
+      />
+    ),
+  },
+);
 import { ValueBetScanner } from "@/components/value-bet-scanner";
 import { cn } from "@/lib/utils";
 
