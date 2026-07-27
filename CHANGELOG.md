@@ -7,6 +7,88 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ---
 
+## vΩ.23 — Phase-7 insights fail closed; server-component fetch repaired (2026-07-27)
+
+Two independent live defects that had been masking each other on `/match/[id]`.
+
+### Fixed — backend fabrication (severity: contract violation, was live)
+
+- **`POST /api/v1/insights` returned HTTP 200 with a fully fabricated betting
+  recommendation for a matchup with zero evidence.** Live probe of
+  `Brighton vs Everton` returned `home_win_prob 0.852`, `away_win_prob 0.0`,
+  `market_odds 2.0`, `expected_value 0.704`, and **`kelly_stake 35.21`** — a 35%
+  bankroll stake against the 4% `LeaguePolicy` cap, with a "Consider betting"
+  recommendation.
+- **Root cause:** `FeatureTransformer._validate_required_evidence` correctly raises
+  `DataUnavailableError`, but `insights/engine.py` swallowed it with a broad
+  `except Exception` at three sites and substituted a full `FEATURE_DEFAULTS`
+  vector, so the model inferred on pure defaults. The fail-closed contract was
+  inverted into fail-open. Each site now re-raises `DataUnavailableError` first.
+- **`legacy_endpoints.py` maps `DataUnavailableError` → HTTP 422
+  `INSUFFICIENT_EVIDENCE`,** mirroring the existing `predictions.py` precedent.
+  Also fixed a `model` variable shadowing bug where a validation failure caused the
+  raw ML model object to be returned as the response body.
+- **Kelly is now a capped fraction, not a bankroll amount.** `_calculate_value_bets`
+  took `bankroll=100.0, kelly_fraction=0.5` (**half**-Kelly) with no cap, emitting
+  `35.21`. It now uses Quarter-Kelly against `get_league_policy(league).kelly_cap`
+  via `bankroll=1.0`, so the value is a fraction. `ValueBet.kelly_stake` gained
+  `le=0.05`. The frontend renders this field as `kelly_stake * 100`, so the old
+  value would have displayed as **3521.5%**.
+- **Fabricated odds books removed.** `aggregator.py` returned a hardcoded
+  `{2.0, 3.2, 3.5}` on any fetch failure (3 sites), and `_create_mock_match_data`
+  synthesized a book from ELO. Both now yield `{}`; `_calculate_value_bets` already
+  handled an empty market by skipping value analysis.
+- **`_safe_float()` treated NaN as a present value,** short-circuiting every
+  caller's fallback chain and slipping NaN past the fail-closed raise. It now
+  returns `None` for NaN/inf — one guard in the shared helper, all callers fixed.
+- **`predictions.is_baseline` is now carried in the response** (and in
+  `PredictionData`), so a consumer can distinguish baseline rates from a model
+  inference instead of guessing from the numbers.
+- **Zero-fab scan widened** to `src/insights` and `src/data`, which were outside
+  the scanned package set — the reason this survived.
+
+### Fixed — the visible "We hit a snag" card (frontend)
+
+- **`getMatchInsights()` fetched the relative path `/api/insights` from a Node
+  server component.** Undici cannot parse relative URLs, so it threw
+  `TypeError: Failed to parse URL` immediately; the message did not match the
+  `.includes('fetch')` guard, so it surfaced as `APIError(…, 0, "NETWORK_ERROR")`.
+  `page.tsx` then passed only `{status, code}` to `classifyAnalysisError`, which
+  detected network failures from a `networkError` **boolean** — so it fell through
+  to `"unknown"` and rendered "UNEXPECTED ERROR / We hit a snag".
+  **The Phase-7 panel had therefore never rendered in production.** Confirmed from
+  the live RSC payload: `{"errorType":"unknown","matchup":"Brighton vs Everton"}`,
+  delivered in 1.8 s — far too fast for the 25 s proxy budget.
+- The function moved to a server-only `lib/insights-server.ts` and calls the
+  backend directly (`resolveBackendBaseUrl()`), removing a pointless self-proxy hop
+  and keeping `SABISCORE_BACKEND_URL` out of the client bundle. It also preserves
+  the backend's `error_code` rather than overwriting it with the display category —
+  the clobber that made `page.tsx`'s `INVALID_MATCHUP` → `notFound()` branch dead.
+- **New `insufficient_evidence` error category** for HTTP 422, with an amber,
+  non-alarming card variant and no retry button (retrying cannot produce evidence).
+  Post-fix this is the *expected* off-season response. `classifyAnalysisError` also
+  now recognizes a network failure from the code, not only the boolean flag.
+
+### Changed
+
+- **Providers health pill no longer reports an unreachable "live" count.**
+  `0/2 live · 5 configured` required `status === "VERIFIED"`, which needs
+  `PROVIDER_LIVE_TESTS=true`; production deliberately keeps it false, so the
+  numerator was structurally always 0 and the pill was permanently amber — a false
+  outage signal on every page. Now `N enabled · M configured`.
+
+### Verification
+
+Backend `pytest` 966 passed / 13 skipped / 0 failed (was 962), ruff 0. Web lint 0,
+typecheck 0, Vitest 49/49, `NODE_ENV=production` build ✓, Playwright 4/4
+(chromium + mobile-chrome), gitleaks no leaks. Three pre-existing tests that
+asserted the fail-open behavior (`test_engine_minimal`, `test_engine_simple`,
+`test_insights_engine::test_engine_with_missing_features`) were rewritten to assert
+fail-closed; the insights fixture now carries real evidence, reusing
+`test_feature_transformer._complete_match_data()`.
+
+---
+
 ## vΩ.22 — Insights timestamp coherence; production finalization re-verification (2026-07-25)
 
 ### Fixed

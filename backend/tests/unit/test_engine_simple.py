@@ -2,7 +2,9 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 def test_engine_basic_flow():
-    """Test core engine workflow with minimal mocks"""
+    """Core engine workflow: no evidence from the aggregator means no insights."""
+    from src.core.exceptions import DataUnavailableError
+
     with patch('src.insights.engine.DataAggregator') as mock_agg, \
          patch('src.insights.engine.SabiScoreEnsemble') as mock_model:
 
@@ -16,8 +18,7 @@ def test_engine_basic_flow():
         from src.insights.engine import InsightsEngine
         engine = InsightsEngine(model=mock_model_instance, aggregator=mock_agg_instance)
 
-        # Test
-        result = engine.generate_match_insights('TeamA vs TeamB', 'EPL')
-        assert isinstance(result, dict)
-        assert 'predictions' in result
+        with pytest.raises(DataUnavailableError):
+            engine.generate_match_insights('TeamA vs TeamB', 'EPL')
+
         mock_agg_instance.fetch_match_data.assert_called_once()

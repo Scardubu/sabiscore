@@ -58,13 +58,17 @@ class TestAPIEndpoints:
             "/api/v1/insights",
             json={"matchup": "Manchester City vs Liverpool", "league": "EPL"}
         )
-        # Accept 200 (mocked), 503 (model not loaded), or 500 (test env middleware issue)
-        assert response.status_code in [200, 500, 503]
+        # 422 is the expected result here: no provider evidence exists in the test
+        # environment, so the endpoint fails closed rather than inferring on defaults.
+        # 503 (model not loaded) and 500 (test env middleware) remain tolerated.
+        assert response.status_code in [200, 422, 500, 503]
         if response.status_code == 200:
             data = response.json()
             assert data["matchup"] == "Manchester City vs Liverpool"
             assert "metadata" in data
             assert "predictions" in data
+        if response.status_code == 422:
+            assert response.json()["detail"]["error_code"] == "INSUFFICIENT_EVIDENCE"
 
     def test_model_status(self):
         """Test model status endpoint"""

@@ -102,7 +102,7 @@ class DataAggregator:
             odds = self.fetch_odds()
         except Exception as e:
             logger.warning(f"Failed to fetch odds: {e}")
-            odds = {"home_win": 2.0, "draw": 3.2, "away_win": 3.5}
+            odds = {}
 
         try:
             injuries = self.fetch_injuries()
@@ -340,15 +340,20 @@ class DataAggregator:
             return {"home": {}, "away": {}}
 
     def fetch_odds(self) -> Dict[str, float]:
+        """Return the live 1X2 book, or {} when none is available.
+
+        An empty book means downstream value analysis is skipped. Never substitute a
+        default price — a fabricated market produces a fabricated edge and stake.
+        """
         try:
             odds = self.oddsportal.scrape_odds(self.teams["home"], self.teams["away"])
             if not odds:
-                logger.warning("No odds found for %s, using default odds", self.matchup)
-                return {"home_win": 2.0, "draw": 3.2, "away_win": 3.5}
+                logger.warning("No odds found for %s; market unavailable", self.matchup)
+                return {}
             return odds
         except Exception as e:
             logger.warning(f"Failed to fetch odds for {self.matchup}: {e}")
-            return {"home_win": 2.0, "draw": 3.2, "away_win": 3.5}
+            return {}
 
     def fetch_injuries(self) -> pd.DataFrame:
         try:

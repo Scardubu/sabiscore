@@ -2,10 +2,6 @@
 // Supports Cloudflare KV → Upstash Redis → PostgreSQL cache hierarchy
 
 
-// Match analysis has one bounded retry inside a 28-second client budget.
-const INSIGHTS_TIMEOUT_MS = 28_000;
-const INSIGHTS_MAX_RETRIES = 1;
-
 // Performance optimization: Enable connection reuse
 const ENABLE_KEEPALIVE = true;
 
@@ -465,56 +461,9 @@ export async function healthCheck(): Promise<HealthResponse> {
   }
 }
 
-export async function getMatchInsights(
-  matchup: string,
-  league: string = "EPL"
-): Promise<InsightsResponse> {
-  try {
-    const response = await fetchWithRetry(
-      `/api/insights`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ matchup, league }),
-        cache: "no-store",
-      },
-      INSIGHTS_TIMEOUT_MS,
-      INSIGHTS_MAX_RETRIES
-    );
-
-    if (!response.ok) {
-      const bodyText = await response.text().catch(() => "");
-
-      // HTML body = Render suspension page = cold start
-      const bodyLower = bodyText.trimStart().toLowerCase();
-      if (bodyLower.startsWith("<!doctype") || bodyLower.startsWith("<html")) {
-        throw new APIError(
-          "The prediction engine is warming up. Please wait a moment.",
-          503,
-          "COLD_START",
-        );
-      }
-
-      let errorMessage = `HTTP ${response.status}`;
-      let errorBody: Record<string, string> = {};
-      try {
-        errorBody = JSON.parse(bodyText) as Record<string, string>;
-        errorMessage = errorBody.detail || errorBody.message || errorBody.error || errorMessage;
-      } catch { /* ignore */ }
-      const category = classifyAnalysisError({ status: response.status, body: errorBody });
-      throw new APIError(errorMessage, response.status, category.toUpperCase());
-    }
-
-    return (await response.json()) as InsightsResponse;
-  } catch (error) {
-    console.error("Insights fetch error:", error);
-    if (error instanceof APIError) throw error;
-    const msg = error instanceof Error ? error.message : "Unknown error";
-    throw new APIError(msg, 0, "NETWORK_ERROR");
-  }
-}
+// getMatchInsights lives in `lib/insights-server.ts`: it is server-only and must
+// call the backend directly. A relative fetch from a server component throws
+// `Failed to parse URL`, which is what silently broke the /match insights panel.
 
 // Client-side API client for use in React components
 export const apiClient = {

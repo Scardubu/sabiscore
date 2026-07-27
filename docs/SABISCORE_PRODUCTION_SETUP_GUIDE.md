@@ -1,6 +1,6 @@
 ﻿# SabiScore Production Setup Guide
 
-Last updated: 2026-07-24
+Last updated: 2026-07-27
 
 This is the authoritative setup and deployment guide for the finalized production shape.
 
@@ -310,6 +310,41 @@ run the full release matrix before tagging the release.
 2. Keep the backend up so the web app can render fail-closed outage states.
 3. Roll back database schema only with reviewed Alembic downgrade or forward-fix migration.
 4. Re-run `python -m src.cli providers doctor` and `make verify` before restoring traffic.
+
+## vΩ.23 Changes (2026-07-27)
+
+- **Phase-7 insights now fail closed.** `POST /api/v1/insights` previously returned
+  HTTP 200 with fabricated probabilities, a fabricated 1X2 book, and an uncapped
+  35%-of-bankroll Kelly stake whenever required evidence was absent — the
+  off-season default. `FeatureTransformer` raised `DataUnavailableError` correctly,
+  but `insights/engine.py` swallowed it and substituted a `FEATURE_DEFAULTS`
+  vector. The engine now re-raises, and the endpoint returns **HTTP 422 with
+  `error_code: INSUFFICIENT_EVIDENCE`**, matching the `predictions.py` precedent.
+  Operators should expect 422 from this endpoint for any fixture without verified
+  form, head-to-head, and market evidence — including throughout the summer break.
+- **Insights Kelly sizing is now policy-capped.** `value_analysis.bets[].kelly_stake`
+  is a bankroll **fraction** (Quarter-Kelly, capped by `LeaguePolicy.kelly_cap`:
+  4% for the five calibrated domestic leagues, 2.5% Eredivisie, 2% UCL) and is
+  schema-bounded at `le=0.05`. It was previously a currency amount computed at
+  half-Kelly against a hardcoded 100-unit bankroll with no cap.
+- **No default odds book.** `data/aggregator.py` and the engine's fallback match
+  data no longer substitute `{2.0, 3.2, 3.5}` when a market cannot be fetched; they
+  return an empty book and value analysis is skipped, consistent with the
+  full-analysis surface's "market unavailable" behaviour.
+- **`/match/[id]` insights panel repaired.** The page had never rendered insights in
+  production: its server component fetched the relative path `/api/insights`, which
+  a Node server component cannot resolve, and the resulting error was misclassified
+  as `unknown` ("We hit a snag"). The fetch moved to a server-only module that calls
+  the backend directly via `SABISCORE_BACKEND_URL`. A new `insufficient_evidence`
+  error state renders the 422 case as an amber, non-alarming card with no retry
+  action.
+- **Providers health pill.** The header no longer reports an `X/Y live` count.
+  `VERIFIED` requires `PROVIDER_LIVE_TESTS=true`, which production keeps false, so
+  the count was structurally always zero and displayed a permanent false outage. It
+  now reads `N enabled · M configured`.
+- **Validation.** Backend pytest 966 passed / 13 skipped / 0 failed, ruff 0. Web
+  lint 0, typecheck 0, Vitest 49/49, `NODE_ENV=production` build ✓, Playwright
+  `/intelligence` 4/4 (chromium + mobile-chrome), Gitleaks filesystem scan clean.
 
 ## vΩ.22 Changes (2026-07-25)
 

@@ -1,4 +1,5 @@
 import logging
+import math
 from typing import Any, Dict, Callable, List, Optional
 
 import numpy as np
@@ -95,12 +96,19 @@ MODEL_EXPECTED_FEATURES = list(CANONICAL_FEATURES_68)
 
 
 def _safe_float(value: Any) -> Optional[float]:
+    """Coerce to float, treating NaN/inf as absent.
+
+    NaN must be None: callers use "is not None" to decide whether evidence is
+    present, so returning NaN would short-circuit their fallback chain and slip a
+    NaN past the fail-closed raise instead of reporting the missing source.
+    """
     try:
         if value is None:
             return None
-        return float(value)
+        result = float(value)
     except (TypeError, ValueError):
         return None
+    return result if math.isfinite(result) else None
 
 
 def _clamp(value: float, min_value: float, max_value: float) -> float:

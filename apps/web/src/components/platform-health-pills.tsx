@@ -54,11 +54,17 @@ export function PlatformHealthPills() {
         value={health ? (databaseReady ? "Ready" : "Unavailable") : "Checking"}
         ready={databaseReady}
       />
+      {/*
+        Deliberately does not report a "live" count. A provider only reaches
+        VERIFIED after a live probe, and production keeps PROVIDER_LIVE_TESTS
+        false to avoid spending free-tier quota — so "0/N live" was structurally
+        unreachable and rendered a permanent false outage.
+      */}
       <HealthPill
         icon={Activity}
         label="Providers"
-        value={health ? `${health.live}/${health.enabled} live · ${health.configured} configured` : "Checking"}
-        ready={Boolean(health && health.enabled > 0 && health.live === health.enabled)}
+        value={health ? `${health.enabled} enabled · ${health.configured} configured` : "Checking"}
+        ready={Boolean(health && health.enabled > 0)}
       />
       <HealthPill
         icon={BarChart3}

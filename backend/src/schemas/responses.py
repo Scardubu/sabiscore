@@ -40,6 +40,8 @@ class PredictionData(BaseModel):
     away_win_prob: float = Field(..., ge=0, le=1, json_schema_extra={"example": 0.15})
     prediction: str = Field(..., json_schema_extra={"example": "home_win"})
     confidence: float = Field(..., ge=0, le=1, json_schema_extra={"example": 0.78})
+    # True when the model was unavailable and these are baseline rates, not an inference.
+    is_baseline: bool = Field(default=False, json_schema_extra={"example": False})
 
 class XGData(BaseModel):
     home_xg: float = Field(..., ge=0, json_schema_extra={"example": 2.1})
@@ -64,7 +66,9 @@ class ValueBet(BaseModel):
     market_prob: float = Field(..., ge=0, le=1, json_schema_extra={"example": 0.476})
     expected_value: float = Field(..., json_schema_extra={"example": 0.152})
     value_pct: float = Field(..., json_schema_extra={"example": 36.6})
-    kelly_stake: float = Field(..., ge=0, json_schema_extra={"example": 0.05})
+    # Bankroll fraction (Quarter-Kelly), never a currency amount. Bounded by the
+    # global 5% ceiling so an uncapped sizing bug cannot reach a client.
+    kelly_stake: float = Field(..., ge=0, le=0.05, json_schema_extra={"example": 0.05})
     confidence_interval: List[float] = Field(..., json_schema_extra={"example": [0.58, 0.72]})
     edge: float = Field(..., json_schema_extra={"example": 0.174})
     recommendation: str = Field(..., json_schema_extra={"example": "Strong bet"})

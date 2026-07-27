@@ -302,6 +302,7 @@ export type AnalysisErrorCategory =
   | "upstream_unavailable"
   | "backend_internal_error"
   | "invalid_response"
+  | "insufficient_evidence"
   | "network_error"
   | "unknown";
 
@@ -322,10 +323,15 @@ export function classifyAnalysisError(input: {
     return "upstream_timeout";
   }
   if (code === "invalid_response") return "invalid_response";
+  // 422 is the backend's fail-closed answer when verified evidence is missing —
+  // an expected state (e.g. the off-season break), not a fault.
+  if (input.status === 422 || marker.includes("insufficient_evidence")) {
+    return "insufficient_evidence";
+  }
   if (input.status === 502 || input.status === 503 || input.status === 504) {
     return "upstream_unavailable";
   }
-  if (input.networkError) return "network_error";
+  if (input.networkError || code === "network_error") return "network_error";
   return "unknown";
 }
 

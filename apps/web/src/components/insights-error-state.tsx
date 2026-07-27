@@ -46,6 +46,12 @@ const CONFIG = {
     heading: "The analysis contract could not be verified",
     showWhyNote: false,
   },
+  insufficient_evidence: {
+    accent: "amber",
+    label: "Insufficient Verified Evidence",
+    heading: "Not enough verified data to model this match",
+    showWhyNote: false,
+  },
   unknown: {
     accent: "rose",
     label: "Unexpected Error",
@@ -87,6 +93,8 @@ export function InsightsErrorState({ errorType, matchup }: InsightsErrorStatePro
       ? `The ${matchup} request could not reach the analysis backend.`
       : errorType === "invalid_response"
       ? `The response for ${matchup} failed contract validation and was not displayed.`
+      : errorType === "insufficient_evidence"
+      ? `Required inputs for ${matchup} — recent form, head-to-head record and a coherent 1X2 market — are not available, so no probabilities or stake are produced.`
       : errorType === "backend_internal_error"
       ? `The prediction service is temporarily unavailable for ${matchup}. This usually resolves within a few minutes.`
       : `Something unexpected happened while generating insights for ${matchup}. This usually resolves on retry.`;
@@ -155,6 +163,8 @@ export function InsightsErrorState({ errorType, matchup }: InsightsErrorStatePro
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
+            {/* Retrying cannot produce evidence that does not exist yet. */}
+            {errorType !== "insufficient_evidence" && (
             <button
               type="button"
               disabled={refreshing}
@@ -173,6 +183,7 @@ export function InsightsErrorState({ errorType, matchup }: InsightsErrorStatePro
               </svg>
               {refreshing ? "Retrying…" : "Retry now"}
             </button>
+            )}
             <Link
               href="/match"
               className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-700/60 bg-slate-800/40 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500"

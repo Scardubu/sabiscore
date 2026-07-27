@@ -262,4 +262,23 @@ describe("analysis error taxonomy", () => {
     expect(isRetryableInfrastructureError("upstream_timeout")).toBe(true);
     expect(isRetryableInfrastructureError("backend_internal_error")).toBe(false);
   });
+
+  it("classifies a 422 as insufficient evidence, not an unexpected error", () => {
+    // The backend fails closed with 422 when required evidence is missing (e.g.
+    // the off-season break). That is an expected state and must never render the
+    // alarming "unexpected error" copy, nor auto-retry.
+    expect(classifyAnalysisError({ status: 422 })).toBe("insufficient_evidence");
+    expect(
+      classifyAnalysisError({ status: 422, code: "INSUFFICIENT_EVIDENCE" }),
+    ).toBe("insufficient_evidence");
+    expect(isRetryableInfrastructureError("insufficient_evidence")).toBe(false);
+  });
+
+  it("recognizes a network failure from the error code as well as the flag", () => {
+    // Regression guard: the server component passes {status, code} only. Keying
+    // network detection solely on the boolean flag made every genuine connection
+    // failure fall through to "unknown".
+    expect(classifyAnalysisError({ status: 0, code: "NETWORK_ERROR" })).toBe("network_error");
+    expect(classifyAnalysisError({ networkError: true })).toBe("network_error");
+  });
 });

@@ -24,7 +24,7 @@ def test_prohibited_production_patterns_are_absent() -> None:
 
     api_service_provider_text = "\n".join(
         _read_texts(backend_root / "src" / name, "*.py")
-        for name in ("api", "services", "providers")
+        for name in ("api", "services", "providers", "insights", "data")
     )
     transformer_text = (backend_root / "src" / "data" / "transformers.py").read_text(
         encoding="utf-8",

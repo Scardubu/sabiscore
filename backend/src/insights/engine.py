@@ -22,10 +22,29 @@ from .calculators import (
     calculate_value_percentage,
 )
 from ..core.config import settings
+from ..core.exceptions import DataUnavailableError
+from ..core.league_policy import (
+    LeaguePolicyUnavailableError,
+    get_league_policy,
+)
 from ..services.rl_betting_agent import RLBettingAgent
 from ..services.uncertainty_service import UncertaintyService
 
 logger = logging.getLogger(__name__)
+
+# Public sizing is Quarter-Kelly, hard-capped by the per-league policy (never the
+# global ceiling on its own). Mirrors services/ultra_prediction_service.py.
+QUARTER_KELLY = 0.25
+MAX_KELLY_CAP = 0.05
+
+
+def _league_kelly_cap(league: str) -> float:
+    """Per-league Kelly ceiling, defaulting to the most conservative cap."""
+    try:
+        return min(get_league_policy(league).kelly_cap, MAX_KELLY_CAP)
+    except LeaguePolicyUnavailableError:
+        logger.warning("No league policy for %r; using conservative Kelly cap", league)
+        return 0.02
 
 
 # Legacy defaults are retained below for backward-compatible enrichment logic.
@@ -360,9 +379,12 @@ class InsightsEngine:
                 },
             )
 
-            # Get features with error handling
+            # Get features. Missing required evidence must fail closed — substituting
+            # FEATURE_DEFAULTS here would let the model infer on pure defaults.
             try:
                 features = self._prepare_features(match_data, realtime_data)
+            except DataUnavailableError:
+                raise
             except Exception as e:
                 logger.warning(f"Feature preparation failed, using mock features: {e}")
                 features = self._create_mock_features()
@@ -375,7 +397,7 @@ class InsightsEngine:
 
             # Generate value bets
             odds = market_odds or match_data.get("odds", {})
-            value_analysis = self._calculate_value_bets(predictions, odds)
+            value_analysis = self._calculate_value_bets(predictions, odds, league)
 
             # Run Monte Carlo simulations
             monte_carlo = self._run_monte_carlo(predictions)
@@ -443,7 +465,10 @@ class InsightsEngine:
                     'draw_prob': predictions.get('draw_prob', 0.33),
                     'away_win_prob': predictions.get('away_win_prob', 0.34),
                     'prediction': predictions.get('prediction', 'draw'),
-                    'confidence': predictions.get('confidence', 0.5)
+                    'confidence': predictions.get('confidence', 0.5),
+                    # Baseline output is not a model inference; consumers must be able
+                    # to tell the two apart rather than infer it from the numbers.
+                    'is_baseline': bool(predictions.get('is_baseline', False)),
                 },
                 'xg_analysis': {
                     'home_xg': xg_analysis.get('home_xg', 1.5),
@@ -486,6 +511,10 @@ class InsightsEngine:
             logger.info(f"Insights generated successfully for {matchup}")
             return insights
 
+        except DataUnavailableError:
+            # _create_fallback_insights still carries probabilities and xG, so it is not a
+            # valid response for missing evidence. Let the caller return 422.
+            raise
         except Exception as e:
             logger.error(f"Failed to generate insights: {e}")
             # Return a basic fallback response instead of raising
@@ -523,6 +552,9 @@ class InsightsEngine:
             logger.info(f"Features prepared: {features.shape[1]} columns aligned for model")
             return features
 
+        except DataUnavailableError:
+            # Required evidence is absent: fail closed rather than aligning to defaults.
+            raise
         except Exception as e:
             logger.error(f"Feature preparation failed: {e}")
             # Return aligned mock features
@@ -595,22 +627,8 @@ class InsightsEngine:
         
         home_elo = get_team_elo(home_team)
         away_elo = get_team_elo(away_team)
-        
-        # Calculate odds based on ELO difference
         elo_diff = home_elo - away_elo
-        # Home advantage + ELO-based probability
-        home_prob = 0.45 + (elo_diff / 1000) + 0.05  # Base 45% + ELO diff + 5% home advantage
-        home_prob = max(0.15, min(0.75, home_prob))  # Clamp to reasonable range
-        draw_prob = 0.28 - abs(elo_diff) / 3000  # Closer teams = more draws
-        draw_prob = max(0.20, min(0.35, draw_prob))
-        away_prob = 1.0 - home_prob - draw_prob
-        
-        # Convert probabilities to decimal odds (with 5% margin)
-        margin = 1.05
-        home_odds = margin / home_prob if home_prob > 0 else 5.0
-        draw_odds = margin / draw_prob if draw_prob > 0 else 4.0
-        away_odds = margin / away_prob if away_prob > 0 else 3.0
-        
+
         return {
             "metadata": {
                 "matchup": f"{home_team} vs {away_team}",
@@ -640,11 +658,9 @@ class InsightsEngine:
                     "squad_value": away_stats["squad_value"],
                 }
             },
-            "odds": {
-                "home_win": round(home_odds, 2),
-                "draw": round(draw_odds, 2),
-                "away_win": round(away_odds, 2)
-            },
+            # No market: this path has no live book, and an ELO-derived price would
+            # produce a fabricated edge and stake. Value analysis is skipped instead.
+            "odds": {},
             "elo": {
                 "home": home_elo,
                 "away": away_elo,
@@ -872,8 +888,17 @@ class InsightsEngine:
             'xg_difference': round(home_xg - away_xg, 2)
         }
 
-    def _calculate_value_bets(self, predictions: Dict[str, Any], market_odds: Dict[str, float]) -> Dict[str, Any]:
-        """Calculate value betting opportunities using EV, Kelly, and edges."""
+    def _calculate_value_bets(
+        self,
+        predictions: Dict[str, Any],
+        market_odds: Dict[str, float],
+        league: str = "",
+    ) -> Dict[str, Any]:
+        """Calculate value betting opportunities using EV, Kelly, and edges.
+
+        ``kelly_stake`` is a bankroll *fraction* (Quarter-Kelly, capped by the
+        league policy), matching the public contract the frontend renders.
+        """
 
         if not market_odds:
             return {
@@ -892,7 +917,7 @@ class InsightsEngine:
         edges = calculate_betting_edge(model_probs, market_odds)
         bets: List[Dict[str, Any]] = []
 
-        bankroll = 100.0
+        kelly_cap = _league_kelly_cap(league)
         for outcome, prob in model_probs.items():
             odds = market_odds.get(outcome)
             implied = calculate_implied_probability(odds) if odds else None
@@ -900,7 +925,11 @@ class InsightsEngine:
                 continue
 
             ev = calculate_expected_value(prob, odds)
-            kelly = calculate_kelly_stake(prob, odds, bankroll, kelly_fraction=0.5)
+            # bankroll=1.0 makes the shared calculator return a fraction, not an amount.
+            kelly = min(
+                calculate_kelly_stake(prob, odds, bankroll=1.0, kelly_fraction=QUARTER_KELLY),
+                kelly_cap,
+            )
             value_pct = calculate_value_percentage(prob, implied)
             ci_low, ci_high = calculate_confidence_interval(prob)
 

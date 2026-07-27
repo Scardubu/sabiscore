@@ -17,6 +17,7 @@ from ..core.database import (
 )
 from ..core.cache import cache
 from ..core.config import settings
+from ..core.exceptions import DataUnavailableError
 from ..schemas.requests import InsightsRequest
 from ..schemas.responses import (
     ErrorResponse,
@@ -253,10 +254,11 @@ async def generate_insights(
             league=league,
         )
 
-        # Validate and cache the results (TTL: 1 hour for match insights)
+        # Validate the payload, then cache it (TTL: 1 hour for match insights).
+        # Note this must not reuse the name `model` — that still holds the ML model.
+        response = insights if isinstance(insights, InsightsResponse) else InsightsResponse(**insights)
         try:
-            model = insights if isinstance(insights, InsightsResponse) else InsightsResponse(**insights)
-            cache.set(cache_key, model.model_dump(mode="json"), ttl=3600)
+            cache.set(cache_key, response.model_dump(mode="json"), ttl=3600)
         except Exception as cache_exc:
             logger.warning(f"Failed to cache insights: {cache_exc}")
 
@@ -272,17 +274,21 @@ async def generate_insights(
             },
         )
 
-        try:
-            return model
-        except NameError:
-            # If validation above failed unexpectedly, return a coerced model here
-            try:
-                return InsightsResponse(**insights)
-            except ValidationError as ve:
-                raise _http_error(500, f"Insights validation error: {ve}", "INSIGHTS_VALIDATION_ERROR")
+        return response
 
     except HTTPException:
         raise
+    except DataUnavailableError as exc:
+        # Fail closed: required evidence is absent, so there is nothing honest to return.
+        logger.warning(
+            "Insights refused — insufficient evidence",
+            extra={"matchup": body.matchup, "league": body.league, "reason": str(exc)},
+        )
+        raise _http_error(
+            422, f"Insufficient verified evidence: {exc}", "INSUFFICIENT_EVIDENCE"
+        ) from exc
+    except ValidationError as exc:
+        raise _http_error(500, f"Insights validation error: {exc}", "INSIGHTS_VALIDATION_ERROR") from exc
     except ValueError as exc:
         # Handle validation errors from downstream components
         logger.warning(f"Validation error: {str(exc)}", extra={"matchup": body.matchup, "league": body.league})

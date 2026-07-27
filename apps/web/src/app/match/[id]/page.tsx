@@ -3,7 +3,8 @@ import { InsightsDisplayWrapper } from "@/components/insights-display-wrapper";
 import { FullAnalysisSection } from "@/components/full-analysis-section";
 import { Phase8AnalyticsSection } from "@/components/phase8-analytics-section";
 import { InsightsErrorState } from "@/components/insights-error-state";
-import { getMatchInsights, APIError } from "@/lib/api";
+import { APIError } from "@/lib/api";
+import { getMatchInsights } from "@/lib/insights-server";
 import {
   classifyAnalysisError,
   type AnalysisErrorCategory,

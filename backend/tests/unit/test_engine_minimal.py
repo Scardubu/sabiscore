@@ -1,7 +1,12 @@
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
+
+import pytest
+
 
 def test_engine_minimal():
-    """Minimal engine test with maximum mocking"""
+    """An aggregator that returns no evidence must fail closed, not fabricate."""
+    from src.core.exceptions import DataUnavailableError
+
     with patch('src.insights.engine.DataAggregator') as mock_agg, \
          patch('src.insights.engine.SabiScoreEnsemble') as mock_model:
 
@@ -15,8 +20,7 @@ def test_engine_minimal():
 
         engine = InsightsEngine(model=mock_model_instance, aggregator=mock_agg_instance)
 
-        # Test
-        result = engine.generate_match_insights('TeamA vs TeamB', 'EPL')
-        assert isinstance(result, dict)
-        assert 'predictions' in result
+        with pytest.raises(DataUnavailableError):
+            engine.generate_match_insights('TeamA vs TeamB', 'EPL')
+
         mock_agg_instance.fetch_match_data.assert_called_once()
