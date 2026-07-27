@@ -311,6 +311,36 @@ run the full release matrix before tagging the release.
 3. Roll back database schema only with reviewed Alembic downgrade or forward-fix migration.
 4. Re-run `python -m src.cli providers doctor` and `make verify` before restoring traffic.
 
+## vΩ.25 Changes (2026-07-27)
+
+- **Loading interstitial matches the results container.** The `/match/[id]` loading
+  screen rendered at 672 px while the results page uses `max-w-6xl` (1152 px), so
+  the layout snapped ~480 px wider when the analysis landed. The interstitial now
+  uses `max-w-6xl` and splits into a two-column grid above the `lg` breakpoint so
+  the extra width carries the engagement cards instead of stretching one column.
+  The SSR skeleton and the `match-selector` overlay wrapper were updated to match —
+  all three must stay in sync or the screen shifts at hydration.
+- **Retry no longer reloads the document.** "Retry now" on the match page called
+  `window.location.reload()`, which discarded the 6-layer analysis and Phase 8
+  sections that load independently and were rendering correctly. It now calls
+  `router.refresh()` inside a transition, re-running only the page's server
+  components while the sibling sections stay mounted.
+- **Dead surface removed.** `apps/web/src/components/MatchDashboard.tsx` (369 lines,
+  zero importers) rendered the superseded `CertifiedMatchAnalysis` contract replaced
+  by `full-analysis-dashboard.tsx` in vΩ.18. The `analyzeCertifiedPrediction` client
+  helper in `lib/api.ts` is now unused but retained deliberately: it wraps the live
+  `/api/v1/predictions/analyze` endpoint, so its removal is a separate decision
+  about that endpoint's status.
+- **`/match` first-load JS 214 kB → 207 kB** by loading the interstitial through
+  `next/dynamic` (`ssr: false`); it only renders after a matchup is submitted.
+- **Validation.** Web lint 0, typecheck 0, Vitest 58/58, `NODE_ENV=production`
+  build ✓, Playwright 4/4, Gitleaks clean. Backend untouched.
+- **Operational note.** A `backendStatus: unavailable` reading during this session
+  was a Render free-tier cold start (11.5 s to `/health/ready`), not a fault. The
+  14-minute GitHub Actions keepalive remains dark under the billing lock, so first
+  request after idle will continue to pay that cost until an external pinger is
+  configured.
+
 ## vΩ.24 Changes (2026-07-27)
 
 - **Reduced-evidence surfaces no longer display neutral defaults as measurements.**

@@ -21,8 +21,8 @@ function formatPercent(value: number) {
 /**
  * Donut chart for 1X2-style probability distributions. Replaces the former
  * chart.js Doughnut wrapper — recharts is already a project dependency and
- * used elsewhere (MatchDashboard, rolling-accuracy-chart), so this avoids
- * shipping two charting libraries for the same visual shape.
+ * used by rolling-accuracy-chart, so this avoids shipping two charting
+ * libraries for the same visual shape.
  */
 export function ProbabilityDonutChart({ segments, className }: ProbabilityDonutChartProps) {
   const data = useMemo(

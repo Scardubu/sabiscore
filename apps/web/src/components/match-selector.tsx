@@ -2,6 +2,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { useQuery } from "@tanstack/react-query";
@@ -11,7 +12,15 @@ import { getTeamsForLeague, LeagueId } from "../lib/team-data";
 import { getUpcomingMatches, type UpcomingMatch } from "@/lib/api";
 import { safeErrorMessage } from "@/lib/error-utils";
 import { LEAGUE_CONFIG, TeamVsDisplay } from "./team-display";
-import { MatchLoadingExperience } from "@/components/loading/match-loading-experience";
+// Only rendered once a matchup is submitted, and it carries framer-motion's
+// drag/gesture machinery — keep it out of the /match first-load bundle.
+const MatchLoadingExperience = dynamic(
+  () =>
+    import("@/components/loading/match-loading-experience").then(
+      (m) => m.MatchLoadingExperience,
+    ),
+  { ssr: false },
+);
 import { FeatureFlag, useFeatureFlag } from "@/lib/feature-flags";
 import { hashMatchup } from "@/lib/interstitial-storage";
 import { cn } from "@/lib/utils";
@@ -496,7 +505,9 @@ export function MatchSelector() {
           aria-describedby="match-loading-desc"
         >
           <div className="absolute inset-0" aria-hidden="true" />
-          <div className="relative w-full max-w-xl max-h-[calc(100vh-2rem)] overflow-y-auto">
+          {/* max-w-6xl matches the interstitial's own container; a narrower clamp
+              here would collapse its two-column layout back to a single strip. */}
+          <div className="relative w-full max-w-6xl max-h-[calc(100vh-2rem)] overflow-y-auto">
             <MatchLoadingExperience
               homeTeam={pendingMatchup.home}
               awayTeam={pendingMatchup.away}

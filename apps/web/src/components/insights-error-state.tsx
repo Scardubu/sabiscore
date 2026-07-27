@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useTransition } from "react";
+import { useRouter } from "next/navigation";
 import type { AnalysisErrorCategory } from "@/lib/full-analysis-contract";
 
 interface InsightsErrorStateProps {
@@ -75,11 +76,15 @@ const CONFIG = {
 export function InsightsErrorState({ errorType, matchup }: InsightsErrorStateProps) {
   const cfg = CONFIG[errorType];
   const isAmber = cfg.accent === "amber";
-  const [refreshing, setRefreshing] = useState(false);
+  const router = useRouter();
+  const [refreshing, startRefresh] = useTransition();
 
+  // router.refresh() re-runs only this page's server components. A full
+  // window.location.reload() discarded the 6-layer analysis and Phase 8 sections
+  // that had already loaded, restarted the loading interstitial from 0%, and
+  // re-downloaded the whole bundle to retry one fetch.
   const handleRetryNow = () => {
-    setRefreshing(true);
-    window.location.reload();
+    startRefresh(() => router.refresh());
   };
 
   const body =

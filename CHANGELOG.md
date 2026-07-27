@@ -7,6 +7,63 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ---
 
+## vΩ.25 — Loading interstitial layout; in-place retry; dead-code removal (2026-07-27)
+
+Frontend-only. No backend, Alembic, or betting-engine changes.
+
+### Fixed — loading screen size and layout
+
+- **The interstitial was 672 px wide while the results page is 1152 px**, so the
+  screen snapped ~480 px wider the moment the analysis landed. Its container was
+  `max-w-lg sm:max-w-xl lg:max-w-2xl`; the results page (`app/match/[id]/page.tsx`)
+  is `max-w-6xl`. The container now matches at `max-w-6xl`.
+- **Simply widening it would have stretched one column across the full width**, so
+  the content moved to a `lg:grid-cols-5` split: the match card and progress meter
+  occupy `lg:col-span-3`, and the engagement cards (poll, swipe, fun fact) sit
+  beside them in `lg:col-span-2` rather than stacking into a tall narrow strip.
+  Below `lg` it remains a single column.
+- **`MatchLoadingExperienceSkeleton` now mirrors that grid.** A different container
+  in the SSR skeleton would have shifted the entire screen at hydration.
+- **The `match-selector` overlay clamped the same component to `max-w-xl`**, which
+  would have collapsed the new two-column layout back to a strip in its second
+  usage site. Widened to `max-w-6xl` to match.
+
+### Fixed — reloading results page
+
+- **"Retry now" performed a full `window.location.reload()`.** That discarded the
+  6-layer analysis and Phase 8 sections that had loaded independently and were
+  displaying fine, restarted the loading interstitial from 0%, and re-downloaded
+  the entire bundle in order to retry a single fetch. It now calls
+  `router.refresh()` inside `useTransition`, which re-runs only this page's server
+  components in place; the sibling sections stay mounted and the button's pending
+  state resolves on its own.
+
+### Changed — performance and maintainability
+
+- **`MatchDashboard.tsx` deleted** (369 lines). Zero importers — the only remaining
+  mention was a stale comment in `ProbabilityDonutChart`, now corrected. It
+  rendered the superseded `CertifiedMatchAnalysis` contract, replaced by
+  `full-analysis-dashboard.tsx` in vΩ.18, and was the last non-chart recharts
+  consumer. The `analyzeCertifiedPrediction` helper in `lib/api.ts` is now unused
+  but was **left in place**: it is a typed wrapper over the live
+  `/api/v1/predictions/analyze` endpoint, so removing it is a separate call about
+  whether that endpoint is deprecated.
+- **`/match` first-load JS 214 kB → 207 kB.** `match-selector.tsx` statically
+  imported `MatchLoadingExperience` — including framer-motion's drag/gesture
+  machinery — although it only renders after a matchup is submitted. Now
+  `next/dynamic` with `ssr: false`, the same pattern applied to the chart in vΩ.24.
+
+### Verification
+
+Web lint 0, typecheck 0, Vitest 58/58 (+6: three pinning the loading container and
+grid, three pinning retry behaviour), `NODE_ENV=production` build ✓, Playwright 4/4,
+Gitleaks clean. Backend untouched. Live production alias confirmed at HEAD via
+`/api/health` `sha`; the `backendStatus: unavailable` seen mid-session was a Render
+free-tier cold start (11.5 s wake-up), not a defect — all four readiness checks
+report ready once warm.
+
+---
+
 ## vΩ.24 — Reduced-evidence display honesty; /performance bundle (2026-07-27)
 
 Frontend-only follow-up to vΩ.23. No backend, Alembic, or betting-engine changes.

@@ -593,8 +593,12 @@ export function MatchLoadingExperience({
   }, []);
 
   return (
-    // ponytail: width steps toward the max-w-6xl results page so the loading→results transition doesn't snap
-    <div className="mx-auto w-full max-w-lg space-y-4 p-4 sm:max-w-xl lg:max-w-2xl">
+    // Container matches the results page (max-w-6xl) so loading→results does not
+    // snap ~480px wider on desktop. The 3/2 grid keeps card widths readable at
+    // that size instead of stretching one column across the full width.
+    <div className="mx-auto w-full max-w-6xl p-4">
+      <div className="grid gap-4 lg:grid-cols-5 lg:items-start">
+      <div className="space-y-4 lg:col-span-3">
       {/* Main card with team matchup */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -763,7 +767,10 @@ export function MatchLoadingExperience({
           </motion.div>
         </div>
       </motion.div>
+      </div>
 
+      {/* Engagement column — sits beside the main card on large screens */}
+      <div className="space-y-4 lg:col-span-2">
       {/* Quick prediction poll */}
       <QuickPredictionPoll
         homeTeam={homeTeam}
@@ -795,13 +802,15 @@ export function MatchLoadingExperience({
 
       {/* Fun fact card */}
       <FunFactCard />
+      </div>
+      </div>
 
       {/* Footer disclaimer */}
       <motion.p
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.8 }}
-        className="text-center text-[10px] text-slate-600"
+        className="mt-4 text-center text-[10px] text-slate-600"
       >
         Ensemble ML models · calibrated per league · verified evidence only
       </motion.p>
@@ -814,8 +823,10 @@ export function MatchLoadingExperience({
  */
 export function MatchLoadingExperienceSkeleton() {
   return (
-    <div className="mx-auto w-full max-w-lg space-y-4 p-4 sm:max-w-xl lg:max-w-2xl">
-      <div className="rounded-2xl border border-slate-700/50 bg-slate-900/50 p-4">
+    // Mirrors the live layout exactly — a different container here would shift
+    // the whole screen the moment the client component hydrates.
+    <div className="mx-auto grid w-full max-w-6xl gap-4 p-4 lg:grid-cols-5 lg:items-start">
+      <div className="rounded-2xl border border-slate-700/50 bg-slate-900/50 p-4 lg:col-span-3">
         {/* Header skeleton */}
         <div className="mb-4 flex justify-between">
           <Skeleton className="h-5 w-32 bg-slate-700/50" />
@@ -845,8 +856,11 @@ export function MatchLoadingExperienceSkeleton() {
         </div>
       </div>
 
-      {/* Poll skeleton */}
-      <Skeleton className="h-28 w-full rounded-xl bg-slate-700/30" />
+      {/* Engagement column skeleton */}
+      <div className="space-y-4 lg:col-span-2">
+        <Skeleton className="h-28 w-full rounded-xl bg-slate-700/30" />
+        <Skeleton className="h-20 w-full rounded-xl bg-slate-700/20" />
+      </div>
     </div>
   );
 }
