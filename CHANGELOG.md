@@ -7,6 +7,72 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ---
 
+## vΩ.27 — Off-season context surfaced before submission on the match selector (2026-07-28)
+
+Frontend-only. No backend, Alembic, or betting-engine changes.
+
+### Added — off-season notice before submission, not after
+
+A user could previously type any hypothetical matchup during the close season
+and only learn it was off-season after submitting — via the full-analysis
+page's "4 critical gaps / No bet" teardown, driven by
+`FIXTURE_IDENTITY_UNVERIFIED`. That gate is correct, intentional,
+zero-fabrication behavior and is untouched by this change; the gap was purely
+that nothing warned the user beforehand.
+
+`match-selector.tsx` gains a `useQuery` (`["match-selector-offseason", league]`)
+calling `getUpcomingMatches({ league, days_ahead: 7, limit: 1 })` for the
+currently selected league — the same convention already used by this file's
+own `BigMatchesCarousel` (5 min stale / 10 min gc). When the response reports
+`offseason: true`, the existing `LeagueOffseasonNotice` component (already
+shipped and WCAG 2.2 AA-compliant, previously used only in
+`upcoming-matches-panel.tsx`) renders above the Home/Away team inputs, with a
+friendly league name resolved from the file's own `LEAGUES` lookup. Nothing
+renders during loading, on fetch error, while in-season, or for an
+unrecognized league — silence is the default, never a false off-season claim.
+
+The display-form `league` state is passed through unnormalized (no
+`canonicalLeagueId()` call). This is deliberate, not an oversight:
+`/api/upcoming` is a different, more lenient boundary than the strict
+Zod-enum proxies (`full-analysis`, `insights`, `phase8-features`) vΩ.26
+fixed, and passing the raw display form here exactly matches
+`upcoming-matches-panel.tsx`'s own already-production-verified usage of the
+identical endpoint. Verified directly against the live backend rather than
+assumed: `GET /api/v1/upcoming/matches?league=EPL` and `?league=La%20Liga`
+(unnormalized) both resolve correctly and return **different**
+`next_season_start` dates per league (`2026-08-08` EPL, `2026-08-15` La
+Liga) — proof the lenient server-side normalization handles the display form
+correctly for a non-EPL league, not just the one league vΩ.26 warned about
+testing in isolation.
+
+No new test file. Neither `match-selector.tsx` nor `upcoming-matches-panel.tsx`
+(same `LeagueOffseasonNotice` conditional pattern, already in production) had
+one; fully mounting `match-selector.tsx` would require mocking
+`next/navigation`, `react-hot-toast`, feature flags, and `next/dynamic` —
+disproportionate scaffolding for one non-money, non-blocking conditional
+block. Backstop is TypeScript, the existing suite, and a live data-contract
+check (below) in place of a browser walkthrough.
+
+### Verification
+
+Backend (regression check only — no backend files touched): ruff 0 issues,
+`pytest` 966 passed / 13 skipped (unchanged from baseline). Frontend: lint 0,
+typecheck 0, Vitest 62/62, `NODE_ENV=production` build ✓ (`/match` bundle
+unchanged at 207 kB). Playwright `intelligence.spec.ts` 4/4 (chromium +
+mobile-chrome). Responsible-gambling copy scan: 0 new hits (pre-existing
+`block`/`unlock`/`Clock` substring matches in untouched files, not this
+diff). Gitleaks: no leaks found. Live contract check against both the Render
+backend directly and the Vercel `/api/upcoming` proxy: correct for EPL and
+La Liga. One operational note, not a code defect: the first proxy request
+of the session hit `FUNCTION_INVOCATION_TIMEOUT` (cold Vercel function +
+cold Render backend), then succeeded in 1.8–3.9s on every subsequent call —
+consistent with the GitHub Actions billing lock (still confirmed active this
+session) meaning the scheduled keep-alive pings that normally prevent this
+aren't running. The new query's silence-on-error behavior absorbs this
+gracefully; no fix needed here.
+
+---
+
 ## vΩ.26 — League vocabulary unified (every non-EPL match page was 400ing) (2026-07-27)
 
 Frontend-only. No backend, Alembic, or betting-engine changes.

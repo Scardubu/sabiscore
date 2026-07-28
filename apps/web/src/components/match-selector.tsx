@@ -8,6 +8,7 @@ import { toast } from "react-hot-toast";
 import { useQuery } from "@tanstack/react-query";
 
 import { TeamAutocomplete } from "./team-autocomplete";
+import { LeagueOffseasonNotice } from "./LeagueOffseasonNotice";
 import { getTeamsForLeague, LeagueId } from "../lib/team-data";
 import { getUpcomingMatches, type UpcomingMatch } from "@/lib/api";
 import { safeErrorMessage } from "@/lib/error-utils";
@@ -307,6 +308,16 @@ export function MatchSelector() {
     setAwayTeam(away);
   };
 
+  // Off-season signal for the currently selected league — same query
+  // convention as BigMatchesCarousel above, scoped to `league` so the user
+  // sees it before submitting a hypothetical matchup, not after.
+  const { data: offseasonData } = useQuery({
+    queryKey: ["match-selector-offseason", league],
+    queryFn: () => getUpcomingMatches({ league, days_ahead: 7, limit: 1 }),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
+
   return (
     <>
       <div
@@ -418,6 +429,13 @@ export function MatchSelector() {
               ))}
             </div>
           </div>
+
+          {offseasonData?.offseason && (
+            <LeagueOffseasonNotice
+              leagueName={LEAGUES.find((l) => l.id === league)?.name ?? league}
+              nextSeasonStart={offseasonData?.next_season_start ?? null}
+            />
+          )}
 
           {/* Team Inputs */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

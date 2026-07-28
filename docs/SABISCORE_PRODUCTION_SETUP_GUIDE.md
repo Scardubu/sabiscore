@@ -1,6 +1,6 @@
 ﻿# SabiScore Production Setup Guide
 
-Last updated: 2026-07-27
+Last updated: 2026-07-28
 
 This is the authoritative setup and deployment guide for the finalized production shape.
 
@@ -310,6 +310,39 @@ run the full release matrix before tagging the release.
 2. Keep the backend up so the web app can render fail-closed outage states.
 3. Roll back database schema only with reviewed Alembic downgrade or forward-fix migration.
 4. Re-run `python -m src.cli providers doctor` and `make verify` before restoring traffic.
+
+## vΩ.27 Changes (2026-07-28)
+
+- **Off-season context now surfaces before submission on the match selector.**
+  `match-selector.tsx` previously let a user submit any hypothetical matchup
+  and only learn it was off-season from the full-analysis page's "4 critical
+  gaps / No bet" teardown. It now renders the existing `LeagueOffseasonNotice`
+  above the Home/Away inputs, scoped to the currently selected league, as soon
+  as a new `useQuery` (`getUpcomingMatches({ league, days_ahead: 7, limit: 1 })`,
+  same convention as the in-file `BigMatchesCarousel`) reports `offseason: true`.
+  Non-blocking — silent during loading/error/in-season/unknown-league. No
+  backend or `handleSubmit` changes; no new component.
+- **League vocabulary verified live, not just EPL.** The display-form `league`
+  string is passed unnormalized to `/api/upcoming`, matching
+  `upcoming-matches-panel.tsx`'s existing usage of the same lenient endpoint
+  (distinct from the strict proxies vΩ.26 hardened). Confirmed directly
+  against the live backend: `league=EPL` → `next_season_start: "2026-08-08"`,
+  `league=La%20Liga` → `next_season_start: "2026-08-15"` — different, correct
+  dates per league.
+- **Verification.** Backend regression check: ruff 0, pytest 966 passed / 13
+  skipped (unchanged). Web lint 0, typecheck 0, Vitest 62/62,
+  `NODE_ENV=production` build ✓ (`/match` bundle unchanged at 207 kB),
+  Playwright 4/4, copy scan 0 new hits, Gitleaks clean.
+- **Operator checklist re-verified.** GitHub Actions billing lock (vΩ.20) is
+  still active — `gh run list` shows the last 5 runs, including all recent
+  "Keep-alive ping" schedules, completing as failures in 4–10s (a runner that
+  never boots, not a real execution). This explains an observed
+  `FUNCTION_INVOCATION_TIMEOUT` on the first `/api/upcoming` request of the
+  session (cold Vercel function + cold Render backend, since the automated
+  warm-up isn't running); every request after the first succeeded in
+  1.8–3.9s. Render provider flags unchanged: `api_football`/`sportmonks`/
+  `the_odds_api` remain `configured:true, enabled:false` pending operator
+  approval of the blueprint env sync in the Render dashboard.
 
 ## vΩ.26 Changes (2026-07-27)
 
