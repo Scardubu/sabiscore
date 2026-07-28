@@ -7,6 +7,87 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ---
 
+## vΩ.29 — Certification recovery and walk-forward validation hardening (2026-07-28)
+
+Backend validation, release evidence, and operator-controlled activation. No
+betting-engine, Kelly, verdict, Alembic, or frontend calculation changes.
+
+### Fixed — walk-forward RPS silently skipped every fold
+
+`ModelRegistry.walk_forward_validate()` passed a one-hot list to
+`ranked_probability_score()`, which requires an integer outcome. The resulting
+`TypeError` was hidden by `except Exception`, so every data set eventually
+returned `{"skipped": true, "reason": "no_valid_folds"}`.
+
+The validator now converts and validates outcomes, requires a finite three-value
+probability simplex, and skips malformed input explicitly. Unexpected scoring
+defects are no longer swallowed. The public result shape is unchanged.
+
+`test_model_registry_walk_forward.py` disables production PostgreSQL and Redis
+before importing application modules and covers metric extrema, minimum data,
+valid folds, mixed invalid records, and all-invalid input. Focused result:
+**6 passed**.
+
+The live walk-forward run is **WAIVED for this release checkpoint**, not
+reported as validated: no completed in-season prediction/result records exist,
+and the production records-sourcing join is not implemented.
+
+### Production activation evidence
+
+- Render readiness returned `status: ok`; database, Alembic, Redis cache, and
+  required Phase 7 model artifacts were ready after warm-up.
+- Both Vercel aliases returned `sha: f33b5ab` and healthy backend checks.
+- Provider health remains **2 enabled / 5 configured**. API-Football,
+  Sportmonks, and The Odds API are disabled pending Render Blueprint approval.
+  The canonical backend route is `/api/v1/providers/health`; the obsolete
+  `/api/v1/providers/status` path returns 404.
+- `sabiscore.com` was added to the Vercel `web` project. Verification is pending
+  registrar DNS: apex `A` record to `76.76.21.21`.
+- Docker Desktop 29.6.2 and Kubernetes `readyz` recovered on 4 CPUs and about
+  4 GB RAM. Production Compose validation and PostgreSQL Alembic
+  upgrade/check pass, but both production image builds timed out after
+  15 minutes. The backend tag remained an older 2026-07-15 image and no
+  `sabiscore-web:verify` image was created, so the image gates are BLOCK.
+- GitHub Actions remains dark: the latest canonical CI, secret-scan,
+  large-file, and keep-alive jobs fail before any step starts and expose no
+  runner log. Local verification remains the only executed gate.
+- Upstash Redis rotation and the Render non-sleeping-plan upgrade remain
+  operator-unconfirmed. No new live probes were run across that security gate.
+
+### Verification evidence
+
+- Backend Ruff: 0 issues.
+- Focused RPS: 6 passed. Corrected complete backend suite: 972 passed,
+  13 skipped, 0 failed.
+- Web: lint 0, typecheck 0, Vitest 70/70, production build passed.
+- Existing explainer coverage exercises PARTIAL-like abstention and
+  HIGH_CONVICTION-like stake-permitted states.
+- Prohibited-copy scan: 0 hits. Gitleaks: no leaks found.
+- Playwright `/intelligence`: 4/4 across Chromium and mobile Chrome.
+- Scraper: 6/6 parser/policy tests; manifest validation returned `ok:true`.
+- Docker Compose production config: passed. Local PostgreSQL revision:
+  `0003_team_reconciliation`; `alembic check`: no new upgrade operations.
+- Docker backend image: BLOCK (15-minute timeout; only old tag present).
+  Docker web image: BLOCK (15-minute timeout; no verify image created).
+
+### Seven-lens certification record
+
+| Lens | Verdict | Evidence / blocker |
+| --- | --- | --- |
+| Football analytics and quant | CONDITIONAL | RPS implementation and synthetic regression suite pass; real completed-match run waived until records exist |
+| Bayesian calibration and risk control | PASS | No Kelly, verdict, ranking, or watchlist change; both engine contracts remain untouched |
+| FastAPI/PostgreSQL/Redis architecture | PASS | Live readiness passes; local PostgreSQL upgraded to Alembic head and drift check is clean |
+| TypeScript and provider integration | BLOCK | Three configured providers remain disabled in Render |
+| Product design, performance, and accessibility | PASS | Existing vΩ.28 explainers retained; lint, typecheck, 70 Vitest tests, production build, and 4 Playwright checks pass |
+| MLOps, security, DevOps, and SRE | BLOCK | Upstash rotation, Render plan/Blueprint actions, DNS verification, GitHub Actions, and both Docker image gates remain incomplete |
+| Responsible gambling and governance | PASS | No stake/verdict logic changed; prohibited-copy scan has 0 hits and Gitleaks found no leaks |
+
+**Release decision: `NOT SAFE FOR PRODUCTION`** until every BLOCK is cleared
+with direct evidence. This checkpoint does not claim real-data activation
+complete.
+
+---
+
 ## vΩ.28 — Zero-fabrication metric scrub, beginner explainers, contract fixes (2026-07-28)
 
 Frontend-only. No backend, Alembic, or betting-engine changes.

@@ -6,6 +6,7 @@ Manages model versioning, tracking, and deployment lifecycle
 import joblib
 import json
 import logging
+import math
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
@@ -359,12 +360,22 @@ class ModelRegistry:
                 probs = rec.get("probs", [])
                 if outcome is None or len(probs) != 3:
                     continue
-                y_true = [0.0, 0.0, 0.0]
-                y_true[int(outcome)] = 1.0
                 try:
-                    rps_scores.append(ranked_probability_score(y_true, probs))
-                except Exception:
-                    pass
+                    outcome_index = int(outcome)
+                    probabilities = [float(probability) for probability in probs]
+                except (TypeError, ValueError):
+                    continue
+
+                if outcome_index not in (0, 1, 2):
+                    continue
+                if any(not math.isfinite(probability) for probability in probabilities):
+                    continue
+                if any(probability < 0.0 or probability > 1.0 for probability in probabilities):
+                    continue
+                if not math.isclose(sum(probabilities), 1.0, rel_tol=0.0, abs_tol=1e-6):
+                    continue
+
+                rps_scores.append(ranked_probability_score(outcome_index, probabilities))
 
             if not rps_scores:
                 continue

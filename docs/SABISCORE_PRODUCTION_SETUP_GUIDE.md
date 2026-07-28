@@ -311,6 +311,47 @@ run the full release matrix before tagging the release.
 3. Roll back database schema only with reviewed Alembic downgrade or forward-fix migration.
 4. Re-run `python -m src.cli providers doctor` and `make verify` before restoring traffic.
 
+## vΩ.29 Certification Recovery (2026-07-28)
+
+- `ModelRegistry.walk_forward_validate()` now passes an integer outcome to the
+  RPS metric and validates outcome/probability inputs before scoring. The result
+  schema is unchanged. Six isolated synthetic regression tests pass.
+- A live walk-forward result is not certified yet. It requires completed
+  in-season predictions plus a reviewed join from `MatchPredictionLog` to final
+  match scores. Until then the live gate is explicitly waived/conditional, not
+  represented as validated.
+- Live infrastructure after warm-up: Render readiness `ok`; database,
+  migration, cache, and Phase 7 model checks ready; both Vercel aliases at
+  `f33b5ab`.
+- Provider activation is incomplete: ESPN and football-data.org are enabled;
+  API-Football, Sportmonks, and The Odds API remain configured but disabled
+  until the Render Blueprint environment sync is approved. Probe
+  `/api/v1/providers/health`; `/api/v1/providers/status` is not a current
+  backend route and returns 404.
+- `sabiscore.com` is attached to the Vercel `web` project. The registrar must
+  set the apex `A` record to `76.76.21.21`; domain verification and HTTPS remain
+  pending until DNS propagates.
+- Upstash Redis rotation and the Render non-sleeping-plan upgrade are mandatory
+  operator gates. Do not run new credential-dependent production probes or
+  declare production readiness until both are confirmed.
+- Docker Desktop and Kubernetes recovered, but the VM currently exposes about
+  4 GB RAM. Production Compose validation passes, and a disposable local
+  PostgreSQL database upgrades to `0003_team_reconciliation` with no Alembic
+  drift. Both production image builds timed out after 15 minutes: the backend
+  verify tag remained an older 2026-07-15 image, and no web verify image was
+  created. Increase Docker Desktop to the supplied 6–8 GB recommendation and
+  rerun both image gates.
+- Current local release evidence: Ruff 0; focused RPS 6/6; full backend
+  972 passed / 13 skipped; web lint 0, typecheck 0, Vitest 70/70, production
+  build passed; prohibited-copy scan 0; Gitleaks clean; targeted Playwright
+  4/4; scraper tests 6/6 with manifest validation `ok:true`.
+- GitHub Actions is still not executing jobs. Canonical CI, secret scan,
+  large-file, and scheduled keep-alive runs complete as failures with zero
+  steps and no runner log. Treat local evidence as the only executed evidence
+  until the account-level Actions block is cleared.
+
+Release decision at this checkpoint: **`NOT SAFE FOR PRODUCTION`**.
+
 ## vΩ.28 Changes (2026-07-28)
 
 - **Training-data figure corrected from "10.7k+" to 1,752 (zero-fabrication).**
