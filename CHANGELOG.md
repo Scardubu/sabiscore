@@ -65,6 +65,25 @@ disproportionate scaffolding for one non-money, non-blocking conditional
 block. Backstop is TypeScript, the existing suite, and a live data-contract
 check (below) in place of a browser walkthrough.
 
+### Fixed — `make verify` gate 9 failed spuriously on a clean tree
+
+Gate 9 ran a bare `pnpm --filter @sabiscore/web build`, inheriting whatever
+`NODE_ENV` the calling shell exported. With `NODE_ENV=development` set, Next
+builds dev-mode React into the exporter and the `/404` prerender dies with a
+misleading `<Html> should not be imported outside of pages/_document` error.
+CLAUDE.md documented the footgun; the release gate itself did not defend
+against it. Gate 9 now pins `NODE_ENV=production`.
+
+This is worth more than its one-line size right now: with the GitHub Actions
+billing lock (vΩ.20) still active and CI dark, `make verify` is the only
+enforced gate, and a gate that fails on a clean tree trains people to ignore
+it.
+
+⚠️ **Never judge a gate through `| tail`.** The first `make verify` run this
+session was piped to `tail -40`, which reported exit code 0 while the run had
+actually failed at gate 9 — the same pipe-masking trap already recorded for
+the Docker gate in vΩ.15. Redirect to a file and check `$?`.
+
 ### Verification
 
 Backend (regression check only — no backend files touched): ruff 0 issues,

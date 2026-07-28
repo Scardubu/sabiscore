@@ -340,6 +340,21 @@ run the full release matrix before tagging the release.
   reading `data_availability.*` returns `undefined` while TS claims `boolean`.
   This change does not read that field — correct the interface before anything
   does.
+- **`make verify` gate 9 now pins `NODE_ENV=production`.** The recipe ran a
+  bare `pnpm --filter @sabiscore/web build`, so it inherited whatever
+  `NODE_ENV` the caller's shell exported. With `NODE_ENV=development` set,
+  `next build` fails at the `/404` prerender with the misleading
+  `<Html> should not be imported outside of pages/_document` error — the
+  footgun already documented in `CLAUDE.md`, but which the release gate itself
+  did not defend against. This made `make verify` fail spuriously on a clean
+  tree, which matters more than usual right now: with GitHub Actions
+  billing-locked, `make verify` is the only enforced gate. Standalone
+  `NODE_ENV=production pnpm --filter @sabiscore/web build` was green
+  throughout.
+- **⚠️ Never judge a gate through `| tail`.** The first `make verify` run this
+  session was piped to `tail -40`, which reported exit code 0 while the run had
+  actually failed at gate 9 — the same pipe-masking trap recorded for the
+  Docker gate in vΩ.15. Redirect to a file and check `$?` instead.
 - **Verification.** Backend regression check: ruff 0, pytest 966 passed / 13
   skipped (unchanged). Web lint 0, typecheck 0, Vitest 62/62,
   `NODE_ENV=production` build ✓ (`/match` bundle unchanged at 207 kB),

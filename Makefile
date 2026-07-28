@@ -163,7 +163,10 @@ endif
 	@echo "  8/14 Web component tests"
 	@pnpm --filter @sabiscore/web test
 	@echo "  9/14 Web production build"
-	@pnpm --filter @sabiscore/web build
+	@# NODE_ENV must be pinned: a shell exporting NODE_ENV=development makes
+	@# next build fail at the /404 prerender with a misleading
+	@# "<Html> should not be imported outside of pages/_document" error.
+	@NODE_ENV=production pnpm --filter @sabiscore/web build
 	@echo "  10/14 Docker Compose configuration"
 	@docker compose -f docker-compose.prod.yml config --quiet
 	@echo "  11/14 Backend image"
