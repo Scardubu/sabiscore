@@ -21,29 +21,41 @@ zero-fabrication behavior and is untouched by this change; the gap was purely
 that nothing warned the user beforehand.
 
 `match-selector.tsx` gains a `useQuery` (`["match-selector-offseason", league]`)
-calling `getUpcomingMatches({ league, days_ahead: 7, limit: 1 })` for the
-currently selected league — the same convention already used by this file's
-own `BigMatchesCarousel` (5 min stale / 10 min gc). When the response reports
-`offseason: true`, the existing `LeagueOffseasonNotice` component (already
-shipped and WCAG 2.2 AA-compliant, previously used only in
-`upcoming-matches-panel.tsx`) renders above the Home/Away team inputs, with a
-friendly league name resolved from the file's own `LEAGUES` lookup. Nothing
-renders during loading, on fetch error, while in-season, or for an
-unrecognized league — silence is the default, never a false off-season claim.
+calling `getOffseasonStatus(canonicalLeagueId(league) ?? league)` for the
+currently selected league. When the response reports
+`season_status: "OFF_SEASON"`, the existing `LeagueOffseasonNotice` component
+(already shipped and WCAG 2.2 AA-compliant, previously used only in
+`upcoming-matches-panel.tsx`) renders above the Home/Away team inputs, using
+the display league name the backend already returns. Nothing renders during
+loading, on fetch error, while in-season, or for an unrecognized league —
+silence is the default, never a false off-season claim.
 
-The display-form `league` state is passed through unnormalized (no
-`canonicalLeagueId()` call). This is deliberate, not an oversight:
-`/api/upcoming` is a different, more lenient boundary than the strict
-Zod-enum proxies (`full-analysis`, `insights`, `phase8-features`) vΩ.26
-fixed, and passing the raw display form here exactly matches
-`upcoming-matches-panel.tsx`'s own already-production-verified usage of the
-identical endpoint. Verified directly against the live backend rather than
-assumed: `GET /api/v1/upcoming/matches?league=EPL` and `?league=La%20Liga`
-(unnormalized) both resolve correctly and return **different**
-`next_season_start` dates per league (`2026-08-08` EPL, `2026-08-15` La
-Liga) — proof the lenient server-side normalization handles the display form
-correctly for a non-EPL league, not just the one league vΩ.26 warned about
-testing in isolation.
+**`getOffseasonStatus` had zero callers before this change**, so the endpoint
+was live-verified end-to-end rather than trusted. All three probes returned
+correct, distinct per-league dates: EPL → `2026-08-08` (11 days), `LA_LIGA` →
+`2026-08-15` (18 days), `UCL` → `2026-09-15` (49 days). Canonical (`LA_LIGA`)
+and display (`La Liga`) inputs resolve identically, because the backend's
+`_normalise_league` folds either vocabulary — but the canonical form is sent
+regardless, matching the `handleSubmit` precedent in this same file and the
+vΩ.26 rule about normalizing at API boundaries. The first request of a cold
+session took 21–30s (cold Vercel function + cold Render dyno) and 0.8s once
+the 1h edge cache was warm.
+
+Chosen over piggybacking `getUpcomingMatches` for a real efficiency reason:
+the season endpoint is edge-cached 1h (`s-maxage=3600`, so `staleTime`
+mirrors it) and performs **zero prediction or value-bet work**, whereas
+`/api/upcoming` defaults `include_predictions=true` and would compute a
+prediction for one fixture purely to read a boolean — on every match-selector
+mount and every league switch, once the season resumes on 2026-08-08.
+
+⚠️ **Pre-existing type drift found and left unfixed** (flagged, not silently
+absorbed): `OffseasonDataAvailability` in `lib/api.ts` declares
+`historical_results / elo_ratings / market_odds / form_stats / team_metadata`,
+but the live backend returns `historical_data / live_odds / live_standings /
+live_form / pi_ratings / berrar_ratings / market_drift / match_context`.
+Reading any `data_availability.*` field yields `undefined` at runtime while
+TypeScript claims `boolean`. This change does not read that field. The
+interface should be corrected against the backend before anything does.
 
 No new test file. Neither `match-selector.tsx` nor `upcoming-matches-panel.tsx`
 (same `LeagueOffseasonNotice` conditional pattern, already in production) had

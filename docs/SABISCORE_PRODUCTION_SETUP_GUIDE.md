@@ -318,17 +318,28 @@ run the full release matrix before tagging the release.
   and only learn it was off-season from the full-analysis page's "4 critical
   gaps / No bet" teardown. It now renders the existing `LeagueOffseasonNotice`
   above the Home/Away inputs, scoped to the currently selected league, as soon
-  as a new `useQuery` (`getUpcomingMatches({ league, days_ahead: 7, limit: 1 })`,
-  same convention as the in-file `BigMatchesCarousel`) reports `offseason: true`.
-  Non-blocking — silent during loading/error/in-season/unknown-league. No
-  backend or `handleSubmit` changes; no new component.
-- **League vocabulary verified live, not just EPL.** The display-form `league`
-  string is passed unnormalized to `/api/upcoming`, matching
-  `upcoming-matches-panel.tsx`'s existing usage of the same lenient endpoint
-  (distinct from the strict proxies vΩ.26 hardened). Confirmed directly
-  against the live backend: `league=EPL` → `next_season_start: "2026-08-08"`,
-  `league=La%20Liga` → `next_season_start: "2026-08-15"` — different, correct
-  dates per league.
+  as a new `useQuery` (`getOffseasonStatus(canonicalLeagueId(league) ?? league)`)
+  reports `season_status: "OFF_SEASON"`. Non-blocking — silent during
+  loading/error/in-season/unknown-league. No backend or `handleSubmit` changes;
+  no new component.
+- **First production caller of `getOffseasonStatus`, so it was live-verified.**
+  The function had zero callers before this change. All three probes returned
+  correct, distinct per-league dates: `EPL` → `2026-08-08` (11 days),
+  `LA_LIGA` → `2026-08-15` (18 days), `UCL` → `2026-09-15` (49 days). Canonical
+  and display vocabularies both resolve (the backend `_normalise_league` folds
+  either), but canonical is sent per the vΩ.26 boundary rule. Cold first
+  request took 21–30s (cold Vercel function + cold Render dyno), 0.8s once the
+  1h edge cache was warm.
+- **Why this endpoint over the fixtures list.** `/api/offseason/[league]` is
+  edge-cached 1h and does zero prediction work; `/api/upcoming` defaults
+  `include_predictions=true` and would compute a prediction for one fixture
+  just to read a boolean, on every league switch once the season resumes.
+- **Pre-existing type drift flagged, not fixed.** `OffseasonDataAvailability`
+  in `lib/api.ts` does not match the live backend response shape
+  (`historical_results/elo_ratings/...` vs `historical_data/live_odds/...`);
+  reading `data_availability.*` returns `undefined` while TS claims `boolean`.
+  This change does not read that field — correct the interface before anything
+  does.
 - **Verification.** Backend regression check: ruff 0, pytest 966 passed / 13
   skipped (unchanged). Web lint 0, typecheck 0, Vitest 62/62,
   `NODE_ENV=production` build ✓ (`/match` bundle unchanged at 207 kB),

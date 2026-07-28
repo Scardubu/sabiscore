@@ -10,7 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { TeamAutocomplete } from "./team-autocomplete";
 import { LeagueOffseasonNotice } from "./LeagueOffseasonNotice";
 import { getTeamsForLeague, LeagueId } from "../lib/team-data";
-import { getUpcomingMatches, type UpcomingMatch } from "@/lib/api";
+import { getOffseasonStatus, getUpcomingMatches, type UpcomingMatch } from "@/lib/api";
 import { safeErrorMessage } from "@/lib/error-utils";
 import { LEAGUE_CONFIG, TeamVsDisplay } from "./team-display";
 // Only rendered once a matchup is submitted, and it carries framer-motion's
@@ -308,14 +308,17 @@ export function MatchSelector() {
     setAwayTeam(away);
   };
 
-  // Off-season signal for the currently selected league — same query
-  // convention as BigMatchesCarousel above, scoped to `league` so the user
-  // sees it before submitting a hypothetical matchup, not after.
+  // Off-season signal for the currently selected league, so the user sees it
+  // before submitting a hypothetical matchup rather than after. Uses the
+  // purpose-built season endpoint (edge-cached 1h, no prediction work) rather
+  // than piggybacking the fixtures list; staleTime mirrors that edge cache.
+  // `getOffseasonStatus` never throws — it degrades to UNKNOWN, which renders
+  // nothing.
   const { data: offseasonData } = useQuery({
     queryKey: ["match-selector-offseason", league],
-    queryFn: () => getUpcomingMatches({ league, days_ahead: 7, limit: 1 }),
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    queryFn: () => getOffseasonStatus(canonicalLeagueId(league) ?? league),
+    staleTime: 60 * 60 * 1000,
+    gcTime: 2 * 60 * 60 * 1000,
   });
 
   return (
@@ -430,10 +433,12 @@ export function MatchSelector() {
             </div>
           </div>
 
-          {offseasonData?.offseason && (
+          {offseasonData?.season_status === "OFF_SEASON" && (
             <LeagueOffseasonNotice
-              leagueName={LEAGUES.find((l) => l.id === league)?.name ?? league}
-              nextSeasonStart={offseasonData?.next_season_start ?? null}
+              leagueName={
+                offseasonData.league || LEAGUES.find((l) => l.id === league)?.name || league
+              }
+              nextSeasonStart={offseasonData.next_season_start || null}
             />
           )}
 
