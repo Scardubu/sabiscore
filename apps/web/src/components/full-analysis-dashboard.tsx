@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useState, useCallback } from "react";
+import { HelpCircle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
@@ -17,6 +18,7 @@ import {
 } from "@/lib/full-analysis-contract";
 import { cn } from "@/lib/utils";
 import { InsightsTeaseStrip } from "@/components/insights-tease-strip";
+import { Tooltip, KellyTooltip, EdgeTooltip } from "@/components/ui/ResponsibleGamblingTooltip";
 
 // ─── Verdict description copy (Phase 3) ──────────────────────────────────────
 
@@ -689,7 +691,7 @@ function EnsembleCard({ data }: { data: FullMatchAnalysisResponse["ensemble"] })
 
 // ─── RL recommendation card ───────────────────────────────────────────────────
 
-function RLCard({
+export function RLCard({
   rec,
   effectiveKellyCap,
   stakePermitted,
@@ -737,16 +739,21 @@ function RLCard({
           <p className={cn("text-lg font-bold", !stakePermitted ? "text-amber-300" : "text-emerald-300")}>
             {!stakePermitted ? "No bet" : `Stake ${pct(rec.stake_fraction, 2)}`}
           </p>
-          <p className="text-[10px] uppercase tracking-wider text-slate-600">
+          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-slate-600">
             Effective Kelly cap {pct(effectiveKellyCap, 1)}
-          </p>
+            <KellyTooltip />
+          </div>
           {rec.reason && (
             <p className="text-xs text-slate-400 leading-relaxed max-w-xs">{rec.reason}</p>
           )}
         </div>
       </div>
 
-      {Object.keys(rec.reward_components).length > 0 && (
+      {/* The reward decomposition describes a stake the policy actually sized. On
+          an abstention the backend emits zeros plus a constant abstention term,
+          and `slice` would drop that term while presenting the zeros as
+          measurements — the vΩ.24 neutral-default-as-data defect. */}
+      {!rec.abstain && stakePermitted && Object.keys(rec.reward_components).length > 0 && (
         <div className="grid grid-cols-2 gap-2 pt-1">
           {Object.entries(rec.reward_components).slice(0, 4).map(([k, v]) => (
             <div key={k} className="rounded-lg bg-slate-900/60 px-3 py-2">
@@ -851,7 +858,12 @@ export function UncertaintyCard({ unc, available }: { unc: FullMatchUncertainty;
   return (
     <div className="rounded-xl bg-slate-900/60 border border-slate-800/60 p-5 space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs uppercase tracking-wider text-slate-500">BNN Uncertainty</p>
+        <div className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-slate-500">
+          BNN Uncertainty
+          <Tooltip content="Bayesian Neural Network — instead of one number, the model reports a range reflecting what it doesn't know.">
+            <HelpCircle className="h-3.5 w-3.5 text-slate-500 hover:text-slate-400" />
+          </Tooltip>
+        </div>
         <span
           className={cn(
             "text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full border",
@@ -865,15 +877,30 @@ export function UncertaintyCard({ unc, available }: { unc: FullMatchUncertainty;
       </div>
       <div className="space-y-2">
         <div className="flex justify-between text-sm">
-          <span className="text-slate-400">Epistemic</span>
+          <span className="flex items-center gap-1.5 text-slate-400">
+            Epistemic
+            <Tooltip content="Unknown-unknowns — reducible with more data. High values trigger abstention.">
+              <HelpCircle className="h-3.5 w-3.5 text-slate-500 hover:text-slate-400" />
+            </Tooltip>
+          </span>
           <span className="font-semibold tabular-nums text-slate-200">{pct(unc.epistemic_unc)}</span>
         </div>
         <div className="flex justify-between text-sm">
-          <span className="text-slate-400">Aleatoric</span>
+          <span className="flex items-center gap-1.5 text-slate-400">
+            Aleatoric
+            <Tooltip content="Irreducible randomness in football outcomes. Cannot be reduced by more data.">
+              <HelpCircle className="h-3.5 w-3.5 text-slate-500 hover:text-slate-400" />
+            </Tooltip>
+          </span>
           <span className="font-semibold tabular-nums text-slate-200">{pct(unc.aleatoric_unc)}</span>
         </div>
         <div className="flex justify-between text-sm">
-          <span className="text-slate-400">CI</span>
+          <span className="flex items-center gap-1.5 text-slate-400">
+            CI
+            <Tooltip content="Width of the 95% credible interval for the top predicted class. Narrower = more precise.">
+              <HelpCircle className="h-3.5 w-3.5 text-slate-500 hover:text-slate-400" />
+            </Tooltip>
+          </span>
           {/* A credible interval around a prediction that was never produced is
               not interpretable — the backend still emits a placeholder range. */}
           <span className={cn("font-semibold tabular-nums", available ? "text-slate-200" : "text-slate-500")}>
@@ -894,7 +921,7 @@ export function UncertaintyCard({ unc, available }: { unc: FullMatchUncertainty;
 
 // ─── Odds edge card ───────────────────────────────────────────────────────────
 
-function OddsEdgeCard({ edge }: { edge: FullMatchOddsEdge }) {
+export function OddsEdgeCard({ edge }: { edge: FullMatchOddsEdge }) {
   const hasEdge = edge.edge > 0;
   return (
     <div className={cn(
@@ -914,13 +941,19 @@ function OddsEdgeCard({ edge }: { edge: FullMatchOddsEdge }) {
           <span className="font-semibold tabular-nums text-slate-200">{fmt(edge.market_odds, 2)}</span>
         </div>
         <div className="flex justify-between text-sm border-t border-slate-800/50 pt-2">
-          <span className="text-slate-400">Edge</span>
+          <span className="flex items-center gap-1.5 text-slate-400">
+            Edge
+            <EdgeTooltip />
+          </span>
           <span className={cn("font-bold tabular-nums", hasEdge ? "text-emerald-400" : "text-slate-400")}>
             {hasEdge ? "+" : ""}{pct(edge.edge)}
           </span>
         </div>
         <div className="flex justify-between text-sm">
-          <span className="text-slate-400">Kelly</span>
+          <span className="flex items-center gap-1.5 text-slate-400">
+            Kelly
+            <KellyTooltip />
+          </span>
           <span className="font-semibold tabular-nums text-slate-200">{pct(edge.kelly_stake, 2)}</span>
         </div>
       </div>

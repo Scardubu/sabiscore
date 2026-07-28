@@ -20,12 +20,21 @@ export function Tooltip({ children, content }: TooltipProps) {
       <div
         onMouseEnter={() => setIsVisible(true)}
         onMouseLeave={() => setIsVisible(false)}
+        onFocus={() => setIsVisible(true)}
+        onBlur={() => setIsVisible(false)}
+        tabIndex={0}
+        role="button"
+        aria-describedby={isVisible ? "tooltip-content" : undefined}
         className="cursor-help"
       >
         {children}
       </div>
       {isVisible && (
-        <div className="absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 transform rounded-lg border border-slate-600 bg-slate-800 p-3 text-xs text-slate-300 shadow-xl">
+        <div
+          id="tooltip-content"
+          role="tooltip"
+          className="absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 transform rounded-lg border border-slate-600 bg-slate-800 p-3 text-xs text-slate-300 shadow-xl"
+        >
           <div className="relative">
             {content}
             <div className="absolute -bottom-2 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-b border-r border-slate-600 bg-slate-800" />

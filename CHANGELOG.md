@@ -7,6 +7,107 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ---
 
+## vΩ.28 — Zero-fabrication metric scrub, beginner explainers, contract fixes (2026-07-28)
+
+Frontend-only. No backend, Alembic, or betting-engine changes.
+
+### Fixed — an overstated training-data figure (zero-fabrication)
+
+The homepage hero and the docs page both advertised **"10.7k+ real historical
+matches"** as the training corpus. The authoritative record is each artifact's
+own `model_metadata.training_samples`, read directly from the committed `.pkl`
+files this session:
+
+| Artifact | `training_samples` |
+| --- | --- |
+| `epl_ensemble.pkl` | 380 |
+| `la_liga_ensemble.pkl` | 380 |
+| `serie_a_ensemble.pkl` | 380 |
+| `bundesliga_ensemble.pkl` | 306 |
+| `ligue_1_ensemble.pkl` | 306 |
+| **Total** | **1,752** |
+
+Those counts are exactly one full season per league (380 = 20 teams × 38
+matchdays ÷ 2; 306 = 18 teams). The published figure overstated the real corpus
+by roughly six times. Both surfaces now state **1,752**, and the source-of-truth
+note is recorded inline at `HERO_STATS` so the number is re-derived from the
+artifacts rather than copied forward.
+
+### Fixed — two unverifiable refresh-cadence claims
+
+- `best-bet-spotlight.tsx` promised "Predictions refresh every 3 hours." No
+  3-hour job exists in the Celery beat schedule and the component's own
+  `staleTime` is 5 minutes. Now: "Predictions appear here once fixtures are
+  analyzed."
+- The docs page claimed "Live enrichment every 180 s." No such interval exists
+  anywhere in `apps/web`. Now: "Evidence is fetched fresh per request" — the
+  same correction applied to the match page in vΩ.9.
+
+The unsourced comparative "(industry avg ~0.23)" was also dropped from the
+Model Precision Gate caption; the `<=0.21` gate itself is real and retained.
+
+### Fixed — RL reward decomposition rendered neutral defaults as measurements
+
+Live off-season payload returns
+`reward_components: {R_pnl: 0, R_ic: 0, R_cal: 0, R_risk: 0, R_abs: 0.05}` with
+`abstain: true` and `stake_permitted: false`. `RLCard` rendered four `0.000`
+tiles beside "Abstained: insufficient verified evidence" — a reward breakdown
+for a stake that was never sized. Worse, `.slice(0, 4)` truncated away
+`R_abs: 0.05`, the only non-zero term, so the informative value was the one
+hidden. The grid is now gated on `!rec.abstain && stakePermitted`. This is the
+same defect class as the vΩ.24 Elo/credible-interval fixes.
+
+### Fixed — `OffseasonDataAvailability` had zero overlap with the backend
+
+The interface and both fallback literals in `lib/api.ts`, plus
+`unknownFallback()` in the offseason route, used five field names
+(`historical_results`/`elo_ratings`/`market_odds`/`form_stats`/`team_metadata`)
+that match nothing the backend returns. Verified against
+`backend/src/api/endpoints/offseason.py` `_data_availability()` and a live call:
+the real eight are `historical_data`/`live_odds`/`live_standings`/`live_form`/
+`pi_ratings`/`berrar_ratings`/`market_drift`/`match_context`. All three sites
+corrected; fallbacks unified to all-`false` ("fail toward silence"). No runtime
+behavior change — no caller reads `data_availability` today.
+
+### Added — beginner-friendly explainers on the match page
+
+`RLCard`, `OddsEdgeCard`, and `UncertaintyCard` showed "Kelly", "Edge",
+"Epistemic", "Aleatoric", "CI", and "BNN Uncertainty" with no explanation —
+even though `KellyTooltip`/`EdgeTooltip` already existed (wired only into the
+sibling `ValueBetCard`), and `uncertainty-display.tsx` already explained the
+same three uncertainty terms on the same route. A reader could see "Epistemic"
+explained once and bare once in one page load. All six now carry explainers,
+reusing the existing components and, for the uncertainty terms, the existing
+copy verbatim. Only "BNN" needed new wording. Verdict tiers were audited and
+found already explained via `VERDICT_COPY` — left untouched.
+
+### Fixed — shared `Tooltip` was unreachable by keyboard (WCAG 2.2 SC 1.4.13)
+
+`ResponsibleGamblingTooltip.tsx`'s `Tooltip` opened only on
+`onMouseEnter`/`onMouseLeave`. Added `onFocus`/`onBlur`, `tabIndex={0}`,
+`role="button"`, and `role="tooltip"` + `aria-describedby` on the popup — fixed
+once at the shared component, so every existing caller benefits.
+
+Also fixed a real HTML-validity bug the new tests surfaced: `Tooltip` renders a
+`<div>`, and two new call sites wrapped it in a `<p>`, producing a React
+`validateDOMNesting` warning. Both switched to `<div>`.
+
+### Verification
+
+`ruff` 0 · `pytest` 966 passed / 13 skipped / 0 failed · web lint 0 ·
+typecheck 0 · Vitest 70/70 (was 62) · `NODE_ENV=production` build ✓ ·
+prohibited-copy scan clean.
+
+### Operator-blocked, unchanged this session
+
+Live-reconfirmed via `curl`: `api_football`/`sportmonks`/`the_odds_api` remain
+`enabled:false` pending Render blueprint env-sync approval; Upstash Redis
+credential rotation still unconfirmed; `sabiscore.com` still unresolved. Vercel
+production and branch aliases were both at `sha:97f3b38` — in sync, no
+promotion needed at the time of checking.
+
+---
+
 ## vΩ.27 — Off-season context surfaced before submission on the match selector (2026-07-28)
 
 Frontend-only. No backend, Alembic, or betting-engine changes.

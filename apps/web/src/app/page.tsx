@@ -24,8 +24,11 @@ import { FeatureFlag, useFeatureFlag } from "@/lib/feature-flags";
 
 const HERO_STATS = [
   { label: "Live Performance", value: "Pending", detail: "Awaiting sufficient labelled production results" },
-  { label: "Training Data", value: "10.7k+", detail: "Real historical matches — no synthetic injection" },
-  { label: "Model Precision Gate", value: "<=0.21", detail: "Ranked probability score — lower is better (industry avg ~0.23)" },
+  // Authoritative source is each artifact's own model_metadata.training_samples
+  // (306–380 per league, one full season each). Do not restate a larger figure
+  // than the artifacts were actually fitted on.
+  { label: "Training Data", value: "1,752", detail: "Labelled matches across five leagues — no synthetic injection" },
+  { label: "Model Precision Gate", value: "<=0.21", detail: "Ranked probability score — lower is better" },
   { label: "Current Model", value: "Phase 7", detail: "Five-league certified artifact set" },
 ];
 

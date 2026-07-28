@@ -52,6 +52,7 @@ Classify every incoming task. A task may map to multiple types; resolve the full
 | **SabiScore Provider Gateway** | "ESPN", "ESPN standings", "ESPN slug", "scoreboard", "provider health", "API-Football", "Sportmonks", "football-data.org", "The Odds API", "circuit breaker", "provider quota", "egress allowlist", "multi-domain provider" |
 | **SabiScore Betting Engine** | "verdict", "HIGH_CONVICTION", "ACTIONABLE", "SPECULATIVE", "HOLD", "PARTIAL", "NO_BET", "Kelly", "edge", "expected value", "de-vig", "overround", "betting_intelligence", "core_engine" |
 | **SabiScore Evidence** | "evidence profile", "DISCOVERY", "PREMATCH_STANDARD", "PREMATCH_ENRICHED", "LINEUP_REFRESH", "MARKET_REFRESH", "FORECAST_ONLY", "critical gap", "advisory gap", "evidence passport", "fixture reconciliation", "canonical fixture" |
+| **SabiScore Zero-Fabrication Display** | "fabricated metric", "unverified claim", "training data count", "accuracy claim", "placeholder rendered as data", "neutral default", "reduced-evidence baseline", "scrub copy", "unsubstantiated number" |
 | **Mobile / Native** | "Expo", "React Native", "EAS", "Reanimated", "New Architecture" |
 | **Testing** | "test", "Vitest", "Playwright", "MSW", "coverage", "e2e", "unit" |
 | **Observability** | "OTel", "trace", "span", "metrics", "log", "Grafana", "Jaeger", "SigNoz" |
@@ -366,6 +367,13 @@ Use the repo's stack to sharpen routing.
 - SabiScore provider gateway (ESPN/API-Football/etc.) → prefer `backend-systems-auditor` + `api-automation-architect` + `opentelemetry-observability-architect`
 - SabiScore betting engine (verdict/Kelly/EV) → prefer `backend-domain-model-architect` + `backend-systems-auditor` + `testing-strategy-architect`
 - SabiScore evidence orchestration → prefer `backend-domain-model-architect` + `api-automation-architect`
+- SabiScore zero-fabrication display → prefer `component-quality-gate` + `frontend-product-design-architect`.
+  Verify every user-facing number against its authoritative source before
+  restating it (model artifacts' own `model_metadata` for training/accuracy
+  figures, `/api/health` for readiness, the live payload for match stats) —
+  a figure appearing in a doc or an existing UI string is not evidence.
+  Check whether the backend emits a neutral default for any stat tile before
+  rendering it: vΩ.24 and vΩ.28 each shipped a placeholder as a measurement.
 - Shipping safety / rollback → prefer `release-incident-operations-architect`
 
 ---

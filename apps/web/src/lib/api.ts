@@ -692,11 +692,14 @@ export async function getPhase8Features(
 // ---------------------------------------------------------------------------
 
 export interface OffseasonDataAvailability {
-  historical_results: boolean;
-  elo_ratings: boolean;
-  market_odds: boolean;
-  form_stats: boolean;
-  team_metadata: boolean;
+  historical_data: boolean;
+  live_odds: boolean;
+  live_standings: boolean;
+  live_form: boolean;
+  pi_ratings: boolean;
+  berrar_ratings: boolean;
+  market_drift: boolean;
+  match_context: boolean;
 }
 
 export interface OffseasonStatusResponse {
@@ -742,11 +745,14 @@ export async function getOffseasonStatus(
         next_season_start: "",
         days_until_next_season: null,
         data_availability: {
-          historical_results: true,
-          elo_ratings: true,
-          market_odds: false,
-          form_stats: true,
-          team_metadata: true,
+          historical_data: false,
+          live_odds: false,
+          live_standings: false,
+          live_form: false,
+          pi_ratings: false,
+          berrar_ratings: false,
+          market_drift: false,
+          match_context: false,
         },
         prediction_advisory: "Season status unavailable.",
         queried_at: new Date().toISOString(),
@@ -765,11 +771,14 @@ export async function getOffseasonStatus(
       next_season_start: "",
       days_until_next_season: null,
       data_availability: {
-        historical_results: true,
-        elo_ratings: true,
-        market_odds: false,
-        form_stats: true,
-        team_metadata: true,
+        historical_data: false,
+        live_odds: false,
+        live_standings: false,
+        live_form: false,
+        pi_ratings: false,
+        berrar_ratings: false,
+        market_drift: false,
+        match_context: false,
       },
       prediction_advisory: "Season status unavailable.",
       queried_at: new Date().toISOString(),

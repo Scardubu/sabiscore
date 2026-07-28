@@ -311,6 +311,42 @@ run the full release matrix before tagging the release.
 3. Roll back database schema only with reviewed Alembic downgrade or forward-fix migration.
 4. Re-run `python -m src.cli providers doctor` and `make verify` before restoring traffic.
 
+## vΩ.28 Changes (2026-07-28)
+
+- **Training-data figure corrected from "10.7k+" to 1,752 (zero-fabrication).**
+  The authoritative source is each artifact's own
+  `model_metadata.training_samples`, not any document: EPL 380, La Liga 380,
+  Serie A 380, Bundesliga 306, Ligue 1 306. Those are exactly one season per
+  league. Re-derive this number from the artifacts if it ever needs restating —
+  never copy it forward from a doc or a previous UI string.
+- **Two unverifiable refresh cadences removed.** "Predictions refresh every 3
+  hours" (`best-bet-spotlight.tsx`) had no matching Celery beat entry and
+  contradicted the component's own 5-minute `staleTime`; "Live enrichment every
+  180 s" (docs page) matched nothing in `apps/web`. Both replaced with claims
+  the code actually supports. The unsourced "(industry avg ~0.23)" comparative
+  was dropped; the `<=0.21` RPS gate itself is real and retained.
+- **`RLCard` no longer prints a reward decomposition for an unsized stake.**
+  On an abstention the backend emits all-zero reward components plus a constant
+  `R_abs`, and the existing `.slice(0, 4)` truncated away that one non-zero
+  term. Grid is now gated on `!rec.abstain && stakePermitted`.
+- **`OffseasonDataAvailability` now matches the backend.** The interface, both
+  `lib/api.ts` fallback literals, and the route's `unknownFallback()` used five
+  field names with zero overlap against
+  `backend/src/api/endpoints/offseason.py` `_data_availability()`. Corrected to
+  the real eight (`historical_data`, `live_odds`, `live_standings`,
+  `live_form`, `pi_ratings`, `berrar_ratings`, `market_drift`,
+  `match_context`), fallbacks unified to all-`false`.
+- **Beginner-friendly explainers added to the match dashboard**, reusing the
+  existing `KellyTooltip`/`EdgeTooltip`/`Tooltip` components and, for the
+  uncertainty terms, `uncertainty-display.tsx`'s existing copy verbatim.
+- **Shared `Tooltip` is now keyboard-reachable** (`onFocus`/`onBlur`,
+  `tabIndex`, `role="tooltip"`, `aria-describedby`), fixing WCAG 2.2 SC 1.4.13
+  for every caller at once.
+- **Gates:** ruff 0 · pytest 966 passed / 13 skipped · web lint 0 · typecheck 0
+  · Vitest 70/70 · `NODE_ENV=production` build ✓ · copy scan clean.
+- **Still operator-blocked:** Render blueprint env sync for the three disabled
+  providers, Upstash Redis credential rotation, and `sabiscore.com` DNS.
+
 ## vΩ.27 Changes (2026-07-28)
 
 - **Off-season context now surfaces before submission on the match selector.**

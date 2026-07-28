@@ -61,8 +61,10 @@ function DataGapState() {
     <div className="flex flex-col items-center gap-3 py-8 text-center" role="status">
       <Database className="h-7 w-7 text-slate-600" aria-hidden="true" />
       <p className="text-sm font-medium text-slate-500">No recent predictions in database</p>
+      {/* No fixed refresh cadence exists to promise — predictions are written as
+          fixtures are analyzed, and none are during the close season. */}
       <p className="text-xs text-slate-600">
-        Predictions refresh every 3 hours. Check back soon.
+        Predictions appear here once fixtures are analyzed.
       </p>
     </div>
   );

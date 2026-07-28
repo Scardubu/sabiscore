@@ -1,6 +1,12 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { EloContextCard, NarrativeBlock, UncertaintyCard } from "./full-analysis-dashboard";
+import {
+  EloContextCard,
+  NarrativeBlock,
+  OddsEdgeCard,
+  RLCard,
+  UncertaintyCard,
+} from "./full-analysis-dashboard";
 
 describe("NarrativeBlock accessibility", () => {
   it("supports keyboard-operable disclosure with a valid controlled region", () => {
@@ -44,6 +50,43 @@ describe("reduced-evidence display honesty", () => {
     expect(container.textContent).toContain("1588");
   });
 
+  // Live off-season payload sends reward_components {R_pnl:0, R_ic:0, R_cal:0,
+  // R_risk:0, R_abs:0.05} with abstain:true. Rendering four 0.000 tiles states a
+  // reward decomposition for a stake that was never sized — and slice(0,4) drops
+  // R_abs, the only non-zero term. Same defect class as the Elo/CI fixes above.
+  it("hides the RL reward decomposition when the policy abstained", () => {
+    const { container } = render(
+      <RLCard
+        rec={{
+          stake_fraction: 0,
+          abstain: true,
+          reason: "Abstained: insufficient verified evidence",
+          reward_components: { R_pnl: 0, R_ic: 0, R_cal: 0, R_risk: 0, R_abs: 0.05 },
+        }}
+        effectiveKellyCap={0.04}
+        stakePermitted={false}
+      />,
+    );
+    expect(container.textContent).not.toContain("0.000");
+    expect(container.textContent).toContain("No bet");
+  });
+
+  it("shows the RL reward decomposition when a stake was actually sized", () => {
+    const { container } = render(
+      <RLCard
+        rec={{
+          stake_fraction: 0.03,
+          abstain: false,
+          reason: null,
+          reward_components: { R_pnl: 0.125, R_ic: 0.4, R_cal: 0.2, R_risk: 0.1 },
+        }}
+        effectiveKellyCap={0.04}
+        stakePermitted
+      />,
+    );
+    expect(container.textContent).toContain("0.125");
+  });
+
   it("hides the credible interval when no prediction was produced", () => {
     const unc = {
       epistemic_unc: 1,
@@ -55,5 +98,84 @@ describe("reduced-evidence display honesty", () => {
     const { container } = render(<UncertaintyCard unc={unc} available={false} />);
     expect(container.textContent).not.toContain("0.2%");
     expect(container.textContent).toContain("—");
+  });
+});
+
+describe("beginner-friendly jargon explainers (vΩ.28)", () => {
+  // Kelly, Edge, Epistemic, Aleatoric, and CI carried no explanation on this
+  // page — the Kelly/Edge tooltips already existed but were only wired into
+  // ValueBetCard, a different widget on the same route. These pin that the
+  // explainer triggers are reachable by keyboard/focus (not just mouse hover)
+  // in both a PARTIAL/abstain-style state and an ACTIONABLE/stake-permitted
+  // state, per the vΩ.28 DoD.
+  const abstainRec = {
+    stake_fraction: 0,
+    abstain: true,
+    reason: "Insufficient verified evidence.",
+    reward_components: {},
+  };
+  const activeRec = {
+    stake_fraction: 0.03,
+    abstain: false,
+    reason: null,
+    reward_components: { r_pnl: 0.12 },
+  };
+  const edge = {
+    market: "home_win",
+    market_odds: 2.1,
+    model_prob: 0.55,
+    edge: 0.08,
+    kelly_stake: 0.02,
+  };
+
+  it("exposes the RLCard Kelly-cap explainer via focus when abstaining (PARTIAL-like)", () => {
+    render(<RLCard rec={abstainRec} effectiveKellyCap={0.04} stakePermitted={false} />);
+    const trigger = screen.getByRole("button");
+    fireEvent.focus(trigger);
+    expect(screen.getByText(/Kelly Criterion suggests optimal bet sizing/i)).toBeInTheDocument();
+  });
+
+  it("exposes the RLCard Kelly-cap explainer via focus when a stake is permitted (HIGH_CONVICTION-like)", () => {
+    render(<RLCard rec={activeRec} effectiveKellyCap={0.04} stakePermitted />);
+    const trigger = screen.getByRole("button");
+    fireEvent.focus(trigger);
+    expect(screen.getByText(/Kelly Criterion suggests optimal bet sizing/i)).toBeInTheDocument();
+  });
+
+  it("exposes the OddsEdgeCard Edge and Kelly explainers via focus", () => {
+    render(<OddsEdgeCard edge={edge} />);
+    const triggers = screen.getAllByRole("button");
+    expect(triggers).toHaveLength(2);
+
+    fireEvent.focus(triggers[0]);
+    expect(screen.getByText(/difference between our model's probability/i)).toBeInTheDocument();
+    fireEvent.blur(triggers[0]);
+
+    fireEvent.focus(triggers[1]);
+    expect(screen.getByText(/Kelly Criterion suggests optimal bet sizing/i)).toBeInTheDocument();
+  });
+
+  it("exposes the UncertaintyCard BNN/Epistemic/Aleatoric/CI explainers via focus", () => {
+    const unc = {
+      epistemic_unc: 0.12,
+      aleatoric_unc: 0.2,
+      concentration: 4,
+      credible_interval: [0.4, 0.6] as [number, number],
+      confidence_tier: "OK",
+    };
+    render(<UncertaintyCard unc={unc} available />);
+    const triggers = screen.getAllByRole("button");
+    const expectedText = [
+      /Bayesian Neural Network/i,
+      /Unknown-unknowns/i,
+      /Irreducible randomness/i,
+      /95% credible interval/i,
+    ];
+    expect(triggers).toHaveLength(expectedText.length);
+    triggers.forEach((trigger, i) => {
+      fireEvent.focus(trigger);
+      expect(screen.getByText(expectedText[i])).toBeInTheDocument();
+      fireEvent.blur(trigger);
+    });
   });
 });
