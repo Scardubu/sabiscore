@@ -244,7 +244,6 @@ export const CachedLogo = memo(function CachedLogo({
         decoding="async"
         onLoad={handleLoad}
         onError={handleError}
-        fetchPriority={priority ? "high" : "low"}
         className={cn(
           "h-full w-full object-contain transition-opacity duration-300",
           isLoading ? "opacity-0" : "opacity-100"

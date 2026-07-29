@@ -37,7 +37,15 @@ export interface BackendReadinessStats {
   ready: number;
   unavailable: number;
   score: number;
-  label: "Ready" | "Partial" | "Degraded";
+  label: "Core ready" | "Core partial" | "Core unavailable";
+}
+
+export interface ProviderActivationStats {
+  total: number;
+  configured: number;
+  enabled: number;
+  live: number;
+  label: "Ready" | "Partial" | "Unavailable";
 }
 
 export function isHealthyBackendStatus(status: unknown): boolean {
@@ -64,28 +72,48 @@ export function deriveBackendReadiness(
   const backendHealthy = isHealthyBackendStatus(payload.backendStatus);
   const label =
     backendHealthy && ready === total
-      ? "Ready"
+      ? "Core ready"
       : ready > 0
-        ? "Partial"
-        : "Degraded";
+        ? "Core partial"
+        : "Core unavailable";
 
   return { total, ready, unavailable: total - ready, score, label };
 }
 
-export function derivePlatformHealth(payload: BackendHealthPayload) {
-  const readiness = deriveBackendReadiness(payload);
-  const providers = payload.providers ?? [];
+export function deriveProviderActivation(
+  providers: NonNullable<BackendHealthPayload["providers"]>,
+): ProviderActivationStats {
   const configured = providers.filter((provider) => provider.configured === true).length;
   const enabled = providers.filter((provider) => provider.enabled === true).length;
   const live = providers.filter((provider) =>
     provider.enabled === true && String(provider.status).toUpperCase() === "VERIFIED"
   ).length;
+  const label =
+    configured > 0 && enabled === configured
+      ? "Ready"
+      : enabled > 0
+        ? "Partial"
+        : "Unavailable";
+
+  return { total: providers.length, configured, enabled, live, label };
+}
+
+export function derivePlatformHealth(payload: BackendHealthPayload) {
+  const readiness = deriveBackendReadiness(payload);
+  const providers = payload.providers ?? [];
+  const providerActivation = deriveProviderActivation(providers);
   const models = payload.backendChecks?.models;
   const modelsReady = Boolean(
     models && typeof models === "object" &&
       isHealthyBackendStatus((models as BackendReadinessCheck).status)
   );
-  return { readiness, providers, configured, enabled, live, modelsReady };
+  return {
+    readiness,
+    providers,
+    ...providerActivation,
+    providerActivation,
+    modelsReady,
+  };
 }
 
 export function liveMetricLabel(

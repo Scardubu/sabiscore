@@ -311,6 +311,30 @@ run the full release matrix before tagging the release.
 3. Roll back database schema only with reviewed Alembic downgrade or forward-fix migration.
 4. Re-run `python -m src.cli providers doctor` and `make verify` before restoring traffic.
 
+## vΩ.30 Readiness clarity and build-path recovery (2026-07-29)
+
+- The web readiness ring now says **Core ready**, **Core partial**, or **Core
+  unavailable**. It measures only the backend's four infrastructure checks:
+  database, migrations, cache, and model artifacts. It is not a claim that the
+  real-data provider pipeline is active.
+- The provider pill now shows `N of M enabled` and stays amber unless every
+  configured provider is enabled. This preserves the distinction between
+  configuration, enablement, and quota-aware live verification.
+- The production backend Docker stage no longer copies the development stage.
+  It copies `src/` and performs the one full requirements installation that
+  production actually needs; the local development stage is unchanged.
+- Executed checks for this checkpoint: health-status regression suite 14/14,
+  web lint/typecheck, 72 Vitest tests, the production build, and `docker build
+  --check` with no Dockerfile warnings. `CachedLogo` no longer forwards the
+  unsupported `fetchPriority` prop to a raw image, removing the React warning
+  previously emitted by the loading-layout test.
+- Current live status remains **2 enabled / 5 configured**, both Vercel aliases
+  are aligned at `43058a6`, and `sabiscore.com` DNS is unresolved. These are
+  external activation conditions, not code fallbacks.
+
+Release decision remains **`NOT SAFE FOR PRODUCTION`** until the existing
+operator-controlled activation and release gates have direct evidence.
+
 ## vΩ.29 Certification Recovery (2026-07-28)
 
 - `ModelRegistry.walk_forward_validate()` now passes an integer outcome to the

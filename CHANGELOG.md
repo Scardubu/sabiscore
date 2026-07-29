@@ -5,6 +5,45 @@ All notable changes to this skill suite are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## vΩ.30 — Readiness clarity and leaner production image path (2026-07-29)
+
+No provider, model, verdict, Kelly, migration, or browser-side decision logic
+changed.
+
+### Fixed — infrastructure readiness could be mistaken for platform activation
+
+The readiness ring is now explicitly labelled **Core ready**, **Core partial**,
+or **Core unavailable**. It continues to measure only database, migrations,
+cache, and models. Provider activation is displayed separately: a configured
+provider set is green only when every configured provider is enabled; otherwise
+it is amber and reads, for example, **2 of 5 enabled**. This keeps the
+fail-closed provider state visible without implying a live-provider probe or a
+production-ready prediction pipeline.
+
+### Improved — backend image build avoids a duplicate dependency installation
+
+The production Docker stage now copies application source directly instead of
+copying the development stage. Previously that dependency caused a production
+build to install `requirements.min.txt` and then install the full production
+requirements. The production path now performs only the required full install;
+the development stage remains available for local development.
+
+### Current certification evidence
+
+- Live provider health remains **2 enabled / 5 configured**: API-Football,
+  Sportmonks, and The Odds API are disabled pending Render Blueprint approval.
+- Vercel branch and production aliases were SHA-aligned at `43058a6` before
+  this branch; `sabiscore.com` still has no published apex A record.
+- Focused health-status regression tests: **14 passed**. Web typecheck passed.
+  Docker Buildx `--check` reported no Dockerfile warnings.
+- `CachedLogo` no longer forwards the unsupported `fetchPriority` prop to a raw
+  image element. The full web matrix is clean: lint, typecheck, production
+  build, and **72 Vitest tests** pass without that React warning.
+
+**Release decision: `NOT SAFE FOR PRODUCTION`.** Upstash rotation, Render
+activation, DNS, credential-dependent probes, GitHub Actions recovery, and
+full Docker image-build evidence remain required.
+
 ---
 
 ## vΩ.29 — Certification recovery and walk-forward validation hardening (2026-07-28)
