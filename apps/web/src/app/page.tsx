@@ -28,7 +28,7 @@ const HERO_STATS = [
   // (306–380 per league, one full season each). Do not restate a larger figure
   // than the artifacts were actually fitted on.
   { label: "Training Data", value: "1,752", detail: "Labelled matches across five leagues — no synthetic injection" },
-  { label: "Model Precision Gate", value: "<=0.21", detail: "Ranked probability score — lower is better" },
+  { label: "Model Precision Gate", value: "≤0.21", detail: "Ranked probability score — lower is better" },
   { label: "Current Model", value: "Phase 7", detail: "Five-league certified artifact set" },
 ];
 
@@ -90,7 +90,7 @@ const LEGACY_FEATURES = [
   },
   {
     title: "Promotion-Gated Validation",
-    description: "RPS <= 0.21 remains the promotion threshold; live walk-forward evidence is still pending.",
+    description: "RPS ≤ 0.21 remains the promotion threshold; live walk-forward evidence is still pending.",
     icon: CheckCircle2,
   },
 ] satisfies Array<{ title: string; description: string; icon: LucideIcon }>;

@@ -5,6 +5,69 @@ All notable changes to this skill suite are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## vΩ.31 — Loading/results container parity and unverified-claim scrub (2026-07-30)
+
+Presentation layer only. No provider, model, verdict, Kelly, evidence-gating,
+migration, or backend decision logic changed, so the dual-engine rule does not
+apply to this release.
+
+### Fixed — loading interstitial applied padding the results page does not
+
+`match-loading-experience.tsx` wrapped its `max-w-6xl` container in `p-4` while
+the root `<main>` already applies `px-4 py-5 sm:px-6 lg:px-8` and
+`app/match/[id]/page.tsx` adds none. Loading content was therefore inset 16px
+per side and snapped wider the instant the analysis landed. The self-padding is
+removed from both the live container and the SSR skeleton; the
+`match-selector.tsx` overlay — which has no `<main>` ancestor — now supplies its
+own `py-4`. This is the **fourth** regression of this class (vΩ.14 max-height
+trap, vΩ.20 narrow strip, vΩ.25 width mismatch) and is now pinned by two
+assertions in `match-loading-experience.test.tsx`.
+
+### Fixed — match selector asserted a live-provider claim it cannot verify
+
+The footer under *Generate Insights* hardcoded a pulsing green **Live Data**
+indicator and a static **5 Providers Configured** string, contradicting the
+`PlatformHealthPills` reading of **2 of 5 enabled** in the same page header.
+It now reuses `derivePlatformHealth` on the shared `PLATFORM_HEALTH_QUERY_KEY`
+(React Query dedupes it against the header's own fetch, so no extra request)
+and reports the real enabled/configured counts, amber unless every configured
+provider is enabled.
+
+### Fixed — ensemble card contradicted its own non-display claim
+
+When probabilities were unavailable the card stated *"Diagnostic baseline values
+are not displayed"* and then, gated on the identical condition, described that
+suppressed value's shape as *"probabilities default toward even"*. The second
+caveat is removed. This is the standard reduced-evidence path, not an edge case.
+`EnsembleCard` is now exported and covered by a regression test.
+
+### Improved — invalid team pairing is no longer selectable
+
+Both team inputs received the identical unfiltered league list, so a team chosen
+as Home still appeared in the Away dropdown; the pairing was rejected only after
+submit. `excludeSelectedTeam()` now filters each side using the same
+normalization the submit-time guard uses. Pinned by `match-selector.test.tsx`.
+
+### Improved — RPS gate glyph consistency
+
+The homepage rendered the promotion threshold as ASCII `<=0.21` while
+`docs/page.tsx` and the monitoring dashboard used `≤` for the same claim.
+
+### Verification
+
+Web lint **0**, typecheck **0**, Vitest **78 passed / 14 files**,
+`NODE_ENV=production` build passed, prohibited-copy scan **0** real hits.
+Route weights unchanged: `/match` 208 kB, `/match/[id]` 158 kB.
+
+### Certification evidence unchanged this release
+
+Live provider health remains **2 enabled / 5 configured**. Upstash rotation,
+Render Blueprint approval, `sabiscore.com` DNS, GitHub Actions billing recovery,
+and full Docker image-build evidence all remain outstanding operator items.
+
+**Release decision: `NOT SAFE FOR PRODUCTION`** — unchanged, and not affected by
+this presentation-layer release.
+
 ## vΩ.30 — Readiness clarity and leaner production image path (2026-07-29)
 
 No provider, model, verdict, Kelly, migration, or browser-side decision logic

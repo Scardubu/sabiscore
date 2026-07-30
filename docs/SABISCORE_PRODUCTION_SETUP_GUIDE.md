@@ -311,6 +311,34 @@ run the full release matrix before tagging the release.
 3. Roll back database schema only with reviewed Alembic downgrade or forward-fix migration.
 4. Re-run `python -m src.cli providers doctor` and `make verify` before restoring traffic.
 
+## vΩ.31 Loading/results parity and unverified-claim scrub (2026-07-30)
+
+Presentation layer only. No provider, model, verdict, Kelly, evidence-gating, or
+migration behaviour changed, so no backend redeploy is required by this release.
+
+- The match loading interstitial no longer applies `p-4` on top of the root
+  `<main>`'s `px-4 py-5 sm:px-6 lg:px-8`. Loading content previously sat 16px
+  narrower per side than the results page and jumped wider on load. Container
+  parity is now **four** things that must agree: the live container, the SSR
+  skeleton, the `match-selector.tsx` overlay wrapper (the one usage site with no
+  `<main>` ancestor, which therefore keeps its own `py-4`), and whatever padding
+  the parent already supplies.
+- The match selector footer no longer asserts **Live Data · 5 Providers
+  Configured**. It reads the same `derivePlatformHealth` source the header pill
+  uses and reports real `N of M providers enabled`, amber unless all configured
+  providers are enabled. Operators verifying activation should now see identical
+  counts in the header and the selector footer — a mismatch means a stale
+  deployment, not two different measurements.
+- The ensemble card no longer pairs "Diagnostic baseline values are not
+  displayed" with a description of that suppressed value's shape.
+- Team dropdowns now exclude the team already chosen on the other side.
+- Executed checks: web lint 0, typecheck 0, **78 Vitest tests**,
+  `NODE_ENV=production` build passed, prohibited-copy scan 0 real hits. Route
+  weights unchanged (`/match` 208 kB, `/match/[id]` 158 kB).
+
+Release decision remains **`NOT SAFE FOR PRODUCTION`** — unchanged by this
+release and still gated on the operator items listed under Known Limitations.
+
 ## vΩ.30 Readiness clarity and build-path recovery (2026-07-29)
 
 - The web readiness ring now says **Core ready**, **Core partial**, or **Core

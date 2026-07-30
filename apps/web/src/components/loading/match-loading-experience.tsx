@@ -596,7 +596,10 @@ export function MatchLoadingExperience({
     // Container matches the results page (max-w-6xl) so loading→results does not
     // snap ~480px wider on desktop. The 3/2 grid keeps card widths readable at
     // that size instead of stretching one column across the full width.
-    <div className="mx-auto w-full max-w-6xl p-4">
+    // No padding of its own: the root <main> already applies px-4 py-5 sm:px-6
+    // lg:px-8, and app/match/[id]/page.tsx adds none — a p-4 here inset the
+    // loading content 16px per side and snapped it wider once results landed.
+    <div className="mx-auto w-full max-w-6xl">
       <div className="grid gap-4 lg:grid-cols-5 lg:items-start">
       <div className="space-y-4 lg:col-span-3">
       {/* Main card with team matchup */}
@@ -825,7 +828,7 @@ export function MatchLoadingExperienceSkeleton() {
   return (
     // Mirrors the live layout exactly — a different container here would shift
     // the whole screen the moment the client component hydrates.
-    <div className="mx-auto grid w-full max-w-6xl gap-4 p-4 lg:grid-cols-5 lg:items-start">
+    <div className="mx-auto grid w-full max-w-6xl gap-4 lg:grid-cols-5 lg:items-start">
       <div className="rounded-2xl border border-slate-700/50 bg-slate-900/50 p-4 lg:col-span-3">
         {/* Header skeleton */}
         <div className="mb-4 flex justify-between">

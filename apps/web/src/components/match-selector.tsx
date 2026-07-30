@@ -12,6 +12,11 @@ import { LeagueOffseasonNotice } from "./LeagueOffseasonNotice";
 import { getTeamsForLeague, LeagueId } from "../lib/team-data";
 import { getOffseasonStatus, getUpcomingMatches, type UpcomingMatch } from "@/lib/api";
 import { safeErrorMessage } from "@/lib/error-utils";
+import {
+  PLATFORM_HEALTH_QUERY_KEY,
+  fetchPlatformHealth,
+  derivePlatformHealth,
+} from "@/lib/health-status";
 import { LEAGUE_CONFIG, TeamVsDisplay } from "./team-display";
 // Only rendered once a matchup is submitted, and it carries framer-motion's
 // drag/gesture machinery — keep it out of the /match first-load bundle.
@@ -27,6 +32,14 @@ import { hashMatchup } from "@/lib/interstitial-storage";
 import { canonicalLeagueId } from "@/lib/league";
 import { cn } from "@/lib/utils";
 import { CountryFlag } from "@/components/ui/cached-logo";
+
+// Keeps a team already chosen on one side out of the other side's dropdown,
+// rather than only rejecting the combination after submit.
+export function excludeSelectedTeam(teams: readonly string[], selected: string): string[] {
+  const target = selected.trim().toLowerCase();
+  if (!target) return [...teams];
+  return teams.filter((team) => team.trim().toLowerCase() !== target);
+}
 
 const LEAGUES = [
   { id: "EPL", name: "Premier League" },
@@ -234,6 +247,18 @@ export function MatchSelector() {
 
   const leagueTeams = useMemo(() => getTeamsForLeague(league), [league]);
 
+  // Same normalization handleSubmit already uses for its equality guard —
+  // keeps a team already picked on one side out of the other side's list,
+  // instead of only rejecting the combination after submit.
+  const homeTeamOptions = useMemo(
+    () => excludeSelectedTeam(leagueTeams, awayTeam),
+    [leagueTeams, awayTeam],
+  );
+  const awayTeamOptions = useMemo(
+    () => excludeSelectedTeam(leagueTeams, homeTeam),
+    [leagueTeams, homeTeam],
+  );
+
   const handleLeagueSelect = (nextLeague: LeagueId) => {
     if (nextLeague === league) {
       return;
@@ -320,6 +345,16 @@ export function MatchSelector() {
     staleTime: 60 * 60 * 1000,
     gcTime: 2 * 60 * 60 * 1000,
   });
+
+  // Same query key as PlatformHealthPills, so this dedupes against its
+  // fetch rather than issuing a second request — the footer below must not
+  // assert a "live" claim beyond what that pill actually verifies.
+  const { data: platformHealthData } = useQuery({
+    queryKey: PLATFORM_HEALTH_QUERY_KEY,
+    queryFn: fetchPlatformHealth,
+    staleTime: 30_000,
+  });
+  const platformHealth = platformHealthData ? derivePlatformHealth(platformHealthData) : null;
 
   return (
     <>
@@ -448,7 +483,7 @@ export function MatchSelector() {
               label="Home Team"
               value={homeTeam}
               onChange={setHomeTeam}
-              options={leagueTeams}
+              options={homeTeamOptions}
               league={league}
               placeholder="Search or type a team"
               disabled={loading}
@@ -458,7 +493,7 @@ export function MatchSelector() {
               label="Away Team"
               value={awayTeam}
               onChange={setAwayTeam}
-              options={leagueTeams}
+              options={awayTeamOptions}
               league={league}
               placeholder="Search or type a team"
               disabled={loading}
@@ -511,11 +546,18 @@ export function MatchSelector() {
           </p>
           <div className="mt-2 flex items-center justify-center gap-2 text-[10px] text-slate-600">
             <span className="inline-flex items-center gap-1">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-500/60"></span>
-              Live Data
+              <span
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full",
+                  platformHealth && platformHealth.enabled === platformHealth.configured
+                    ? "animate-pulse bg-green-500/60"
+                    : "bg-amber-500/60",
+                )}
+              />
+              {platformHealth
+                ? `${platformHealth.enabled} of ${platformHealth.configured} providers enabled`
+                : "Checking providers"}
             </span>
-            <span>•</span>
-            <span>5 Providers Configured</span>
             <span>•</span>
             <span>Fetched fresh per request</span>
           </div>
@@ -533,8 +575,10 @@ export function MatchSelector() {
         >
           <div className="absolute inset-0" aria-hidden="true" />
           {/* max-w-6xl matches the interstitial's own container; a narrower clamp
-              here would collapse its two-column layout back to a single strip. */}
-          <div className="relative w-full max-w-6xl max-h-[calc(100vh-2rem)] overflow-y-auto">
+              here would collapse its two-column layout back to a single strip.
+              py-4 replaces the padding the interstitial dropped for route parity —
+              this overlay has no <main> ancestor supplying it. */}
+          <div className="relative w-full max-w-6xl max-h-[calc(100vh-2rem)] overflow-y-auto py-4">
             <MatchLoadingExperience
               homeTeam={pendingMatchup.home}
               awayTeam={pendingMatchup.away}

@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import {
   EloContextCard,
+  EnsembleCard,
   NarrativeBlock,
   OddsEdgeCard,
   RLCard,
@@ -98,6 +99,33 @@ describe("reduced-evidence display honesty", () => {
     const { container } = render(<UncertaintyCard unc={unc} available={false} />);
     expect(container.textContent).not.toContain("0.2%");
     expect(container.textContent).toContain("—");
+  });
+
+  // The card used to pair "Diagnostic baseline values are not displayed"
+  // with a second line describing that same suppressed value's shape
+  // ("defaults toward even") — contradicting its own non-display claim on
+  // the standard reduced-evidence path shown live in production.
+  it("does not describe a suppressed baseline's shape when probabilities are unavailable", () => {
+    const { container } = render(
+      <EnsembleCard
+        data={{
+          home_win_prob: 0.34,
+          draw_prob: 0.33,
+          away_win_prob: 0.33,
+          prediction: "draw",
+          confidence: 0.34,
+          top_outcome_probability: 0.34,
+          probabilities_available: false,
+          league: "EPL",
+          model_version: "v5_phase7",
+          calibration_method: "isotonic",
+          calibration_applied: false,
+          overlay_applied: false,
+        }}
+      />,
+    );
+    expect(container.textContent).toContain("Diagnostic baseline values are not displayed");
+    expect(container.textContent).not.toContain("defaults toward");
   });
 });
 
