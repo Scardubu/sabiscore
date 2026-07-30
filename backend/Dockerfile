@@ -61,8 +61,10 @@ RUN sed -i 's|http://|https://|g' /etc/apt/sources.list.d/debian.sources \
     libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy from development stage
-COPY --from=development /app /app
+# Copy only application source. Referencing the development stage made a
+# production build install the minimal dependencies before installing the full
+# production requirements below, duplicating network and disk work.
+COPY src/ ./src/
 
 # Install Python dependencies in production
 COPY requirements.txt .

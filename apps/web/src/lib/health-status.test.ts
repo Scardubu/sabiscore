@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   backendHealthIssues,
   deriveBackendReadiness,
+  deriveProviderActivation,
   derivePlatformHealth,
   isHealthyBackendStatus,
   liveMetricLabel,
@@ -45,6 +46,20 @@ describe("platform provider health", () => {
     expect(health.enabled).toBe(2);
     expect(health.live).toBe(1);
     expect(health.modelsReady).toBe(true);
+    expect(health.providerActivation.label).toBe("Ready");
+  });
+
+  it("reports a partial provider state until every configured provider is enabled", () => {
+    expect(deriveProviderActivation([
+      { configured: true, enabled: true, status: "CONFIGURED_UNVERIFIED" },
+      { configured: true, enabled: false, status: "UNAVAILABLE" },
+    ])).toMatchObject({
+      total: 2,
+      configured: 2,
+      enabled: 1,
+      live: 0,
+      label: "Partial",
+    });
   });
 });
 
@@ -60,7 +75,7 @@ describe("backend readiness aggregation", () => {
           models: { status: "ready" },
         },
       }),
-    ).toEqual({ total: 4, ready: 4, unavailable: 0, score: 1, label: "Ready" });
+    ).toEqual({ total: 4, ready: 4, unavailable: 0, score: 1, label: "Core ready" });
   });
 
   it("does not infer readiness from a healthy aggregate when checks are absent", () => {
@@ -69,7 +84,7 @@ describe("backend readiness aggregation", () => {
       ready: 0,
       unavailable: 4,
       score: 0,
-      label: "Degraded",
+      label: "Core unavailable",
     });
   });
 });

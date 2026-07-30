@@ -617,7 +617,7 @@ function ProbBar({
 
 // ─── Ensemble card ────────────────────────────────────────────────────────────
 
-function EnsembleCard({ data }: { data: FullMatchAnalysisResponse["ensemble"] }) {
+export function EnsembleCard({ data }: { data: FullMatchAnalysisResponse["ensemble"] }) {
   const max = Math.max(data.home_win_prob, data.draw_prob, data.away_win_prob);
   const available = data.probabilities_available;
   return (
@@ -657,12 +657,6 @@ function EnsembleCard({ data }: { data: FullMatchAnalysisResponse["ensemble"] })
             {available ? pct(data.top_outcome_probability) : "Unavailable"}
           </span>
         </div>
-        {!available && (
-          <p className="rounded-md border border-amber-500/20 bg-amber-500/5 px-2 py-1.5 text-[10px] leading-snug text-amber-300/80">
-            Baseline output — live match evidence was unavailable, so probabilities default toward
-            even. Not a tradable signal.
-          </p>
-        )}
         <div className="flex items-center justify-between">
           <span className="text-[10px] text-slate-600">{data.model_version}</span>
           <div className="flex items-center gap-1">

@@ -37,7 +37,7 @@ function ReadinessRingInner({ score, label }: { score: number; label: string }) 
   const pct = Math.round(filled * 100);
 
   return (
-    <div className="relative flex items-center justify-center" aria-label={`System readiness: ${label} (${pct}%)`}>
+    <div className="relative flex items-center justify-center" aria-label={`Core system readiness: ${label} (${pct}%)`}>
       <svg
         width={72}
         height={72}
