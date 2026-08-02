@@ -32,18 +32,16 @@ class DriftMonitor:
         """
         batch_size = len(current_batch_df)
         
-        # Offload the synchronous, CPU-heavy Evidently math
+        # Offload synchronous, CPU-heavy Evidently computation
         report_dict = await asyncio.to_thread(self._run_evidently_sync, current_batch_df)
         
         dataset_drift = report_dict["metrics"][0]["result"]["dataset_drift"]
         
         if dataset_drift:
-            # Note: Ensure Evidently's data drift preset is configured with the 
-            # Benjamini-Hochberg FDR correction in its internal options.
             drifting_features = report_dict["metrics"][0]["result"]["drift_by_columns"]
             affected_columns = [col for col, data in drifting_features.items() if data.get("drift_detected")]
             
-            # Record via OpenTelemetry
+            # Record metric via OpenTelemetry
             drift_counter.add(1, {"severity": "advisory"})
             
             # Fire non-blocking Slack Alert via lifespan client
