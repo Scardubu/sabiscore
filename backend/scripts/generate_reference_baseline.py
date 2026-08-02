@@ -2,7 +2,6 @@ import os
 import asyncio
 import logging
 import pandas as pd
-from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.database import get_db_session
 from src.db.crud import get_settled_fixtures
 from src.ml.features import build_live_feature_vector
@@ -31,7 +30,6 @@ async def generate_baseline():
         
         feature_rows = []
         for fixture in fixtures:
-            # Routing through the exact same feature builder used in full_analysis.py
             vector = await build_live_feature_vector(session, fixture.match_id)
             if vector is not None:
                 feature_rows.append(vector)
@@ -42,7 +40,7 @@ async def generate_baseline():
 
         features_df = pd.DataFrame(feature_rows)
         
-        # Strip identifiers that shouldn't be evaluated for statistical drift
+        # Strip identifiers that should not be evaluated for statistical drift
         columns_to_drop = ['match_id', 'home_team_id', 'away_team_id', 'outcome']
         features_df = features_df.drop(columns=[col for col in columns_to_drop if col in features_df.columns])
         
