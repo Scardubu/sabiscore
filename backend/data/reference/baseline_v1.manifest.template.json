@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "status": "NOT_GENERATED",
+  "artifact": {
+    "path": "backend/data/reference/baseline_v1.parquet",
+    "sha256": null,
+    "format": "parquet",
+    "rows": 0,
+    "columns": 0
+  },
+  "feature_schema": {
+    "sha256": null,
+    "ordered_features": [],
+    "dtypes": {}
+  },
+  "source": {
+    "fixture_definition": "score-verified settled fixtures",
+    "feature_builder": "src.services.upcoming_match_feature_service.UpcomingMatchFeatureProjector.build_live_feature_vector",
+    "minimum_sample": 1000,
+    "include_reduced_evidence": false,
+    "date_range": {
+      "start": null,
+      "end": null
+    },
+    "league_composition": {}
+  },
+  "governance": {
+    "target_columns_included": false,
+    "identifier_columns_included": false,
+    "production_use": "Phase 2 only; do not activate until a real prediction is settled"
+  }
+}
