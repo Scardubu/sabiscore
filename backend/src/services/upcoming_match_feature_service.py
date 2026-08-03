@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from sqlalchemy import and_, desc, func, select
+from sqlalchemy import and_, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import settings
@@ -38,7 +38,9 @@ from ..models.feature_registry import (
     active_canonical_features,
     active_default_feature_values,
 )
+from ..utils.season import canonical_season
 from .odds_service import OddsService
+from .team_identity import resolve_team_id
 
 logger = logging.getLogger(__name__)
 
@@ -645,20 +647,13 @@ class UpcomingMatchFeatureProjector:
         return result.scalar_one_or_none()
 
     def _derive_season(self, match_date: datetime) -> str:
-        year = match_date.year
-        if match_date.month >= 7:
-            return f"{year}/{year + 1}"
-        return f"{year - 1}/{year}"
+        return canonical_season(match_date)
 
     async def _get_team_id_by_name(
         self, team_name: str, db: AsyncSession
     ) -> Optional[str]:
-        """Get team ID by team name (case-insensitive)."""
-        query = select(Team.id).where(
-            func.lower(Team.name) == func.lower(team_name)
-        )
-        result = await db.execute(query)
-        return result.scalar_one_or_none()
+        """Get team ID by team name (exact, affix-stripped, then fuzzy — see team_identity)."""
+        return await resolve_team_id(team_name, db)
 
     async def _get_team_stats(
         self,

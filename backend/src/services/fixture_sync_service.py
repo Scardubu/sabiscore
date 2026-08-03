@@ -7,9 +7,12 @@ swallowed so they never prevent the API from serving requests.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from ..utils.season import canonical_season
+from .team_identity import resolve_team_id
 
 logger = logging.getLogger(__name__)
 
@@ -61,11 +64,17 @@ async def sync_upcoming_fixtures(session: AsyncSession) -> int:
             session.add(League(id=league_id, name=league_name, country=country))
             await session.flush()
 
-        # Team upserts
+        # Team upserts — resolve against existing rows first (exact / affix-stripped /
+        # fuzzy match) so a re-sync doesn't mint a second ID for a team already known
+        # under a slightly different name; only mint fd-team-* on a genuine miss.
         home_name: str = raw.get("home_team", "")
         away_name: str = raw.get("away_team", "")
-        home_id = _team_id(home_name, league_id)
-        away_id = _team_id(away_name, league_id)
+        home_id = (await resolve_team_id(home_name, session) if home_name else None) or _team_id(
+            home_name, league_id
+        )
+        away_id = (await resolve_team_id(away_name, session) if away_name else None) or _team_id(
+            away_name, league_id
+        )
         for tid, tname in [(home_id, home_name), (away_id, away_name)]:
             if tname and not await session.get(Team, tid):
                 session.add(Team(id=tid, name=tname, league_id=league_id))
@@ -89,7 +98,7 @@ async def sync_upcoming_fixtures(session: AsyncSession) -> int:
             home_team_id=home_id,
             away_team_id=away_id,
             match_date=match_date,
-            season=str(datetime.now(timezone.utc).year),
+            season=canonical_season(match_date),
             status="scheduled",
         ))
         inserted += 1
