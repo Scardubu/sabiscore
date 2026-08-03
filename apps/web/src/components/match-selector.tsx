@@ -41,6 +41,31 @@ export function excludeSelectedTeam(teams: readonly string[], selected: string):
   return teams.filter((team) => team.trim().toLowerCase() !== target);
 }
 
+/**
+ * A carousel click only pre-fills the manual-entry form — the user can still
+ * edit the team fields before submitting. Returns the carousel's canonical
+ * match_id only when the currently-entered home/away/league still match what
+ * was selected (case/whitespace-insensitive, same normalization handleSubmit
+ * uses); otherwise null, meaning "route by the typed team-name pair instead."
+ */
+export function resolveCarouselMatchId(
+  carouselFixture: { matchId: string; home: string; away: string; league: LeagueId } | null,
+  home: string,
+  away: string,
+  league: LeagueId,
+): string | null {
+  if (!carouselFixture) return null;
+  const norm = (s: string) => s.trim().toLowerCase();
+  if (
+    carouselFixture.league === league &&
+    norm(carouselFixture.home) === norm(home) &&
+    norm(carouselFixture.away) === norm(away)
+  ) {
+    return carouselFixture.matchId;
+  }
+  return null;
+}
+
 const LEAGUES = [
   { id: "EPL", name: "Premier League" },
   { id: "La Liga", name: "La Liga" },
@@ -51,10 +76,23 @@ const LEAGUES = [
   { id: "UCL", name: "Champions League" },
 ] as const satisfies ReadonlyArray<{ id: LeagueId; name: string }>;
 
+/**
+ * Only claim a "Top Edge Today" when the leading fixture actually has a
+ * measured edge score. When every fixture scores null — the normal state when
+ * no prediction is publishable — the sort is a no-op and the first fixture
+ * would otherwise be badged as the day's best edge purely for being first.
+ */
+export function resolveTopEdgeId(
+  fixtures: readonly Pick<UpcomingMatch, "match_id" | "edge_quality_score">[],
+): string | undefined {
+  const leader = fixtures[0];
+  return leader && leader.edge_quality_score != null ? leader.match_id : undefined;
+}
+
 // ─── Big Matches Carousel (E.5) ───────────────────────────────────────────────
 
 interface BigMatchesCarouselProps {
-  onSelectMatchup: (home: string, away: string, league: LeagueId) => void;
+  onSelectMatchup: (home: string, away: string, league: LeagueId, matchId: string) => void;
 }
 
 function BigMatchesCarousel({ onSelectMatchup }: BigMatchesCarouselProps) {
@@ -77,7 +115,7 @@ function BigMatchesCarousel({ onSelectMatchup }: BigMatchesCarouselProps) {
       .slice(0, 6);
   }, [data, activeLeague]);
 
-  const topEdgeId = fixtures[0]?.match_id;
+  const topEdgeId = resolveTopEdgeId(fixtures);
 
   // Don't render during offseason or when data is empty after load
   if (!isLoading && (data?.offseason || fixtures.length === 0)) return null;
@@ -138,7 +176,9 @@ function BigMatchesCarousel({ onSelectMatchup }: BigMatchesCarouselProps) {
                 : null;
               const clvPositive = match.clv_pct != null && match.clv_pct > 0;
               const prediction = match.predictions;
-              const topOutcome = prediction
+              // Never label a fabricated fallback prediction (missing/failed
+              // model artifact) as if it were a real outcome lean.
+              const topOutcome = prediction && prediction.model_version !== "fallback"
                 ? (
                     prediction.home_win >= prediction.draw && prediction.home_win >= prediction.away_win
                       ? "Home Win"
@@ -153,7 +193,12 @@ function BigMatchesCarousel({ onSelectMatchup }: BigMatchesCarouselProps) {
                   key={match.match_id}
                   type="button"
                   onClick={() =>
-                    onSelectMatchup(match.home_team, match.away_team, match.league as LeagueId)
+                    onSelectMatchup(
+                      match.home_team,
+                      match.away_team,
+                      match.league as LeagueId,
+                      match.match_id,
+                    )
                   }
                   aria-label={`${match.home_team} vs ${match.away_team}${isTopEdge ? " — Top Edge Today" : ""}`}
                   className={cn(
@@ -216,6 +261,14 @@ export function MatchSelector() {
     away: string;
     league: LeagueId;
     key: string;
+  } | null>(null);
+  // Set when a carousel card is clicked; consulted at submit time to decide
+  // whether to route by the real match_id instead of a "vs" string.
+  const [carouselFixture, setCarouselFixture] = useState<{
+    matchId: string;
+    home: string;
+    away: string;
+    league: LeagueId;
   } | null>(null);
 
   const STORAGE_KEY = "sabiscore.matchSelector.v1";
@@ -296,10 +349,21 @@ export function MatchSelector() {
       // Navigate to match insights page. `league` is the display-form id that
       // keys the team lists, so normalize it for the URL — the API layer speaks
       // the canonical vocabulary.
-      const encodedMatchup = encodeURIComponent(matchup);
       const leagueParam = canonicalLeagueId(league) ?? "EPL";
-      router.push(`/match/${encodedMatchup}?league=${leagueParam}`);
-      
+      // If this matchup still matches what a carousel card selected, route by
+      // its real match_id so the backend can verify fixture identity instead
+      // of falling back to the unverified "Home vs Away" path. Any edit to
+      // the team fields after picking from the carousel invalidates it.
+      const matchId = resolveCarouselMatchId(carouselFixture, normalizedHome, normalizedAway, league);
+      if (matchId) {
+        router.push(
+          `/match/${encodeURIComponent(matchId)}?league=${leagueParam}&home=${encodeURIComponent(normalizedHome)}&away=${encodeURIComponent(normalizedAway)}`,
+        );
+      } else {
+        const encodedMatchup = encodeURIComponent(matchup);
+        router.push(`/match/${encodedMatchup}?league=${leagueParam}`);
+      }
+
       // Clear persisted state after successful navigation to avoid stale team selections
       try {
         localStorage.removeItem(STORAGE_KEY);
@@ -327,10 +391,16 @@ export function MatchSelector() {
 
   const hasTeamsSelected = Boolean(homeTeam.trim() && awayTeam.trim());
 
-  const handleCarouselSelect = (home: string, away: string, selectedLeague: LeagueId) => {
+  const handleCarouselSelect = (
+    home: string,
+    away: string,
+    selectedLeague: LeagueId,
+    matchId: string,
+  ) => {
     setLeague(selectedLeague);
     setHomeTeam(home);
     setAwayTeam(away);
+    setCarouselFixture(matchId ? { matchId, home, away, league: selectedLeague } : null);
   };
 
   // Off-season signal for the currently selected league, so the user sees it
@@ -528,6 +598,7 @@ export function MatchSelector() {
                 setHomeTeam("");
                 setAwayTeam("");
                 setLeague("EPL");
+                setCarouselFixture(null);
                 try {
                   localStorage.removeItem(STORAGE_KEY);
                 } catch {}
