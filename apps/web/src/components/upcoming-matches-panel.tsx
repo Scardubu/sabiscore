@@ -255,7 +255,14 @@ function PanelSkeleton() {
 // ─── Match row ────────────────────────────────────────────────────────────────
 
 function MatchRow({ match }: { match: UpcomingMatch }) {
-  const href = `/match/${encodeURIComponent(`${match.home_team} vs ${match.away_team}`)}?league=${encodeURIComponent(match.league)}`;
+  // Route by the real canonical match_id when the API supplied one, so the
+  // backend can verify fixture identity instead of falling back to the
+  // unverified "Home vs Away" matchup path. home/away/league travel as query
+  // params for the legacy Phase-7 insights call and the page title, which
+  // still need team-name strings.
+  const href = match.match_id
+    ? `/match/${encodeURIComponent(match.match_id)}?league=${encodeURIComponent(match.league)}&home=${encodeURIComponent(match.home_team)}&away=${encodeURIComponent(match.away_team)}`
+    : `/match/${encodeURIComponent(`${match.home_team} vs ${match.away_team}`)}?league=${encodeURIComponent(match.league)}`;
   const conf = match.predictions?.confidence ?? null;
   const edge = match.best_value_bet?.edge_pct ?? null;
   const freshness = freshnessLabel(match.staleness_seconds);

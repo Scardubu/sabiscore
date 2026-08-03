@@ -37,9 +37,19 @@ function FullAnalysisFallback() {
 interface FullAnalysisSectionProps {
   matchId: string;
   league?: string;
+  /** Only present when matchId is a real canonical ID (routed from a real
+   * fixture card) rather than a "Home vs Away" matchup string — lets the
+   * hero card display real team names without re-parsing the opaque ID. */
+  homeTeam?: string;
+  awayTeam?: string;
 }
 
-export function FullAnalysisSection({ matchId, league = "EPL" }: FullAnalysisSectionProps) {
+export function FullAnalysisSection({
+  matchId,
+  league = "EPL",
+  homeTeam,
+  awayTeam,
+}: FullAnalysisSectionProps) {
   const enabled = useFeatureFlag(FeatureFlag.FULL_ANALYSIS_V7);
 
   if (!enabled) return null;
@@ -56,7 +66,12 @@ export function FullAnalysisSection({ matchId, league = "EPL" }: FullAnalysisSec
 
       <ErrorBoundary fallback={(_error, _reset) => <FullAnalysisFallback />}>
         <Suspense fallback={<FullAnalysisSkeleton />}>
-          <FullAnalysisDashboard matchId={matchId} league={league} />
+          <FullAnalysisDashboard
+            matchId={matchId}
+            league={league}
+            homeTeam={homeTeam}
+            awayTeam={awayTeam}
+          />
         </Suspense>
       </ErrorBoundary>
     </section>

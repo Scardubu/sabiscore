@@ -19,8 +19,16 @@ export const runtime = "nodejs";
 
 type PageProps = {
   params?: Promise<{ id: string }>;
-  searchParams?: Promise<{ league?: string }>;
+  searchParams?: Promise<{ league?: string; home?: string; away?: string }>;
 };
+
+// Real fixtures now route by canonical match_id, with home/away carried as
+// query params (the id itself is opaque and unsuitable as display text).
+// Manual/typed matchups have no home/away params — id IS the "Home vs Away"
+// string, matching the pre-existing behavior.
+function matchupLabelFor(id: string, home?: string, away?: string): string {
+  return home && away ? `${home} vs ${away}` : decodeURIComponent(id);
+}
 
 export async function generateMetadata({ params, searchParams }: PageProps) {
   if (!params) {
@@ -33,8 +41,8 @@ export async function generateMetadata({ params, searchParams }: PageProps) {
   try {
     const { id } = await params;
     const resolvedSearchParams = searchParams ? await searchParams : undefined;
-    const { league } = resolvedSearchParams || {};
-    const matchup = decodeURIComponent(id);
+    const { league, home, away } = resolvedSearchParams || {};
+    const matchup = matchupLabelFor(id, home, away);
     return {
       title: `${matchup} - Insights | Sabiscore`,
       description: `AI-powered betting insights and predictions for ${matchup} in ${league || "EPL"}`,
@@ -52,6 +60,8 @@ export default async function MatchInsightsPage({ params, searchParams }: PagePr
 
   let id: string;
   let league: string = "EPL";
+  let home: string | undefined;
+  let away: string | undefined;
 
   try {
     const resolvedParams = await params;
@@ -60,11 +70,18 @@ export default async function MatchInsightsPage({ params, searchParams }: PagePr
     // Links in the wild carry either vocabulary ("La Liga" or "LA_LIGA");
     // everything downstream expects the canonical id.
     league = canonicalLeagueId(resolvedSearchParams?.league) ?? "EPL";
+    home = resolvedSearchParams?.home;
+    away = resolvedSearchParams?.away;
   } catch {
     notFound();
   }
 
-  const matchup = decodeURIComponent(id);
+  // `rawId` goes to FullAnalysisSection/Phase8AnalyticsSection unchanged —
+  // both backend endpoints auto-detect a real match_id vs. a "vs" string.
+  // `matchup` is only for the legacy Phase-7 insights call (team names
+  // required, no ID variant) and the page title.
+  const rawId = decodeURIComponent(id);
+  const matchup = matchupLabelFor(id, home, away);
 
   // ── Fetch insights ─────────────────────────────────────────────────────────
   // Handle backend errors inline rather than throwing to error.tsx.
@@ -80,8 +97,8 @@ export default async function MatchInsightsPage({ params, searchParams }: PagePr
     return (
       <div className="max-w-6xl mx-auto space-y-12">
         <InsightsDisplayWrapper insights={insights} />
-        <FullAnalysisSection matchId={matchup} league={league} />
-        <Phase8AnalyticsSection matchId={matchup} league={league} />
+        <FullAnalysisSection matchId={rawId} league={league} homeTeam={home} awayTeam={away} />
+        <Phase8AnalyticsSection matchId={rawId} league={league} />
       </div>
     );
   } catch (error) {
@@ -119,8 +136,8 @@ export default async function MatchInsightsPage({ params, searchParams }: PagePr
   return (
     <div className="max-w-6xl mx-auto space-y-12">
       <InsightsErrorState errorType={errorType ?? "unknown"} matchup={matchup} />
-      <FullAnalysisSection matchId={matchup} league={league} />
-      <Phase8AnalyticsSection matchId={matchup} league={league} />
+      <FullAnalysisSection matchId={rawId} league={league} homeTeam={home} awayTeam={away} />
+      <Phase8AnalyticsSection matchId={rawId} league={league} />
     </div>
   );
 }

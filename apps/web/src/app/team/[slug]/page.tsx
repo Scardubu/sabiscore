@@ -225,7 +225,12 @@ export default async function TeamIntelligencePage({ params }: PageProps) {
           <h2 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider">Upcoming Fixtures</h2>
           <div className="space-y-2">
             {data.upcoming_fixtures.map((f) => {
-              const href = `/match/${encodeURIComponent(`${f.home_team} vs ${f.away_team}`)}?league=${encodeURIComponent(f.league)}`;
+              // Real fixtures carry a canonical match_id — route by it so the
+              // backend can verify fixture identity instead of falling back
+              // to the unverified "Home vs Away" matchup path.
+              const href = f.match_id
+                ? `/match/${encodeURIComponent(f.match_id)}?league=${encodeURIComponent(f.league)}&home=${encodeURIComponent(f.home_team)}&away=${encodeURIComponent(f.away_team)}`
+                : `/match/${encodeURIComponent(`${f.home_team} vs ${f.away_team}`)}?league=${encodeURIComponent(f.league)}`;
               return (
                 <Link
                   key={f.match_id}

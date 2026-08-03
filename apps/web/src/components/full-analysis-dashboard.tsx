@@ -38,6 +38,10 @@ const VERDICT_COPY: Record<string, string> = {
 interface FullAnalysisDashboardProps {
   matchId: string;
   league?: string;
+  /** Real team names when matchId is a canonical fixture ID rather than a
+   * "Home vs Away" string — parseTeams() can't recover names from a bare ID. */
+  homeTeam?: string;
+  awayTeam?: string;
 }
 
 // ─── Verdict config ───────────────────────────────────────────────────────────
@@ -258,15 +262,21 @@ function EnhancedMatchHero({
   data,
   presentation,
   league = "EPL",
+  homeTeam,
+  awayTeam,
 }: {
   matchId: string;
   data: FullMatchAnalysisResponse;
   presentation: FullAnalysisPresentation;
   league?: string;
+  homeTeam?: string;
+  awayTeam?: string;
 }) {
   const prefersReduced = useReducedMotion();
   const meta = VERDICT_META[data.verdict];
-  const [home, away] = parseTeams(matchId);
+  const [parsedHome, parsedAway] = parseTeams(matchId);
+  const home = homeTeam ?? parsedHome;
+  const away = awayTeam ?? parsedAway;
   const { ensemble } = data;
   const probabilities = presentation.displayedProbabilities;
   // Absent ratings arrive as a neutral 1500 default — do not render them as measured.
@@ -1434,7 +1444,12 @@ export function NarrativeBlock({ text }: { text: string }) {
 
 // ─── Main dashboard ───────────────────────────────────────────────────────────
 
-function FullAnalysisDashboardInner({ matchId, league = "EPL" }: FullAnalysisDashboardProps) {
+function FullAnalysisDashboardInner({
+  matchId,
+  league = "EPL",
+  homeTeam,
+  awayTeam,
+}: FullAnalysisDashboardProps) {
   const prefersReduced = useReducedMotion();
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["fullAnalysis", matchId, league],
@@ -1468,7 +1483,14 @@ function FullAnalysisDashboardInner({ matchId, league = "EPL" }: FullAnalysisDas
       className="space-y-5"
     >
       {/* ── Enhanced match hero (E.1 + Phase F) ── */}
-      <EnhancedMatchHero matchId={matchId} data={data} presentation={presentation} league={league} />
+      <EnhancedMatchHero
+        matchId={matchId}
+        data={data}
+        presentation={presentation}
+        league={league}
+        homeTeam={homeTeam}
+        awayTeam={awayTeam}
+      />
 
       <ActionabilityStrip data={data} />
 
