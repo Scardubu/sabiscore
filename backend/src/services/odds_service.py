@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.cache import cache_manager
 from ..core.config import settings
+from ..core.league_policy import LeaguePolicyUnavailableError, canonical_league_id
 from ..db.models import Odds
 from ..providers.base import ProviderStatus
 from ..providers.the_odds_api import TheOddsAPIProvider
@@ -32,28 +33,32 @@ class OddsService:
 
     async def fetch_live_odds(
         self,
-        sport: str = "soccer_epl",
+        competition: str = "EPL",
         regions: str = "uk,eu",
         markets: str = "h2h",
     ) -> List[Dict[str, Any]]:
         """
         Fetch live odds from The Odds API.
-        
+
         Args:
-            sport: Sport key (e.g., soccer_epl, soccer_germany_bundesliga)
+            competition: Canonical SabiScore competition code (e.g. "EPL",
+                "LA_LIGA"). The provider owns the competition -> Odds API sport
+                key mapping; this service must not duplicate it.
             regions: Comma-separated regions (uk, eu, us, au)
             markets: Comma-separated markets (h2h, spreads, totals)
-            
+
         Returns:
             List of match odds dictionaries
         """
-        cache_key = f"live_odds:{sport}:{regions}:{markets}"
+        cache_key = f"live_odds:{competition}:{regions}:{markets}"
         cached = self.cache.get(cache_key)
         if cached:
-            logger.info("Cache hit for live odds: %s", sport)
+            logger.info("Cache hit for live odds: %s", competition)
             return cached
 
-        result = await self.provider.odds(sport=sport, regions=regions, markets=markets)
+        result = await self.provider.odds(
+            competition=competition, regions=regions, markets=markets
+        )
         if result.status is not ProviderStatus.VERIFIED:
             logger.warning(
                 "Odds provider unavailable provider=%s status=%s error=%s",
@@ -91,8 +96,18 @@ class OddsService:
                 cached.setdefault("timestamp", datetime.now(timezone.utc).isoformat())
             return cached
 
-        sport_key = self._league_to_sport_key(league)
-        live_odds = await self.fetch_live_odds(sport=sport_key)
+        try:
+            competition = canonical_league_id(league)
+        except LeaguePolicyUnavailableError:
+            logger.warning("Unsupported league for odds lookup: %r", league)
+            return {
+                "source": "unavailable",
+                "reason": "unsupported_competition",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "bookmaker": None,
+            }
+
+        live_odds = await self.fetch_live_odds(competition=competition)
 
         # Find matching event
         home_normalized = home_team.lower().replace(" ", "")
@@ -142,19 +157,6 @@ class OddsService:
         except Exception as exc:
             logger.error("Failed to store odds snapshot: %s", exc)
             await db.rollback()
-
-    def _league_to_sport_key(self, league: str) -> str:
-        """Map internal league codes to Odds API sport keys."""
-        league_map = {
-            "epl": "soccer_epl",
-            "premier_league": "soccer_epl",
-            "bundesliga": "soccer_germany_bundesliga",
-            "la_liga": "soccer_spain_la_liga",
-            "serie_a": "soccer_italy_serie_a",
-            "ligue_1": "soccer_france_ligue_one",
-        }
-        normalized = league.lower().replace(" ", "_")
-        return league_map.get(normalized, "soccer_epl")
 
     def _extract_h2h_odds(self, event: Dict[str, Any]) -> Optional[Dict[str, float]]:
         """Extract head-to-head odds from Odds API event."""

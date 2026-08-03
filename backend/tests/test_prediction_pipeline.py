@@ -291,7 +291,7 @@ class TestPredictionPipeline:
 
         try:
             # Fetch live odds for EPL
-            odds_data = await odds_service.fetch_live_odds(sport="soccer_epl")
+            odds_data = await odds_service.fetch_live_odds(competition="EPL")
         except Exception as exc:
             # Odds API may not be configured or reachable in test env
             pytest.skip(f"Could not fetch odds: {exc}")
