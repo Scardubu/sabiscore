@@ -18,6 +18,12 @@ import {
   derivePlatformHealth,
 } from "@/lib/health-status";
 import { LEAGUE_CONFIG, TeamVsDisplay } from "./team-display";
+import {
+  buildMatchInsightsHref,
+  getTopEdgeFixtureId,
+  selectorLeagueId,
+  type SelectedFixture,
+} from "@/lib/match-selection";
 // Only rendered once a matchup is submitted, and it carries framer-motion's
 // drag/gesture machinery — keep it out of the /match first-load bundle.
 const MatchLoadingExperience = dynamic(
@@ -41,31 +47,6 @@ export function excludeSelectedTeam(teams: readonly string[], selected: string):
   return teams.filter((team) => team.trim().toLowerCase() !== target);
 }
 
-/**
- * A carousel click only pre-fills the manual-entry form — the user can still
- * edit the team fields before submitting. Returns the carousel's canonical
- * match_id only when the currently-entered home/away/league still match what
- * was selected (case/whitespace-insensitive, same normalization handleSubmit
- * uses); otherwise null, meaning "route by the typed team-name pair instead."
- */
-export function resolveCarouselMatchId(
-  carouselFixture: { matchId: string; home: string; away: string; league: LeagueId } | null,
-  home: string,
-  away: string,
-  league: LeagueId,
-): string | null {
-  if (!carouselFixture) return null;
-  const norm = (s: string) => s.trim().toLowerCase();
-  if (
-    carouselFixture.league === league &&
-    norm(carouselFixture.home) === norm(home) &&
-    norm(carouselFixture.away) === norm(away)
-  ) {
-    return carouselFixture.matchId;
-  }
-  return null;
-}
-
 const LEAGUES = [
   { id: "EPL", name: "Premier League" },
   { id: "La Liga", name: "La Liga" },
@@ -76,26 +57,13 @@ const LEAGUES = [
   { id: "UCL", name: "Champions League" },
 ] as const satisfies ReadonlyArray<{ id: LeagueId; name: string }>;
 
-/**
- * Only claim a "Top Edge Today" when the leading fixture actually has a
- * measured edge score. When every fixture scores null — the normal state when
- * no prediction is publishable — the sort is a no-op and the first fixture
- * would otherwise be badged as the day's best edge purely for being first.
- */
-export function resolveTopEdgeId(
-  fixtures: readonly Pick<UpcomingMatch, "match_id" | "edge_quality_score">[],
-): string | undefined {
-  const leader = fixtures[0];
-  return leader && leader.edge_quality_score != null ? leader.match_id : undefined;
-}
-
 // ─── Big Matches Carousel (E.5) ───────────────────────────────────────────────
 
 interface BigMatchesCarouselProps {
-  onSelectMatchup: (home: string, away: string, league: LeagueId, matchId: string) => void;
+  onSelectFixture: (fixture: SelectedFixture) => void;
 }
 
-function BigMatchesCarousel({ onSelectMatchup }: BigMatchesCarouselProps) {
+function BigMatchesCarousel({ onSelectFixture }: BigMatchesCarouselProps) {
   const [activeLeague, setActiveLeague] = useState<LeagueId | "ALL">("ALL");
 
   const { data, isLoading } = useQuery({
@@ -109,13 +77,15 @@ function BigMatchesCarousel({ onSelectMatchup }: BigMatchesCarouselProps) {
     if (!data?.upcoming_matches) return [];
     const list = activeLeague === "ALL"
       ? data.upcoming_matches
-      : data.upcoming_matches.filter((m) => m.league === activeLeague);
+      : data.upcoming_matches.filter(
+          (m) => canonicalLeagueId(m.league) === canonicalLeagueId(activeLeague),
+        );
     return [...list]
       .sort((a, b) => (b.edge_quality_score ?? 0) - (a.edge_quality_score ?? 0))
       .slice(0, 6);
   }, [data, activeLeague]);
 
-  const topEdgeId = resolveTopEdgeId(fixtures);
+  const topEdgeId = getTopEdgeFixtureId(fixtures);
 
   // Don't render during offseason or when data is empty after load
   if (!isLoading && (data?.offseason || fixtures.length === 0)) return null;
@@ -170,15 +140,15 @@ function BigMatchesCarousel({ onSelectMatchup }: BigMatchesCarouselProps) {
               />
             ))
           : fixtures.map((match) => {
+              const selectorLeague = selectorLeagueId(match.league);
               const isTopEdge = match.match_id === topEdgeId;
-              const edgePct = match.edge_quality_score != null
-                ? Math.round(match.edge_quality_score * 100)
-                : null;
-              const clvPositive = match.clv_pct != null && match.clv_pct > 0;
               const prediction = match.predictions;
-              // Never label a fabricated fallback prediction (missing/failed
-              // model artifact) as if it were a real outcome lean.
-              const topOutcome = prediction && prediction.model_version !== "fallback"
+              const edgePct =
+                prediction && match.edge_quality_score != null && match.edge_quality_score > 0
+                  ? Math.round(match.edge_quality_score * 100)
+                  : null;
+              const clvPositive = match.clv_pct != null && match.clv_pct > 0;
+              const topOutcome = prediction
                 ? (
                     prediction.home_win >= prediction.draw && prediction.home_win >= prediction.away_win
                       ? "Home Win"
@@ -192,17 +162,19 @@ function BigMatchesCarousel({ onSelectMatchup }: BigMatchesCarouselProps) {
                 <button
                   key={match.match_id}
                   type="button"
-                  onClick={() =>
-                    onSelectMatchup(
-                      match.home_team,
-                      match.away_team,
-                      match.league as LeagueId,
-                      match.match_id,
-                    )
-                  }
+                  onClick={() => {
+                    if (!selectorLeague) return;
+                    onSelectFixture({
+                      matchId: match.match_id,
+                      homeTeam: match.home_team,
+                      awayTeam: match.away_team,
+                      league: selectorLeague,
+                    });
+                  }}
+                  disabled={!selectorLeague}
                   aria-label={`${match.home_team} vs ${match.away_team}${isTopEdge ? " — Top Edge Today" : ""}`}
                   className={cn(
-                    "flex-shrink-0 w-[180px] rounded-xl border p-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 hover:border-slate-600/60 min-h-[44px]",
+                    "flex-shrink-0 w-[180px] rounded-xl border p-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 hover:border-slate-600/60 min-h-[44px] disabled:cursor-not-allowed disabled:opacity-50",
                     isTopEdge
                       ? "border-emerald-500/30 bg-emerald-500/5"
                       : "border-slate-800/60 bg-slate-900/40 hover:bg-slate-900/70",
@@ -253,6 +225,7 @@ export function MatchSelector() {
   const [league, setLeague] = useState<LeagueId>("EPL");
   const [loading, setLoading] = useState(false);
   const [showInterstitial, setShowInterstitial] = useState(false);
+  const [selectedFixture, setSelectedFixture] = useState<SelectedFixture | null>(null);
   const router = useRouter();
   const interstitialV2Enabled = useFeatureFlag(FeatureFlag.PREDICTION_INTERSTITIAL_V2);
   const premiumVisualsEnabled = useFeatureFlag(FeatureFlag.PREMIUM_VISUAL_HIERARCHY);
@@ -261,14 +234,6 @@ export function MatchSelector() {
     away: string;
     league: LeagueId;
     key: string;
-  } | null>(null);
-  // Set when a carousel card is clicked; consulted at submit time to decide
-  // whether to route by the real match_id instead of a "vs" string.
-  const [carouselFixture, setCarouselFixture] = useState<{
-    matchId: string;
-    home: string;
-    away: string;
-    league: LeagueId;
   } | null>(null);
 
   const STORAGE_KEY = "sabiscore.matchSelector.v1";
@@ -320,6 +285,7 @@ export function MatchSelector() {
     setLeague(nextLeague);
     setHomeTeam("");
     setAwayTeam("");
+    setSelectedFixture(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -337,7 +303,6 @@ export function MatchSelector() {
 
     const normalizedHome = homeTeam.trim();
     const normalizedAway = awayTeam.trim();
-    const matchup = `${normalizedHome} vs ${normalizedAway}`;
     setLoading(true);
     if (interstitialV2Enabled) {
       const matchupKey = hashMatchup(normalizedHome, normalizedAway);
@@ -346,24 +311,18 @@ export function MatchSelector() {
     }
 
     try {
-      // Navigate to match insights page. `league` is the display-form id that
-      // keys the team lists, so normalize it for the URL — the API layer speaks
-      // the canonical vocabulary.
-      const leagueParam = canonicalLeagueId(league) ?? "EPL";
-      // If this matchup still matches what a carousel card selected, route by
-      // its real match_id so the backend can verify fixture identity instead
-      // of falling back to the unverified "Home vs Away" path. Any edit to
-      // the team fields after picking from the carousel invalidates it.
-      const matchId = resolveCarouselMatchId(carouselFixture, normalizedHome, normalizedAway, league);
-      if (matchId) {
-        router.push(
-          `/match/${encodeURIComponent(matchId)}?league=${leagueParam}&home=${encodeURIComponent(normalizedHome)}&away=${encodeURIComponent(normalizedAway)}`,
-        );
-      } else {
-        const encodedMatchup = encodeURIComponent(matchup);
-        router.push(`/match/${encodedMatchup}?league=${leagueParam}`);
-      }
-
+      // Preserve the canonical fixture ID when the selection came from the
+      // real-fixture carousel. Manual edits intentionally clear that identity
+      // and remain an explicitly unverified matchup path.
+      router.push(
+        buildMatchInsightsHref({
+          selectedFixture,
+          homeTeam: normalizedHome,
+          awayTeam: normalizedAway,
+          league,
+        }),
+      );
+      
       // Clear persisted state after successful navigation to avoid stale team selections
       try {
         localStorage.removeItem(STORAGE_KEY);
@@ -391,16 +350,25 @@ export function MatchSelector() {
 
   const hasTeamsSelected = Boolean(homeTeam.trim() && awayTeam.trim());
 
-  const handleCarouselSelect = (
-    home: string,
-    away: string,
-    selectedLeague: LeagueId,
-    matchId: string,
-  ) => {
-    setLeague(selectedLeague);
-    setHomeTeam(home);
-    setAwayTeam(away);
-    setCarouselFixture(matchId ? { matchId, home, away, league: selectedLeague } : null);
+  const handleCarouselSelect = (fixture: SelectedFixture) => {
+    setSelectedFixture(fixture);
+    setLeague(fixture.league);
+    setHomeTeam(fixture.homeTeam);
+    setAwayTeam(fixture.awayTeam);
+  };
+
+  const handleHomeTeamChange = (value: string) => {
+    setHomeTeam(value);
+    if (value.trim().toLowerCase() !== selectedFixture?.homeTeam.trim().toLowerCase()) {
+      setSelectedFixture(null);
+    }
+  };
+
+  const handleAwayTeamChange = (value: string) => {
+    setAwayTeam(value);
+    if (value.trim().toLowerCase() !== selectedFixture?.awayTeam.trim().toLowerCase()) {
+      setSelectedFixture(null);
+    }
   };
 
   // Off-season signal for the currently selected league, so the user sees it
@@ -430,7 +398,7 @@ export function MatchSelector() {
     <>
       <div
         className={cn(
-          "glass-card relative overflow-hidden p-8",
+          "glass-card relative overflow-hidden p-5 sm:p-8",
           premiumVisualsEnabled &&
             "border-white/10 bg-slate-950/70 shadow-[0_15px_45px_rgba(8,14,35,0.55)]"
         )}
@@ -443,24 +411,23 @@ export function MatchSelector() {
         )}
         <div className="relative space-y-6">
           {/* Big Matches Carousel (E.5) */}
-          <BigMatchesCarousel onSelectMatchup={handleCarouselSelect} />
+          <BigMatchesCarousel onSelectFixture={handleCarouselSelect} />
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <div className="flex flex-wrap items-center gap-3">
-              <h2 className="text-2xl font-bold text-slate-100">Generate Match Insights</h2>
+              <h2 className="text-xl font-bold text-slate-100 sm:text-2xl">Generate Match Insights</h2>
               {premiumVisualsEnabled && (
-                <span className="rounded-full border border-white/10 bg-slate-900/60 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-slate-300">
+                <span className="hidden rounded-full border border-white/10 bg-slate-900/60 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-slate-300 sm:inline-flex">
                   Premium visual mode
                 </span>
               )}
             </div>
-            <p className="text-slate-400">Enter teams to get AI-powered predictions and value bets</p>
+            <p className="text-sm text-slate-400 sm:text-base">Choose a verified fixture or enter a hypothetical matchup.</p>
           </div>
 
-        {premiumVisualsEnabled && (
-          <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-4">
-            {hasTeamsSelected ? (
-              <>
+        {premiumVisualsEnabled && hasTeamsSelected && (
+          <div className="hidden rounded-2xl border border-white/10 bg-slate-900/60 p-4 sm:block">
+            <>
                 <TeamVsDisplay
                   homeTeam={homeTeam}
                   awayTeam={awayTeam}
@@ -469,7 +436,7 @@ export function MatchSelector() {
                   showCountryFlags={true}
                   className="justify-between"
                 />
-                <div className="mt-4 flex flex-wrap gap-3 text-[11px] text-slate-300">
+                <div className="mt-4 hidden flex-wrap gap-3 text-[11px] text-slate-300 sm:flex">
                   <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1">
                     Recent form weighted ×3
                   </span>
@@ -481,19 +448,22 @@ export function MatchSelector() {
                   </span>
                 </div>
               </>
-            ) : (
-              <p className="text-sm text-slate-400">
-                Select both teams to preview the matchup and pipeline emphasis before generating insights.
-              </p>
-            )}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        {hasTeamsSelected && (
+          <div className="flex items-center justify-between rounded-xl border border-white/10 bg-slate-900/50 px-3 py-2 text-sm sm:hidden">
+            <span className="truncate font-medium text-slate-200">{homeTeam}</span>
+            <span className="mx-2 text-xs uppercase text-slate-500">vs</span>
+            <span className="truncate text-right font-medium text-slate-200">{awayTeam}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
           {/* League Selector */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-300">League</label>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+            <div className="flex gap-2 overflow-x-auto pb-1 md:grid md:grid-cols-5 md:overflow-visible">
               {LEAGUES.map((l) => (
                 <button
                   key={l.id}
@@ -508,7 +478,7 @@ export function MatchSelector() {
                   data-selected={league === l.id}
                   aria-label={`Select ${l.name}${league === l.id ? ' (selected)' : ''}`}
                   className={cn(
-                    "rounded-xl border-2 p-3 transition-all",
+                    "min-w-[116px] flex-shrink-0 rounded-xl border-2 p-3 transition-all md:min-w-0",
                     premiumVisualsEnabled
                       ? league === l.id
                         ? "border-transparent bg-gradient-to-br from-cyan-400/30 to-indigo-500/30 text-white shadow-[0_10px_25px_rgba(15,23,42,0.55)]"
@@ -552,7 +522,7 @@ export function MatchSelector() {
             <TeamAutocomplete
               label="Home Team"
               value={homeTeam}
-              onChange={setHomeTeam}
+              onChange={handleHomeTeamChange}
               options={homeTeamOptions}
               league={league}
               placeholder="Search or type a team"
@@ -562,7 +532,7 @@ export function MatchSelector() {
             <TeamAutocomplete
               label="Away Team"
               value={awayTeam}
-              onChange={setAwayTeam}
+              onChange={handleAwayTeamChange}
               options={awayTeamOptions}
               league={league}
               placeholder="Search or type a team"
@@ -598,7 +568,7 @@ export function MatchSelector() {
                 setHomeTeam("");
                 setAwayTeam("");
                 setLeague("EPL");
-                setCarouselFixture(null);
+                setSelectedFixture(null);
                 try {
                   localStorage.removeItem(STORAGE_KEY);
                 } catch {}

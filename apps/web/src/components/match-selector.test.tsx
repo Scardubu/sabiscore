@@ -1,15 +1,13 @@
 import { describe, expect, it } from "vitest";
+import type { UpcomingMatch } from "@/lib/api";
+import { excludeSelectedTeam } from "./match-selector";
 import {
-  excludeSelectedTeam,
-  resolveCarouselMatchId,
-  resolveTopEdgeId,
-} from "./match-selector";
-import type { LeagueId } from "../lib/team-data";
+  buildMatchInsightsHref,
+  getTopEdgeFixtureId,
+  selectorLeagueId,
+  type SelectedFixture,
+} from "@/lib/match-selection";
 
-// Both Home and Away TeamAutocomplete fields used to receive the identical,
-// unfiltered team list, so a team already picked on one side still appeared
-// as a selectable suggestion on the other — only rejected after submit via
-// a toast. This pins that the dropdown itself excludes it up front.
 describe("excludeSelectedTeam", () => {
   const teams = ["Arsenal", "Aston Villa", "Brighton"];
 
@@ -17,74 +15,112 @@ describe("excludeSelectedTeam", () => {
     expect(excludeSelectedTeam(teams, "Arsenal")).toEqual(["Aston Villa", "Brighton"]);
   });
 
-  it("is case- and whitespace-insensitive, matching the submit-time guard", () => {
+  it("is case- and whitespace-insensitive", () => {
     expect(excludeSelectedTeam(teams, "  arsenal  ")).toEqual(["Aston Villa", "Brighton"]);
   });
 
-  it("returns the full list unchanged when nothing is selected yet", () => {
+  it("returns the full list when no valid selection exists", () => {
     expect(excludeSelectedTeam(teams, "")).toEqual(teams);
-  });
-
-  it("returns the full list unchanged when the selection isn't in this league", () => {
     expect(excludeSelectedTeam(teams, "Chelsea")).toEqual(teams);
   });
 });
 
-// A carousel click only pre-fills the manual-entry form — the user can still
-// edit the fields before submitting. resolveCarouselMatchId decides whether
-// it's still safe to route by the carousel's real match_id, or whether the
-// submission must fall back to the unverified "Home vs Away" string route.
-describe("resolveCarouselMatchId", () => {
-  const fixture = { matchId: "482", home: "Arsenal", away: "Chelsea", league: "EPL" as LeagueId };
 
-  it("returns the stored match_id when home/away/league all still match", () => {
-    expect(resolveCarouselMatchId(fixture, "Arsenal", "Chelsea", "EPL")).toBe("482");
+describe("selector league normalization", () => {
+  it("maps canonical API vocabulary to the selector vocabulary", () => {
+    expect(selectorLeagueId("LA_LIGA")).toBe("La Liga");
+    expect(selectorLeagueId("SERIE_A")).toBe("Serie A");
+    expect(selectorLeagueId("LIGUE_1")).toBe("Ligue 1");
   });
 
-  it("is case- and whitespace-insensitive on team names", () => {
-    expect(resolveCarouselMatchId(fixture, "  arsenal  ", "CHELSEA", "EPL")).toBe("482");
-  });
-
-  it("returns null when the home team was edited after picking from the carousel", () => {
-    expect(resolveCarouselMatchId(fixture, "Aston Villa", "Chelsea", "EPL")).toBeNull();
-  });
-
-  it("returns null when the league changed after picking from the carousel", () => {
-    expect(resolveCarouselMatchId(fixture, "Arsenal", "Chelsea", "La Liga" as LeagueId)).toBeNull();
-  });
-
-  it("returns null when no carousel selection was made (manual entry)", () => {
-    expect(resolveCarouselMatchId(null, "Arsenal", "Chelsea", "EPL")).toBeNull();
+  it("fails closed for an unsupported competition", () => {
+    expect(selectorLeagueId("SCOTTISH_PREMIERSHIP")).toBeNull();
   });
 });
 
-// Every live fixture currently scores edge_quality_score: null (no publishable
-// prediction), so the carousel's sort is a no-op and the first fixture was being
-// badged "🔥 Top Edge Today" purely for being first in the list.
-describe("resolveTopEdgeId", () => {
-  it("returns undefined when no fixture has a measured edge score", () => {
+describe("canonical fixture navigation", () => {
+  const selectedFixture: SelectedFixture = {
+    matchId: "fixture-123",
+    homeTeam: "Arsenal",
+    awayTeam: "Bournemouth",
+    league: "EPL",
+  };
+
+  it("preserves the real fixture id when the selection is unchanged", () => {
     expect(
-      resolveTopEdgeId([
-        { match_id: "fd-1", edge_quality_score: null },
-        { match_id: "fd-2", edge_quality_score: null },
-      ]),
-    ).toBeUndefined();
+      buildMatchInsightsHref({
+        selectedFixture,
+        homeTeam: "Arsenal",
+        awayTeam: "Bournemouth",
+        league: "EPL",
+      }),
+    ).toBe("/match/fixture-123?league=EPL&home=Arsenal&away=Bournemouth");
   });
 
-  it("returns the leader's id when it has a measured edge score", () => {
+  // The id is opaque: the Phase-7 insights call takes a matchup string with no
+  // id variant, and the hero card parses team names off the route segment.
+  // Without these params both fall back to rendering the raw id.
+  it("carries team names alongside the canonical id", () => {
+    const href = buildMatchInsightsHref({
+      selectedFixture,
+      homeTeam: "Arsenal",
+      awayTeam: "Bournemouth",
+      league: "EPL",
+    });
+    const params = new URL(href, "https://example.test").searchParams;
+    expect(params.get("home")).toBe("Arsenal");
+    expect(params.get("away")).toBe("Bournemouth");
+  });
+
+  it("falls back to the explicit matchup path after a manual edit", () => {
     expect(
-      resolveTopEdgeId([
-        { match_id: "fd-1", edge_quality_score: 0.62 },
-        { match_id: "fd-2", edge_quality_score: 0.41 },
-      ]),
-    ).toBe("fd-1");
+      buildMatchInsightsHref({
+        selectedFixture,
+        homeTeam: "Arsenal",
+        awayTeam: "Chelsea",
+        league: "EPL",
+      }),
+    ).toBe("/match/Arsenal%20vs%20Chelsea?league=EPL");
+  });
+});
+
+describe("top-edge labelling", () => {
+  const base = {
+    home_team: "A",
+    away_team: "B",
+    league: "EPL",
+    match_date: "2026-08-08T12:00:00Z",
+    venue: null,
+    status: "scheduled",
+    value_bets: [],
+    has_value: false,
+    best_value_bet: null,
+    data_gaps: [],
+    staleness_seconds: 0,
+    source: "test",
+    clv_pct: null,
+  } satisfies Omit<UpcomingMatch, "match_id" | "predictions" | "edge_quality_score">;
+
+  it("does not fabricate a top edge from null or zero scores", () => {
+    const fixtures: UpcomingMatch[] = [
+      { ...base, match_id: "a", predictions: null, edge_quality_score: null },
+      { ...base, match_id: "b", predictions: null, edge_quality_score: 0 },
+    ];
+    expect(getTopEdgeFixtureId(fixtures)).toBeNull();
   });
 
-  it("treats a genuine zero score as measured, not missing", () => {
-    expect(resolveTopEdgeId([{ match_id: "fd-1", edge_quality_score: 0 }])).toBe("fd-1");
-  });
-
-  it("returns undefined for an empty fixture list", () => {
-    expect(resolveTopEdgeId([])).toBeUndefined();
+  it("selects the highest positive scored fixture with a prediction", () => {
+    const prediction = {
+      home_win: 0.5,
+      draw: 0.25,
+      away_win: 0.25,
+      confidence: 0.5,
+      model_version: "test",
+    };
+    const fixtures: UpcomingMatch[] = [
+      { ...base, match_id: "a", predictions: prediction, edge_quality_score: 0.2 },
+      { ...base, match_id: "b", predictions: prediction, edge_quality_score: 0.6 },
+    ];
+    expect(getTopEdgeFixtureId(fixtures)).toBe("b");
   });
 });

@@ -1,0 +1,6 @@
+# Optional Phase-2 drift-monitoring dependencies.
+# Keep these out of the minimal API image until the first real prediction has
+# been settled and the drift worker/cron is explicitly enabled.
+evidently==0.7.21; python_version < "3.14"
+scipy==1.11.4; python_version < "3.14"
+scipy>=1.15.0,<2.0.0; python_version >= "3.14"

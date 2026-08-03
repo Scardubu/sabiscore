@@ -10,11 +10,12 @@ import numpy as np
 
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from ..core.cache import cache_manager
 from ..core.config import settings
 from ..data.loaders.football_data_api import FootballDataAPIClient, FootballDataAPIError
-from ..db.models import Match
+from ..db.models import Match, Team
 from .upcoming_match_feature_service import UpcomingMatchFeatureProjector
 from ..models.prediction import PredictionEngine
 from .odds_service import OddsService
@@ -100,8 +101,16 @@ class UpcomingMatchService:
         now = datetime.now(timezone.utc).replace(tzinfo=None)  # ponytail: match_date is TIMESTAMP WITHOUT TIME ZONE
         end_date = now + timedelta(days=max(days_ahead, 1))
 
+        home_team = aliased(Team)
+        away_team = aliased(Team)
         query = (
-            select(Match)
+            select(
+                Match,
+                home_team.name.label("home_team_name"),
+                away_team.name.label("away_team_name"),
+            )
+            .outerjoin(home_team, home_team.id == Match.home_team_id)
+            .outerjoin(away_team, away_team.id == Match.away_team_id)
             .where(
                 and_(
                     Match.match_date >= now,
@@ -116,20 +125,27 @@ class UpcomingMatchService:
             query = query.where(func.lower(Match.league_id) == league.lower())
 
         result = await db.execute(query)
-        matches = result.scalars().all()
+        matches = result.all()
 
         rows: List[Dict[str, Any]] = []
-        for match in matches:
+        for match, home_team_name, away_team_name in matches:
+            identity_gaps = []
+            if not home_team_name:
+                identity_gaps.append("HOME_TEAM_NAME_UNRESOLVED")
+            if not away_team_name:
+                identity_gaps.append("AWAY_TEAM_NAME_UNRESOLVED")
             rows.append(
                 {
                     "id": str(match.id),
-                    "home_team": match.home_team_id,
-                    "away_team": match.away_team_id,
+                    "home_team": home_team_name or "Unknown home team",
+                    "away_team": away_team_name or "Unknown away team",
                     "league": match.league_id,
                     "match_date": match.match_date.isoformat() if match.match_date else None,
                     "venue": match.venue,
                     "status": match.status or "scheduled",
                     "has_odds": False,
+                    "data_gaps": identity_gaps,
+                    "team_identity_status": "VERIFIED" if not identity_gaps else "UNKNOWN",
                     "source": "database",
                 }
             )
@@ -229,7 +245,10 @@ class UpcomingMatchService:
                     match_id=match_id,
                 )
                 predictions = pred_result.to_dict()
-                data_gaps: list = list(features_result.get("data_gaps", []))
+                data_gaps: list = sorted(
+                    set(match.get("data_gaps", []))
+                    | set(features_result.get("data_gaps", []))
+                )
                 data_quality = dict(features_result.get("data_quality") or {})
 
                 # A prediction is diagnostic — never publishable as an official
@@ -290,7 +309,9 @@ class UpcomingMatchService:
                 match["value_bets"] = []
                 match["has_value"] = False
                 match["best_value_bet"] = None
-                match["data_gaps"] = ["prediction_failed"]
+                match["data_gaps"] = sorted(
+                    set(match.get("data_gaps", [])) | {"prediction_failed"}
+                )
                 match["staleness_seconds"] = 0
                 match["match_id"] = str(match.get("match_id") or match.get("id") or "")
                 match["source"] = str(match.get("source", source))

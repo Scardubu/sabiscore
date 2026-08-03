@@ -197,8 +197,8 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      <main className="container mx-auto px-4 py-12">
-        <div className="mx-auto max-w-6xl space-y-12">
+      <main className="container mx-auto px-4 py-5 sm:py-8">
+        <div className="mx-auto max-w-6xl space-y-8 sm:space-y-12">
           {premiumEnabled ? <PremiumHome /> : <LegacyHome />}
         </div>
       </main>
@@ -235,17 +235,17 @@ function PremiumHome() {
   return (
     <>
       {/* Hero */}
-      <section className="relative overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6 text-left shadow-[0_35px_80px_rgba(2,6,23,0.6)] sm:p-10">
-        <div className="relative grid gap-10 lg:grid-cols-[1.2fr,0.8fr]">
-          <div className="space-y-8">
+      <section className="relative overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-5 text-left shadow-[0_35px_80px_rgba(2,6,23,0.6)] sm:p-10">
+        <div className="relative grid gap-6 lg:grid-cols-[1.2fr,0.8fr] lg:gap-10">
+          <div className="space-y-6 sm:space-y-8">
             <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-slate-100">
               <Activity size={14} aria-hidden="true" />
               Evidence-first intelligence
             </span>
-            <h1 className="max-w-3xl text-4xl font-black leading-tight text-white md:text-5xl">
+            <h1 className="max-w-3xl text-3xl font-black leading-tight text-white sm:text-4xl md:text-5xl">
               Edge-first football intelligence for analysts
             </h1>
-            <p className="max-w-2xl text-lg text-slate-300">
+            <p className="max-w-2xl text-base leading-7 text-slate-300 sm:text-lg">
               Calibrated probabilities, market context, and bankroll-aware decision support
               presented in one cohesive surface.
             </p>
@@ -262,10 +262,10 @@ function PremiumHome() {
             </div>
             <div className="flex flex-wrap gap-4">
               <Link
-                href="/intelligence"
-                className="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-400 to-indigo-500 px-8 py-3 text-base font-semibold text-slate-950 shadow-[0_10px_35px_rgba(0,212,255,0.35)] transition hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-cyan-200"
+                href="#match-generator"
+                className="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-400 to-indigo-500 px-6 py-3 text-sm font-semibold text-slate-950 sm:px-8 sm:text-base shadow-[0_10px_35px_rgba(0,212,255,0.35)] transition hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-cyan-200"
               >
-                See today&apos;s value picks
+                Generate match insights
               </Link>
               <Link
                 href="/docs"
@@ -276,7 +276,22 @@ function PremiumHome() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-6 rounded-[24px] border border-white/10 bg-slate-950/70 p-5 shadow-[0_20px_60px_rgba(3,7,18,0.8)] sm:p-6">
+          <div className="grid grid-cols-3 gap-2 lg:hidden">
+            <div className="rounded-xl border border-white/10 bg-slate-900/70 p-3">
+              <p className="text-[9px] uppercase tracking-wider text-slate-500">Model</p>
+              <p className="mt-1 text-sm font-semibold text-white">Phase 7</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-slate-900/70 p-3">
+              <p className="text-[9px] uppercase tracking-wider text-slate-500">Training</p>
+              <p className="mt-1 text-sm font-semibold text-white">1,752</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-slate-900/70 p-3">
+              <p className="text-[9px] uppercase tracking-wider text-slate-500">Live score</p>
+              <p className="mt-1 text-sm font-semibold text-slate-300">Pending</p>
+            </div>
+          </div>
+
+          <div className="hidden flex-col gap-6 rounded-[24px] border border-white/10 bg-slate-950/70 p-5 shadow-[0_20px_60px_rgba(3,7,18,0.8)] sm:p-6 lg:flex">
             <div>
               <p className="text-xs uppercase tracking-[0.28em] text-slate-500">Model pulse</p>
               <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -314,6 +329,18 @@ function PremiumHome() {
               ))}
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Match generator — intentionally first after the hero on every viewport. */}
+      <section id="match-generator" className="scroll-mt-32">
+        <div className="rounded-[24px] border border-white/10 bg-slate-950/80 p-3 sm:p-5">
+          <div className="px-2 pb-3 sm:px-0">
+            <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Start here</p>
+            <h2 className="mt-1 text-xl font-bold text-white">Generate match intelligence</h2>
+            <p className="mt-1 text-sm text-slate-400">Choose a verified fixture or enter a hypothetical matchup.</p>
+          </div>
+          <MatchSelector />
         </div>
       </section>
 
@@ -404,21 +431,7 @@ function PremiumHome() {
         </div>
       </section>
 
-      {/* Match predictor + upcoming */}
-      <section className="space-y-6">
-        <div className="rounded-[24px] border border-white/10 bg-slate-950/80 p-5">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Match predictor</p>
-              <p className="text-sm text-slate-400">Select any fixture for a full 86-feature prediction.</p>
-            </div>
-          </div>
-          <div className="mt-4">
-            <MatchSelector />
-          </div>
-        </div>
-        <UpcomingMatchesPanel title="Upcoming Fixtures" />
-      </section>
+
     </>
   );
 }

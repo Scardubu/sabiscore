@@ -21,6 +21,7 @@ import { ReadinessRing } from "../components/readiness-ring";
 import { BackendStatusBanner } from "../components/backend-status-banner";
 import { MobileNav } from "../components/mobile-nav";
 import { PlatformHealthPills } from "../components/platform-health-pills";
+import { MobilePlatformSummary } from "../components/mobile-platform-summary";
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ??
@@ -170,7 +171,7 @@ export default function RootLayout({
 
                 <div className="min-w-0">
                   <header className="sticky top-0 z-40 border-b border-white/10 bg-[#07110f]/95 backdrop-blur">
-                    <div className="flex min-h-16 flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
+                    <div className="flex min-h-16 flex-wrap items-center justify-between gap-2 px-4 py-2 sm:gap-3 sm:px-6 sm:py-3">
                       <div className="flex items-center gap-3">
                         <Link
                           href="/"
@@ -190,11 +191,15 @@ export default function RootLayout({
                         </div>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="hidden flex-wrap items-center gap-2 md:flex">
                         <PlatformHealthPills />
                         <div className="min-w-[132px] rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
                           <ReadinessRing />
                         </div>
+                      </div>
+
+                      <div className="w-full md:hidden">
+                        <MobilePlatformSummary />
                       </div>
                     </div>
                   </header>
