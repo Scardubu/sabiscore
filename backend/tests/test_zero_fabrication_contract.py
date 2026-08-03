@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -52,6 +53,14 @@ def test_prohibited_production_patterns_are_absent() -> None:
     assert "Full-Kelly" not in web_text
     assert "Full Kelly" not in web_text
     assert "NEXT_PUBLIC_KELLY_FRACTION" not in env_text
+
+    # INV-19: verification predicates must be computed, never asserted as a bare literal.
+    verified_literal = re.compile(r'"[a-zA-Z_]*(_verified|_validated|_certified)"\s*:\s*(True|False)')
+    match = verified_literal.search(backend_source_text)
+    assert match is None, (
+        f"Bare True/False literal bound to a *_verified/*_validated/*_certified "
+        f"dict key: {match.group(0) if match else ''!r} — INV-19 violation"
+    )
 
 
 def test_calibrated_ensemble_uses_prefit_cv() -> None:

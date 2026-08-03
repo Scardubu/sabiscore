@@ -3,7 +3,7 @@
 Reconciliation statuses (Section 8 of the production contract):
 
     VERIFIED         ≥ AUTO_ACCEPT (0.94) confidence, unambiguous match.
-    REQUIRES_REVIEW  ≥ REVIEW_THRESHOLD (0.72) confidence, single winner, but
+    REQUIRES_REVIEW  ≥ REVIEW_THRESHOLD (0.68) confidence, single winner, but
                      below auto-accept. The match is plausible — a human or
                      automated review queue should confirm it before the fixture
                      is used for execution-eligible evidence. This status was

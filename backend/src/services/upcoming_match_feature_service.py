@@ -99,17 +99,19 @@ class UpcomingMatchFeatureProjector:
         # ponytail: Match.match_date is naive TIMESTAMP WITHOUT TIME ZONE — strip tz so asyncpg accepts range bounds
         match_date = match_date.replace(tzinfo=None)
 
-        home_team_id = await self._get_team_id_by_name(match_dict["home_team"], db)
-        away_team_id = await self._get_team_id_by_name(match_dict["away_team"], db)
+        home_team_id_resolved = await self._get_team_id_by_name(match_dict["home_team"], db)
+        away_team_id_resolved = await self._get_team_id_by_name(match_dict["away_team"], db)
+        home_resolved = home_team_id_resolved is not None
+        away_resolved = away_team_id_resolved is not None
 
-        if not home_team_id or not away_team_id:
+        if not home_resolved or not away_resolved:
             logger.warning(
                 "Could not find teams: %s vs %s",
                 match_dict["home_team"],
                 match_dict["away_team"],
             )
-            home_team_id = home_team_id or match_dict["home_team"]
-            away_team_id = away_team_id or match_dict["away_team"]
+        home_team_id = home_team_id_resolved or match_dict["home_team"]
+        away_team_id = away_team_id_resolved or match_dict["away_team"]
 
         home_stats = await self._get_team_stats(home_team_id, db, match_date)
         away_stats = await self._get_team_stats(away_team_id, db, match_date)
@@ -177,6 +179,10 @@ class UpcomingMatchFeatureProjector:
             "away_team": match_dict["away_team"],
             "home_team_id": home_team_id,
             "away_team_id": away_team_id,
+            "identity_resolution": {
+                "home_team_resolved": home_resolved,
+                "away_team_resolved": away_resolved,
+            },
             "features_68": features_array,
             "features_58": features_array[: len(CANONICAL_FEATURES_58)],
             "features_dict": {f: float(features_array[i]) for i, f in enumerate(self.canonical_features)},
@@ -268,6 +274,11 @@ class UpcomingMatchFeatureProjector:
         )
         staleness_seconds = max(sb_home.staleness_seconds, sb_away.staleness_seconds)
 
+        identity_resolution = projected.get("identity_resolution") or {}
+        fixture_identity_verified = bool(identity_resolution.get("home_team_resolved")) and bool(
+            identity_resolution.get("away_team_resolved")
+        )
+
         return {
             "features": features,
             "features_58": features[: len(CANONICAL_FEATURES_58)],
@@ -279,7 +290,8 @@ class UpcomingMatchFeatureProjector:
             "feature_freshness_seconds": phase8_freshness,
             "feature_source": phase8_sources,
             "data_quality": dict(projected.get("data_quality") or {}),
-            "fixture_identity_verified": True,
+            "identity_resolution": identity_resolution,
+            "fixture_identity_verified": fixture_identity_verified,
             "is_reduced_evidence_baseline": bool(
                 (projected.get("data_quality") or {}).get("is_synthetic", False)
             ),
@@ -373,6 +385,11 @@ class UpcomingMatchFeatureProjector:
         )
         staleness_seconds = max(sb_home.staleness_seconds, sb_away.staleness_seconds)
 
+        identity_resolution = projected.get("identity_resolution") or {}
+        fixture_identity_verified = bool(identity_resolution.get("home_team_resolved")) and bool(
+            identity_resolution.get("away_team_resolved")
+        )
+
         return {
             "features": features,
             "features_58": features[: len(CANONICAL_FEATURES_58)],
@@ -384,7 +401,8 @@ class UpcomingMatchFeatureProjector:
             "feature_freshness_seconds": phase8_freshness,
             "feature_source": phase8_sources,
             "data_quality": dict(projected.get("data_quality") or {}),
-            "fixture_identity_verified": False,
+            "identity_resolution": identity_resolution,
+            "fixture_identity_verified": fixture_identity_verified,
             "is_reduced_evidence_baseline": bool(
                 (projected.get("data_quality") or {}).get("is_synthetic", False)
             ),

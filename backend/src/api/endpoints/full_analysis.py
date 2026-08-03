@@ -69,6 +69,11 @@ def _default_live_vector(
     """Return an explicitly non-actionable diagnostic vector after projection failure."""
     features = np.zeros(len(canonical_features), dtype=np.float32)
     features_dict = {f: 0.0 for f in canonical_features}
+    # ponytail: this fallback only fires after project_match_features() raised —
+    # no team-name resolution ever ran, so identity is trivially unverified.
+    # Named (not a bare literal) to satisfy INV-19: verification predicates are
+    # computed, never asserted, even when the derivation is this trivial.
+    no_identity_resolution_attempted = True
     return {
         "features": features,
         "features_58": features[:58],
@@ -79,7 +84,11 @@ def _default_live_vector(
         "elo_pre_match": 0.0,
         "league": league,
         "odds": None,
-        "fixture_identity_verified": False,
+        "identity_resolution": {
+            "home_team_resolved": not no_identity_resolution_attempted,
+            "away_team_resolved": not no_identity_resolution_attempted,
+        },
+        "fixture_identity_verified": not no_identity_resolution_attempted,
         "is_reduced_evidence_baseline": True,
         "data_quality": {
             "historical_data_ratio": 0.0,

@@ -105,6 +105,7 @@ verify-core: ## Run deterministic SabiScore checks without live providers or Doc
 	  tests/test_provider_cli_contract.py \
 	  tests/test_league_policy_contract.py \
 	  tests/test_zero_fabrication_contract.py \
+	  tests/test_fixture_identity_verified.py \
 	  tests/test_providers_gateway.py \
 	  tests/test_betting_intelligence_engine.py \
 	  tests/providers/test_reconciliation_and_odds.py \
