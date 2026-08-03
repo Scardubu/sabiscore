@@ -22,6 +22,38 @@ from .odds_service import OddsService
 logger = logging.getLogger(__name__)
 
 
+def _select_feature_vector(features_result: Dict[str, Any]) -> np.ndarray:
+    """Pick the widest available feature vector from a projection result.
+
+    ponytail: this must be an explicit ``is not None`` scan. A plain
+    ``a or b or c`` chain calls ``bool()`` on a multi-element ndarray, which
+    raises "The truth value of an array with more than one element is
+    ambiguous". That exception was swallowed by the enrichment loop's broad
+    ``except Exception``, so every fixture silently returned
+    ``predictions: None`` / ``data_gaps: ["prediction_failed"]`` — the whole
+    platform served zero predictions while models loaded fine.
+    """
+    for key in ("features", "features_68", "features_58"):
+        value = features_result.get(key)
+        if value is not None:
+            return np.asarray(value, dtype=np.float32)
+    return np.array(
+        list(features_result.get("features_dict", {}).values()),
+        dtype=np.float32,
+    )
+
+
+def _is_fallback_prediction(predictions: Dict[str, Any]) -> bool:
+    """True when PredictionEngine.predict() returned its uniform fallback.
+
+    A missing/failed model artifact yields a well-formed but fabricated
+    0.333/0.333/0.334 result (model_version="fallback") — indistinguishable
+    from a real prediction by shape alone. Callers must gate value-bet math
+    on this, mirroring the check in full_analysis.py.
+    """
+    return str(predictions.get("model_version", "")).casefold() == "fallback"
+
+
 class UpcomingMatchService:
     """Fetch upcoming matches with cache and resilient fallback chain."""
 
@@ -142,7 +174,7 @@ class UpcomingMatchService:
             }
         """
 
-        cache_key = f"upcoming:predictions:{league or '*'}:{days_ahead}:{limit}"
+        cache_key = f"upcoming:predictions:v2:{league or '*'}:{days_ahead}:{limit}"
         cached = cache_manager.get(cache_key)
         if isinstance(cached, dict) and "upcoming_matches" in cached:
             logger.debug(f"Prediction cache hit for {league}")
@@ -188,21 +220,7 @@ class UpcomingMatchService:
                 features_result = await feature_projector.project_match_features(
                     match, db, match_date
                 )
-                # Use features_58 slice for legacy prediction_service compat;
-                # canonical prediction.py path can be added here once retrained
-                # v6 artifacts are available under ACTIVE_BASELINE_VERSION.
-                # Prefer the full Phase 8 vector; fall back through narrower widths
-                features_arr = (
-                    features_result.get("features")
-                    or features_result.get("features_68")
-                    or features_result.get("features_58")
-                )
-                if features_arr is None:
-                    features_arr = np.array(
-                        list(features_result.get("features_dict", {}).values()),
-                        dtype=np.float32,
-                    )
-                full_features = np.asarray(features_arr, dtype=np.float32)
+                full_features = _select_feature_vector(features_result)
 
                 # 2. Get predictions via canonical PredictionEngine path
                 pred_result = await prediction_engine.predict(
@@ -212,6 +230,20 @@ class UpcomingMatchService:
                 )
                 predictions = pred_result.to_dict()
                 data_gaps: list = list(features_result.get("data_gaps", []))
+                data_quality = dict(features_result.get("data_quality") or {})
+
+                # A prediction is diagnostic — never publishable as an official
+                # forecast — when the model fell back to uniform output, or when
+                # the feature vector was built entirely from defaults because the
+                # teams have no verified history. Mirrors the
+                # REQUIRED_MODEL_INPUTS_UNAVAILABLE critical gap in full_analysis.py.
+                is_fallback = _is_fallback_prediction(predictions)
+                is_synthetic = bool(data_quality.get("is_synthetic"))
+                if is_fallback:
+                    data_gaps.append("model_prediction_fallback")
+                if is_synthetic:
+                    data_gaps.append("required_model_inputs_unavailable")
+                publishable = not is_fallback and not is_synthetic
 
                 # 3. Get odds
                 odds = await odds_service.get_match_odds(
@@ -221,20 +253,21 @@ class UpcomingMatchService:
                 )
                 odds_available = {"home_win", "draw", "away_win"}.issubset(odds)
 
-                # 4. Calculate value bets
+                # 4. Calculate value bets — never on a fabricated fallback or
+                # synthetic-input prediction, even against real odds.
                 value_bets = []
-                if include_value_bets and odds_available:
+                if include_value_bets and odds_available and publishable:
                     value_bets = PredictionEngine.calculate_value_bets(
                         predictions, odds
                     )
 
                 # 5. Add enriched data to match
-                match["predictions"] = predictions
+                match["predictions"] = predictions if publishable else None
                 match["odds"] = odds if odds_available else None
                 match["value_bets"] = value_bets
                 match["has_value"] = len(value_bets) > 0
                 match["best_value_bet"] = value_bets[0] if value_bets else None
-                match["data_quality"] = features_result.get("data_quality", {})
+                match["data_quality"] = data_quality
                 match["data_gaps"] = data_gaps
                 match["staleness_seconds"] = features_result.get("staleness_seconds", 0)
                 match["source"] = str(match.get("source", source))
