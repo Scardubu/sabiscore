@@ -77,15 +77,30 @@ async def test_matchup_path_exact_match_is_verified(
     session: AsyncSession, projector: UpcomingMatchFeatureProjector
 ) -> None:
     await _seed_teams(session)
-    # ponytail: naive match_date sidesteps an unrelated pre-existing bug —
-    # EloEngine._get_pre_and_trend (elo_engine.py:166) compares a naive
-    # pd.to_datetime(table["match_date"]) against pd.Timestamp(match_date);
-    # the default tz-aware datetime.now(timezone.utc) (what production actually
-    # passes when match_date is omitted, per full_analysis.py:501-506) raises
-    # TypeError. Out of scope for the identity-predicate fix under test here.
     result = await projector.build_live_feature_vector_from_matchup(
         home_team="Arsenal", away_team="Chelsea", league="epl", db=session,
         match_date=datetime(2026, 8, 10, 15, 0),
+    )
+    assert result["fixture_identity_verified"] is True
+    assert result["identity_resolution"] == {
+        "home_team_resolved": True,
+        "away_team_resolved": True,
+    }
+
+
+async def test_matchup_path_default_match_date_does_not_raise(
+    session: AsyncSession, projector: UpcomingMatchFeatureProjector
+) -> None:
+    """Regression: production (full_analysis.py) never passes match_date, so the
+    method's own `datetime.now(timezone.utc)` default was exercised on every real
+    request. That default was tz-aware, which raised TypeError inside
+    EloEngine._get_pre_and_trend() (naive-vs-aware comparison) — caught by the
+    caller's broad except and silently misreported as an identity failure. This
+    pins the fix: the default must be naive, matching Match.match_date's own
+    storage convention, and must resolve real teams successfully end-to-end."""
+    await _seed_teams(session)
+    result = await projector.build_live_feature_vector_from_matchup(
+        home_team="Arsenal", away_team="Chelsea", league="epl", db=session,
     )
     assert result["fixture_identity_verified"] is True
     assert result["identity_resolution"] == {

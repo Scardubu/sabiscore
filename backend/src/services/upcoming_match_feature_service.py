@@ -335,7 +335,11 @@ class UpcomingMatchFeatureProjector:
         data_gaps so the frontend can render the PARTIAL verdict and DATA_GAP badges.
         """
         if match_date is None:
-            match_date = datetime.now(timezone.utc)
+            # ponytail: naive, not datetime.now(timezone.utc) — EloEngine/StatsBombAggregator
+            # compare against persisted naive timestamps; a tz-aware value here raises inside
+            # elo_engine.get_context(), which the caller's broad except then silently reports
+            # as "identity unverified" instead of the real cause.
+            match_date = datetime.now(timezone.utc).replace(tzinfo=None)
 
         season = self._derive_season(match_date)
 
