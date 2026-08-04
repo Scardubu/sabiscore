@@ -311,6 +311,97 @@ run the full release matrix before tagging the release.
 3. Roll back database schema only with reviewed Alembic downgrade or forward-fix migration.
 4. Re-run `python -m src.cli providers doctor` and `make verify` before restoring traffic.
 
+## vΩ.33 Identity deploy, capability readiness, season calendar (2026-08-04)
+
+Backend data-truth release. Verdict, Kelly, edge, EV, and evidence-gating logic
+are unchanged. Requires a backend redeploy (Alembic `0004_normalize_match_season`).
+
+### Deploy verification is now a required step, not an assumption
+
+The full WP-0/1/1.0/2/3.1 identity campaign was complete, tested, and committed
+while `origin/master` was four commits behind — production ran pre-fix code and
+every live probe still reproduced the original defect. Before concluding that a
+reported bug is unfixed, confirm what is actually deployed:
+
+```bash
+git rev-list --left-right --count origin/master...master   # expect 0<TAB>0
+curl -fsS "$BACKEND_PROD_URL/health/ready" \
+  | python -c "import json,sys;d=json.load(sys.stdin);print(d['checks']['migrations']['head'])"
+curl -fsS https://web-git-master-oversabis-projects.vercel.app/api/health \
+  | python -c "import json,sys;print(json.load(sys.stdin)['sha'])"
+curl -fsS https://web-lac-theta-42.vercel.app/api/health \
+  | python -c "import json,sys;print(json.load(sys.stdin)['sha'])"
+```
+
+The two Vercel SHAs must match each other and local HEAD. **The production alias
+does not auto-promote** — when the branch alias is ahead, promote the latest
+READY deployment in the Vercel dashboard, or production keeps serving old code.
+
+### Readiness now carries a capability probe
+
+`GET /health/ready` returns a `capability` object alongside `checks`:
+
+```json
+"capability": {
+  "status": "verified | unverified_no_fixtures | failed",
+  "message": "...", "match_id": "...", "league": "...",
+  "checked_at": "...", "cache_hit": true
+}
+```
+
+`checks` remains pure component liveness (database, migrations, cache, models).
+`capability` runs the real pipeline (`get_full_analysis()`) against the next
+upcoming fixture in a required league, cached 15 minutes so keepalive traffic
+does not re-run inference. It is intentionally **excluded** from `status` and
+from the HTTP 503 decision: a model-path failure on the single free-tier dyno
+must not remove the service from rotation.
+
+Operationally, `unverified_no_fixtures` is a normal state — it means no required
+league has a fixture inside the 7-day horizon (off-season, or only unsupported
+competitions synced). It is not an outage and the UI must not render it as one.
+
+### Season-start dates come from one provider-verified table
+
+`backend/src/core/season_calendar.py` is the single source of truth, verified
+against football-data.org `GET /v4/competitions/{code}` → `currentSeason.startDate`.
+`upcoming_matches.py`, `leagues.py`, and `offseason.py` all import it. Do not
+add a local copy — the three previous copies drifted up to 14 days early:
+
+| League | Was | Verified 2026-08-04 |
+|---|---|---|
+| EPL | 2026-08-08 | 2026-08-21 |
+| La Liga | 2026-08-15 | 2026-08-16 |
+| Bundesliga | 2026-08-21 | 2026-08-28 |
+| Serie A | 2026-08-23 | 2026-08-23 |
+| Ligue 1 | 2026-08-08 | 2026-08-22 |
+| Eredivisie | 2026-08-07 | 2026-08-07 |
+| UCL | 2026-09-15 | estimate — 2026/27 unpublished |
+
+Re-verify at the start of each season with:
+
+```bash
+curl -H "X-Auth-Token: $FOOTBALL_DATA_API_KEY" \
+  https://api.football-data.org/v4/competitions/PL \
+  | python -c "import json,sys;print(json.load(sys.stdin)['currentSeason']['startDate'])"
+```
+
+Free tier is **10 requests/minute** — probing all seven competitions twice in
+one script will trip HTTP 429.
+
+### Fixture-sync coverage caveat
+
+`sync_upcoming_fixtures` requests a 7-day window across all seven competitions
+and truncates to 50 by kickoff order. Ahead of a staggered season opening, only
+the earliest-starting competition has fixtures, so `teams` is seeded for that
+league alone and matchups typed for other leagues cannot resolve identity yet.
+That is honest fail-closed behaviour, not a defect — the remaining leagues seed
+themselves as their windows open. Confirm with:
+
+```bash
+curl -fsS "$BACKEND_PROD_URL/api/v1/fixtures/upcoming?limit=200" \
+  | python -c "import json,sys,collections;d=json.load(sys.stdin);print(collections.Counter(f['competition'] for f in d['fixtures']))"
+```
+
 ## vΩ.31 Loading/results parity and unverified-claim scrub (2026-07-30)
 
 Presentation layer only. No provider, model, verdict, Kelly, evidence-gating, or

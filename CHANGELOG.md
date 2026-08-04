@@ -5,6 +5,100 @@ All notable changes to this skill suite are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## vΩ.33 — Identity campaign shipped, capability-honest readiness, corrected season calendar (2026-08-04)
+
+Backend data-truth and health-surface release. Verdict, Kelly, edge, EV, and
+evidence-gating logic are untouched, so the dual-engine rule does not apply.
+
+### Fixed — the identity-resolution campaign was complete but never deployed
+
+Four commits fixing `fixture_identity_verified` hardcoding (WP-0/1.0), team-name
+resolution via affix-stripping + `reconcile_team()` (WP-1), season-relative
+lookback and provenance-based gap detection (WP-2), and fail-closed feature
+padding (WP-3.1) sat on local `master` while `origin/master` was four commits
+behind. Production was still running pre-fix code. Pushed and deployed;
+Alembic `0004_normalize_match_season` applied via the existing start command.
+
+### Fixed — matchup path crashed on a tz-aware default and blamed identity
+
+`build_live_feature_vector_from_matchup()` defaulted `match_date` to
+`datetime.now(timezone.utc)` whenever the caller omitted it — which
+`full_analysis.py` always does. `EloEngine._get_pre_and_trend()` compares that
+against persisted naive timestamps and raises `TypeError`, and the caller's
+broad `except Exception` converted the crash into a fabricated
+`FIXTURE_IDENTITY_UNVERIFIED` critical gap via `_default_live_vector()`. The
+free-text *Generate Match Insights* path therefore failed for every user, for a
+reason the response actively misattributed. The default is now naive, matching
+the DB-fixture path and the `Match.match_date` column convention. A test in
+this repo had already named this bug in a comment and worked around it by
+always passing an explicit `match_date`; the omitted-argument path production
+actually exercises is now pinned by
+`test_matchup_path_default_match_date_does_not_raise`.
+
+### Fixed — season-start dates were wrong by up to 14 days on a user-facing surface
+
+`upcoming_matches.py`, `leagues.py`, and `offseason.py` each carried an
+independent copy of the next-season calendar, and they had drifted from the
+provider SabiScore actually ingests fixtures from. Verified against
+football-data.org `GET /v4/competitions/{code}` → `currentSeason.startDate`:
+
+| League | Was | Provider-verified |
+|---|---|---|
+| EPL | 2026-08-08 | **2026-08-21** |
+| Ligue 1 | 2026-08-08 | **2026-08-22** |
+| Bundesliga | 2026-08-21 | **2026-08-28** |
+| La Liga | 2026-08-15 | **2026-08-16** |
+| Serie A | 2026-08-23 | 2026-08-23 |
+| Eredivisie | 2026-08-07 | 2026-08-07 |
+
+The off-season notice was promising EPL fixtures thirteen days before the
+provider has any. All three surfaces now read from
+`backend/src/core/season_calendar.py`, which folds every league vocabulary
+(canonical, display, slug) to one key — the same consolidation `utils/season.py`
+performed for season *labels*. UCL's date remains an explicit estimate: the
+provider still reports 2025/26 as its current season, and the constant is
+annotated to be re-derived once 2026/27 is published.
+
+### Added — readiness reports capability, not just component liveness
+
+`/health/ready` reported `Core ready` from four liveness checks (database,
+migrations, cache, models) and had never confirmed the system could produce a
+prediction — the same green dashboard that was displayed while the matchup path
+above was broken in production. A new additive `capability` field calls
+`get_full_analysis()` against the next upcoming fixture in a required league —
+the pipeline the frontend actually hits, not the separate and mostly-idle
+`MatchPredictionLog` write path — cached for 15 minutes. Three honest states:
+`verified`, `unverified_no_fixtures` (off-season or fresh deploy — never shown
+as broken), and `failed`. Deliberately not wired into the `status`/503 decision,
+so an ML-pipeline hiccup on a single dyno cannot flip infrastructure routing.
+`ReadinessRing` renders it as a sibling line, never folded into the ready/total
+ratio.
+
+### Fixed — loading overlay had no vertical padding at all
+
+`match-selector.tsx` applied `py-safe-area-inset-top`, which is not a Tailwind
+utility and compiled to nothing. Replaced with
+`py-[max(1rem,env(safe-area-inset-top))]`, which is what the class was trying to
+express. The SSR skeleton also gained the footer placeholder the live component
+renders, removing a ~24px shift at hydration. Container parity itself
+(`max-w-6xl`, no self-padding, 3/2 grid) was verified unchanged and remains
+pinned by `match-loading-experience.test.tsx`.
+
+### Documentation
+
+`docs/DEBT.md` populated (it was empty): base-58 feature defaulting plus an
+inert home/away key collision in `_get_team_stats()`, the unwired
+settlement-join, absent OTel registration, and a duplicate season-string writer.
+
+### Verification
+
+Ruff clean · backend **1057 passed / 13 skipped** · web lint 0 · typecheck 0 ·
+Vitest **98 passed** · `NODE_ENV=production` build green · live probes confirm
+the matchup path now resolves identity for synced teams and reports honestly
+for unsynced ones.
+
+---
+
 ## vΩ.31 — Loading/results container parity and unverified-claim scrub (2026-07-30)
 
 Presentation layer only. No provider, model, verdict, Kelly, evidence-gating,

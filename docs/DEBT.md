@@ -67,7 +67,8 @@ earlier session notes; this entry just consolidates why.
 **Cost:** needs a decision on where a periodic job can run on a single free-tier Render
 dyno (no separate worker/cron service exists today) before it's worth wiring the join.
 **Impact:** no real accuracy telemetry exists yet even though the season is about to
-generate settleable matches (EPL kicks off 2026-08-08).
+generate settleable matches (Eredivisie opens 2026-08-07, EPL 2026-08-21 — see
+`backend/src/core/season_calendar.py` for the provider-verified table).
 **Priority:** high — this is the literal Phase-1→Phase-2 gate.
 
 ---
