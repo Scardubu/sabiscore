@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...core.config import settings
+from ...core.season_calendar import next_season_start
 from ...db.session import get_async_session
 from ...services.upcoming_match_service import UpcomingMatchService
 
@@ -23,23 +24,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/upcoming", tags=["upcoming"])
 
-# Approximate next-season start dates per league (ISO 8601 dates).
-# Updated each off-season; used when fixture list is genuinely empty.
-_NEXT_SEASON_START: Dict[str, str] = {
-    "epl": "2026-08-08",
-    "premier_league": "2026-08-08",
-    "la_liga": "2026-08-15",
-    "laliga": "2026-08-15",
-    "bundesliga": "2026-08-21",
-    "serie_a": "2026-08-23",
-    "seriea": "2026-08-23",
-    "ligue_1": "2026-08-08",
-    "ligue1": "2026-08-08",
-    "eredivisie": "2026-08-07",
-    "ucl": "2026-09-15",
-    "champions_league": "2026-09-15",
-}
-_NEXT_SEASON_START_DEFAULT = "2026-08-08"
+# Next-season start dates live in core.season_calendar — one provider-verified
+# table shared with the leagues and offseason endpoints. Local copies here had
+# drifted up to 14 days early against football-data.org's currentSeason.
 
 
 def _compute_edge_quality_score(match: Dict[str, Any]) -> Optional[float]:
@@ -77,9 +64,9 @@ def _compute_edge_quality_score(match: Dict[str, Any]) -> Optional[float]:
 
 
 def _next_season_start(league: Optional[str]) -> str:
-    if not league:
-        return _NEXT_SEASON_START_DEFAULT
-    return _NEXT_SEASON_START.get(league.lower().replace(" ", "_"), _NEXT_SEASON_START_DEFAULT)
+    # Non-None by construction: season_calendar falls back to the earliest
+    # supported opener for unknown/absent leagues.
+    return str(next_season_start(league))
 
 
 # Pydantic response models

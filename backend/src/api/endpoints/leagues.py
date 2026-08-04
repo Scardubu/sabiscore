@@ -9,19 +9,9 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 from ...core.league_config import ACTIVE_LEAGUES, LeagueProfile
+from ...core.season_calendar import next_season_start
 
 router = APIRouter(prefix="/leagues", tags=["leagues"])
-
-# Next-season start dates — mirrors _NEXT_SEASON_START in upcoming_matches.py.
-_NEXT_SEASON_START: dict[str, str] = {
-    "EPL": "2026-08-08",
-    "La Liga": "2026-08-15",
-    "Bundesliga": "2026-08-21",
-    "Serie A": "2026-08-23",
-    "Ligue 1": "2026-08-08",
-    "Eredivisie": "2026-08-07",
-    "UCL": "2026-09-15",
-}
 
 # UCL uses the generic production model, not a league-specific artifact.
 _MODEL_ARTIFACT: dict[str, str] = {
@@ -54,7 +44,7 @@ def _to_item(profile: LeagueProfile) -> LeagueListItem:
         low_evidence_allowed=profile.low_evidence_allowed,
         caveat_text=profile.caveat_text,
         model_artifact=_MODEL_ARTIFACT.get(profile.id, f"{profile.id.lower()}_ensemble.pkl"),
-        next_season_start=_NEXT_SEASON_START.get(profile.id),
+        next_season_start=next_season_start(profile.id, default=None),
         generated_at=datetime.now(timezone.utc).isoformat(),
     )
 

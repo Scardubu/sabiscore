@@ -17,7 +17,21 @@ from typing import Dict, Tuple
 
 from fastapi import APIRouter
 
+from ...core.season_calendar import next_season_start as _canonical_start
+
 router = APIRouter(prefix="/leagues", tags=["offseason", "seasons"])
+
+# Start dates for the seven supported competitions come from
+# core.season_calendar (provider-verified). Leagues outside that closed set
+# keep their local estimates — they are not synced and have no authority to
+# check against.
+_EPL_START = _canonical_start("EPL")
+_LA_LIGA_START = _canonical_start("LA_LIGA")
+_BUNDESLIGA_START = _canonical_start("BUNDESLIGA")
+_SERIE_A_START = _canonical_start("SERIE_A")
+_LIGUE_1_START = _canonical_start("LIGUE_1")
+_EREDIVISIE_START = _canonical_start("EREDIVISIE")
+_UCL_START = _canonical_start("UCL")
 
 # ---------------------------------------------------------------------------
 # Season boundary table
@@ -30,13 +44,13 @@ _SEASON_TABLE: Dict[str, Dict[str, str]] = {
     "epl": {
         "current_season_label": "2025-26",
         "current_season_end": "2026-05-19",
-        "next_season_start": "2026-08-08",
+        "next_season_start": _EPL_START,
         "display_name": "Premier League",
     },
     "premier_league": {
         "current_season_label": "2025-26",
         "current_season_end": "2026-05-19",
-        "next_season_start": "2026-08-08",
+        "next_season_start": _EPL_START,
         "display_name": "Premier League",
     },
     "championship": {
@@ -49,57 +63,58 @@ _SEASON_TABLE: Dict[str, Dict[str, str]] = {
     "la_liga": {
         "current_season_label": "2025-26",
         "current_season_end": "2026-05-24",
-        "next_season_start": "2026-08-15",
+        "next_season_start": _LA_LIGA_START,
         "display_name": "La Liga",
     },
     "laliga": {
         "current_season_label": "2025-26",
         "current_season_end": "2026-05-24",
-        "next_season_start": "2026-08-15",
+        "next_season_start": _LA_LIGA_START,
         "display_name": "La Liga",
     },
     # ── Germany ──────────────────────────────────────────────────────────────
     "bundesliga": {
         "current_season_label": "2025-26",
         "current_season_end": "2026-05-16",
-        "next_season_start": "2026-08-21",
+        "next_season_start": _BUNDESLIGA_START,
         "display_name": "Bundesliga",
     },
     # ── Italy ────────────────────────────────────────────────────────────────
     "serie_a": {
         "current_season_label": "2025-26",
         "current_season_end": "2026-05-24",
-        "next_season_start": "2026-08-23",
+        "next_season_start": _SERIE_A_START,
         "display_name": "Serie A",
     },
     "seriea": {
         "current_season_label": "2025-26",
         "current_season_end": "2026-05-24",
-        "next_season_start": "2026-08-23",
+        "next_season_start": _SERIE_A_START,
         "display_name": "Serie A",
     },
     # ── France ───────────────────────────────────────────────────────────────
     "ligue_1": {
         "current_season_label": "2025-26",
         "current_season_end": "2026-05-17",
-        "next_season_start": "2026-08-08",
+        "next_season_start": _LIGUE_1_START,
         "display_name": "Ligue 1",
     },
     "ligue1": {
         "current_season_label": "2025-26",
         "current_season_end": "2026-05-17",
-        "next_season_start": "2026-08-08",
+        "next_season_start": _LIGUE_1_START,
         "display_name": "Ligue 1",
     },
     # ── Netherlands ──────────────────────────────────────────────────────────
     "eredivisie": {
         "current_season_label": "2025-26",
         "current_season_end": "2026-05-15",
-        "next_season_start": "2026-08-07",
+        "next_season_start": _EREDIVISIE_START,
         "display_name": "Eredivisie",
     },
     # ── Portugal ─────────────────────────────────────────────────────────────
     "primeira_liga": {
+        # Outside the supported seven — local estimate, no provider authority.
         "current_season_label": "2025-26",
         "current_season_end": "2026-05-17",
         "next_season_start": "2026-08-08",
@@ -109,13 +124,13 @@ _SEASON_TABLE: Dict[str, Dict[str, str]] = {
     "ucl": {
         "current_season_label": "2025-26",
         "current_season_end": "2026-05-30",
-        "next_season_start": "2026-09-15",
+        "next_season_start": _UCL_START,
         "display_name": "UEFA Champions League",
     },
     "champions_league": {
         "current_season_label": "2025-26",
         "current_season_end": "2026-05-30",
-        "next_season_start": "2026-09-15",
+        "next_season_start": _UCL_START,
         "display_name": "UEFA Champions League",
     },
     "uel": {
