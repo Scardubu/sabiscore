@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import settings
 from ..core.database import Match, MatchStats, Team
+from ..core.exceptions import SchemaMismatchError
 from ..data.elo_engine import EloEngine
 from ..data.enrichment.statsbomb_aggregator import StatsBombAggregator
 from ..features.berrar_ratings import BerrarRatingSystem
@@ -175,19 +176,16 @@ class UpcomingMatchFeatureProjector:
             if always_gap not in data_gaps:
                 data_gaps.append(always_gap)
 
+        # Unreachable in practice: features_array is built one scalar per entry of
+        # self.canonical_features (line ~153), so the lengths can never diverge
+        # today. Kept as a fail-closed guard rather than silent zero-padding
+        # (INV-10) in case a future edit breaks that invariant.
         if len(features_array) != len(self.canonical_features):
-            logger.error(
-                "Feature array has %d dimensions, expected %d. Padding with defaults.",
-                len(features_array),
-                len(self.canonical_features),
+            raise SchemaMismatchError(
+                actual_dim=len(features_array),
+                expected_dim=len(self.canonical_features),
+                provider="upcoming_match_feature_service",
             )
-            if len(features_array) < len(self.canonical_features):
-                features_array = np.pad(
-                    features_array,
-                    (0, len(self.canonical_features) - len(features_array)),
-                    mode="constant",
-                    constant_values=0.0,
-                )
 
         data_quality = {
             "historical_data_ratio": max(0.0, 1.0 - (defaults_count / len(self.defaults)))

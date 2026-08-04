@@ -5,7 +5,7 @@ Coverage:
   PE-2  to_dict() returns all required keys with correct types (incl. Phase D fields)
   PE-3  _fallback_result returns uniform 0.333/0.334 probabilities, confidence=0
   PE-4  Probabilities always sum to 1.0 when model returns valid proba (v5 bundle)
-  PE-5  Feature padding: shorter vector pads to model's n_features_in_
+  PE-5  Feature schema mismatch: shorter vector fails closed to fallback, never zero-padded
   PE-6  Feature truncation: longer vector truncates with a logged warning
   PE-7  All probabilities are in [0, 1] after normalisation
   PE-8  calculate_value_bets returns empty list when no outcome has edge >= min_edge_pct
@@ -137,20 +137,20 @@ def test_inference_probs_sum_to_one():
 
 # ── PE-5 ──────────────────────────────────────────────────────────────────────
 
-def test_short_vector_padded_to_model_dim():
-    """PE-5: A 30-dim vector is padded to model's 58-dim expectation."""
+def test_short_vector_fails_closed_not_padded(caplog):
+    """PE-5: A 30-dim vector against a 58-dim model fails closed to the fallback
+    result instead of zero-padding the missing 28 slots (INV-10) — the model is
+    never called, and the result is tagged model_version="fallback", the
+    established signal full_analysis.py/upcoming_match_service.py already check
+    to treat a result as diagnostic-only rather than a real prediction."""
+    import logging
     engine = PredictionEngine()
     bundle = _make_v5_bundle(n_features=58)
-    captured: Dict[str, Any] = {}
-    original_predict_proba = bundle.direct_model.predict_proba
-
-    def capturing_predict_proba(X):
-        captured["shape"] = X.shape
-        return original_predict_proba(X)
-
-    bundle.direct_model.predict_proba = capturing_predict_proba
-    engine._run_inference(bundle, FEATURES_30, "EPL")
-    assert captured["shape"] == (1, 58)
+    with caplog.at_level(logging.ERROR, logger="src.models.prediction"):
+        result = engine._run_inference(bundle, FEATURES_30, "EPL")
+    bundle.direct_model.predict_proba.assert_not_called()
+    assert result.model_version == "fallback"
+    assert any("SCHEMA_MISMATCH" in r.message for r in caplog.records)
 
 
 # ── PE-6 ──────────────────────────────────────────────────────────────────────

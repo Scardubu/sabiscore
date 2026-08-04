@@ -31,3 +31,22 @@ class OddsUnavailableError(DataUnavailableError):
             provider=provider,
             evidence_type="odds",
         )
+
+
+class SchemaMismatchError(DataUnavailableError):
+    """Raised when a feature vector's width does not match what a consumer expects.
+
+    Zero-padding the missing slots would feed fabricated values into positions
+    the model was trained to receive real signal for — the same fabrication
+    INV-01/INV-10 forbid for any other evidence type.
+    """
+
+    def __init__(self, actual_dim: int, expected_dim: int, provider: str = "feature_pipeline"):
+        super().__init__(
+            f"feature vector has {actual_dim} dimensions, expected {expected_dim}; "
+            "refusing to zero-pad the missing values into a live prediction",
+            provider=provider,
+            evidence_type="schema_mismatch",
+        )
+        self.actual_dim = actual_dim
+        self.expected_dim = expected_dim

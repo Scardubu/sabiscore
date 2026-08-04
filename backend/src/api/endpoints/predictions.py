@@ -17,6 +17,7 @@ from ...services.prediction import PredictionService
 from ...schemas.prediction import MatchPredictionRequest, PredictionResponse
 from ...schemas.value_bet import ValueBetResponse
 from ...core.database import Prediction as PredictionModel
+from ...db.models import MatchPredictionLog
 from ...core.cache import cache_manager
 
 logger = logging.getLogger(__name__)
@@ -340,9 +341,37 @@ async def _save_prediction_to_db(
         )
         
         db.add(prediction)
+
+        # WP-3.3: also log to match_prediction_logs, the settled-join source
+        # walk_forward_validate() needs for real RPS scoring. canonical_fixture_id
+        # stays NULL — it FKs the separate canonical_fixtures spine, which nothing
+        # in this codebase populates today (see WP-1 identity work); match_id is
+        # the legacy Match.id namespace, which is what WP-1's resolve_team_id()/
+        # canonical_season() and get_settled_predictions() below actually operate on.
+        db.add(
+            MatchPredictionLog(
+                match_id=match_id or prediction_data.match_id,
+                canonical_fixture_id=None,
+                model_version=str(
+                    prediction_data.metadata.get('model_version')
+                    or prediction_data.metadata.get('model_key')
+                    or '3.0'
+                ),
+                calibration_method=prediction_data.metadata.get('calibration_method'),
+                home_probability=prediction_data.predictions['home_win'],
+                draw_probability=prediction_data.predictions['draw'],
+                away_probability=prediction_data.predictions['away_win'],
+                confidence=prediction_data.confidence,
+                input_hash=None,
+                decision_id=None,
+                payload=None,
+                created_at=prediction_data.created_at,
+            )
+        )
+
         await db.commit()
         logger.info(f"Saved prediction to database: {match_id}")
-        
+
     except Exception as e:
         logger.error(f"Failed to save prediction to DB: {e}")
         await db.rollback()

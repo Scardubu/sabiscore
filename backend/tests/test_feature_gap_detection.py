@@ -217,3 +217,44 @@ async def test_ewma_form_not_flagged_when_history_exists(
     for key in ("home_weighted_win_rate", "away_weighted_win_rate"):
         assert key not in phase8_gaps
         assert freshness[key] == 0
+
+
+# ---------------------------------------------------------------------------
+# WP-3.1: fail-closed schema mismatch (never zero-pad a short feature vector)
+# ---------------------------------------------------------------------------
+
+
+async def test_feature_array_length_mismatch_raises_schema_mismatch(
+    session: AsyncSession, projector: UpcomingMatchFeatureProjector
+) -> None:
+    """The length-mismatch guard in project_match_features() is unreachable via
+    normal inputs — features_array is always rebuilt fresh, one scalar per
+    entry of self.canonical_features, immediately before the check, so the
+    lengths can never diverge through any input mutation. Patch the function's
+    single np.array() call site to simulate the guard's precondition directly
+    and prove it fails closed (never zero-pads) if that invariant is ever
+    broken by a future edit."""
+    from unittest.mock import patch
+
+    import numpy as np
+
+    from src.core.exceptions import SchemaMismatchError
+
+    await _seed_old_match(session, days_before=1)
+
+    real_array = np.array
+
+    def _truncated_array(seq, *args, **kwargs):
+        result = real_array(seq, *args, **kwargs)
+        return result[:-1] if result.ndim == 1 and len(result) > 1 else result
+
+    with patch(
+        "src.services.upcoming_match_feature_service.np.array",
+        side_effect=_truncated_array,
+    ):
+        with pytest.raises(SchemaMismatchError):
+            await projector.project_match_features(
+                {"id": "m1", "home_team": "Home FC", "away_team": "Opponent FC"},
+                db=session,
+                match_date=MATCH_DATE,
+            )

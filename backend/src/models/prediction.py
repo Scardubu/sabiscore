@@ -290,8 +290,20 @@ class PredictionEngine:
         # ── Align feature vector ───────────────────────────────────────────
         actual_dim = len(features)
         if actual_dim < expected_dim:
-            features = np.pad(features, (0, expected_dim - actual_dim))
-            logger.debug("PredictionEngine: padded %d → %d for %s", actual_dim, expected_dim, league)
+            # A narrower vector than the model expects means real feature slots
+            # would be zero-filled — fabricating signal the model was trained to
+            # receive, not just carrying forward an older-but-valid subset (that's
+            # the truncation branch below, which stays as-is). Fail closed via the
+            # same _fallback_result() this function already uses for "no bundle" /
+            # "inference raised" — model_version="fallback" is the established,
+            # already-checked signal (full_analysis.py, upcoming_match_service.py)
+            # that a result is diagnostic-only, not a real prediction.
+            logger.error(
+                "PredictionEngine: SCHEMA_MISMATCH — %d features supplied, %s model expects %d; "
+                "refusing to zero-pad the missing %d values into a live prediction",
+                actual_dim, league, expected_dim, expected_dim - actual_dim,
+            )
+            return self._fallback_result(input_dim=actual_dim)
         elif actual_dim > expected_dim:
             features = features[:expected_dim]
             logger.warning(
