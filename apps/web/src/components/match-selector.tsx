@@ -607,8 +607,11 @@ export function MatchSelector() {
       </div>
 
       {interstitialV2Enabled && showInterstitial && pendingMatchup && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 px-4 py-safe-area-inset-top backdrop-blur overflow-hidden"
+        // py-[max(…)] keeps the card clear of a notch. The previous
+        // `py-safe-area-inset-top` is not a Tailwind utility and compiled to
+        // nothing, so this overlay had no vertical padding at all.
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-slate-950/90 px-4 py-[max(1rem,env(safe-area-inset-top))] backdrop-blur"
           role="dialog"
           aria-modal="true"
           aria-labelledby="match-loading-title"

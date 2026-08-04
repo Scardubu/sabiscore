@@ -864,6 +864,12 @@ export function MatchLoadingExperienceSkeleton() {
         <Skeleton className="h-28 w-full rounded-xl bg-slate-700/30" />
         <Skeleton className="h-20 w-full rounded-xl bg-slate-700/20" />
       </div>
+
+      {/* Footer placeholder — the live component renders a disclaimer line here;
+          without it the whole card shifted up ~24px the moment it hydrated. */}
+      <div className="lg:col-span-5">
+        <Skeleton className="mx-auto h-3 w-72 max-w-full bg-slate-700/20" />
+      </div>
     </div>
   );
 }
