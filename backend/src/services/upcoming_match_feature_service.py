@@ -13,7 +13,7 @@ shot_quality_diff is permanently DATA_GAP per PHASE7_FEATURES_ALWAYS_DATA_GAP.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -32,9 +32,13 @@ from ..features.match_context import CONTEXT_FEATURE_NAMES, compute_match_contex
 from ..features.pi_ratings import PiRatingSystem
 from ..models.feature_registry import (
     CANONICAL_FEATURES_58,
+    PHASE7_FEATURES_7,
     PHASE7_FEATURES_ALWAYS_DATA_GAP,
+    PHASE8_FEATURES_BERRAR,
     PHASE8_FEATURES_CONTEXT,
+    PHASE8_FEATURES_FORM,
     PHASE8_FEATURES_MARKET,
+    PHASE8_FEATURES_PI,
     active_canonical_features,
     active_default_feature_values,
 )
@@ -43,6 +47,23 @@ from .odds_service import OddsService
 from .team_identity import resolve_team_id
 
 logger = logging.getLogger(__name__)
+
+# Canonical features resolved entirely by the CALLER (build_live_feature_vector /
+# build_live_feature_vector_from_matchup), not by project_match_features() itself:
+# elo/statsbomb (PHASE7_FEATURES_7 minus the always-gap shot_quality_diff — elo_engine
+# has no failure path and statsbomb gaps are tracked separately via
+# sb_home/sb_away.data_gaps) and every Phase 8 family (_inject_phase8_features tracks
+# its own gaps additively in phase8_gaps). Flagging these here, before the caller has
+# run, would either be a stale false-positive (elo — always successfully computed one
+# step later) or duplicate phase8's own tracking with the wrong default assumption.
+_CALLER_RESOLVED_FEATURES = (
+    frozenset(f for f in PHASE7_FEATURES_7 if f not in PHASE7_FEATURES_ALWAYS_DATA_GAP)
+    | frozenset(PHASE8_FEATURES_PI)
+    | frozenset(PHASE8_FEATURES_BERRAR)
+    | frozenset(PHASE8_FEATURES_FORM)
+    | frozenset(PHASE8_FEATURES_MARKET)
+    | frozenset(PHASE8_FEATURES_CONTEXT)
+)
 
 
 class UpcomingMatchFeatureProjector:
@@ -134,19 +155,20 @@ class UpcomingMatchFeatureProjector:
             dtype=np.float32,
         )
 
+        # A canonical feature is a gap here unless it's resolved by the caller
+        # (_CALLER_RESOLVED_FEATURES — elo/statsbomb/phase8, tracked authoritatively
+        # one layer up) — never inferred from the numeric value. `home_stats`/
+        # `away_stats` never actually intersect a canonical feature name (confirmed:
+        # e.g. "home_form_5" vs the canonical "home_form_last5_home"), so every
+        # remaining base feature is unconditionally left at its registry default
+        # today; a value-equality check (old: `in (None, 0.0)`) was both a false
+        # positive (a genuinely-computed 0.0 flagged as missing) and a false
+        # negative (a non-zero default like home_berrar_rating=1500.0 silently
+        # never flagged) for exactly the features that heuristic was meant to catch.
         data_gaps = [
             feature for feature in self.canonical_features
-            if feature not in features_dict or features_dict.get(feature) in (None, 0.0)
+            if feature not in _CALLER_RESOLVED_FEATURES
         ]
-
-        # Preserve DATA_GAP semantics for Phase 7 tactical features that require
-        # live StatsBomb data. PHASE7_FEATURES_ALWAYS_DATA_GAP (shot_quality_diff)
-        # is always flagged regardless of whether it appears in features_dict.
-        for tactical in ("home_pressing_intensity", "progressive_carry_diff"):
-            if tactical not in features_dict:
-                features_dict[tactical] = self.defaults.get(tactical, 0.0)
-                if tactical not in data_gaps:
-                    data_gaps.append(tactical)
 
         for always_gap in PHASE7_FEATURES_ALWAYS_DATA_GAP:
             features_dict[always_gap] = self.defaults.get(always_gap, 0.0)
@@ -486,6 +508,8 @@ class UpcomingMatchFeatureProjector:
         # ── EWMA form ─────────────────────────────────────────────────────────
         _ewma_keys = ("home_weighted_win_rate", "home_weighted_draw_rate", "home_weighted_ppg",
                       "away_weighted_win_rate", "away_weighted_draw_rate", "away_weighted_ppg")
+        _home_ewma_keys = _ewma_keys[:3]
+        _away_ewma_keys = _ewma_keys[3:]
         try:
             home_results = await self._get_team_results_sequence(home_team_id, db, match_date)
             away_results = await self._get_team_results_sequence(away_team_id, db, match_date)
@@ -497,9 +521,27 @@ class UpcomingMatchFeatureProjector:
             features_dict["away_weighted_win_rate"] = away_form["weighted_win_rate"]
             features_dict["away_weighted_draw_rate"] = away_form["weighted_draw_rate"]
             features_dict["away_weighted_ppg"] = away_form["weighted_ppg"]
-            for k in _ewma_keys:
-                freshness[k] = 0
-                sources[k] = "match_history"
+            # weighted_form_features([]) returns neutral priors without raising — an
+            # empty results sequence (no completed match history found for that side)
+            # is a genuine gap, not freshly-computed data, even though no exception
+            # is thrown. Checked per side since one team can have history while the
+            # other (e.g. a newly-promoted club) does not.
+            for k in _home_ewma_keys:
+                if home_results:
+                    freshness[k] = 0
+                    sources[k] = "match_history"
+                else:
+                    phase8_gaps.append(k)
+                    freshness[k] = None
+                    sources[k] = "match_history"
+            for k in _away_ewma_keys:
+                if away_results:
+                    freshness[k] = 0
+                    sources[k] = "match_history"
+                else:
+                    phase8_gaps.append(k)
+                    freshness[k] = None
+                    sources[k] = "match_history"
         except Exception:
             logger.warning("EWMA form unavailable for %s vs %s", home_team_id, away_team_id)
             for k in _ewma_keys:
@@ -611,14 +653,17 @@ class UpcomingMatchFeatureProjector:
         match_date: datetime,
         n: int = 10,
     ) -> list:
-        """Return last N results as 1=win, 0=draw, -1=loss (oldest→newest)."""
-        start_date = match_date - timedelta(days=120)
+        """Return last N results as 1=win, 0=draw, -1=loss (oldest→newest).
+
+        No wall-clock lower bound — see _get_team_stats docstring; the same
+        fixed-day-window bug silently starved EWMA form of history in the
+        close season.
+        """
         query = (
             select(Match)
             .where(
                 and_(
                     (Match.home_team_id == team_id) | (Match.away_team_id == team_id),
-                    Match.match_date >= start_date,
                     Match.match_date < match_date,
                     Match.status == "finished",
                 )
@@ -660,17 +705,19 @@ class UpcomingMatchFeatureProjector:
         team_id: str,
         db: AsyncSession,
         match_date: datetime,
-        lookback_days: int = 60,
     ) -> Optional[Dict[str, float]]:
-        """Fetch recent team statistics for feature engineering."""
-        start_date = match_date - timedelta(days=lookback_days)
+        """Fetch recent team statistics for feature engineering.
 
+        No wall-clock lower bound — a fixed N-day window silently starves every
+        team of history whenever the gap since the last completed match exceeds
+        it (e.g. the close season). ``.limit(20)`` alone bounds the query; a team
+        with a real but old last match still resolves instead of going synthetic.
+        """
         query = (
             select(Match)
             .where(
                 and_(
                     (Match.home_team_id == team_id) | (Match.away_team_id == team_id),
-                    Match.match_date >= start_date,
                     Match.match_date < match_date,
                     Match.status == "finished",
                 )

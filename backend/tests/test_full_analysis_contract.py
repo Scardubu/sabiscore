@@ -188,6 +188,74 @@ async def test_default_projection_fallback_is_non_actionable(monkeypatch) -> Non
     assert "No bet" in parsed.narrative
 
 
+def _fake_live_vector(*, fixture_identity_verified: bool) -> dict:
+    return {
+        "features": [0.0] * 58,
+        "features_dict": {},  # empty -> _elo_from_features defaults to exact parity
+        "data_gaps": [],
+        "critical_gaps": [],
+        "advisory_gaps": [],
+        "conflicts": [],
+        "fixture_identity_verified": fixture_identity_verified,
+        "identity_resolution": {
+            "home_team_resolved": fixture_identity_verified,
+            "away_team_resolved": fixture_identity_verified,
+        },
+        "data_quality": {"is_synthetic": False},
+        "is_reduced_evidence_baseline": False,
+        "staleness_seconds": 0,
+        "league": "EPL",
+        "odds": None,
+    }
+
+
+class _ValidPredictionEngine:
+    async def predict(self, **_kwargs):
+        return SimpleNamespace(
+            to_dict=lambda: {
+                "home_win": 0.45,
+                "draw": 0.28,
+                "away_win": 0.27,
+                "model_version": "v5_phase7",
+                "calibration_method": "isotonic",
+            }
+        )
+
+
+@pytest.mark.asyncio
+async def test_elo_gap_not_flagged_at_exact_parity_when_identity_verified(monkeypatch) -> None:
+    """A real, evenly-rated matchup can legitimately land at elo_difference==0.0 /
+    home_elo==1500.0 — the old value-based heuristic would have false-positived on
+    exactly this case. Gating on identity instead must not flag it."""
+
+    class FakeProjector:
+        async def build_live_feature_vector(self, **_kwargs):
+            return _fake_live_vector(fixture_identity_verified=True)
+
+    monkeypatch.setattr(endpoint, "UpcomingMatchFeatureProjector", FakeProjector)
+    monkeypatch.setattr(endpoint, "PredictionEngine", _ValidPredictionEngine)
+    monkeypatch.setattr(endpoint, "cache", None)
+
+    payload = await endpoint.get_full_analysis("real-fixture-1", league="EPL", db=object())
+    assert "elo_ratings" not in payload["data_gaps"]
+    assert "FIXTURE_IDENTITY_UNVERIFIED" not in payload["evidence_quality"]["critical_gaps"]
+
+
+@pytest.mark.asyncio
+async def test_elo_gap_flagged_when_identity_unverified(monkeypatch) -> None:
+    class FakeProjector:
+        async def build_live_feature_vector(self, **_kwargs):
+            return _fake_live_vector(fixture_identity_verified=False)
+
+    monkeypatch.setattr(endpoint, "UpcomingMatchFeatureProjector", FakeProjector)
+    monkeypatch.setattr(endpoint, "PredictionEngine", _ValidPredictionEngine)
+    monkeypatch.setattr(endpoint, "cache", None)
+
+    payload = await endpoint.get_full_analysis("real-fixture-2", league="EPL", db=object())
+    assert "elo_ratings" in payload["data_gaps"]
+    assert "FIXTURE_IDENTITY_UNVERIFIED" in payload["evidence_quality"]["critical_gaps"]
+
+
 def test_openapi_exposes_typed_full_analysis_response() -> None:
     app = FastAPI()
     app.include_router(endpoint.router)

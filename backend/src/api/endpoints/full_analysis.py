@@ -597,7 +597,12 @@ async def get_full_analysis(
 
     # Layer 5: Elo context
     elo_ctx = _elo_from_features(features_dict)
-    if elo_ctx.elo_difference == 0.0 and elo_ctx.home_elo == 1500.0:
+    # Elo ratings are keyed by team_id — an unresolved identity makes any Elo value
+    # meaningless regardless of its number. Gate on identity (the real cause), not
+    # value: EloEngine never fails/raises, so a genuine, evenly-rated matchup can
+    # legitimately land at elo_difference == 0.0 / home_elo == 1500.0 — the old
+    # value check would have false-positived on exactly that real result.
+    if not bool(live.get("fixture_identity_verified", not _is_matchup)):
         data_gaps.append("elo_ratings")
 
     # Layer 6: Odds edge (optional)
