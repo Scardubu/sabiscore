@@ -1,0 +1,65 @@
+import { describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ReadinessRing } from "./readiness-ring";
+import type { BackendHealthPayload } from "@/lib/health-status";
+
+const { fetchPlatformHealth } = vi.hoisted(() => ({ fetchPlatformHealth: vi.fn() }));
+
+vi.mock("@/lib/health-status", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/health-status")>("@/lib/health-status");
+  return { ...actual, fetchPlatformHealth };
+});
+
+function renderRing(payload: BackendHealthPayload) {
+  fetchPlatformHealth.mockResolvedValueOnce(payload);
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={client}>
+      <ReadinessRing />
+    </QueryClientProvider>,
+  );
+}
+
+const READY_CHECKS = {
+  database: { status: "ready" },
+  migrations: { status: "ready" },
+  cache: { status: "ready" },
+  models: { status: "ready" },
+};
+
+describe("ReadinessRing capability line (D6)", () => {
+  it("shows verified predictions distinctly from infra readiness", async () => {
+    renderRing({
+      backendStatus: "ok",
+      backendChecks: READY_CHECKS,
+      backendCapability: { status: "verified", message: "ok" },
+    });
+    expect(await screen.findByText("Predictions verified")).toBeInTheDocument();
+    expect(screen.getByText("Core ready")).toBeInTheDocument();
+  });
+
+  it("never claims broken when there's simply nothing to test yet", async () => {
+    renderRing({
+      backendStatus: "ok",
+      backendChecks: READY_CHECKS,
+      backendCapability: { status: "unverified_no_fixtures", message: "no fixtures" },
+    });
+    expect(await screen.findByText("No fixtures to verify yet")).toBeInTheDocument();
+  });
+
+  it("surfaces a failed capability even while infra reports Core ready", async () => {
+    renderRing({
+      backendStatus: "ok",
+      backendChecks: READY_CHECKS,
+      backendCapability: { status: "failed", message: "prediction_status=UNAVAILABLE" },
+    });
+    await waitFor(() => expect(screen.getByText("Core ready")).toBeInTheDocument());
+    expect(screen.getByText("Predictions not verified")).toBeInTheDocument();
+  });
+
+  it("falls back to the neutral copy for a backend response with no capability field yet", async () => {
+    renderRing({ backendStatus: "ok", backendChecks: READY_CHECKS });
+    expect(await screen.findByText("No fixtures to verify yet")).toBeInTheDocument();
+  });
+});

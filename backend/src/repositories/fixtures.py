@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Final, List, Sequence
 
 from sqlalchemy import Select, and_, func, select
@@ -204,3 +204,25 @@ async def get_settled_predictions(
             }
         )
     return records
+
+
+async def get_next_upcoming_fixture(
+    session: AsyncSession,
+    *,
+    leagues: Sequence[str] | None = None,
+    within_days: int = 7,
+) -> Match | None:
+    """Earliest scheduled fixture in the horizon — feeds the readiness capability probe."""
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)  # ponytail: match_date is TIMESTAMP WITHOUT TIME ZONE
+    end_date = now + timedelta(days=within_days)
+    statement = select(Match).where(
+        Match.match_date >= now,
+        Match.match_date <= end_date,
+        Match.status == "scheduled",
+    )
+    if leagues:
+        statement = statement.where(func.lower(Match.league_id).in_([league.lower() for league in leagues]))
+
+    result = await session.execute(statement.order_by(Match.match_date.asc()).limit(1))
+    return result.scalars().first()

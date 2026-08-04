@@ -11,10 +11,13 @@ export interface BackendReadinessCheck {
   status?: unknown;
 }
 
+export type CapabilityStatus = "verified" | "unverified_no_fixtures" | "failed" | "unknown";
+
 export interface BackendHealthPayload {
   backendStatus?: unknown;
   timestamp?: unknown;
   backendChecks?: Record<string, BackendReadinessCheck | unknown>;
+  backendCapability?: { status?: unknown; message?: unknown };
   providers?: Array<{
     provider?: unknown;
     display_name?: unknown;
@@ -38,6 +41,20 @@ export interface BackendReadinessStats {
   unavailable: number;
   score: number;
   label: "Core ready" | "Core partial" | "Core unavailable";
+  capability: CapabilityStatus;
+  capabilityMessage?: string;
+}
+
+const CAPABILITY_STATUSES = new Set<CapabilityStatus>([
+  "verified",
+  "unverified_no_fixtures",
+  "failed",
+]);
+
+export function normalizeCapabilityStatus(raw: unknown): CapabilityStatus {
+  return typeof raw === "string" && CAPABILITY_STATUSES.has(raw as CapabilityStatus)
+    ? (raw as CapabilityStatus)
+    : "unknown";
 }
 
 export interface ProviderActivationStats {
@@ -77,7 +94,13 @@ export function deriveBackendReadiness(
         ? "Core partial"
         : "Core unavailable";
 
-  return { total, ready, unavailable: total - ready, score, label };
+  const capability = normalizeCapabilityStatus(payload.backendCapability?.status);
+  const capabilityMessage =
+    typeof payload.backendCapability?.message === "string"
+      ? payload.backendCapability.message
+      : undefined;
+
+  return { total, ready, unavailable: total - ready, score, label, capability, capabilityMessage };
 }
 
 export function deriveProviderActivation(

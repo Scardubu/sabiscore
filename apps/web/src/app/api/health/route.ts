@@ -26,6 +26,7 @@ const PHASE7_BASELINE = {
 export async function GET() {
   let backendStatus = "unavailable";
   let backendChecks: Record<string, unknown> = {};
+  let backendCapability: Record<string, unknown> | null = null;
   let providers: Array<Record<string, unknown>> = [];
 
   if (BACKEND_URL) {
@@ -46,6 +47,7 @@ export async function GET() {
         const data = (await readinessRes.json()) as Record<string, unknown>;
         backendStatus = (data.status as string) ?? "unknown";
         backendChecks = (data.checks as Record<string, unknown>) ?? {};
+        backendCapability = (data.capability as Record<string, unknown>) ?? null;
       } else {
         backendStatus = "degraded";
       }
@@ -67,6 +69,7 @@ export async function GET() {
       status: isHealthy ? "healthy" : "degraded",
       backendStatus,
       backendChecks,
+      backendCapability,
       providers,
       ...PHASE7_BASELINE,
       predictionCount: 0,

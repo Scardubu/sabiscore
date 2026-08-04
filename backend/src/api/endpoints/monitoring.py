@@ -1,13 +1,15 @@
 """
 Enhanced health check endpoint with comprehensive system status.
 """
+import json
 import logging
 import os
-from fastapi import APIRouter, Response, Request
+from fastapi import APIRouter, Depends, Response, Request
 from datetime import datetime, timezone
 from typing import Dict, Any
 import time
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 from pathlib import Path
 
 from ...core.cache import cache
@@ -16,6 +18,9 @@ from ...core.config import settings
 from ...core.model_fetcher import DEFAULT_LEAGUES
 from ...db.session import check_db_connection
 from ...db.session import _alembic_head_revision
+from ...db.session import get_async_session
+from ...repositories.fixtures import get_next_upcoming_fixture
+from .full_analysis import get_full_analysis
 
 try:
     import psutil
@@ -253,8 +258,74 @@ def liveness_check(response: Response) -> Dict[str, str]:
     }
 
 
+_CAPABILITY_CACHE_KEY = "readiness:capability_probe:v1"
+_CAPABILITY_TTL_SECONDS = 900  # ponytail: single free-tier dyno — cheap relative to ~14min keepalive cadence
+
+
+async def _compute_capability(db: AsyncSession) -> Dict[str, Any]:
+    """Attempt a real prediction for the next upcoming fixture — component liveness
+    (DB/migrations/cache/models) never proves the system can actually produce one."""
+    fixture = await get_next_upcoming_fixture(db, leagues=_resolve_required_leagues(), within_days=7)
+    now = datetime.now(timezone.utc).isoformat()
+    if fixture is None:
+        return {
+            "status": "unverified_no_fixtures",
+            "message": "No upcoming fixture in the 7-day horizon for a required league",
+            "match_id": None,
+            "league": None,
+            "checked_at": now,
+        }
+    try:
+        analysis = await get_full_analysis(match_id=fixture.id, league=fixture.league_id, db=db)
+        identity_ok = "FIXTURE_IDENTITY_UNVERIFIED" not in analysis.get("evidence_quality", {}).get("critical_gaps", [])
+        verified = analysis.get("prediction_status") == "AVAILABLE" and identity_ok
+        status = "verified" if verified else "failed"
+        message = (
+            "Live pipeline produced a verified 1X2 triple"
+            if verified
+            else f"prediction_status={analysis.get('prediction_status')} identity_verified={identity_ok}"
+        )
+    except Exception as exc:
+        logger.error("Readiness capability probe failed for %s: %s", fixture.id, exc)
+        status, message = "failed", str(exc)
+    return {
+        "status": status,
+        "message": message,
+        "match_id": fixture.id,
+        "league": fixture.league_id,
+        "checked_at": now,
+    }
+
+
+async def _check_capability(db: AsyncSession) -> Dict[str, Any]:
+    cached = cache.get(_CAPABILITY_CACHE_KEY) if cache else None
+    if cached:
+        try:
+            parsed = json.loads(cached) if isinstance(cached, str) else cached
+            return {**parsed, "cache_hit": True}
+        except Exception:
+            pass
+
+    result = await _compute_capability(db)
+    result["cache_hit"] = False
+    if cache:
+        try:
+            cache.set(
+                _CAPABILITY_CACHE_KEY,
+                json.dumps({k: v for k, v in result.items() if k != "cache_hit"}),
+                ttl=_CAPABILITY_TTL_SECONDS,
+            )
+        except Exception as exc:
+            logger.debug("Capability probe cache write failed: %s", exc)
+    return result
+
+
 @router.get("/health/ready")
-def readiness_check(request: Request, response: Response) -> Dict[str, Any]:
+async def readiness_check(
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_async_session),
+) -> Dict[str, Any]:
     """
     Readiness probe for Kubernetes/container orchestration.
     Checks if service is ready to accept traffic.
@@ -390,9 +461,26 @@ def readiness_check(request: Request, response: Response) -> Dict[str, Any]:
     if models_status.get("status") in ("not_ready", "error"):
         model_error_message = models_status.get("message")
 
+    # Capability probe: additive/informational only — never coupled to `status`/503.
+    # A single dyno's ML-pipeline hiccup must not flip infra routing; it must, however,
+    # never be silently reported as "ready" without ever having proven it (INV-20).
+    try:
+        capability = await _check_capability(db)
+    except Exception as exc:
+        logger.error("Capability probe raised unexpectedly: %s", exc)
+        capability = {
+            "status": "failed",
+            "message": str(exc),
+            "match_id": None,
+            "league": None,
+            "checked_at": datetime.now(timezone.utc).isoformat(),
+            "cache_hit": False,
+        }
+
     payload = {
         "status": "ok" if ready else "not_ready",
         "checks": checks,
+        "capability": capability,
         "models": models_status.get("model_version") if models_loaded_flag else None,
         "models_loaded": models_loaded_flag,
         "leagues_loaded": models_status.get("leagues_loaded", []),
@@ -409,9 +497,13 @@ def readiness_check(request: Request, response: Response) -> Dict[str, Any]:
 
 # Alias /ready at root level for convenience (matches health.py contract)
 @router.get("/ready")
-def ready_alias(request: Request, response: Response) -> Dict[str, Any]:
+async def ready_alias(
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_async_session),
+) -> Dict[str, Any]:
     """Alias for /health/ready for backward compatibility."""
-    return readiness_check(request, response)
+    return await readiness_check(request, response, db)
 
 
 @router.get("/metrics")

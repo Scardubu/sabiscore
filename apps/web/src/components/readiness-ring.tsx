@@ -7,7 +7,18 @@ import {
   deriveBackendReadiness,
   fetchPlatformHealth,
   PLATFORM_HEALTH_QUERY_KEY,
+  type CapabilityStatus,
 } from "@/lib/health-status";
+
+// Component liveness (DB/migrations/cache/models ready) never proves the system can
+// actually produce a prediction — this line reports that separately (INV-20), and
+// must never conflate "nothing to test yet" (off-season, just-deployed) with "broken".
+const CAPABILITY_COPY: Record<CapabilityStatus, { text: string; className: string }> = {
+  verified: { text: "Predictions verified", className: "text-emerald-400" },
+  unverified_no_fixtures: { text: "No fixtures to verify yet", className: "text-slate-500" },
+  failed: { text: "Predictions not verified", className: "text-rose-400" },
+  unknown: { text: "No fixtures to verify yet", className: "text-slate-500" },
+};
 
 // ─── Data fetching ────────────────────────────────────────────────────────────
 
@@ -115,6 +126,9 @@ export const ReadinessRing = memo(function ReadinessRing({ className }: { classN
             </p>
             <p className="text-[10px] uppercase tracking-[0.3em] text-slate-600">
               {stats.ready} of {stats.total} core checks
+            </p>
+            <p className={cn("text-[11px]", CAPABILITY_COPY[stats.capability].className)}>
+              {CAPABILITY_COPY[stats.capability].text}
             </p>
           </div>
         </>
