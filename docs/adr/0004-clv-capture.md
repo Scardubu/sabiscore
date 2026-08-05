@@ -1,6 +1,6 @@
 # 0004 — CLV capture at kickoff
 
-**Status:** Proposed · 2026-08-05
+**Status:** Accepted · 2026-08-05 (schema) · Addendum 2026-08-06 (capture job)
 
 ## Context
 
@@ -106,3 +106,45 @@ until a capture job exists (out of scope here), so there is nothing to preserve.
 operationally worse than column duplication (alternative (a)), or if
 `MarketSnapshot` gets repurposed for MARKET_REFRESH evidence writes in a way that
 conflicts with the `is_closing_line` disambiguation this ADR relies on.
+
+## Addendum — 2026-08-06: implementing the capture job surfaced a schema gap this ADR didn't anticipate
+
+This ADR's Decision section assumed a non-nullable `canonical_fixture_id` FK on
+`MarketSnapshot` was safe because a capture job would simply supply one.
+Implementation-time investigation found that's false for every fixture
+currently reachable: `fixture_sync_service.sync_upcoming_fixtures()` — the
+only writer of upcoming fixtures in production today — populates the legacy
+`matches`/`teams`/`leagues` tables only. Nothing in the live process writes to
+`canonical_fixtures`; it is populated opportunistically by the identity-
+reconciliation pipeline during prediction/evidence requests (`reconcile_team`,
+`orchestrator._resolve_team_statistics()`), not as a side effect of ordinary
+fixture ingestion. A capture job that could only key on `canonical_fixture_id`
+would find zero rows to enumerate and would silently capture nothing for
+Eredivisie's opening round — the exact irreversibility this ADR exists to
+prevent, just moved one layer down.
+
+**Correction, shipped in the same `0005_clv_capture_schema` migration:**
+`market_snapshots.canonical_fixture_id` is relaxed from `NOT NULL` to
+nullable, and a new `match_id` column (plain string, no FK — mirroring
+`match_prediction_logs.match_id`'s existing convention) is added as the real
+join key. The capture job (`backend/src/services/clv_capture_service.py`)
+enumerates the legacy `matches` table — where fixtures actually live — maps
+each fixture's `Match.league_id` (a football-data.org short code, e.g.
+`"DED"`) to a canonical competition via `fixture_sync_service._LEAGUE_META`,
+fetches that competition's odds board from `TheOddsAPIProvider.odds()`, and
+matches each odds-board event to a candidate fixture by kickoff-timestamp
+proximity (the provider's normalized `OddsMarketRecord` carries no team
+names, only `provider_event_timestamp` — modifying that contract was judged
+riskier than a timestamp-proximity match with an ambiguity guard). An
+ambiguous match (zero or multiple same-league fixtures within a 10-minute
+tolerance of one odds-board event) is skipped rather than guessed, per this
+ADR's own provenance discipline.
+
+`canonical_fixture_id` on every row written by this job is `NULL` and stays
+that way until a separate identity-resolution effort makes fixture sync
+populate `canonical_fixtures`. This does not change the ADR's Decision or
+Reversal sections in substance — the join-key *shape* (an FK reference, not
+raw odds columns duplicated per row) is unchanged; only which key currently
+carries real data is different. Do not backfill `canonical_fixture_id`
+speculatively; when identity resolution lands, it should backfill this column
+the same way it backfills every other `canonical_fixture_id` in the schema.

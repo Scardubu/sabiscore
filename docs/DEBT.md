@@ -240,18 +240,30 @@ moment item 2's telemetry is live against real matches.
 actually change.
 **Owner:** unassigned.
 **Found:** 2026-08-05, while wiring `/performance` to the settlement join (item 2).
-**Updated:** 2026-08-05 — **the CLV half is now under an open proposal**,
-`docs/adr/0004-clv-capture.md`. The "revisit if and when a market snapshot is
-persisted per prediction" condition below is exactly what that ADR proposes, and it
-adopts this entry's own recommended shape (a market-snapshot *reference*, not raw
-odds columns) — `MarketSnapshot` (`db/models.py:205-224`) turns out to already exist
-with a near-identical schema and zero write callers. The trigger to revisit early is
-not volume but irreversibility: Eredivisie opens 2026-08-07 and a kickoff that passes
-uncaptured cannot be recovered, whatever the eventual sample size. **ROI is
+**Updated:** 2026-08-06 — **the CLV capture half is now shipped**, not just
+proposed. `docs/adr/0004-clv-capture.md` (Accepted) landed alongside migration
+`0005_clv_capture_schema` and `services/clv_capture_service.py`: a periodic
+background job (`_background_clv_capture`, 5-min interval, same
+handle-stored/cancel-on-shutdown shape as settlement sync) enumerates fixtures
+approaching kickoff, fetches the odds board per league via
+`TheOddsAPIProvider.odds()`, computes a median consensus across coherent
+bookmaker records, de-vigs it (`the_odds_api.devig_probabilities`), and writes
+one `MarketSnapshot(is_closing_line=True)` row. `MatchPredictionLog` gained a
+nullable `closing_market_snapshot_id` FK, always NULL for now — see the ADR's
+2026-08-06 addendum for why (`canonical_fixture_id`, the originally-proposed
+join key, is never populated for an ordinary upcoming fixture; the job keys on
+the legacy `matches.id` instead). 8 new unit tests
+(`tests/unit/test_clv_capture_service.py`); backend suite 1089 passed.
+**Still not done:** the CLV *number itself* is not computed anywhere yet —
+this ships capture only, per the ADR's own scoping, so a kickoff passing
+before 7 August is no longer a permanent loss, but nothing reads these rows
+back into a dashboard card or a per-prediction CLV figure. **ROI is
 unchanged and stays unreachable by construction** — it needs a placed stake, which
 this platform never places. The guard below against re-adding either card as a
-"coming soon" placeholder remains in force: the ADR explicitly defers restoring the
-CLV card until real closing-price rows exist.
+"coming soon" placeholder remains in force: restoring the CLV card is still out
+of scope until something computes CLV from these rows and joins it to a
+specific prediction (blocked on the same `canonical_fixture_id`/`match_id`
+identity gap noted above).
 
 `/performance` used to carry "30d CLV" and "30d ROI" stat cards. They were removed
 rather than left showing an em-dash, because an em-dash means "awaiting data" and
@@ -274,9 +286,13 @@ neither figure is awaiting anything:
 entry guards against is someone re-adding them as "coming soon" placeholders, which
 would be an INV-01 fabrication surface of exactly the vΩ.24/vΩ.28 kind (a neutral
 default rendered where a measurement belongs).
-**Cost to actually deliver CLV:** medium — an Alembic expand adding a market-snapshot
-reference to `MatchPredictionLog`, written at prediction time, plus a closing-price
-capture job after kickoff. Worth doing only once predictions are settling in volume.
+**Cost to actually deliver CLV:** the schema expand and capture job shipped 2026-08-06
+(above). Remaining: a query/service that reads `MarketSnapshot(is_closing_line=True)`
+rows and computes `model_prob - closing_implied_prob` per outcome
+(`connectors/odds_market.py::market_movement_features` already does this math, just
+needs a real `closing_odds` snapshot wired in), plus resolving the
+`canonical_fixture_id`/`match_id` join gap before it can attach to a specific
+prediction rather than just a fixture. Low-medium now that capture exists.
 **Cost to deliver ROI:** not applicable; it requires reversing a deliberate product
 decision, not writing code.
 **Impact:** the dashboard now shows only what the walk-forward harness actually

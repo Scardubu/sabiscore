@@ -5,6 +5,88 @@ All notable changes to this skill suite are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## vΩ.37 — WP-15: CLV capture at kickoff (2026-08-06)
+
+Eredivisie's opening round kicks off 2026-08-07. `docs/adr/0004-clv-capture.md`
+(filed vΩ.36, Proposed) argued a missed kickoff is unrecoverable independent of
+settled-prediction volume — this release ships the capture, not just the
+proposal, and the ADR is now Accepted.
+
+### Added
+
+- `backend/alembic/versions/0005_clv_capture_schema.py` — additive migration:
+  `market_snapshots` gains `home/draw/away_implied_prob_devigged` (float,
+  nullable), `is_closing_line` (bool), and a `match_id` column; its
+  `canonical_fixture_id` FK is relaxed from `NOT NULL` to nullable.
+  `match_prediction_logs` gains a nullable `closing_market_snapshot_id` FK.
+- `backend/src/services/clv_capture_service.py` — `run_clv_capture_pass()`,
+  a periodic job (`_background_clv_capture`, 5-min interval, wired into
+  `api/main.py` with the same handle-stored/cancel-on-shutdown shape as
+  `_background_settlement_sync`) that enumerates fixtures approaching
+  kickoff, fetches each due league's odds board via
+  `TheOddsAPIProvider.odds()`, computes a median consensus across coherent
+  bookmaker records, de-vigs it, and writes one
+  `MarketSnapshot(is_closing_line=True)` row per fixture.
+- `TheOddsAPIProvider.devig_probabilities()` (`the_odds_api.py`) — the
+  `(1/odds_i) / overround` arithmetic the overround check already implied but
+  had never been factored into a callable.
+- `/health` gains `components.clv_capture` (informational, same convention
+  as the existing `components.settlement`).
+- `backend/tests/unit/test_clv_capture_service.py` — 8 tests: capture on a
+  due/coherent fixture, window boundary, dedupe, unsupported-league skip,
+  ambiguous-match skip, graceful degradation on an empty odds board,
+  `db_not_ready`, and a genuine-exception path. Backend suite: 1089 passed
+  (was 1062), 13 skipped.
+
+### Found during implementation — schema correction, documented in the ADR addendum
+
+ADR-0004's original Decision assumed a capture job could always supply a real
+`canonical_fixture_id`. It can't: `fixture_sync_service.sync_upcoming_fixtures()`
+— the only writer of upcoming fixtures in production — populates the legacy
+`matches`/`teams`/`leagues` tables only; nothing in the live process writes to
+`canonical_fixtures` for an ordinary fixture. A job that could only key on
+`canonical_fixture_id` would have captured nothing for Eredivisie's opening
+round — the exact loss this ADR exists to prevent, one layer down. Corrected
+in the same migration: `canonical_fixture_id` relaxed to nullable, `match_id`
+(the legacy `matches.id`, no FK — mirrors `match_prediction_logs.match_id`'s
+existing convention) added as the real join key. Full reasoning:
+`docs/adr/0004-clv-capture.md`, "Addendum — 2026-08-06".
+
+Event-to-fixture matching also required a design decision not in the ADR:
+`TheOddsAPIProvider`'s normalized `OddsMarketRecord` carries no team names,
+only `provider_event_timestamp`. Rather than widen that provider contract
+(more surface, more risk to an existing tested response shape), the capture
+job matches by kickoff-timestamp proximity with a hard uniqueness guard — an
+ambiguous match (multiple same-league fixtures within 10 minutes of one
+odds-board event) is skipped, never guessed.
+
+### Verified, and what wasn't
+
+- Ruff clean on all touched/new files. Full backend suite green (1089/13
+  skipped). Migration verified end-to-end on a local SQLite fallback
+  (`ALLOW_SQLITE_FALLBACK=true`, ephemeral, non-production) — fresh upgrade
+  through all 5 revisions, `downgrade`/re-`upgrade` round-trip clean.
+- **Not verified against Postgres this session** — no local PostgreSQL
+  instance was reachable/running. `alembic check` on SQLite flags index
+  drift, but every flagged index — including several I never touched
+  (`ix_canonical_teams_competition_name`, `ix_provider_capability_provider_comp`,
+  etc.) — traces to a pre-existing repo convention: indexes created via
+  `op.create_index()` in a migration are deliberately not re-declared as
+  `Index(...)` in the ORM model's `__table_args__` (see the `# ponytail:
+  indexes already in database.py` comments already present on
+  `CanonicalFixture`/`MarketSnapshot`/`ProviderEventMapping` before this
+  session). This migration's one new index (`ix_market_snapshots_match_id`)
+  follows the identical, already-established pattern. Confirm on Postgres
+  before treating "no drift" as settled.
+- **Ships capture only, as scoped.** Nothing computes a CLV figure from these
+  rows yet, and `canonical_fixture_id`/`closing_market_snapshot_id` stay NULL
+  until separate identity-resolution work populates `canonical_fixtures`.
+  `docs/DEBT.md` item 6 updated to reflect exactly this boundary.
+- **`the_odds_api` is disabled in production** (2 of 5 providers enabled,
+  pending the Render Blueprint-sync approval outstanding since vΩ.12) — this
+  job will not capture anything live until that separate operator action
+  lands. The code is correct and tested; it is inert in production today.
+
 ## vΩ.36 — Skill-registry repair, container-parity gate, evidence copy, three ADRs (2026-08-05)
 
 Consolidation release. Closes the routing/registry gap the campaign docs kept
