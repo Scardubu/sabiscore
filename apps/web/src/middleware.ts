@@ -48,6 +48,6 @@ export const config = {
     // Skip static assets and image optimization — they don't render HTML
     // that needs a CSP nonce, and excluding them keeps middleware off the
     // hot path for every chunk/font/icon request.
-    "/((?!_next/static|_next/image|favicon.ico|apple-icon|icon).*)",
+    "/((?!_next/static|_next/image|favicon.ico|apple-icon|icon|manifest.json).*)",
   ],
 };
