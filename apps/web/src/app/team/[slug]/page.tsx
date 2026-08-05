@@ -99,7 +99,11 @@ export default async function TeamIntelligencePage({ params }: PageProps) {
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-10 space-y-10">
+    // No horizontal padding here, and <div> not <main>: the root <main>
+    // (app/layout.tsx) already supplies px-4 py-5 sm:px-6 lg:px-8 and is the
+    // page's sole <main> landmark — same container-parity convention as
+    // /performance and /monitoring.
+    <div className="mx-auto max-w-3xl space-y-10">
       {/* Header */}
       <section aria-label="Team header" className="space-y-3">
         <Link
@@ -271,6 +275,6 @@ export default async function TeamIntelligencePage({ params }: PageProps) {
       <footer className="text-center text-[10px] text-zinc-700">
         Intelligence queried at {new Date(data.queried_at).toLocaleString()}
       </footer>
-    </main>
+    </div>
   );
 }

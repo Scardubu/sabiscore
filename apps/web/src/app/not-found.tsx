@@ -7,7 +7,11 @@ export const metadata = {
 
 export default function NotFound() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-slate-900 to-slate-950 px-4">
+    // min-h-[calc(100vh-65px)] matches the root <main> (app/layout.tsx),
+    // not min-h-screen: this renders inside that <main>, so a literal 100vh
+    // here stacks on top of the header's 65px and overflows the viewport —
+    // the same container-parity trap logged repeatedly on other routes.
+    <div className="flex min-h-[calc(100vh-65px)] items-center justify-center bg-gradient-to-b from-slate-900 to-slate-950 px-4">
       <div className="max-w-xl space-y-6 text-center">
         <p className="text-sm font-semibold uppercase tracking-[0.4em] text-slate-500">
           404

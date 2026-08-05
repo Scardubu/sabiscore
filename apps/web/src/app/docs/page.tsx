@@ -8,8 +8,11 @@ export default function DocsPage() {
   const premiumVisualsEnabled = useFeatureFlag(FeatureFlag.PREMIUM_VISUAL_HIERARCHY);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 to-slate-900 text-white">
-      <div className="container mx-auto px-4 py-16">
+    // No wrapper padding, min-h-screen, or background here: the root <main>
+    // (app/layout.tsx) already supplies px-4 py-5 sm:px-6 lg:px-8 over the
+    // shell's own background — same container-parity convention as
+    // /performance and /monitoring.
+    <div className="container mx-auto text-white">
         {/* Header */}
         <div className="mb-12">
           <Link
@@ -23,7 +26,7 @@ export default function DocsPage() {
           >
             ← Back to Home
           </Link>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
             <h1 className={cn(
               "text-5xl font-bold mb-4",
               premiumVisualsEnabled && "bg-gradient-to-r from-cyan-400 to-indigo-400 bg-clip-text text-transparent"
@@ -190,7 +193,7 @@ export default function DocsPage() {
               <p>
                 SabiScore exposes a versioned REST API. All routes are prefixed <code className="text-sky-400">/api/v1</code>.
               </p>
-              <div className="bg-slate-900/50 rounded-lg p-4 font-mono text-sm space-y-3">
+              <div className="bg-slate-900/50 rounded-lg p-4 font-mono text-sm space-y-3 overflow-x-auto">
                 <div>
                   <div className="mb-1 text-green-400"># Upcoming matches with predictions + value bets</div>
                   <div>GET /api/v1/upcoming/matches?league=EPL&amp;days_ahead=7&amp;limit=20</div>
@@ -291,6 +294,7 @@ export default function DocsPage() {
           </Link>
         </div>
       </div>
-    </div>
   );
 }
+
+

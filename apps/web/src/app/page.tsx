@@ -196,15 +196,19 @@ export default function HomePage() {
   const premiumEnabled = useFeatureFlag(FeatureFlag.PREMIUM_VISUAL_HIERARCHY);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      <main className="container mx-auto px-4 py-5 sm:py-8">
+    // No wrapper padding, min-h-screen, or background here: the root <main>
+    // (app/layout.tsx) already supplies px-4 py-5 sm:px-6 lg:px-8 over the
+    // shell's own background, and is the page's sole <main> landmark — same
+    // container-parity convention as /performance and /monitoring.
+    <>
+      <div className="container mx-auto">
         <div className="mx-auto max-w-6xl space-y-8 sm:space-y-12">
           {premiumEnabled ? <PremiumHome /> : <LegacyHome />}
         </div>
-      </main>
+      </div>
 
       {/* Responsible gambling — shown on every layout */}
-      <aside className="container mx-auto mb-8 mt-4 max-w-6xl px-4">
+      <aside className="container mx-auto mb-8 mt-4 max-w-6xl">
         <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 px-5 py-4 text-sm text-amber-200/80">
           <strong className="text-amber-300">Responsible use:</strong>{" "}
           Staking suggestions are illustrative and depend on your stated bankroll.
@@ -222,12 +226,12 @@ export default function HomePage() {
       </aside>
 
       <footer className="border-t border-slate-800/50 py-12">
-        <div className="container mx-auto px-4 text-center text-slate-500">
+        <div className="container mx-auto text-center text-slate-500">
           <p>SabiScore production intelligence workspace</p>
           <p className="mt-2 text-sm">Built for responsible betting insights and advanced football analytics</p>
         </div>
       </footer>
-    </div>
+    </>
   );
 }
 
