@@ -9,12 +9,14 @@ disguise — say so honestly.
 
 ## 1. Base-58 feature block is silently defaulted on every live prediction
 
-**Tier:** `NEXT` — trigger: before any user-facing claim that live predictions use full
-model signal, or before Phase 2 (calibration/accuracy) work begins.
+**Tier:** `NEXT` — trigger: operator go/no-go on the remap below (R4/INV-14 — approval
+required, not autonomous).
 **Owner:** unassigned.
 **Found:** 2026-08-04, verifying the WP-0/WP-1/WP-2 identity + gap-detection campaign.
+**Updated:** 2026-08-05 — WP-10.1 shipped (caller wired), WP-10.2 semantics pinned
+(evidence below). WP-10.3 (the actual remap) is still **not done** — see below.
 
-`_get_team_stats()` (`backend/src/services/upcoming_match_feature_service.py:701-801`)
+`_get_team_stats()` (`backend/src/services/upcoming_match_feature_service.py:705-805`)
 computes ~12 stats (`home_form_5`, `home_win_rate_5`, `home_goals_per_match_5`, …) that
 share no name with any `CANONICAL_FEATURES_58` entry
 (`backend/src/models/feature_registry.py:6-65` — e.g. the canonical name is
@@ -33,14 +35,71 @@ with identical output-key shapes (`upcoming_match_feature_service.py:140-141`), 
 collision has no live effect), but a real remap must add an `is_home`/prefix parameter
 or it will trade "honestly defaulted" for "silently swapped between home and away."
 
-**Blast radius:** every live prediction, matchup and DB-fixture paths alike.
-**Cost:** meaningful — requires reverse-engineering the *original* training-pipeline's
-exact feature semantics (normalization, lookback window, home/away convention) before
-touching production values; a naive rename risks feeding the model live data that
-doesn't match its training distribution (worse than an honest default).
+**WP-10.1 shipped (2026-08-05):** `ScrapedTeamFormStore` (D12 — was a zero-caller class)
+now has a real caller: `UpcomingMatchFeatureProjector._apply_scraped_fallback()`
+consults it only when `_get_team_stats()` returns `None` (zero DB history for that
+side), and only tags the result via `data_quality["scraped_fallback"]` — never folded
+into `is_synthetic` (the zero-fab publish gate in
+`upcoming_match_service.py:265`, `publishable = not is_fallback and not is_synthetic`;
+flipping it on a fallback whose keys are still non-canonical would have re-opened
+exactly the vΩ.32 fabrication class this campaign already closed once). Still fully
+inert on the canonical feature vector, deliberately — that's WP-10.3, below. Tests:
+`backend/tests/test_feature_gap_detection.py`
+(`test_scraped_fallback_used_when_db_has_no_history_but_stays_inert`,
+`test_scraped_fallback_absent_leaves_prior_behaviour_unchanged`).
+
+**WP-10.2 semantics pinned (2026-08-05, no assumption):** the canonical remap this item
+needs is not undiscovered — it already exists, live, in a *sibling* pipeline.
+`backend/src/data/transformers.py`'s `FeatureTransformer.engineer_features()`
+(lines 328–339) computes the exact canonical names from the *exact same* non-canonical
+keys `_get_team_stats()`/`ScrapedTeamFormStore.to_projection_stats()` both already
+produce:
+
+```text
+home_form_last5_home   = home_form_5 * 3.0                      # → points/game over last 5, 0–3 scale
+away_form_last5_away   = away_form_5 * 3.0
+home_wins_last5_home   = round(home_win_rate_5 * 5.0)            # win RATE → win COUNT (0–5)
+away_wins_last5_away   = round(away_win_rate_5 * 5.0)
+home_draws_last5_home  = max(0, 5 - wins - 2)                    # ⚠ algebraic estimate, NOT a
+away_draws_last5_away  = max(0, 5 - wins - 2)                    #   real draw count — assumes a
+home_losses_last5_home = max(0, 5 - wins - draws)                #   fixed "2 losses" baseline
+away_losses_last5_away = max(0, 5 - wins - draws)
+home_goals_for_avg     = home_goals_per_match_5   (direct passthrough)
+away_goals_for_avg     = away_goals_per_match_5
+home_goals_against_avg = home_goals_conceded_per_match_5
+away_goals_against_avg = away_goals_conceded_per_match_5
+```
+
+This is confirmed as the *training-time* semantics, not a guess: `models/training.py`
+and `models/enhanced_training.py` both import `FeatureTransformer` from this exact
+module, and `backend/models/training_report.json` → `data.feature_names[0:5]` starts
+`["home_form_last5_home", "home_wins_last5_home", "home_draws_last5_home",
+"home_losses_last5_home", "away_form_last5_away", …]` — the real trained artifact's own
+feature order. **The draws/losses estimate is itself a latent precision loss**:
+`ScrapedTeamFormStore`'s `ScrapedTeamForm` already carries real `wins`/`draws`/`losses`
+integers from the scraped CSV (`to_projection_stats()` currently discards them down to
+the same lossy `home_`-prefixed shape as `_get_team_stats()`, matching its bug
+intentionally) — a real remap has a strictly-better option than reproducing
+`transformers.py`'s algebraic estimate when the scraped source is what's in play.
+
+**Why WP-10.3 (wiring this remap into `upcoming_match_feature_service.py`) is still not
+done:** it is explicitly R4 under INV-14 ("remapping `_get_team_stats()` output onto
+canonical feature names is a feature-schema change... even though no new feature is
+added — the meaning bound to each name changes") — proposal-only, approval required,
+never execute-then-ask. Confidence the semantics above are correct is now high (cited to
+the live training artifact, not assumed), but R4 gates on *evidence quality*, not
+*confidence* — the operator must still sign off, because it changes what every live
+model actually sees and requires the D8b prefix fix to land atomically (see above) plus
+a `feature_defaulted_ratio` before/after capture per the campaign's own GATE-10 §3.
+
+**Blast radius:** every live prediction, matchup and DB-fixture paths alike (unchanged
+until WP-10.3 ships).
+**Cost:** now low for WP-10.3 itself — the semantics research (the expensive, blind-risk
+part) is done. Remaining cost is the approval round-trip + the D8b atomic fix + the
+re-certification/`feature_defaulted_ratio` proof GATE-10 requires.
 **Impact:** predictions are directionally usable but running on a small fraction of
-trained signal.
-**Priority:** high value, deliberately not attempted blind this session.
+trained signal — unchanged by WP-10.1 alone, as designed.
+**Priority:** high value; ready for a go/no-go decision, no longer blocked on research.
 
 ---
 

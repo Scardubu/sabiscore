@@ -786,7 +786,10 @@ function getTeamAbbreviation(teamName: string): string {
 
 /**
  * Get team logo metadata using the logo resolver
- * Returns URLs from API-Sports, TheSportsDB, or FlagCDN with fallbacks
+ * Returns URLs from API-Football or FlagCDN, with an emoji fallback.
+ * TheSportsDB was evaluated and removed at logo-resolver v1.2.0 (unreliable
+ * URL patterns) — that version comment is the only record of the finding, so
+ * do not re-add it here without re-testing the source.
  */
 function getTeamLogoMeta(teamName: string) {
   return resolveTeamLogo(teamName);

@@ -208,9 +208,9 @@ DEFAULT_FEATURE_VALUES_68: Dict[str, float] = {
 # CANONICAL_FEATURES_65 (formerly 68) is the base; new features are accumulated here.
 # Do not append to the Phase 7 list — v5_phase7 models were trained on a 68-column
 # vector (pre-removal) and will continue to load correctly at inference time via
-# backward-compatible defaults. New v6_phase8 models will train on CANONICAL_FEATURES_83.
+# backward-compatible defaults. New v6_phase8 models will train on CANONICAL_FEATURES_86.
 #
-# Phase 8 feature groups (18 new features, ATE validation required):
+# Phase 8 feature groups (21 new features, ATE validation required):
 #   Pi-ratings (6):  home/away attack+defense, diffs      [5a]
 #   Berrar ratings (3): home/away rating, diff             [5a.5]
 #   EWMA form (6):   weighted win/draw rate + PPG × 2     [5b]
@@ -253,8 +253,11 @@ PHASE8_FEATURES_CONTEXT: List[str] = [
     "match_importance_score",
 ]
 
-# All Phase 8 input features (18 total before ATE gating of individual groups)
-PHASE8_FEATURES_18: List[str] = [
+# All Phase 8 input features: 6 Pi + 3 Berrar + 6 EWMA form + 5 market + 1 context = 21.
+# The name says what it holds. The historical `_18` name (below) predates the FORM group
+# growing from 3 to 6 entries and undercounted from then on — a variable whose name
+# disagrees with its own len() is the same drift class as a stale docstring.
+PHASE8_FEATURES_21: List[str] = [
     *PHASE8_FEATURES_PI,
     *PHASE8_FEATURES_BERRAR,
     *PHASE8_FEATURES_FORM,
@@ -262,15 +265,19 @@ PHASE8_FEATURES_18: List[str] = [
     *PHASE8_FEATURES_CONTEXT,
 ]
 
-CANONICAL_FEATURES_83: List[str] = [
+# 65 confirmed Phase 7 + 21 Phase 8 = 86.
+CANONICAL_FEATURES_86: List[str] = [
     *CANONICAL_FEATURES_65,
-    *PHASE8_FEATURES_18,
+    *PHASE8_FEATURES_21,
 ]
 
-# Alias for backward compatibility with code using the old name.
-# The underlying list is 86 features (65 confirmed Phase 7 + 21 Phase 8).
-# PHASE8_FEATURES_18 is a legacy name; the actual count is 21 (FORM has 6 entries).
-CANONICAL_FEATURES_86 = CANONICAL_FEATURES_83
+# Deprecated aliases — the counts in these names are wrong (they hold 21 and 86
+# respectively). Retained, not deleted: both are imported across production code
+# (`api/endpoints/phase8_features.py`) and tests, so removing them is a breaking
+# change under INV-17. Prefer the accurate names above in new code; these are the
+# same objects, not copies.
+PHASE8_FEATURES_18 = PHASE8_FEATURES_21
+CANONICAL_FEATURES_83 = CANONICAL_FEATURES_86
 
 # Default values for Phase 8 features — used when live data is unavailable.
 # Pi/Berrar defaults are 0.0 (neutral) because only diffs matter to the model.
@@ -331,4 +338,4 @@ def canonical_feature_count_phase7() -> int:
 
 def canonical_feature_count_phase8() -> int:
     """Returns the Phase 8 confirmed feature count (86 = 65 phase7 + 21 phase8)."""
-    return len(CANONICAL_FEATURES_83)
+    return len(CANONICAL_FEATURES_86)

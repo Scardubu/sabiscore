@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.config import settings
 from ..core.database import Match, MatchStats, Team
 from ..core.exceptions import SchemaMismatchError
+from ..core.league_policy import canonical_league_id
 from ..data.elo_engine import EloEngine
 from ..data.enrichment.statsbomb_aggregator import StatsBombAggregator
 from ..features.berrar_ratings import BerrarRatingSystem
@@ -45,6 +46,7 @@ from ..models.feature_registry import (
 )
 from ..utils.season import canonical_season
 from .odds_service import OddsService
+from .scraped_feature_store import ScrapedTeamFormStore
 from .team_identity import resolve_team_id
 
 logger = logging.getLogger(__name__)
@@ -89,6 +91,7 @@ class UpcomingMatchFeatureProjector:
             parquet_path=settings.berrar_ratings_parquet_path
         )
         self.odds_service = OddsService()
+        self.scraped_form_store = ScrapedTeamFormStore()
 
     async def project_match_features(
         self,
@@ -139,6 +142,21 @@ class UpcomingMatchFeatureProjector:
 
         home_stats = await self._get_team_stats(home_team_id, db, match_date)
         away_stats = await self._get_team_stats(away_team_id, db, match_date)
+
+        # is_synthetic (below) gates public prediction publishing (WP-0/vΩ.32:
+        # upcoming_match_service.py `publishable = not is_fallback and not
+        # is_synthetic`) — it must reflect whether DB-native history existed, not
+        # whether a scraped fallback was found. Captured before the fallback
+        # reassigns home_stats/away_stats.
+        home_db_missing = home_stats is None
+        away_db_missing = away_stats is None
+        league_hint = match_dict.get("league")
+        home_stats, home_scraped_provenance = self._apply_scraped_fallback(
+            home_stats, competition=league_hint, team=match_dict["home_team"], match_date=match_date
+        )
+        away_stats, away_scraped_provenance = self._apply_scraped_fallback(
+            away_stats, competition=league_hint, team=match_dict["away_team"], match_date=match_date
+        )
 
         features_dict = dict(self.defaults)
         defaults_count = len(self.defaults)
@@ -192,7 +210,17 @@ class UpcomingMatchFeatureProjector:
             if self.defaults
             else 0.0,
             "defaults_used_count": max(0, defaults_count),
-            "is_synthetic": home_stats is None or away_stats is None,
+            "is_synthetic": home_db_missing or away_db_missing,
+            # Provenance-tagged only (INV-10) — closes D12 (ScrapedTeamFormStore had
+            # zero callers) without claiming these values as DB-native. Behaviourally
+            # inert on the canonical feature vector today: the scraped keys share
+            # _get_team_stats()'s non-canonical shape (D8), so neither reaches
+            # features_array until the WP-10.3 remap (gated, not done here).
+            "scraped_fallback": {
+                k: v
+                for k, v in {"home": home_scraped_provenance, "away": away_scraped_provenance}.items()
+                if v is not None
+            },
         }
 
         return {
@@ -803,6 +831,39 @@ class UpcomingMatchFeatureProjector:
             stats["home_xg_consistency"] = np.std(xg_values[:5]) if len(xg_values) >= 5 else 0.75
 
         return stats if stats else None
+
+    def _apply_scraped_fallback(
+        self,
+        stats: Optional[Dict[str, float]],
+        *,
+        competition: Optional[str],
+        team: str,
+        match_date: datetime,
+    ) -> Tuple[Optional[Dict[str, float]], Optional[Dict[str, Any]]]:
+        """WP-10.1 — consult the scraped football-data.co.uk CSV artifact only when
+        the DB has zero completed-match history for this team (``stats is None``).
+        Supplementary, never a silent DB substitute (INV-10): callers get the
+        provenance dict back separately and must not fold it into ``is_synthetic``.
+        Never raises — a missing/corrupt artifact degrades to "no fallback", the
+        same as if ``ScrapedTeamFormStore`` had never been called.
+        """
+        if stats is not None or not competition:
+            return stats, None
+        try:
+            league_code = canonical_league_id(competition)
+            record = self.scraped_form_store.get_team_form(
+                competition=league_code, team=team, information_cutoff=match_date
+            )
+        except Exception:
+            logger.debug("Scraped fallback lookup failed for %s (%s)", team, competition, exc_info=True)
+            return stats, None
+        if record is None:
+            return stats, None
+        return record.to_projection_stats(), {
+            "source": f"scraped:football-data-csv:{record.source_file.name}",
+            "matches_sampled": record.matches_sampled,
+            "acquired_at": record.latest_match_date.isoformat() if record.latest_match_date else None,
+        }
 
     async def _get_team_xg(
         self,

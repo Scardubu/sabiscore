@@ -5,6 +5,95 @@ All notable changes to this skill suite are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## vΩ.34 — Uncalled subsystems get callers; two fabricated defaults removed (2026-08-05)
+
+Wiring release. Verdict, Kelly, edge, EV, and evidence-gating logic are
+untouched, so the dual-engine rule does not apply. Theme: a component that
+exists is not a component that runs — this release gives one built-but-uncalled
+subsystem a real caller and removes two constants that lied about themselves.
+
+### Fixed — `ScrapedTeamFormStore` had zero callers repo-wide (WP-10.1)
+
+Every artifact `apps/scraper` produced was written to disk and read by nothing.
+`UpcomingMatchFeatureProjector._apply_scraped_fallback()` now consults it, but
+only when `_get_team_stats()` returns `None` (zero DB history for that side),
+and only as explicitly-provenanced supplementary evidence — a new
+`data_quality["scraped_fallback"]` dict carrying `source`, `matches_sampled`
+and `acquired_at` (INV-10).
+
+⚠️ **Deliberately not folded into `is_synthetic`.** That flag gates public
+prediction publishing (`upcoming_match_service.py`, `publishable = not
+is_fallback and not is_synthetic`), and the scraped keys are still
+non-canonical, so crediting them there would publish predictions built on a
+fallback the model never actually consumes — reopening the vΩ.32 fabrication
+class. `home_db_missing`/`away_db_missing` are captured *before* the fallback
+reassigns the stats variables for exactly this reason. The fallback is
+therefore inert on the canonical feature vector today, by design: it closes the
+zero-caller defect without touching feature semantics.
+
+### Documented — canonical remap semantics pinned, not guessed (WP-10.2)
+
+The remap the base-58 feature block needs already exists, live, in a sibling
+pipeline: `data/transformers.py` maps the identical non-canonical keys to
+canonical names (`home_form_last5_home = home_form_5 * 3.0`,
+`home_wins_last5_home = round(home_win_rate_5 * 5.0)`, …). Confirmed as
+*training-time* semantics because `models/training.py` and
+`enhanced_training.py` both import that transformer, and
+`backend/models/training_report.json` → `data.feature_names` opens with exactly
+that canonical order. Recorded in `docs/DEBT.md` item 1 with the full mapping
+table. ⚠️ The draws/losses mapping there is an algebraic estimate
+(`max(0, 5 - wins - 2)`), not a real count — and `ScrapedTeamForm` already
+carries true `wins`/`draws`/`losses` integers that `to_projection_stats()`
+currently discards.
+
+**WP-10.3 (the remap itself) is not done** — R4 under INV-14, approval-gated,
+and must land atomically with the D8b home/away prefix-collision fix plus a
+`feature_defaulted_ratio` before/after capture.
+
+### Fixed — edge-quality score credited unmeasured fixtures with half marks (D1b)
+
+`upcoming_matches._compute_edge_quality_score()` fell back to a flat `0.5`
+completeness whenever `data_quality` was absent, worth 0.05 of the score for
+free — enough to push an unmeasured fixture over the Top-Edge threshold on
+nothing (INV-01). Now uses the same gap-driven formula the full-analysis path
+already used (`1 - gaps/canonical`), so there is one definition of completeness
+instead of two. An explicitly-empty gap list means "computed, no gaps" (1.0); a
+missing key means "never computed" (0.0) — unknown can only lower the score,
+never inflate it.
+
+### Fixed — feature-registry constants that undercounted themselves (D14)
+
+`PHASE8_FEATURES_18` held 21 entries and `CANONICAL_FEATURES_83` held 86;
+both had drifted since the EWMA form group grew from 3 entries to 6.
+`PHASE8_FEATURES_21` and `CANONICAL_FEATURES_86` are now the definitions; the
+old names remain as aliases to the same objects, since production code
+(`api/endpoints/phase8_features.py`) imports them and removing them would break
+a published contract (INV-17). A new registry guard asserts every
+`*_FEATURES_N` constant holds exactly N entries, exempting the deprecated
+aliases by name — mutation-verified to fail on a real violation.
+
+### Fixed — last duplicate season-string writer (D11)
+
+`data/loaders/football_data.py` built `f"20{season[:2]}/20{season[2:]}"`
+independently instead of calling `canonical_season()`. Same output for any
+match inside its own file's season, but there is now exactly one writer of that
+format that can drift.
+
+### Fixed — docstring advertised a deliberately-removed provider (D16)
+
+`team-display.tsx` documented the logo resolver as returning TheSportsDB URLs;
+that source was evaluated and dropped at `logo-resolver` v1.2.0 for unreliable
+URL patterns. The version comment was the only surviving record of the finding,
+and its neighbour contradicted it.
+
+### Verification
+
+Backend 1062 passed / 13 skipped (baseline 1059; +3 net new tests) · ruff 0 ·
+web lint 0 · typecheck 0 · Vitest 98/98 · prohibited-copy scan 0 ·
+`NODE_ENV=production` build ✓.
+
+---
+
 ## vΩ.33 — Identity campaign shipped, capability-honest readiness, corrected season calendar (2026-08-04)
 
 Backend data-truth and health-surface release. Verdict, Kelly, edge, EV, and

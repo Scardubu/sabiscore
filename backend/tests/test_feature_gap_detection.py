@@ -8,9 +8,12 @@
    than the old `value in (None, 0.0)` heuristic, which was both a false
    positive (a genuine 0.0) and a false negative (a non-zero default silently
    never flagged).
+
+WP-10.1 regression tests (bottom of file): ScrapedTeamFormStore fallback wiring.
 """
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta
 
 import pytest
@@ -19,6 +22,7 @@ from sqlalchemy.orm import sessionmaker
 
 from src.core.database import Base, Match, Team
 from src.models.feature_registry import PHASE7_FEATURES_7, PHASE7_FEATURES_ALWAYS_DATA_GAP
+from src.services.scraped_feature_store import ScrapedTeamFormStore
 from src.services.upcoming_match_feature_service import (
     _CALLER_RESOLVED_FEATURES,
     UpcomingMatchFeatureProjector,
@@ -258,3 +262,58 @@ async def test_feature_array_length_mismatch_raises_schema_mismatch(
                 db=session,
                 match_date=MATCH_DATE,
             )
+
+
+def _write_scraped_form(tmp_path, *, league: str, team: str) -> None:
+    payload = [{
+        "source": "football-data-csv", "team": team, "matches_sampled": 5,
+        "ppg": 1.8, "wins": 2, "draws": 2, "losses": 1,
+        "goals_for_avg": 1.4, "goals_against_avg": 1.0,
+        "goal_difference_avg": 0.4, "latest_match_date": "01/07/2026",
+    }]
+    (tmp_path / f"team-form-{league}-2526.json").write_text(json.dumps(payload), encoding="utf-8")
+
+
+async def test_scraped_fallback_used_when_db_has_no_history_but_stays_inert(
+    session: AsyncSession, projector: UpcomingMatchFeatureProjector, tmp_path
+) -> None:
+    """WP-10.1: team-away has zero DB history; a scraped artifact exists for it.
+    The fallback must (1) be consulted and tagged with provenance, (2) NOT flip
+    is_synthetic (the zero-fab publish gate — see project_match_features), and
+    (3) NOT rescue the canonical feature from data_gaps (D8: scraped keys are
+    non-canonical too, until the gated WP-10.3 remap)."""
+    await _seed_old_match(session, days_before=1)
+    _write_scraped_form(tmp_path, league="EPL", team="Away FC")
+    projector.scraped_form_store = ScrapedTeamFormStore(tmp_path)
+
+    result = await projector.project_match_features(
+        {"id": "m1", "home_team": "Home FC", "away_team": "Away FC", "league": "EPL"},
+        session,
+        MATCH_DATE,
+    )
+
+    fallback = result["data_quality"]["scraped_fallback"]
+    assert fallback["away"]["matches_sampled"] == 5
+    assert fallback["away"]["source"].startswith("scraped:football-data-csv:")
+    assert "home" not in fallback  # team-home had real DB history — never consulted
+
+    assert result["data_quality"]["is_synthetic"] is True  # DB was still missing for "away"
+    assert "away_form_last5_away" in result["data_gaps"]  # canonical vector unaffected
+
+
+async def test_scraped_fallback_absent_leaves_prior_behaviour_unchanged(
+    session: AsyncSession, projector: UpcomingMatchFeatureProjector, tmp_path
+) -> None:
+    """No artifact on disk (the common case today) — scraped_fallback is empty
+    and behaviour matches the pre-WP-10.1 baseline exactly."""
+    await _seed_old_match(session, days_before=1)
+    projector.scraped_form_store = ScrapedTeamFormStore(tmp_path)  # empty dir
+
+    result = await projector.project_match_features(
+        {"id": "m1", "home_team": "Home FC", "away_team": "Away FC", "league": "EPL"},
+        session,
+        MATCH_DATE,
+    )
+
+    assert result["data_quality"]["scraped_fallback"] == {}
+    assert result["data_quality"]["is_synthetic"] is True

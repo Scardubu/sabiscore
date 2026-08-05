@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.config import settings
 from ...core.season_calendar import next_season_start
 from ...db.session import get_async_session
+from ...models.feature_registry import active_canonical_features
 from ...services.upcoming_match_service import UpcomingMatchService
 
 logger = logging.getLogger(__name__)
@@ -36,13 +37,20 @@ def _compute_edge_quality_score(match: Dict[str, Any]) -> Optional[float]:
       confidence  × 0.40  — model calibrated confidence
       market_edge × 0.30  — normalised best_value_bet.edge_pct (0%→0, 10%→1)
       freshness   × 0.20  — linear decay over LIVE_THRESHOLD_SECONDS
-      completeness× 0.10  — historical_data_ratio from data_quality
+      completeness× 0.10  — 1 - (data_gaps / canonical features)
+
+    `completeness` is the SAME gap-driven formula the full-analysis path uses
+    (`full_analysis._compute_edge_quality_score`) — one concept, one definition.
+    It previously read `historical_data_ratio` and fell back to a flat 0.5 when
+    `data_quality` was absent, i.e. it credited an unmeasured fixture with half
+    marks and could push it over the Top-Edge threshold on nothing (INV-01).
+    Absent gap data now scores 0.0: unknown completeness can only lower the
+    score, never inflate it.
 
     Returns None when neither predictions nor value bets are available.
     """
     predictions = match.get("predictions")
     best_bet = match.get("best_value_bet")
-    data_quality = match.get("data_quality")
     staleness = int(match.get("staleness_seconds", 0))
 
     if predictions is None and best_bet is None:
@@ -53,11 +61,17 @@ def _compute_edge_quality_score(match: Dict[str, Any]) -> Optional[float]:
     market_edge = min(1.0, edge_pct / 10.0)
     threshold = float(getattr(settings, "live_threshold_seconds", 3600))
     freshness = max(0.0, 1.0 - staleness / threshold) if threshold > 0 else 1.0
-    completeness = (
-        float(data_quality.get("historical_data_ratio", 0.5))
-        if isinstance(data_quality, dict)
-        else 0.5
-    )
+    # An explicitly-empty list means "computed, no gaps" (→1.0); a missing key
+    # means "never computed" (→0.0). Distinct cases, deliberately not merged.
+    data_gaps = match.get("data_gaps")
+    if data_gaps is None:
+        completeness = 0.0
+    else:
+        n_canonical = len(active_canonical_features(
+            use_phase7=settings.use_phase7_models,
+            use_phase8=settings.phase8_enabled,
+        ))
+        completeness = max(0.0, 1.0 - len(data_gaps) / max(1, n_canonical))
 
     score = 0.40 * confidence + 0.30 * market_edge + 0.20 * freshness + 0.10 * completeness
     return round(min(1.0, max(0.0, score)), 3)

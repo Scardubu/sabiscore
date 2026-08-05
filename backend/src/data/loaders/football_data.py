@@ -31,6 +31,7 @@ from ...core.database import (
     Team,
     session_scope,
 )
+from ...utils.season import canonical_season
 from ..utils.deduplication import deduplicate_match
 
 import logging
@@ -312,7 +313,13 @@ class FootballDataLoader:
                     home_team_id=home_team.id,
                     away_team_id=away_team.id,
                     match_date=match_data["match_date"],
-                    season=f"20{season[:2]}/20{season[2:]}",
+                    # Was f"20{season[:2]}/20{season[2:]}" — a second, independent
+                    # writer of the same "YYYY/YYYY" format that canonical_season()
+                    # owns. Same output for any match inside its own file's season
+                    # (the only case that occurs), but deriving from the match's own
+                    # date rather than the filename means there is now exactly one
+                    # season-string writer that can drift.
+                    season=canonical_season(match_data["match_date"]),
                     status="finished",
                     home_score=match_data["home_score"],
                     away_score=match_data["away_score"],

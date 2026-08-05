@@ -51,6 +51,29 @@ class TestPhase8RegistryInvariants:
             f"got {len(PHASE8_FEATURES_18)}"
         )
 
+    def test_numeric_suffix_names_match_their_own_length(self):
+        """A constant named `_N` must hold N entries. `PHASE8_FEATURES_18` (21) and
+        `CANONICAL_FEATURES_83` (86) both drifted from their own names for a whole
+        release — this pins the accurate names so the next group that grows renames
+        its constant instead of quietly outgrowing it. Deprecated aliases are
+        exempt by construction: they are excluded by name, not by count."""
+        import re
+
+        from src.models import feature_registry
+
+        deprecated_aliases = {"PHASE8_FEATURES_18", "CANONICAL_FEATURES_83", "CANONICAL_FEATURES_68"}
+        mismatches = []
+        for name in dir(feature_registry):
+            match = re.fullmatch(r"(?:CANONICAL_FEATURES|PHASE\d+_FEATURES)_(\d+)", name)
+            if not match or name in deprecated_aliases:
+                continue
+            claimed = int(match.group(1))
+            actual = len(getattr(feature_registry, name))
+            if claimed != actual:
+                mismatches.append(f"{name} claims {claimed}, holds {actual}")
+
+        assert not mismatches, "Feature-registry names disagree with their own length: " + "; ".join(mismatches)
+
     def test_canonical_features_86_count(self):
         """CANONICAL_FEATURES_86 = 65 phase7 + 21 phase8 = 86 features."""
         assert len(CANONICAL_FEATURES_86) == 86

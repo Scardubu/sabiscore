@@ -59,14 +59,18 @@ def _upcoming_match(
     confidence: float = 0.50,
     edge_pct: float = 0.0,
     staleness_seconds: int = 0,
-    historical_data_ratio: float = 0.8,
+    data_gaps: list | None = None,
     include_predictions: bool = True,
     include_best_bet: bool = False,
 ) -> dict:
-    """Build a minimal upcoming-match dict that mimics the service response shape."""
+    """Build a minimal upcoming-match dict that mimics the service response shape.
+
+    `data_gaps` (not the former `historical_data_ratio`) drives the completeness
+    term — one gap-driven formula shared with the full-analysis path.
+    """
     match: dict = {
         "staleness_seconds": staleness_seconds,
-        "data_quality": {"historical_data_ratio": historical_data_ratio},
+        "data_gaps": [] if data_gaps is None else data_gaps,
     }
     if include_predictions:
         match["predictions"] = {
@@ -243,6 +247,27 @@ class TestComputeEdgeQualityScore:
         score = _compute_edge_quality_score(match)
         if score is not None:
             assert score == round(score, 3)
+
+    def test_absent_data_gaps_scores_zero_completeness_not_a_fabricated_half(self):
+        """Finding J / D1b: an unmeasured fixture previously got a flat 0.5
+        completeness (0.05 of the score) for free, which could push it over the
+        Top-Edge threshold on nothing. Unknown must credit 0.0, never a midpoint."""
+        measured = _upcoming_match(confidence=0.60, data_gaps=[])
+        unmeasured = _upcoming_match(confidence=0.60)
+        del unmeasured["data_gaps"]
+
+        score_measured = _compute_edge_quality_score(measured)
+        score_unmeasured = _compute_edge_quality_score(unmeasured)
+
+        assert score_measured is not None and score_unmeasured is not None
+        # No gaps → full 0.10 completeness weight; absent → none of it.
+        assert score_measured - score_unmeasured == pytest.approx(0.10, abs=1e-6)
+
+    def test_more_gaps_lowers_score(self):
+        """Completeness is gap-driven — the same direction full_analysis uses."""
+        few = _upcoming_match(confidence=0.60, data_gaps=["a", "b"])
+        many = _upcoming_match(confidence=0.60, data_gaps=[f"gap_{i}" for i in range(40)])
+        assert _compute_edge_quality_score(few) > _compute_edge_quality_score(many)
 
 
 # ---------------------------------------------------------------------------
