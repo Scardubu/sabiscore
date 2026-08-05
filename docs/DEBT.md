@@ -263,3 +263,62 @@ produces — accuracy, ranked probability score, settled count, fold count.
 **Priority:** none. Revisit CLV if and when a market snapshot is persisted per
 prediction; ROI never, absent an explicit operator decision to change what the product
 is.
+
+## 7. `core/database.py` opens a connection at import time, so every offline tool needs a live DB
+
+**Tier:** `ARCH-DEBT` — needs an ADR; do not change fail-closed semantics casually.
+**Owner:** unassigned.
+**Found:** 2026-08-05, diagnosing a production outage (see the operator note below).
+
+`backend/src/core/database.py` runs `_test_connection()` and raises at **module scope**
+(`:110-117`), not inside a function. Anything that imports the module therefore
+requires a reachable PostgreSQL, including tooling that has no business needing one:
+
+- `alembic/env.py:11` does `from src.core.database import Base`, so **`alembic upgrade
+  head`, `alembic check`, and `alembic revision --autogenerate` all fail with a
+  connection error before Alembic runs its own logic** — the failure surfaces as a raw
+  traceback from an import, not as a migration error.
+- `src.api.main` cannot be imported for inspection, linting or an IDE language server
+  without a database.
+- `make verify` gate 4 and gate 14 both need a live local PostgreSQL purely to import.
+
+**Why this is not simply "make it lazy":** the raise is load-bearing. It is what
+enforces "PostgreSQL unavailable and SQLite fallback is not explicitly allowed" — the
+`ALLOW_SQLITE_FALLBACK` invariant that must never activate silently. Deferring the
+check must preserve that: the correct shape is a lazy engine whose *first use* raises
+the same way, not a check that is dropped.
+
+**Blast radius:** in production it converts a recoverable dependency outage into an
+un-diagnosable crash loop. `render.yaml`'s `startCommand` is
+`alembic upgrade head && uvicorn …`; when the import raises, the `&&` short-circuits,
+uvicorn never starts, the container exits, Render restarts it, and the only public
+signal is the platform's own HTML 502. The service being down is *correct* (it cannot
+serve without its database) — being unable to say why is not.
+**Cost:** medium. Convert to a lazily-initialised engine plus an explicit
+`verify_database_connection()` called from `lifespan()` and from Alembic's `run_
+migrations_online()`, keeping the fallback gate exactly where it is.
+**Impact:** developer friction today; diagnosability during an incident.
+**Priority:** medium — raise it if a second outage is misdiagnosed because of this.
+
+---
+
+## Operator action outstanding (not code — no code change can resolve it)
+
+**Render PostgreSQL `sabiscore-db` no longer resolves. The API is crash-looping.**
+Observed 2026-08-05 in the Render logs:
+
+```
+failed to resolve host 'dpg-d95kg3e7r5hc73eh7g6g-a': [Errno -2] Name or service not known
+PostgreSQL unavailable and SQLite fallback is not explicitly allowed
+==> Instance srv-d95kkffaqgkc73f8003g-nvp7j restarted
+```
+
+`render.yaml:32` wires `DATABASE_URL` via `fromDatabase: sabiscore-db`. A DNS failure
+on the instance hostname means the database instance itself is gone, not that
+credentials drifted — Render's free PostgreSQL tier expires and is deleted after 30
+days. **Resolution is in the Render dashboard: create/restore the PostgreSQL instance,
+confirm `DATABASE_URL` resolves to it, then redeploy** (the `startCommand` runs
+`alembic upgrade head` and will rebuild the schema from migrations on a fresh
+database). Nothing in the application can be changed to work around a deleted
+database, and it should not be — serving predictions without the store that holds
+fixtures, predictions and settlements would violate the fail-closed invariant.

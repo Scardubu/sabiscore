@@ -10,6 +10,7 @@
 import { NextResponse } from "next/server";
 import { backendHealthIssues, isHealthyBackendStatus } from "@/lib/health-status";
 import { RPS_PROMOTION_GATE } from "@/lib/model-gates";
+import { isHtmlBody } from "@/lib/proxy-utils";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -52,7 +53,30 @@ export async function GET() {
         backendChecks = (data.checks as Record<string, unknown>) ?? {};
         backendCapability = (data.capability as Record<string, unknown>) ?? null;
       } else {
-        backendStatus = "degraded";
+        // A non-ok readiness response is two very different things, and mapping
+        // both to "degraded" understated a total outage: the backend answering
+        // 503 with its own JSON payload IS degraded and knows why, whereas an
+        // HTML error page from the platform edge means no process is running at
+        // all. The body is the discriminator, not the status code — Render
+        // serves HTML for 502/503/504 while the backend's own 503 is JSON.
+        const body = await readinessRes.text().catch(() => "");
+        let parsed: Record<string, unknown> | null = null;
+        if (!isHtmlBody(body)) {
+          try {
+            parsed = JSON.parse(body) as Record<string, unknown>;
+          } catch {
+            parsed = null;
+          }
+        }
+        if (parsed) {
+          backendStatus = (parsed.status as string) ?? "degraded";
+          // Preserve the diagnostics a degraded backend sent about itself; the
+          // previous branch discarded checks/capability on every non-ok reply.
+          backendChecks = (parsed.checks as Record<string, unknown>) ?? {};
+          backendCapability = (parsed.capability as Record<string, unknown>) ?? null;
+        } else {
+          backendStatus = "unavailable";
+        }
       }
       if (providersRes.ok) {
         const providerData = (await providersRes.json()) as { providers?: unknown };
