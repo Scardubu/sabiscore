@@ -31,6 +31,7 @@ import {
   refreshFixtureEvidence,
   submitManualOddsSnapshot,
 } from "@/lib/betting-intelligence-api";
+import { describeEvidenceCode } from "@/lib/full-analysis-contract";
 
 const COMPETITIONS = ["EPL", "LA_LIGA", "SERIE_A", "BUNDESLIGA", "LIGUE_1", "EREDIVISIE", "UCL"];
 
@@ -580,7 +581,11 @@ export function BettingIntelligenceDashboard() {
             {error && <div className="bi-error"><AlertTriangle size={16} /> {error}</div>}
           </aside>
 
-          <main className="bi-main">
+          {/* div not main: app/layout.tsx's root <main id="main-content"> is
+              already this page's sole <main> landmark — a second one here
+              is a duplicate-landmark a11y violation. .bi-main styling is
+              class-based, so this is a no-op visually. */}
+          <div className="bi-main">
             <section className="bi-status" aria-live="polite">
               <div>
                 <div className="bi-panel-title"><CheckCircle2 size={16} /> Current State</div>
@@ -733,7 +738,7 @@ export function BettingIntelligenceDashboard() {
                       <AlertTriangle size={14} /> Blocking Gaps — execution paused
                     </div>
                     <ul className="bi-list gap">
-                      {result.critical_gaps.map((gap) => <li key={gap}>{gap.replace(/_/g, " ")}</li>)}
+                      {result.critical_gaps.map((gap) => <li key={gap}>{describeEvidenceCode(gap)}</li>)}
                     </ul>
                   </section>
                 ) : null}
@@ -744,12 +749,12 @@ export function BettingIntelligenceDashboard() {
                     </div>
                     {result.advisory_gaps?.length ? (
                       <ul className="bi-list gap">
-                        {result.advisory_gaps.map((gap) => <li key={gap}>{gap.replace(/_/g, " ")}</li>)}
+                        {result.advisory_gaps.map((gap) => <li key={gap}>{describeEvidenceCode(gap)}</li>)}
                       </ul>
                     ) : null}
                     {result.conflicts?.length ? (
                       <ul className="bi-list risk" style={{ marginTop: 8 }}>
-                        {result.conflicts.map((c) => <li key={c}>{c.replace(/_/g, " ")}</li>)}
+                        {result.conflicts.map((c) => <li key={c}>{describeEvidenceCode(c)}</li>)}
                       </ul>
                     ) : null}
                   </section>
@@ -773,7 +778,7 @@ export function BettingIntelligenceDashboard() {
               <div className="bi-panel-title"><AlertTriangle size={16} /> Responsible Use</div>
               <p className="bi-muted">This interface provides statistical analysis only. A pass, hold, or partial verdict is an intentional safety state. Never treat model output as assured return.</p>
             </section>
-          </main>
+          </div>
         </div>
       </div>
     </div>

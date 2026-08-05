@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   classifyAnalysisError,
+  describeEvidenceCode,
   fullMatchAnalysisSchema,
   isRetryableInfrastructureError,
   mapFullAnalysisPresentation,
@@ -280,5 +281,63 @@ describe("analysis error taxonomy", () => {
     // failure fall through to "unknown".
     expect(classifyAnalysisError({ status: 0, code: "NETWORK_ERROR" })).toBe("network_error");
     expect(classifyAnalysisError({ networkError: true })).toBe("network_error");
+  });
+});
+
+describe("describeEvidenceCode", () => {
+  it("renders every backend critical-gap code as plain language, never raw enum-speak", () => {
+    // These are the exact codes appended to critical_gaps in the backend
+    // (full_analysis.py / upcoming_match_service.py). A bare replaceAll("_", " ")
+    // shouted "FIXTURE IDENTITY UNVERIFIED" on the most-read line of the match page.
+    const codes = [
+      "FIXTURE_IDENTITY_UNVERIFIED",
+      "REQUIRED_MODEL_INPUTS_UNAVAILABLE",
+      "MODEL_PREDICTION_UNAVAILABLE",
+      "MODEL_PREDICTION_REDUCED_EVIDENCE",
+      "STALE_REQUIRED_EVIDENCE",
+      "LEAGUE_POLICY_UNAVAILABLE",
+    ];
+    for (const code of codes) {
+      const described = describeEvidenceCode(code);
+      expect(described).not.toBe(code.replaceAll("_", " "));
+      expect(described).not.toMatch(/[A-Z]{2,}/); // no SHOUTING fragments survive
+      expect(described.length).toBeGreaterThan(20); // a sentence, not a relabelled token
+    }
+  });
+
+  it("falls back to title case for an unmapped code rather than dropping it", () => {
+    // A code we have no copy for must stay legible and must never render empty —
+    // the reason line is the only explanation the reader gets.
+    expect(describeEvidenceCode("SOME_FUTURE_GAP")).toBe("Some Future Gap");
+    expect(describeEvidenceCode("")).toBe("");
+  });
+
+  it("keeps the reason line human when a critical gap blocks the verdict", () => {
+    // The off-season / unsynced-team path users actually hit most often.
+    const evidence = {
+      critical_gaps: ["FIXTURE_IDENTITY_UNVERIFIED"],
+      advisory_gaps: [],
+      conflicts: [],
+      all_gaps: ["FIXTURE_IDENTITY_UNVERIFIED"],
+      critical_gap_count: 1,
+      advisory_gap_count: 0,
+      conflict_count: 0,
+      total_gap_count: 1,
+    };
+    const view = mapFullAnalysisPresentation(
+      payload({
+        verdict: "PARTIAL",
+        partial_intelligence: true,
+        stake_permitted: false,
+        evidence_quality: evidence,
+        data_gaps: evidence.all_gaps,
+        rl_recommendation: { stake_fraction: 0, abstain: true, reason: "No bet", reward_components: {} },
+        odds_edge: { ...payload().odds_edge, kelly_stake: 0 },
+        actionability: null,
+      }),
+    );
+    expect(view.reason).toContain("could not be tied to a scheduled fixture");
+    expect(view.reason).not.toContain("FIXTURE_IDENTITY_UNVERIFIED");
+    expect(view.reason).not.toContain("FIXTURE IDENTITY UNVERIFIED");
   });
 });

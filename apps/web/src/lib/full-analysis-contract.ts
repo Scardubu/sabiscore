@@ -362,6 +362,47 @@ export function formatLagosTimestamp(iso: string): string {
   }).format(new Date(iso));
 }
 
+/**
+ * Plain-language readings of the backend's evidence codes.
+ *
+ * The backend emits SCREAMING_SNAKE codes (`FIXTURE_IDENTITY_UNVERIFIED`); a bare
+ * `replaceAll("_", " ")` shouts raw enum-speak at the reader on the single most-read
+ * line of the match page. Each entry states what is actually missing and why that
+ * blocks a stake — never softened, since these are the fail-closed reasons.
+ *
+ * Unknown codes fall back to title case rather than being dropped: a code we have
+ * not written copy for must still be legible, and must never render as an empty
+ * reason. Keep in sync with the `critical_gaps.append(...)` sites in
+ * `backend/src/api/endpoints/full_analysis.py` and `upcoming_match_service.py`.
+ */
+const EVIDENCE_CODE_COPY: Record<string, string> = {
+  FIXTURE_IDENTITY_UNVERIFIED:
+    "this matchup could not be tied to a scheduled fixture, so team history cannot be verified",
+  REQUIRED_MODEL_INPUTS_UNAVAILABLE:
+    "the inputs the model requires — recent form, head-to-head, and a coherent market — are not available",
+  MODEL_PREDICTION_UNAVAILABLE: "the certified model could not produce a prediction",
+  MODEL_PREDICTION_REDUCED_EVIDENCE:
+    "only a diagnostic baseline was produced, not a certified prediction",
+  STALE_REQUIRED_EVIDENCE: "the required evidence is too old to rely on",
+  LEAGUE_POLICY_UNAVAILABLE: "this competition has no calibrated staking policy yet",
+};
+
+/** Title-case a backend code so an unmapped value still reads as words, not an enum. */
+function titleCaseCode(code: string): string {
+  return code
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/**
+ * Render one evidence code for a human. Returns the mapped sentence fragment when we
+ * have copy for it, otherwise a title-cased fallback.
+ */
+export function describeEvidenceCode(code: string): string {
+  return EVIDENCE_CODE_COPY[code] ?? titleCaseCode(code);
+}
+
 export function mapFullAnalysisPresentation(
   data: FullMatchAnalysisResponse,
   now = new Date(),
@@ -390,9 +431,9 @@ export function mapFullAnalysisPresentation(
   }
 
   const reason = data.evidence_quality.conflicts[0]
-    ? `Conflicting evidence: ${data.evidence_quality.conflicts[0].replaceAll("_", " ")}.`
+    ? `Sources disagree — ${describeEvidenceCode(data.evidence_quality.conflicts[0])}.`
     : data.evidence_quality.critical_gaps[0]
-      ? `Insufficient verified evidence: ${data.evidence_quality.critical_gaps[0].replaceAll("_", " ")}.`
+      ? `Not enough verified data — ${describeEvidenceCode(data.evidence_quality.critical_gaps[0])}.`
       : !predictionAvailable
         ? data.is_reduced_evidence_baseline
           ? "Official probabilities are unavailable because only a diagnostic baseline was produced."
