@@ -156,6 +156,15 @@ Phase 2 can honestly begin.
 **Tier:** `ARCH-DEBT` — needs an ADR (exporter target, sampling policy, cost on a
 free-tier dyno) before implementation, not just a code drop.
 **Owner:** unassigned.
+**Updated:** 2026-08-05 — the ADR this entry demands is now filed as
+`docs/adr/0006-otel-activation.md` (**Proposed**, awaiting go/no-go). It carries the
+full `core/telemetry.py` design ready to execute on approval, and answers the three
+questions above explicitly rather than deferring them again. Two further findings
+recorded there: `settings.enable_tracing` (`core/config.py:129`) already exists with
+**zero readers**, so the gate is built and unwired like the tracer handles themselves;
+and `opentelemetry-exporter-otlp-proto-grpc` is **not** in `requirements.txt`, so
+approval must also pick grpc (one new pin) or http. This entry stays open — a filed
+proposal is not an implementation.
 
 No `TracerProvider`, `FastAPIInstrumentor.instrument_app()`, or OTLP exporter exists
 anywhere in the tree (repo-wide grep, zero hits) despite
@@ -231,6 +240,18 @@ moment item 2's telemetry is live against real matches.
 actually change.
 **Owner:** unassigned.
 **Found:** 2026-08-05, while wiring `/performance` to the settlement join (item 2).
+**Updated:** 2026-08-05 — **the CLV half is now under an open proposal**,
+`docs/adr/0004-clv-capture.md`. The "revisit if and when a market snapshot is
+persisted per prediction" condition below is exactly what that ADR proposes, and it
+adopts this entry's own recommended shape (a market-snapshot *reference*, not raw
+odds columns) — `MarketSnapshot` (`db/models.py:205-224`) turns out to already exist
+with a near-identical schema and zero write callers. The trigger to revisit early is
+not volume but irreversibility: Eredivisie opens 2026-08-07 and a kickoff that passes
+uncaptured cannot be recovered, whatever the eventual sample size. **ROI is
+unchanged and stays unreachable by construction** — it needs a placed stake, which
+this platform never places. The guard below against re-adding either card as a
+"coming soon" placeholder remains in force: the ADR explicitly defers restoring the
+CLV card until real closing-price rows exist.
 
 `/performance` used to carry "30d CLV" and "30d ROI" stat cards. They were removed
 rather than left showing an em-dash, because an em-dash means "awaiting data" and

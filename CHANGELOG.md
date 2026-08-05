@@ -5,6 +5,117 @@ All notable changes to this skill suite are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## vΩ.36 — Skill-registry repair, container-parity gate, evidence copy, three ADRs (2026-08-05)
+
+Consolidation release. Closes the routing/registry gap the campaign docs kept
+mis-locating, lands the container-parity fitness function as an executing gate,
+removes a dead client-side staking module, makes the most-read line on the match
+page legible, and files three proposals rather than executing approval-gated work.
+
+### Fixed — the skill registry was stale where it actually executes
+
+The campaign documents located this defect in `NEXUS.md`/`CLAUDE.md`; both were
+already correct at 39 skills. The real gaps were one layer down and different in
+kind:
+
+- `registry.json` — the machine-readable manifest carried **34 entries and none of
+  the five `sabiscore-*` skills** (not just the three newest: `betting-engine-auditor`
+  and `provider-adapter-architect` were missing too). Added all five at
+  `installOrder` 35–39, cluster 6; `suiteVersion` 2.0.0 → 2.1.0. `make validate`,
+  `make status`, and forge's duplicate detection all read this file, so every one of
+  them was reporting against a manifest missing the entire SabiScore domain.
+- **A functional bug, not cosmetic:** `.claude/skills/nexus/SKILL.md` and
+  `.claude/skills/forge/SKILL.md` ran `jq … .ai/registry.json` — a path that does not
+  exist anywhere in the repo (the real file is repo-root `registry.json`, per
+  `Makefile`'s `REGISTRY :=`). Because every call redirects `2>/dev/null`, all ten
+  sites failed silently and permanently: `/nexus` has never once displayed a real
+  suite version, and forge's installOrder lookup, registry-append command, and
+  duplicate-trigger check were all no-ops against a missing file.
+- `.claude/skills/nexus/SKILL.md` — the file that actually executes on `/nexus` was
+  missing STEP 1 rows and STEP 2 routing for all three newest SabiScore intents
+  (Settlement & Calibration, Portfolio Staking, Dashboard Design), so the orchestrator
+  could not route to the skills built for exactly this campaign's work.
+- `NEXUS.md` — `sabiscore-dashboard-design-system` had an intent row, a stack-fingerprint
+  hint, and a registry entry, but **no STEP 2 graph placement**; added as Conditional to
+  Data Visualization and Frontend/UI Engineering.
+- `registry.schema.json` plus six mirrored docs corrected 34 → 39.
+
+### Added — container-parity fitness function (D23, fifth instance)
+
+`tests/e2e/container-parity.spec.ts` asserts, per route, exactly one `<main>` landmark
+and no horizontal viewport overflow, across `/`, `/docs`, `/performance`, `/monitoring`,
+`/match`, `/intelligence`. The duplicate-wrapper defect this catches had been fixed
+manually four times on the match route alone; a fifth manual fix was not an option.
+Verified green 12/12 (6 routes × chromium + mobile-chrome) against a production build,
+and it joins the release gate automatically since gate 13 runs all of `tests/e2e/`.
+The underlying wrappers were removed from `admin/model-health`, `docs`, `error`,
+`not-found`, `page`, `team/[slug]`, and `betting-intelligence-dashboard`.
+
+### Removed — a dead client-side staking module (INV-01 / INV-05 / INV-13)
+
+`components/OneClickBetSlip.tsx` and `lib/currency.ts` deleted; both had zero
+importers (`currency.ts` was imported only by the dead component). This is the
+frontend twin of the ⅛-Kelly `backend/src/utils/currency.py` removed in vΩ.4 — the
+backend copy was deleted then, the frontend one survived. It was a live landmine:
+
+- It computed **stake sizes, edge, EV, and ROI in the browser**
+  (`formatKellyStake`, `calculateEdgePercent`, `calculateRoiPercent`), which
+  CLAUDE.md prohibits outright — the backend is the sole authority for all four.
+- Its scenario simulator applied **invented coefficients** presented as analysis:
+  `edge_percent * 0.7` for a red card, `* 0.8` for an injury, `* 0.92` for weather
+  ("Rain reduces xG"). No derivation exists for any of them.
+- It carried a hardcoded, stale FX rate (`NGN_PER_USD = 1580.0 // Nov 2025`) on a
+  financial surface.
+
+Confirmed dead by per-symbol sweep across all 15 exports before deleting; the only
+`formatPercent` hits elsewhere are a local function inside `ProbabilityDonutChart`.
+
+### Changed — evidence codes now read as sentences, not enum-speak
+
+The "Why" tile on `/match/[id]` is the single most-read line on the page and, during
+the off-season and for any unsynced matchup, it rendered
+`FIXTURE_IDENTITY_UNVERIFIED` through a bare `replaceAll("_", " ")` — shouting
+"FIXTURE IDENTITY UNVERIFIED" at the reader. New exported `describeEvidenceCode()`
+(`lib/full-analysis-contract.ts`) maps the six codes the backend actually appends to
+`critical_gaps` to plain-language readings, falling back to title case for anything
+unmapped so a future code stays legible and never renders empty.
+
+Applied at **both** render sites, not one: the `reason` builder and the three gap
+lists in `betting-intelligence-dashboard.tsx` (critical, advisory, conflicts), which
+had an independent copy of the same `.replace(/_/g, " ")`. `DataGapBanner` was
+deliberately left alone — it renders `data_gaps`, which are raw *feature* names, a
+different vocabulary where title case is already correct. Copy states what is missing
+and why it blocks a stake; it is not softened. Pinned by three tests, including one
+asserting no `[A-Z]{2,}` fragment survives.
+
+### Added — three ADR proposals (not implementations)
+
+- `docs/adr/0004-clv-capture.md` (R4) — capture a de-vigged closing line per
+  prediction. Deliberately **not** the raw-columns-on-`MatchPredictionLog` shape:
+  `MarketSnapshot` already exists with a near-identical schema and zero write callers,
+  and `docs/DEBT.md` item 6 already named a market-snapshot *reference* as the fix.
+  Time-sensitive — Eredivisie opens 2026-08-07 and a kickoff that passes uncaptured
+  cannot be recovered.
+- `docs/adr/0005-portfolio-exposure-policy.md` (R3) — aggregate exposure cap,
+  same-matchday correlation haircut, drawdown limit. Advisory only; this platform
+  places no stake by construction.
+- `docs/adr/0006-otel-activation.md` — **scope correction.** This was picked up as an
+  autonomous R2 code drop, but `docs/DEBT.md` item 3 already tiers it `ARCH-DEBT`
+  requiring an ADR first (exporter target, sampling policy, free-tier dyno cost).
+  Shipping the code anyway would have quietly overridden a decision the project had
+  already made in writing. The full `core/telemetry.py` design sits inside the ADR,
+  ready to execute on approval. Worth noting the SDK is already pinned and two files
+  (`models/prediction.py:51-55`, `monitoring/drift.py:21`) hold dormant
+  instrumentation that has never emitted, plus `settings.enable_tracing` exists with
+  zero readers — activation is a wiring job, not a build.
+
+### Verification
+
+Lint 0 · typecheck 0 · Vitest 109/109 (was 106) · `NODE_ENV=production` build ✓ ·
+Playwright container-parity 12/12 · `registry.json` validates at 39 skills ·
+zero `34-skill` hits outside `CHANGELOG.md` history and the separate
+`.worktrees/` checkout. Backend live probe confirmed `sha: 3eec661`, matching HEAD.
+
 ## vΩ.35 — Settlement join gets a real caller (WP-10.4) (2026-08-05)
 
 Wiring release, second of the day. `get_settled_predictions()`
