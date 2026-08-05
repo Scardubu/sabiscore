@@ -86,11 +86,33 @@ that source was evaluated and dropped at `logo-resolver` v1.2.0 for unreliable
 URL patterns. The version comment was the only surviving record of the finding,
 and its neighbour contradicted it.
 
+### Added — backend deploy-parity stamp, and a deploy that did not happen
+
+Trying to verify the above was live exposed that the backend had **no build
+identifier at all**: `/health` returned a hardcoded `"version": "1.0.0"`, and
+`uptime_seconds` cannot distinguish a redeploy from a free-tier cold-start wake
+(vΩ.32). The frontend has had a `sha` stamp since vΩ.19; the backend never did.
+`/health` now returns `"sha": (RENDER_GIT_COMMIT or "local")[:7]` — Render
+injects that variable automatically, and the fallback is the literal `"local"`,
+never a fabricated SHA.
+
+⚠️ **The backend did not auto-deploy after this push.** `uptime_seconds`,
+polled every 60 s for 8 minutes, climbed monotonically 1234→1677 s with no
+restart — the pre-push process was still serving. `render.yaml` declares
+`autoDeploy: true` and `branch: master`, so the file is correct; the live
+service uses whatever was last approved in the dashboard, consistent with the
+Blueprint-sync approval outstanding since vΩ.12. Operator action, not a code
+defect. From the next successful deploy onward, `/health` `sha` reduces this to
+a one-request check.
+
 ### Verification
 
 Backend 1062 passed / 13 skipped (baseline 1059; +3 net new tests) · ruff 0 ·
 web lint 0 · typecheck 0 · Vitest 98/98 · prohibited-copy scan 0 ·
-`NODE_ENV=production` build ✓.
+`NODE_ENV=production` build ✓ · gitleaks clean on the staged diff.
+
+Code is verified; **production deployment of the backend is NOT verified** —
+see the deploy-parity note above.
 
 ---
 

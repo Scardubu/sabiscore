@@ -131,6 +131,13 @@ def health_check() -> Dict[str, Any]:
         "status": "healthy",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "version": "1.0.0",
+        # Deploy-parity stamp. The frontend has had one since vΩ.19
+        # (`/api/health` `sha` from VERCEL_GIT_COMMIT_SHA); the backend had none,
+        # so "is my push actually live?" was unanswerable from the public API —
+        # `uptime_seconds` cannot distinguish a redeploy from a free-tier
+        # cold-start wake. Render injects RENDER_GIT_COMMIT automatically; the
+        # fallback is "local" (absent off-Render), never a fabricated SHA.
+        "sha": (os.getenv("RENDER_GIT_COMMIT") or "local")[:7],
         "uptime_seconds": int(time.time() - _startup_time),
         "components": {}
     }
