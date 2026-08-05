@@ -20,6 +20,7 @@ from ...db.session import check_db_connection
 from ...db.session import _alembic_head_revision
 from ...db.session import get_async_session
 from ...repositories.fixtures import get_next_upcoming_fixture
+from ...services.clv_capture_service import last_clv_capture_result
 from ...services.settlement_service import last_settlement_result
 from .full_analysis import get_full_analysis
 
@@ -257,6 +258,16 @@ def health_check() -> Dict[str, Any]:
         }
     except Exception as _settlement_exc:
         logger.debug("Settlement snapshot unavailable: %s", _settlement_exc)
+
+    # CLV capture snapshot — same informational-only convention as settlement
+    # above (docs/adr/0004-clv-capture.md). Never sets degraded=True.
+    try:
+        health_status["components"]["clv_capture"] = {
+            "status": "informational",
+            **last_clv_capture_result(),
+        }
+    except Exception as _clv_exc:
+        logger.debug("CLV capture snapshot unavailable: %s", _clv_exc)
 
     # Set overall status
     if degraded:

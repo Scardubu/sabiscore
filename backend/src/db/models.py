@@ -210,13 +210,33 @@ class MarketSnapshot(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    canonical_fixture_id: Mapped[str] = mapped_column(String, ForeignKey("canonical_fixtures.id"), nullable=False)
+    # ADR-0004 addendum (0005 migration): relaxed from nullable=False. Nothing
+    # populates canonical_fixtures for an ordinary upcoming fixture today —
+    # fixture_sync_service writes only the legacy matches/teams/leagues tables
+    # (see match_id below), so a non-nullable FK here would make the CLV
+    # capture job unable to write against any fixture currently in the DB.
+    canonical_fixture_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("canonical_fixtures.id"), nullable=True
+    )
+    # ADR-0004 addendum (0005 migration): the legacy matches.id (fd-{id}
+    # scheme) — the identifier fixture_sync_service and settlement_service
+    # actually key on. No FK, matching MatchPredictionLog.match_id's existing
+    # convention (plain indexed string, not a foreign key).
+    match_id: Mapped[str | None] = mapped_column(String, nullable=True)
     provider: Mapped[str] = mapped_column(String, nullable=False)
     bookmaker: Mapped[str] = mapped_column(String, nullable=False)
     market_type: Mapped[str] = mapped_column(String, nullable=False, default="1X2")
     home_odds: Mapped[float] = mapped_column(Float, nullable=False)
     draw_odds: Mapped[float] = mapped_column(Float, nullable=False)
     away_odds: Mapped[float] = mapped_column(Float, nullable=False)
+    # ADR-0004: (1/odds_i) / overround per outcome, computed once at write
+    # time so CLV consumers never re-derive the de-vig arithmetic themselves.
+    home_implied_prob_devigged: Mapped[float | None] = mapped_column(Float, nullable=True)
+    draw_implied_prob_devigged: Mapped[float | None] = mapped_column(Float, nullable=True)
+    away_implied_prob_devigged: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # ADR-0004: disambiguates a true kickoff-captured snapshot from any future
+    # ad-hoc MARKET_REFRESH snapshot the evidence orchestrator might write here.
+    is_closing_line: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     provider_timestamp: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     captured_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     coherent: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
@@ -249,6 +269,13 @@ class MatchPredictionLog(Base):
     decision_id: Mapped[str | None] = mapped_column(String, nullable=True)
     payload: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    # ADR-0004 (0005 migration): FK to a MarketSnapshot(is_closing_line=True)
+    # row for this fixture, populated by a future backfill once identity
+    # resolution (canonical_fixture_id above) is populated on write — always
+    # NULL today. See ADR-0004 addendum; do not assume this column is live.
+    closing_market_snapshot_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("market_snapshots.id"), nullable=True
+    )
 
 
 class ProviderHealthLog(Base):

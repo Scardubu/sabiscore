@@ -60,6 +60,15 @@ _MIN_OVERROUND = 1.005
 _MAX_OVERROUND = 1.25
 
 
+def devig_probabilities(home_odds: float, draw_odds: float, away_odds: float) -> tuple[float, float, float]:
+    """(1/odds_i) / overround per outcome — the de-vig arithmetic implied by
+    the overround check above but never previously factored into a callable
+    (docs/adr/0004-clv-capture.md). Assumes coherent, already-validated odds;
+    callers should only pass records where coherent=True."""
+    overround = (1 / home_odds) + (1 / draw_odds) + (1 / away_odds)
+    return (1 / home_odds) / overround, (1 / draw_odds) / overround, (1 / away_odds) / overround
+
+
 # ---------------------------------------------------------------------------
 # Canonical market record
 # ---------------------------------------------------------------------------

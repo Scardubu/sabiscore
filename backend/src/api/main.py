@@ -114,6 +114,25 @@ async def _background_settlement_sync() -> None:
             logger.exception("Background settlement sync failed")
 
 
+# docs/adr/0004-clv-capture.md: a kickoff that passes uncaptured is
+# unrecoverable, so this polls far tighter than settlement's hourly cadence —
+# the capture window itself is only ~10 minutes wide (clv_capture_service).
+_CLV_CAPTURE_INTERVAL_SECONDS = 300
+
+
+async def _background_clv_capture() -> None:
+    """Genuinely periodic, same shape as settlement sync — must keep polling
+    across a matchday, not just seed once at boot."""
+    from ..services.clv_capture_service import run_clv_capture_pass
+
+    while True:
+        await asyncio.sleep(_CLV_CAPTURE_INTERVAL_SECONDS)
+        try:
+            await run_clv_capture_pass()
+        except Exception:
+            logger.exception("Background CLV capture failed")
+
+
 # Lifespan context manager for modern FastAPI startup/shutdown
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -158,6 +177,10 @@ async def lifespan(app: FastAPI):
     # like the one-shot task above) so it can be cancelled cleanly on shutdown.
     app.state.settlement_task = asyncio.create_task(_background_settlement_sync())
 
+    # Periodic CLV capture: closing 1X2 snapshot per fixture near kickoff.
+    # Same handle-stored/cancel-on-shutdown shape as settlement, above.
+    app.state.clv_capture_task = asyncio.create_task(_background_clv_capture())
+
     # Strict model initialization (blocking) - startup must fail if models are unavailable.
     try:
         _startup_load_models_strict(app)
@@ -189,6 +212,10 @@ async def lifespan(app: FastAPI):
     settlement_task = getattr(app.state, "settlement_task", None)
     if settlement_task is not None:
         settlement_task.cancel()
+
+    clv_capture_task = getattr(app.state, "clv_capture_task", None)
+    if clv_capture_task is not None:
+        clv_capture_task.cancel()
 
     try:
         await close_db()
