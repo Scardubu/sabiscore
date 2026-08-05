@@ -20,6 +20,7 @@ from ...db.session import check_db_connection
 from ...db.session import _alembic_head_revision
 from ...db.session import get_async_session
 from ...repositories.fixtures import get_next_upcoming_fixture
+from ...services.settlement_service import last_settlement_result
 from .full_analysis import get_full_analysis
 
 try:
@@ -245,6 +246,17 @@ def health_check() -> Dict[str, Any]:
             }
         except Exception as _v4_exc:
             logger.debug("V4 source registry summary failed: %s", _v4_exc)
+
+    # Settlement pipeline snapshot — informational only, never sets degraded=True.
+    # A best-effort background job failing must not affect the Render deploy gate
+    # (/health/ready, untouched by this block) or this endpoint's own status.
+    try:
+        health_status["components"]["settlement"] = {
+            "status": "informational",
+            **last_settlement_result(),
+        }
+    except Exception as _settlement_exc:
+        logger.debug("Settlement snapshot unavailable: %s", _settlement_exc)
 
     # Set overall status
     if degraded:

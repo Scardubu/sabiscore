@@ -107,6 +107,51 @@ async def sync_upcoming_fixtures(session: AsyncSession) -> int:
     return inserted
 
 
+async def sync_settled_results(session: AsyncSession, *, days_back: int = 3) -> dict[str, int]:
+    """Fetch recently finished fixtures and settle matching Match rows.
+
+    Looks up each result by the same deterministic fd-{id} scheme
+    sync_upcoming_fixtures already wrote — no team/fixture identity
+    re-resolution needed, only a keyed lookup. Never creates a Match row (a
+    fixture never synced as upcoming is a fixture-sync coverage gap, not this
+    function's job) and never re-writes a row already settled (idempotent).
+    """
+    from ..data.loaders.football_data_api import FootballDataAPIClient, FootballDataAPIError
+    from ..core.database import Match
+    from ..repositories.fixtures import SETTLED_MATCH_STATUSES
+
+    client = FootballDataAPIClient()
+    try:
+        results_raw = await client.get_recent_results(days_back=days_back, limit=100)
+    except FootballDataAPIError as exc:
+        logger.warning("settlement_sync: football-data.org unavailable: %s", exc)
+        return {"updated": 0, "unmatched": 0, "already_settled": 0}
+
+    updated = unmatched = already_settled = 0
+    for raw in results_raw:
+        match_id = raw.get("id")
+        home_score = raw.get("home_score")
+        away_score = raw.get("away_score")
+        if not match_id or home_score is None or away_score is None:
+            continue  # belt-and-suspenders — _normalize_result already filters these
+
+        match = await session.get(Match, match_id)
+        if match is None:
+            unmatched += 1
+            continue
+        if (match.status or "").lower() in SETTLED_MATCH_STATUSES:
+            already_settled += 1
+            continue
+
+        match.status = "finished"
+        match.home_score = home_score
+        match.away_score = away_score
+        updated += 1
+
+    await session.commit()
+    return {"updated": updated, "unmatched": unmatched, "already_settled": already_settled}
+
+
 async def run_fixture_sync() -> None:
     """Entry point for the startup background task — swallows all errors."""
     from ..db.session import AsyncSessionLocal

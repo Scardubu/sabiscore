@@ -4,7 +4,20 @@ import { resolveBackendBaseUrl, proxyHeaders, isHtmlBody } from '@/lib/proxy-uti
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const EMPTY = { accuracy_30d: 0, accuracy_season: 0, clv_30d: 0, bets_tracked: 0, roi_30d: 0 };
+/**
+ * "No settled predictions yet" is a 503 the backend answers correctly and on
+ * purpose — it is not an outage. Forward its body verbatim so the page can say
+ * which of the two happened. Synthesizing a shape here previously did two
+ * harmful things: it reported a healthy backend as unavailable, and it filled
+ * accuracy/CLV/ROI with literal zeros, which read as measurements rather than
+ * as absence (INV-01).
+ */
+function infrastructureError(message: string, status: number) {
+  return NextResponse.json(
+    { status: 'METRICS_UNAVAILABLE', reason: 'backend_unreachable', error: message },
+    { status },
+  );
+}
 
 export async function GET() {
   try {
@@ -12,19 +25,19 @@ export async function GET() {
     const response = await fetch(url, { headers: proxyHeaders() });
     const body = await response.text().catch(() => '');
 
-    if (!response.ok || isHtmlBody(body)) {
-      return NextResponse.json({ ...EMPTY, error: 'Backend service unavailable' }, { status: 503 });
+    if (isHtmlBody(body)) {
+      return infrastructureError('Backend service unavailable', 503);
     }
 
     try {
-      return NextResponse.json(JSON.parse(body));
+      return NextResponse.json(JSON.parse(body), { status: response.status });
     } catch {
-      return NextResponse.json({ ...EMPTY, error: 'Unexpected response from backend' }, { status: 502 });
+      return infrastructureError('Unexpected response from backend', 502);
     }
   } catch (error: unknown) {
-    return NextResponse.json(
-      { ...EMPTY, error: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
+    return infrastructureError(
+      error instanceof Error ? error.message : 'Unknown error',
+      503,
     );
   }
 }

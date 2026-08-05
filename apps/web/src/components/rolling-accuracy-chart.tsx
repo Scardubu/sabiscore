@@ -11,26 +11,31 @@ import {
   Tooltip,
   ReferenceLine,
   ResponsiveContainer,
-  Legend,
 } from "recharts";
-import { AlertCircle, TrendingUp } from "lucide-react";
+import { AlertCircle, Clock, TrendingUp } from "lucide-react";
+import { RANDOM_BASELINE_ACCURACY } from "@/lib/model-gates";
 import { cn } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+/** One walk-forward fold, projected by the backend's `_accuracy_series()`.
+ *  Points are folds, not calendar days — each carries the population it scored. */
 interface AccuracyPoint {
-  date: string;
+  date: string | null;
   accuracy: number;
-  baseline?: number;
-  n_matches?: number;
+  rps: number;
+  n_matches: number;
 }
 
 interface ModelPerformanceResponse {
+  status?: "OK" | "METRICS_UNAVAILABLE";
+  reason?: string;
   league: string | null;
   window: number;
-  series: AccuracyPoint[];
+  series?: AccuracyPoint[];
   current_accuracy?: number;
   baseline_accuracy?: number;
+  settled_predictions?: number;
   error?: string;
 }
 
@@ -43,8 +48,9 @@ async function fetchModelPerformance(
   const params = new URLSearchParams({ window: String(window) });
   if (league) params.set("league", league);
   const res = await fetch(`/api/model-performance?${params}`, { cache: "no-store" });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json() as Promise<ModelPerformanceResponse>;
+  // 503 here is normally "nothing has settled in this window yet" — a correct
+  // answer with a reason in the body, not a failure. Let the component say which.
+  return (await res.json()) as ModelPerformanceResponse;
 }
 
 // ─── Custom tooltip ───────────────────────────────────────────────────────────
@@ -55,24 +61,32 @@ function AccuracyTooltip({
   label,
 }: {
   active?: boolean;
-  payload?: Array<{ name: string; value: number; color: string }>;
+  payload?: Array<{ payload: AccuracyPoint & { label: string } }>;
   label?: string;
 }) {
-  if (!active || !payload?.length) return null;
+  const point = payload?.[0]?.payload;
+  if (!active || !point) return null;
   return (
     <div className="rounded-xl border border-white/10 bg-slate-900/95 px-3 py-2 shadow-xl backdrop-blur-sm">
       <p className="mb-1.5 text-xs font-semibold text-slate-300">{label}</p>
-      {payload.map((p) => (
-        <div key={p.name} className="flex items-center gap-2 text-xs">
-          <span
-            className="inline-block h-2 w-2 rounded-full"
-            style={{ backgroundColor: p.color }}
-            aria-hidden="true"
-          />
-          <span className="text-slate-400">{p.name}:</span>
-          <span className="font-bold text-white">{(p.value * 100).toFixed(1)}%</span>
+      <dl className="space-y-0.5 text-xs">
+        <div className="flex items-center gap-2">
+          <dt className="text-slate-400">Accuracy</dt>
+          <dd className="font-bold tabular-nums text-white">
+            {(point.accuracy * 100).toFixed(1)}%
+          </dd>
         </div>
-      ))}
+        <div className="flex items-center gap-2">
+          <dt className="text-slate-400">RPS</dt>
+          <dd className="font-bold tabular-nums text-white">{point.rps.toFixed(3)}</dd>
+        </div>
+        <div className="flex items-center gap-2">
+          <dt className="text-slate-400">Scored on</dt>
+          <dd className="font-bold tabular-nums text-white">
+            {point.n_matches} {point.n_matches === 1 ? "match" : "matches"}
+          </dd>
+        </div>
+      </dl>
     </div>
   );
 }
@@ -83,6 +97,30 @@ function ChartSkeleton() {
   return (
     <div className="flex h-48 items-center justify-center animate-pulse" aria-hidden="true">
       <div className="h-40 w-full rounded-lg bg-slate-800/50" />
+    </div>
+  );
+}
+
+/** Empty and error states both name their cause — never a bare "no data". */
+function ChartNotice({
+  tone,
+  message,
+}: {
+  tone: "info" | "error";
+  message: string;
+}) {
+  const Icon = tone === "error" ? AlertCircle : Clock;
+  return (
+    <div
+      className="flex flex-col items-center gap-2 py-12 text-center"
+      data-testid={tone === "error" ? "chart-error" : "chart-empty"}
+      role={tone === "error" ? "alert" : "status"}
+    >
+      <Icon
+        className={cn("h-7 w-7", tone === "error" ? "text-rose-400" : "text-slate-600")}
+        aria-hidden="true"
+      />
+      <p className="max-w-sm text-sm text-slate-500">{message}</p>
     </div>
   );
 }
@@ -107,15 +145,13 @@ export const RollingAccuracyChart = memo(function RollingAccuracyChart({
 
   const series = data?.series ?? [];
   const currentAccuracy = data?.current_accuracy;
-  const baselineAccuracy = data?.baseline_accuracy ?? 0.333;
+  const baselineAccuracy = data?.baseline_accuracy ?? RANDOM_BASELINE_ACCURACY;
 
-  // Format date labels to short form
   const chartData = series.map((pt) => ({
     ...pt,
-    label:
-      pt.date
-        ? new Date(pt.date).toLocaleDateString([], { month: "short", day: "numeric" })
-        : pt.date,
+    label: pt.date
+      ? new Date(pt.date).toLocaleDateString([], { month: "short", day: "numeric" })
+      : "—",
   }));
 
   return (
@@ -128,17 +164,17 @@ export const RollingAccuracyChart = memo(function RollingAccuracyChart({
         <div className="flex items-center gap-2">
           <TrendingUp className="h-4 w-4 text-sky-400" aria-hidden="true" />
           <h2 className="text-sm font-semibold text-white">
-            Rolling Accuracy
-            {league ? ` · ${league}` : " · All Leagues"}
+            Walk-forward accuracy
+            {league ? ` · ${league}` : " · All leagues"}
           </h2>
         </div>
         {currentAccuracy !== undefined && (
           <span
             className={cn(
-              "rounded-full border px-2.5 py-0.5 text-xs font-bold",
+              "rounded-full border px-2.5 py-0.5 text-xs font-bold tabular-nums",
               currentAccuracy >= baselineAccuracy
                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                : "border-rose-500/30 bg-rose-500/10 text-rose-300",
+                : "border-amber-500/30 bg-amber-500/10 text-amber-300",
             )}
           >
             {(currentAccuracy * 100).toFixed(1)}%
@@ -149,18 +185,20 @@ export const RollingAccuracyChart = memo(function RollingAccuracyChart({
       {/* Chart */}
       {isLoading ? (
         <ChartSkeleton />
-      ) : isError ? (
-        <div className="flex items-center justify-center gap-2 py-12 text-rose-400" role="alert">
-          <AlertCircle className="h-4 w-4" aria-hidden="true" />
-          <span className="text-sm">Failed to load performance data</span>
-        </div>
+      ) : isError || data?.reason === "backend_unreachable" ? (
+        <ChartNotice
+          tone="error"
+          message="Could not reach the performance service. The chart will fill in once it responds."
+        />
       ) : series.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 py-12 text-center" data-testid="chart-empty">
-          <TrendingUp className="h-7 w-7 text-slate-600" aria-hidden="true" />
-          <p className="text-sm text-slate-500">No performance data yet for this window</p>
-        </div>
+        <ChartNotice
+          tone="info"
+          message={`No predictions have settled against a final result in the last ${rollingWindow} days${
+            league ? ` for ${league}` : ""
+          }, so there is nothing to score yet.`}
+        />
       ) : (
-        <div aria-label={`Rolling ${rollingWindow}-day accuracy chart`}>
+        <div aria-label={`Walk-forward accuracy across ${series.length} chronological folds`}>
           <ResponsiveContainer width="100%" height={180}>
             <LineChart data={chartData} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
@@ -171,22 +209,24 @@ export const RollingAccuracyChart = memo(function RollingAccuracyChart({
                 axisLine={false}
               />
               <YAxis
-                domain={[0.2, 0.8]}
+                domain={[0, 1]}
                 tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`}
                 tick={{ fill: "#64748b", fontSize: 10 }}
                 tickLine={false}
                 axisLine={false}
               />
               <Tooltip content={<AccuracyTooltip />} />
-              <Legend
-                wrapperStyle={{ fontSize: 11, color: "#94a3b8", paddingTop: 8 }}
-              />
               <ReferenceLine
                 y={baselineAccuracy}
                 stroke="#f59e0b"
                 strokeDasharray="4 4"
                 strokeWidth={1.5}
-                label={{ value: "Baseline", position: "insideTopRight", fill: "#f59e0b", fontSize: 9 }}
+                label={{
+                  value: "Random (33%)",
+                  position: "insideTopRight",
+                  fill: "#f59e0b",
+                  fontSize: 9,
+                }}
               />
               <Line
                 type="monotone"
@@ -194,27 +234,18 @@ export const RollingAccuracyChart = memo(function RollingAccuracyChart({
                 name="Model accuracy"
                 stroke="#38bdf8"
                 strokeWidth={2}
-                dot={false}
+                dot={{ r: 2.5, fill: "#38bdf8" }}
                 activeDot={{ r: 4, fill: "#38bdf8" }}
               />
-              {series[0]?.baseline !== undefined && (
-                <Line
-                  type="monotone"
-                  dataKey="baseline"
-                  name="Rolling baseline"
-                  stroke="#f59e0b"
-                  strokeWidth={1.5}
-                  strokeDasharray="4 4"
-                  dot={false}
-                />
-              )}
             </LineChart>
           </ResponsiveContainer>
         </div>
       )}
 
       <p className="mt-2 text-right text-[10px] text-slate-600">
-        {rollingWindow}-day rolling window · Correct outcome accuracy
+        {series.length > 0
+          ? `${series.length} chronological folds · last ${rollingWindow} days`
+          : `Last ${rollingWindow} days`}
       </p>
     </section>
   );

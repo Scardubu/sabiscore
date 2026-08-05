@@ -355,6 +355,7 @@ class ModelRegistry:
                 continue
 
             rps_scores = []
+            correct = 0
             for rec in test_records:
                 outcome = rec.get("outcome")
                 probs = rec.get("probs", [])
@@ -376,6 +377,14 @@ class ModelRegistry:
                     continue
 
                 rps_scores.append(ranked_probability_score(outcome_index, probabilities))
+                # Top-class hit rate, scored over the same validated records as RPS so the
+                # two metrics can never describe different populations. RPS stays the
+                # primary scoring rule (it credits distance, not just the argmax); accuracy
+                # is carried because it is the number a reader understands without a
+                # glossary. Ties resolve to the first max — deterministic, and only
+                # reachable on an exactly-uniform vector, which a real model does not emit.
+                if probabilities.index(max(probabilities)) == outcome_index:
+                    correct += 1
 
             if not rps_scores:
                 continue
@@ -387,6 +396,7 @@ class ModelRegistry:
                 "rps_mean": sum(rps_scores) / len(rps_scores),
                 "rps_min": min(rps_scores),
                 "rps_max": max(rps_scores),
+                "accuracy": correct / len(rps_scores),
                 "date_range": {
                     "from": test_records[0].get("date"),
                     "to": test_records[-1].get("date"),
@@ -397,12 +407,16 @@ class ModelRegistry:
             return {"skipped": True, "reason": "no_valid_folds"}
 
         all_rps = [f["rps_mean"] for f in fold_results]
+        all_accuracy = [f["accuracy"] for f in fold_results]
         return {
             "skipped": False,
             "n_splits": len(fold_results),
             "total_records": n,
             "rps_overall": sum(all_rps) / len(all_rps),
             "rps_std": float(pd.Series(all_rps).std()) if len(all_rps) > 1 else 0.0,
+            # Mean of fold means, matching rps_overall's convention rather than
+            # introducing a second aggregation rule in the same payload.
+            "accuracy_overall": sum(all_accuracy) / len(all_accuracy),
             "folds": fold_results,
             "validated_at": datetime.now(timezone.utc).isoformat(),
         }

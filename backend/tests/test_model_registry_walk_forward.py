@@ -73,12 +73,18 @@ def test_walk_forward_validate_skips_invalid_records_without_changing_shape(tmp_
         "total_records",
         "rps_overall",
         "rps_std",
+        "accuracy_overall",
         "folds",
         "validated_at",
     }
     assert result["skipped"] is False
     assert result["total_records"] == 20
     assert all(fold["test_size"] <= 3 for fold in result["folds"])
+    # accuracy is scored over exactly the records RPS accepted (correct / len(rps_scores)),
+    # so the two metrics always describe one population even as invalid records are
+    # dropped around them.
+    assert 0.0 <= result["accuracy_overall"] <= 1.0
+    assert all(0.0 <= fold["accuracy"] <= 1.0 for fold in result["folds"])
 
 
 def test_walk_forward_validate_reports_no_valid_folds_for_invalid_records(tmp_path) -> None:

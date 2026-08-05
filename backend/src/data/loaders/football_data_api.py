@@ -84,6 +84,62 @@ class FootballDataAPIClient:
         normalized.sort(key=lambda x: x.get("match_date") or "")
         return normalized[:limit]
 
+    async def get_recent_results(
+        self,
+        days_back: int = 3,
+        limit: int = 20,
+        league: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Return normalized recently-finished matches with final scores.
+
+        Mirrors get_upcoming_matches's request shape but queries the *past*
+        for status=FINISHED, and extracts scores instead of discarding them.
+        """
+        if getattr(settings, "mock_mode", False):
+            return self._mock_results(days_back=days_back, limit=limit)
+
+        if not self.api_key:
+            raise FootballDataAPIError("FOOTBALL_DATA_API_KEY is not configured")
+
+        now = datetime.now(timezone.utc)
+        date_from = (now - timedelta(days=max(days_back, 1))).date().isoformat()
+        date_to = now.date().isoformat()
+
+        competitions = self._resolve_competitions(league)
+        normalized: List[Dict[str, Any]] = []
+
+        headers = {
+            "X-Auth-Token": self.api_key,
+            "Accept": "application/json",
+        }
+
+        async with httpx.AsyncClient(timeout=self.timeout, headers=headers) as client:
+            for competition in competitions:
+                params = {
+                    "dateFrom": date_from,
+                    "dateTo": date_to,
+                    "status": "FINISHED",
+                    "limit": limit,
+                }
+
+                response = await client.get(f"{self.BASE_URL}/competitions/{competition}/matches", params=params)
+                if response.status_code == 429:
+                    raise FootballDataAPIError("Football-Data API rate limit exceeded")
+                if response.status_code >= 400:
+                    raise FootballDataAPIError(
+                        f"Football-Data API request failed ({response.status_code}) for {competition}"
+                    )
+
+                payload = response.json()
+                for match in payload.get("matches", []):
+                    item = self._normalize_result(match)
+                    if not item:
+                        continue
+                    normalized.append(item)
+
+        normalized.sort(key=lambda x: x.get("match_date") or "")
+        return normalized[:limit]
+
     def _resolve_competitions(self, league: Optional[str]) -> List[str]:
         if not league:
             return list(self.TOP_COMPETITIONS.keys())
@@ -133,6 +189,47 @@ class FootballDataAPIClient:
             "has_odds": False,
             "source": "football-data.org",
         }
+
+    def _normalize_result(self, raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Extract {id, match_date, home_score, away_score, status} from a
+        finished match's raw v4 payload. None on any missing field — covers
+        postponed/awarded oddities that still slip through the status filter.
+        """
+        match_id = raw.get("id")
+        utc_date = raw.get("utcDate")
+        full_time = ((raw.get("score") or {}).get("fullTime")) or {}
+        home_score = full_time.get("home")
+        away_score = full_time.get("away")
+
+        if match_id is None or not utc_date or home_score is None or away_score is None:
+            return None
+
+        return {
+            "id": f"fd-{match_id}",
+            "match_date": utc_date,
+            "home_score": home_score,
+            "away_score": away_score,
+            "status": "finished",
+        }
+
+    def _mock_results(self, days_back: int, limit: int) -> List[Dict[str, Any]]:
+        now = datetime.now(timezone.utc)
+        samples = [(2, 1), (0, 0), (1, 3)]
+        result: List[Dict[str, Any]] = []
+        for idx, (home_score, away_score) in enumerate(samples):
+            kickoff = now - timedelta(days=idx + 1)
+            if kickoff < now - timedelta(days=max(days_back, 1)):
+                continue
+            result.append(
+                {
+                    "id": f"mock-fd-{idx+1}",
+                    "match_date": kickoff.isoformat(),
+                    "home_score": home_score,
+                    "away_score": away_score,
+                    "status": "finished",
+                }
+            )
+        return result[:limit]
 
     def _mock_matches(self, days_ahead: int, limit: int, league: Optional[str]) -> List[Dict[str, Any]]:
         now = datetime.now(timezone.utc)

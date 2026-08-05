@@ -92,6 +92,28 @@ async def _background_fixture_sync() -> None:
         logger.exception("Background fixture sync failed")
 
 
+# 7 requests/tick (one per competition, same shape as the fixture-sync loop) at an
+# hourly cadence averages ~0.12 req/min against football-data.org's 10 req/min free
+# tier — large headroom. Hourly means a finished match is visible in settled_join
+# telemetry within ~1h of full time; this is a model-evaluation signal, not a live
+# score feed, so there is no lower-latency obligation to beat (docs/adr/0003).
+_SETTLEMENT_SYNC_INTERVAL_SECONDS = 3600
+
+
+async def _background_settlement_sync() -> None:
+    """Genuinely periodic (unlike the one-shot fixture-sync task above): matches
+    finish all through a matchday, not just at boot. Sleeps first so the initial
+    tick never collides with fixture-sync's own boot-time request burst."""
+    from ..services.settlement_service import run_settlement_pass
+
+    while True:
+        await asyncio.sleep(_SETTLEMENT_SYNC_INTERVAL_SECONDS)
+        try:
+            await run_settlement_pass()
+        except Exception:
+            logger.exception("Background settlement sync failed")
+
+
 # Lifespan context manager for modern FastAPI startup/shutdown
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -131,6 +153,11 @@ async def lifespan(app: FastAPI):
     # has data immediately after first deploy. Swallows all errors internally.
     asyncio.create_task(_background_fixture_sync())
 
+    # Periodic settlement pass: settle finished fixtures, then run walk-forward
+    # validation against whatever's settled. Handle stored (not fire-and-forget
+    # like the one-shot task above) so it can be cancelled cleanly on shutdown.
+    app.state.settlement_task = asyncio.create_task(_background_settlement_sync())
+
     # Strict model initialization (blocking) - startup must fail if models are unavailable.
     try:
         _startup_load_models_strict(app)
@@ -155,7 +182,14 @@ async def lifespan(app: FastAPI):
     
     # === SHUTDOWN ===
     logger.info("Shutting down SabiScore API...")
-    
+
+    # Unlike the one-shot fixture-sync task, the settlement loop runs forever —
+    # cancel it explicitly or every redeploy logs an asyncio "task destroyed
+    # while pending" warning.
+    settlement_task = getattr(app.state, "settlement_task", None)
+    if settlement_task is not None:
+        settlement_task.cancel()
+
     try:
         await close_db()
         logger.info("Async database closed")

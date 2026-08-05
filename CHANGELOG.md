@@ -5,6 +5,113 @@ All notable changes to this skill suite are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## vΩ.35 — Settlement join gets a real caller (WP-10.4) (2026-08-05)
+
+Wiring release, second of the day. `get_settled_predictions()`
+(`repositories/fixtures.py`) and `walk_forward_validate()` (`models/model_registry.py`)
+were both correct and fully unit-tested but had zero production callers — nothing in
+the deployed process ever transitioned `Match.status` to `"finished"` with a real
+score. This is the literal Phase-1→Phase-2 gate named throughout the SABI-CORE
+campaign docs.
+
+### Added — the settlement pipeline (WP-10.4)
+
+New `FootballDataAPIClient.get_recent_results()` (`data/loaders/football_data_api.py`)
+fetches recently-finished matches with final scores — the existing
+`get_upcoming_matches()` is architecturally scheduled-only (`status=SCHEDULED` server
+side, and its normalizer hardcoded `"status": "scheduled"` on every output regardless
+of the real value), so this is a genuinely new provider capability, not a parameter
+tweak. New `sync_settled_results()` (`services/fixture_sync_service.py`) settles
+matching `Match` rows, keyed by the same deterministic `fd-{id}` scheme
+`sync_upcoming_fixtures()` already writes — no team/fixture identity re-resolution
+needed, only a lookup. New `services/settlement_service.py` composes sync →
+`get_settled_predictions()` → `walk_forward_validate()`, called hourly from a new
+periodic `_background_settlement_sync()` task in `api/main.py` (registered and
+cancelled the same way the existing one-shot fixture-sync task is, except this one is
+a genuine infinite loop and needs explicit shutdown cleanup).
+
+`/health` gains an informational `components.settlement` snapshot (never affects
+`degraded` or the Render deploy gate, same treatment as the existing `v4_sources`
+block). `/model-performance` and `/model-performance/summary` run the real
+walk-forward query instead of an unconditional 503; the still-503 `reason` is
+corrected from `bet_history_aggregation_not_yet_integrated` (now false — aggregation
+exists, there's just not yet enough data) to `insufficient_settled_predictions`. Both
+endpoints' `league` parameter now accepts the canonical vocabulary used elsewhere in
+the app (`EREDIVISIE`) as well as the football-data.org code `Match.league_id`
+actually stores (`DED`) — the exact two-vocabulary trap vΩ.26 already fixed once on
+the frontend, caught here on a new backend surface before it shipped broken.
+
+Three dead-end paths were traced and rejected, not assumed: `ProductionOrchestrator`
+(zero callers anywhere), `DataIngestionService`'s scraper-sourced score updates (only
+reachable via a standalone CLI process `render.yaml` never starts), and
+`tasks/background.py`'s Celery `beat_schedule` (looks like this exact feature but the
+module cannot even be imported — two broken imports, no Celery worker deployed
+anywhere). Full reasoning in `docs/adr/0003-settlement-join-scheduling.md` — the first
+ADR this repository has ever recorded.
+
+⚠️ **Honest expectation, not a bug:** `/model-performance` stays 503 until ≥10 settled,
+logged Eredivisie predictions exist (`walk_forward_validate`'s own floor at the
+default `n_splits=5`) — several matchdays into the season, not the first result.
+
+### Changed — the surface that reads it (`/performance`)
+
+⭐ **The settlement join would have produced real data into a dashboard structurally
+unable to display it.** `/model-performance/summary` had never once returned 200, so
+`performance-page-client.tsx`'s `PerfSummary` interface (`accuracy_30d`,
+`accuracy_season`, `clv_30d`, `roi_30d`, `bets_tracked`) was written against an
+imagined payload and shares **zero fields** with what the walk-forward query actually
+emits. Same for `RollingAccuracyChart`'s `series`. Neither would have crashed — every
+field is optional, so all five cards would have rendered `—` and the chart "No
+performance data yet" *forever*, on top of a working pipeline. Wiring a producer
+without its consumer is the exact defect class this campaign exists to close, so both
+halves land in one commit.
+
+`walk_forward_validate()` now also returns `accuracy` per fold and `accuracy_overall`,
+computed inside the existing scoring loop over **the same validated records RPS
+scores** — one computation site, so the two metrics can never describe different
+populations. `/model-performance` projects the folds it already produced into a
+`series` the chart reads (`date`/`accuracy`/`rps`/`n_matches`) rather than re-deriving
+a second time series; `baseline_accuracy` (uniform 3-outcome choice) is emitted by the
+backend so the chart's reference line has one owner instead of a client-side copy.
+
+**Two cards were removed, not left pending.** CLV needs a closing price beside each
+prediction and `MatchPredictionLog` stores probabilities only; ROI needs a realised
+return on a placed stake and this platform never places one by construction (NO_BET /
+HOLD / shadow evaluation, with `EXECUTE_BET` long since rejected). Leaving them as
+em-dashes implied they were awaiting data. They are structurally unreachable — recorded
+in `docs/DEBT.md` so they are not re-added. What replaced them is measurable: model
+accuracy, RPS against its promotion gate, settled-prediction count, and fold count.
+
+The proxy routes stopped inventing a payload. Both previously replaced the backend's
+own 503 body with `{accuracy_30d: 0, clv_30d: 0, roi_30d: 0, …}` plus the message
+"Backend service unavailable" — which was **the wrong diagnosis** in the normal case
+(the backend is healthy and correctly reporting that nothing has settled yet) and, had
+any caller not thrown on `!res.ok`, would have rendered literal zeros as measurements.
+They now forward the backend's status and body intact, so the page distinguishes
+"awaiting settled predictions" from a real outage and names which in the empty state.
+
+### Fixed — container parity and page-shell drift
+
+`/performance` and `/monitoring` each wrapped their content in `min-h-screen` plus
+their own `px-4 py-12` and a duplicate background gradient, inside a root `<main>`
+(`app/layout.tsx:208`) that already supplies `px-4 py-5 sm:px-6 lg:px-8` over that same
+gradient — double-insetting both pages and overflowing the viewport by the header's
+height. Fifth instance of the container-parity trap logged four times previously on the
+match route. `/performance`'s `<title>` also read "Intelligence Hub", which is a
+different route; it now matches its own `<h1>` and sidebar entry. Its pulsing "Live
+Intelligence" badge is gone — walk-forward validation is not a live feed.
+
+`RPS_PROMOTION_GATE` (`lib/model-gates.ts`) now owns the `0.21` threshold that
+`api/health/route.ts` had as a bare literal and that the dashboard needed a fifth copy
+of. Four new Vitest cases pin the honest-empty-state behaviour (102 total, from 98).
+
+### Documented — a new, orthogonal risk found while wiring this (DEBT.md item 5)
+
+`create_prediction()`'s synthetic `match_id` (`f"{home}_{away}_{timestamp}"` when the
+caller omits a real one) can never join to a `Match.id`. Not fixed this session —
+tracked, low priority until `settled_join_rate` is live against real data and the gap
+is actually measurable.
+
 ## vΩ.34 — Uncalled subsystems get callers; two fabricated defaults removed (2026-08-05)
 
 Wiring release. Verdict, Kelly, edge, EV, and evidence-gating logic are

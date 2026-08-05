@@ -9,6 +9,7 @@
 
 import { NextResponse } from "next/server";
 import { backendHealthIssues, isHealthyBackendStatus } from "@/lib/health-status";
+import { RPS_PROMOTION_GATE } from "@/lib/model-gates";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -16,10 +17,12 @@ export const dynamic = "force-dynamic";
 const BACKEND_URL = process.env.SABISCORE_BACKEND_URL;
 
 // Historical Phase 7 artifact benchmark. These are not labelled live results.
+// rpsGate is the one governed value here, so it comes from its owner (lib/model-gates)
+// rather than being retyped — the performance dashboard scores real RPS against it.
 const PHASE7_BASELINE = {
   accuracy: 0.51,
   brierScore: 0.225,
-  rpsGate: 0.210,
+  rpsGate: RPS_PROMOTION_GATE,
   avgEdgePct: 0.084,
 };
 

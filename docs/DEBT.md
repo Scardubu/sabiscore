@@ -105,9 +105,25 @@ trained signal — unchanged by WP-10.1 alone, as designed.
 
 ## 2. Settlement-join infrastructure built and tested, wired to nothing that runs
 
-**Tier:** `NEXT` — trigger: before trusting any walk-forward accuracy/RPS number, and
-before the campaign's own Phase-1 exit gate ("one settled prediction") can close.
+**Tier:** `NEXT` → **shipped 2026-08-05** — a real caller now exists; entry kept
+(annotate, don't remove, matching item 1's precedent) because a residual limitation
+and a related risk (item 5) are still open.
 **Owner:** unassigned.
+**Updated:** 2026-08-05 — WP-10.4 shipped. New `services/settlement_service.py`
+composes `sync_settled_results()` (new, `fixture_sync_service.py`) →
+`get_settled_predictions()` → `walk_forward_validate()`, called hourly from a new
+periodic `_background_settlement_sync()` task in `api/main.py`. `sync_settled_results`
+settles matching `Match` rows via a new `FootballDataAPIClient.get_recent_results()`
+provider method, looked up by the same deterministic `fd-{id}` scheme
+`sync_upcoming_fixtures()` already writes — no identity re-resolution needed.
+`/health` gains an informational `components.settlement` snapshot;
+`/model-performance` and `/model-performance/summary` now run the real query instead
+of an unconditional 503 (the still-503 `reason` also corrected from
+`bet_history_aggregation_not_yet_integrated`, now false, to
+`insufficient_settled_predictions`). See `docs/adr/0003-settlement-join-scheduling.md`
+for the scheduling decision and rejected alternatives. **Residual, not fixed by this
+change:** once a match hits `SETTLED_MATCH_STATUSES` its score is frozen — a
+provider-side correction after settlement is never re-applied.
 
 `get_settled_predictions()` (`backend/src/repositories/fixtures.py:113-206`) and
 `walk_forward_validate()` (`backend/src/models/model_registry.py:311`) are both correct
@@ -128,7 +144,10 @@ dyno (no separate worker/cron service exists today) before it's worth wiring the
 **Impact:** no real accuracy telemetry exists yet even though the season is about to
 generate settleable matches (Eredivisie opens 2026-08-07, EPL 2026-08-21 — see
 `backend/src/core/season_calendar.py` for the provider-verified table).
-**Priority:** high — this is the literal Phase-1→Phase-2 gate.
+**Priority:** was high as the literal Phase-1→Phase-2 gate; the *caller* is no longer
+the blocker. What remains is time: `/model-performance` needs ≥10 settled, logged
+Eredivisie predictions (several matchdays into the season, not the first match) before
+Phase 2 can honestly begin.
 
 ---
 
@@ -178,3 +197,69 @@ writers silently drifting apart). Swap the call site next time this file is touc
 **Cost:** trivial.
 **Impact:** none today; latent drift risk.
 **Priority:** low, but cheap enough to fold into any unrelated touch of this file.
+
+---
+
+## 5. Predictions with a synthetic match_id can never settle
+
+**Tier:** `NEXT` — trigger: once `settled_join_rate` is real and being watched (item 2
+shipped 2026-08-05), an unexplained gap between total predictions and joinable
+predictions needs this fix.
+**Owner:** unassigned.
+**Found:** 2026-08-05, while wiring the settlement join (item 2).
+
+`create_prediction()` (`backend/src/api/endpoints/predictions.py:106-110`) synthesizes
+`match_id = f"{home}_{away}_{timestamp}"` when the caller doesn't supply a real one.
+`get_settled_predictions()` joins `MatchPredictionLog.match_id` to `Match.id` — a
+synthetic value can never equal a real `Match.id`, so such prediction rows are
+permanently unjoinable no matter how correct the settlement pipeline is.
+
+**Blast radius:** `settled_join_rate` (item 2's SLI) and `/model-performance`'s
+`settled_predictions` count — both will read low even once matches are settling
+correctly, if a meaningful share of predictions were logged via this path.
+**Cost:** small — requires either always passing a real `Match.id` at the call site
+that reaches `create_prediction()`, or rejecting the write when one isn't available,
+rather than silently minting an unjoinable key.
+**Impact:** unknown until measured — not yet confirmed how much of live traffic hits
+this path vs. the DB-listed-fixture path (which already passes a real `match_id`).
+**Priority:** low today (no settled data exists yet to expose the gap); revisit the
+moment item 2's telemetry is live against real matches.
+
+## 6. CLV and ROI are structurally unavailable, not merely unimplemented
+
+**Tier:** `ACCEPTED` — rationale below; review only if the two blockers named here
+actually change.
+**Owner:** unassigned.
+**Found:** 2026-08-05, while wiring `/performance` to the settlement join (item 2).
+
+`/performance` used to carry "30d CLV" and "30d ROI" stat cards. They were removed
+rather than left showing an em-dash, because an em-dash means "awaiting data" and
+neither figure is awaiting anything:
+
+- **CLV** (closing line value) needs the closing price recorded beside each prediction.
+  `MatchPredictionLog` (`backend/src/db/models.py:227-251`) stores probabilities,
+  confidence, `model_version`, `calibration_method`, `input_hash` and a nullable
+  `payload` — **no odds column of any kind**. The CLV machinery itself does exist
+  (`connectors/pinnacle.py::calculate_clv`, the `clv_*` features in
+  `connectors/odds_market.py`), so this is a missing *join*, not a missing capability:
+  nothing links a stored prediction to the market price at the time it was made.
+- **ROI** needs a realised return on a placed stake. This platform never places one —
+  verdicts terminate at `NO_BET`/`HOLD`, staking is shadow-evaluation only, and the
+  `EXECUTE_BET` state was explicitly rejected as a product-identity decision. There is
+  no execution record for ROI to be computed from, and adding one is out of scope by
+  construction rather than by backlog position.
+
+**Blast radius:** none today — removing the cards changed no computation. The risk this
+entry guards against is someone re-adding them as "coming soon" placeholders, which
+would be an INV-01 fabrication surface of exactly the vΩ.24/vΩ.28 kind (a neutral
+default rendered where a measurement belongs).
+**Cost to actually deliver CLV:** medium — an Alembic expand adding a market-snapshot
+reference to `MatchPredictionLog`, written at prediction time, plus a closing-price
+capture job after kickoff. Worth doing only once predictions are settling in volume.
+**Cost to deliver ROI:** not applicable; it requires reversing a deliberate product
+decision, not writing code.
+**Impact:** the dashboard now shows only what the walk-forward harness actually
+produces — accuracy, ranked probability score, settled count, fold count.
+**Priority:** none. Revisit CLV if and when a market snapshot is persisted per
+prediction; ROI never, absent an explicit operator decision to change what the product
+is.

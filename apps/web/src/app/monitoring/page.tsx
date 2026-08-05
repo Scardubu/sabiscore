@@ -7,9 +7,11 @@ export const metadata: Metadata = {
 };
 
 export default function MonitoringPage() {
+  // Padding and the shell gradient come from the root <main> (app/layout.tsx);
+  // this page previously re-applied both plus min-h-screen, double-insetting the
+  // content and overflowing the viewport by the header's height. max-w-7xl stays —
+  // that is a deliberate content width, not a duplicated padding.
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      <div className="container mx-auto px-4 py-12">
         <div className="mx-auto max-w-7xl space-y-8">
           {/* Header Section */}
           <section className="space-y-4">
@@ -171,7 +173,5 @@ export default function MonitoringPage() {
             </div>
           </section>
         </div>
-      </div>
-    </div>
   );
 }
