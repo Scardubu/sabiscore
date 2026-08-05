@@ -1,8 +1,8 @@
 {
   "$schema": "./registry.schema.json",
   "schemaVersion": "2.0.0",
-  "suiteVersion": "2.0.0",
-  "updatedAt": "2026-05-30",
+  "suiteVersion": "2.1.0",
+  "updatedAt": "2026-08-05",
   "stack": {
     "frontend":      "Next.js 15, React 19 + RSC, Tailwind CSS v4",
     "mobile":        "React Native, Expo SDK 54, Reanimated v4, EAS",
@@ -767,6 +767,76 @@
       "pairedWith": ["bullmq-job-architect", "multi-agent-orchestration-architect", "opentelemetry-observability-architect", "data-visualization-architect"],
       "verticals": ["SwarmX", "SabiScore"],
       "tags": ["real-time", "sse", "websocket", "presence", "optimistic-ui", "live-data"]
+    },
+    {
+      "name": "sabiscore-betting-engine-auditor",
+      "version": "1.0.0",
+      "description": "Audits and patches betting_intelligence.py + core_engine.py as a pair: dual-engine rule, critical_gaps PARTIAL gate, watchlist separation, UCL cap, Kelly/EV formulas.",
+      "cluster": 6,
+      "clusterName": "Vertical Intelligence",
+      "installOrder": 35,
+      "filePath": ".ai/skills/sabiscore-betting-engine-auditor/SKILL.md",
+      "triggers": ["audit betting engine", "fix verdict logic", "SPECULATIVE watchlist", "critical_gaps PARTIAL", "dual engine both engines", "Kelly formula EV formula", "watchlist separation"],
+      "dependencies": [],
+      "pairedWith": ["backend-domain-model-architect", "testing-strategy-architect", "backend-systems-auditor"],
+      "verticals": ["SabiScore"],
+      "tags": ["betting-engine", "verdict", "kelly", "sabiscore", "dual-engine"]
+    },
+    {
+      "name": "sabiscore-provider-adapter-architect",
+      "version": "1.0.0",
+      "description": "Implements operational HTTP methods for stub-only provider adapters (football_data_org, api_football, sportmonks): gateway contract, circuit breaker, schema validation.",
+      "cluster": 6,
+      "clusterName": "Vertical Intelligence",
+      "installOrder": 36,
+      "filePath": ".ai/skills/sabiscore-provider-adapter-architect/SKILL.md",
+      "triggers": ["complete provider adapter", "implement fixtures method", "provider stub", "football-data.org adapter", "provider gateway gap", "adapter implementation", "provider capabilities to live"],
+      "dependencies": [],
+      "pairedWith": ["backend-systems-auditor", "api-automation-architect", "opentelemetry-observability-architect"],
+      "verticals": ["SabiScore"],
+      "tags": ["provider-gateway", "adapters", "sabiscore", "http", "circuit-breaker"]
+    },
+    {
+      "name": "sabiscore-settlement-calibration-architect",
+      "version": "1.0.0",
+      "description": "Wires built-but-uncalled prediction-accuracy subsystems (get_settled_predictions, walk_forward_validate, ScrapedTeamFormStore, drift monitoring) into production; governs the promotion ladder.",
+      "cluster": 6,
+      "clusterName": "Vertical Intelligence",
+      "installOrder": 37,
+      "filePath": ".ai/skills/sabiscore-settlement-calibration-architect/SKILL.md",
+      "triggers": ["wire up settlement", "walk_forward_validate", "get_settled_predictions", "drift detection", "promotion ladder", "Phase 2 gate", "built but uncalled"],
+      "dependencies": [],
+      "pairedWith": ["backend-domain-model-architect", "testing-strategy-architect", "opentelemetry-observability-architect"],
+      "verticals": ["SabiScore"],
+      "tags": ["settlement", "calibration", "drift", "sabiscore", "promotion-ladder"]
+    },
+    {
+      "name": "sabiscore-portfolio-staking-architect",
+      "version": "1.0.0",
+      "description": "Portfolio-level staking: exposure aggregation, correlated-fixture risk, bankroll drawdown limits, CLV tracking; distinct from single-bet Kelly sizing.",
+      "cluster": 6,
+      "clusterName": "Vertical Intelligence",
+      "installOrder": 38,
+      "filePath": ".ai/skills/sabiscore-portfolio-staking-architect/SKILL.md",
+      "triggers": ["portfolio staking", "bankroll allocation", "exposure aggregation", "correlated-fixture risk", "drawdown limit", "closing line value", "aggregate exposure"],
+      "dependencies": [],
+      "pairedWith": ["sabiscore-betting-engine-auditor", "backend-domain-model-architect"],
+      "verticals": ["SabiScore"],
+      "tags": ["portfolio", "staking", "exposure", "clv", "sabiscore"]
+    },
+    {
+      "name": "sabiscore-dashboard-design-system",
+      "version": "1.0.0",
+      "description": "SabiScore dashboard visuals for verdict/confidence states: styling never implies more certainty than the data warrants; color-blind-safe verdict distinctions.",
+      "cluster": 6,
+      "clusterName": "Vertical Intelligence",
+      "installOrder": 39,
+      "filePath": ".ai/skills/sabiscore-dashboard-design-system/SKILL.md",
+      "triggers": ["dashboard design", "verdict badge", "confidence gauge", "SabiScore design system", "odds table design", "SHADOW vs CERTIFIED"],
+      "dependencies": [],
+      "pairedWith": ["data-visualization-architect", "accessibility-system-architect", "component-quality-gate"],
+      "verticals": ["SabiScore"],
+      "tags": ["dashboard", "design-system", "verdict-styling", "sabiscore", "accessibility"]
     }
   ]
 }

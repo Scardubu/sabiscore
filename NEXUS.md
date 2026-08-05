@@ -2,7 +2,7 @@
 
 > **Disambiguation — read this first.**
 >
-> `NEXUS` is the master execution planner for the 34-skill suite.
+> `NEXUS` is the master execution planner for the 39-skill suite.
 > It is **not** `elite-skill-forge`. Those are fundamentally different tools:
 >
 > | Tool | Purpose |
@@ -35,7 +35,7 @@ Classify every incoming task. A task may map to multiple types; resolve the full
 | **Performance Optimization** | "bundle size", "LCP", "Core Web Vitals", "caching", "RSC", "PPR" |
 | **Security Audit** | "secure", "auth", "OWASP", "CSP", "rate limit", "CORS", "XSS", "CSRF" |
 | **Architecture Design** | "model this as", "design the system", "what should the structure be" |
-| **Backend Engineering** | "Fastify", "Prisma", "BullMQ", "Effect-TS", "job queue", "worker", "API" |
+| **Backend Engineering** | "Fastify", "Prisma", "BullMQ", "Effect-TS", "job queue", "worker", "API" — **TaxBridge/Hashablanca/SwarmX only.** A SabiScore backend task (FastAPI, SQLAlchemy, Alembic, `backend/src/`) never matches this row — use the SabiScore-domain rows below, or "SabiScore Backend Engineering" in Step 2 |
 | **Frontend / UI** | "component", "design", "accessibility", "animation", "token", "motion" |
 | **Product Design Strategy** | "landing page", "dashboard", "onboarding", "hierarchy", "conversion", "visual narrative" |
 | **Accessibility Systems** | "keyboard", "screen reader", "focus", "ARIA", "WCAG", "reduced motion" |
@@ -53,6 +53,9 @@ Classify every incoming task. A task may map to multiple types; resolve the full
 | **SabiScore Betting Engine** | "verdict", "HIGH_CONVICTION", "ACTIONABLE", "SPECULATIVE", "HOLD", "PARTIAL", "NO_BET", "Kelly", "edge", "expected value", "de-vig", "overround", "betting_intelligence", "core_engine" |
 | **SabiScore Evidence** | "evidence profile", "DISCOVERY", "PREMATCH_STANDARD", "PREMATCH_ENRICHED", "LINEUP_REFRESH", "MARKET_REFRESH", "FORECAST_ONLY", "critical gap", "advisory gap", "evidence passport", "fixture reconciliation", "canonical fixture" |
 | **SabiScore Zero-Fabrication Display** | "fabricated metric", "unverified claim", "training data count", "accuracy claim", "placeholder rendered as data", "neutral default", "reduced-evidence baseline", "scrub copy", "unsubstantiated number" |
+| **SabiScore Settlement & Calibration** | "wire up settlement", "walk_forward_validate", "get_settled_predictions", "ScrapedTeamFormStore", "drift detection", "monitoring/drift.py", "Brier score", "calibration", "built vs wired vs called", "promotion ladder", "Phase-2 gate" |
+| **SabiScore Portfolio Staking** | "portfolio staking", "bankroll allocation", "exposure aggregation", "correlated-fixture risk", "drawdown limit", "closing line value", "CLV", "same-matchday correlation" |
+| **SabiScore Dashboard Design** | "dashboard design", "verdict state styling", "confidence gauge", "color-blind safe verdict", "odds table design", "SHADOW vs ACTIONABLE_CERTIFIED styling" |
 | **Mobile / Native** | "Expo", "React Native", "EAS", "Reanimated", "New Architecture" |
 | **Testing** | "test", "Vitest", "Playwright", "MSW", "coverage", "e2e", "unit" |
 | **Observability** | "OTel", "trace", "span", "metrics", "log", "Grafana", "Jaeger", "SigNoz" |
@@ -65,7 +68,7 @@ Classify every incoming task. A task may map to multiple types; resolve the full
 
 # STEP 2 — SELECT SKILL GRAPH
 
-Select the minimum necessary skill graph. Never apply all 34 blindly.
+Select the minimum necessary skill graph. Never apply all 39 blindly.
 
 ## Graph by Intent Type
 
@@ -141,6 +144,13 @@ Conditional:
 ```
 
 ### Backend Engineering — Fastify + Effect-TS + BullMQ + Prisma
+
+> Node/TS verticals only (TaxBridge, Hashablanca, SwarmX). For SabiScore
+> (`backend/src/`, FastAPI/SQLAlchemy/Alembic) use **SabiScore Backend
+> Engineering** below instead — none of this graph's skills
+> (`effect-ts-layer-architect`, `prisma-database-architect`,
+> `bullmq-job-architect`) apply to that stack.
+
 ```
 Required:
   backend-domain-model-architect    (business rules and boundaries)
@@ -158,6 +168,25 @@ Conditional:
   nigerian-fintech-compliance-architect  (TaxBridge VAT/CIT/WHT computation)
 ```
 
+### SabiScore Backend Engineering — FastAPI + SQLAlchemy + Alembic
+
+```
+Required:
+  backend-domain-model-architect    (evidence criticality, verdict gates, business rules)
+  backend-systems-auditor           (production audit — provider gateway, lifespan client)
+  testing-strategy-architect        (always — betting-engine/provider changes need regression coverage)
+
+Conditional:
+  sabiscore-betting-engine-auditor       (verdict/Kelly/EV/watchlist — betting_intelligence.py + core_engine.py, always both)
+  sabiscore-provider-adapter-architect   (provider adapter stub → operational HTTP methods)
+  sabiscore-settlement-calibration-architect  (wiring get_settled_predictions/walk_forward_validate/drift monitoring)
+  sabiscore-portfolio-staking-architect  (exposure aggregation, CLV, bankroll drawdown — not single-bet Kelly)
+  api-automation-architect          (external provider integrations — httpx client, circuit breaker)
+  api-contract-governance-architect  (OpenAPI schema, versioning on shared endpoints)
+  opentelemetry-observability-architect  (structlog + OTel instrumentation)
+  security-hardening-auditor        (auth, credential handling, egress allowlist)
+```
+
 ### Frontend / UI Engineering
 ```
 Required:
@@ -171,6 +200,7 @@ Conditional:
   motion-interaction-architect      (implementation: Framer Motion code)
   nextjs-performance-architect      (if RSC / hydration boundaries affected)
   data-visualization-architect      (if charts or dashboard UI involved)
+  sabiscore-dashboard-design-system  (if SabiScore verdict/confidence-state UI involved)
 ```
 
 ### Multi-Agent / SwarmX Orchestration
@@ -225,6 +255,7 @@ Conditional:
   accessibility-system-architect     (screen reader equivalents for charts)
   nextjs-performance-architect      (chart bundle splitting, SSR compatibility)
   real-time-systems-architect       (if charts consume live data feeds)
+  sabiscore-dashboard-design-system  (verdict/confidence-state visual correctness)
 ```
 
 ### Nigerian Fintech Compliance (TaxBridge)
@@ -364,9 +395,12 @@ Use the repo's stack to sharpen routing.
 **Verticals:**
 - TaxBridge tax rules, FIRS, compliance → prefer `nigerian-fintech-compliance-architect`
 - SabiScore ML display → prefer `data-visualization-architect` + `real-time-systems-architect`
-- SabiScore provider gateway (ESPN/API-Football/etc.) → prefer `backend-systems-auditor` + `api-automation-architect` + `opentelemetry-observability-architect`
-- SabiScore betting engine (verdict/Kelly/EV) → prefer `backend-domain-model-architect` + `backend-systems-auditor` + `testing-strategy-architect`
+- SabiScore provider gateway (ESPN/API-Football/etc.) → prefer `sabiscore-provider-adapter-architect` (stub → operational adapters) + `backend-systems-auditor` + `api-automation-architect` + `opentelemetry-observability-architect`
+- SabiScore betting engine (verdict/Kelly/EV) → prefer `sabiscore-betting-engine-auditor` (dual-engine parity is mandatory) + `backend-domain-model-architect` + `testing-strategy-architect`
 - SabiScore evidence orchestration → prefer `backend-domain-model-architect` + `api-automation-architect`
+- SabiScore settlement & calibration (walk-forward, drift, promotion ladder) → prefer `sabiscore-settlement-calibration-architect`
+- SabiScore portfolio staking (exposure aggregation, CLV, drawdown limits) → prefer `sabiscore-portfolio-staking-architect`
+- SabiScore dashboard design (verdict/confidence-state visuals) → prefer `sabiscore-dashboard-design-system` + `data-visualization-architect`
 - SabiScore zero-fabrication display → prefer `component-quality-gate` + `frontend-product-design-architect`.
   Verify every user-facing number against its authoritative source before
   restating it (model artifacts' own `model_metadata` for training/accuracy
@@ -443,7 +477,7 @@ When skills produce conflicting recommendations, resolve in this order:
 
 ---
 
-# FULL SKILL REGISTRY (34 SKILLS)
+# FULL SKILL REGISTRY (39 SKILLS)
 
 ## Cluster 1 — Editor & Environment
 
@@ -507,6 +541,11 @@ When skills produce conflicting recommendations, resolve in this order:
 |---|---|
 | `nigerian-fintech-compliance-architect` | FIRS e-invoicing, VAT/CIT/WHT (22 rate codes), NRS 2026, BVN/NIN, NIBSS, Lagos Pidgin i18n |
 | `multi-agent-orchestration-architect` | SwarmX: agent routing, tool registry, LLM routing, BullMQ chains, agent state machine |
+| `sabiscore-betting-engine-auditor` | Audits/patches `betting_intelligence.py` + `core_engine.py` as a pair — dual-engine rule, critical_gaps PARTIAL gate, watchlist separation, UCL cap, Kelly/EV formulas |
+| `sabiscore-provider-adapter-architect` | Implements operational HTTP methods for stub-only provider adapters (football_data_org, api_football, sportmonks) — gateway contract, circuit breaker, schema validation |
+| `sabiscore-settlement-calibration-architect` | Wires built-but-uncalled prediction-accuracy subsystems (`get_settled_predictions`, `walk_forward_validate`, `ScrapedTeamFormStore`, drift monitoring) into production; governs the promotion ladder and Phase-2 gate |
+| `sabiscore-portfolio-staking-architect` | Portfolio-level staking — exposure aggregation, correlated-fixture risk, bankroll drawdown limits, CLV tracking; distinct from single-bet Kelly sizing |
+| `sabiscore-dashboard-design-system` | SabiScore dashboard visuals for verdict/confidence states — styling never implies more certainty than the data warrants, color-blind-safe verdict distinctions |
 
 ## Cluster 7 — Real-Time & Data
 
@@ -646,12 +685,3 @@ ProviderStatus.INVALID               # ← what docs call SCHEMA_INVALID
 ProviderStatus.CONFLICTING           # provider-level conflict state
 # DISABLED does not exist as an enum value
 ```
-
-## New skills added this session
-
-Route to these when the corresponding intent is detected:
-
-| Skill | Trigger signals |
-|---|---|
-| `sabiscore-betting-engine-auditor` | "verdict", "Kelly", "SPECULATIVE", "watchlist", "PARTIAL gate", "dual engine", "betting_intelligence", "core_engine" |
-| `sabiscore-provider-adapter-architect` | "complete adapter", "implement fixtures()", "provider stub", "operational method", "provider capabilities to live" |

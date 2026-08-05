@@ -2,7 +2,7 @@
 name: forge
 description: >
   Generate a new production-grade SKILL.md file for any domain or workflow using the
-  elite-skill-forge protocol. Performs duplicate detection against the 34-skill registry,
+  elite-skill-forge protocol. Performs duplicate detection against the 39-skill registry,
   determines the correct cluster placement, generates a complete installable SKILL.md with
   behavioral protocols and SabiScore/monorepo context awareness, and produces the registry
   entry and installation steps. Triggers: /forge, "create a skill for X", "make a new skill",
@@ -21,10 +21,10 @@ user-invocable: true
 
 ```
 Installed skills:
-!`jq -r '.skills | map("  [" + (.cluster | tostring) + "] " + .name + " — " + .description[:60]) | join("\n")' .ai/registry.json 2>/dev/null || echo "  (registry.json not found — run: make validate to generate it)"`
+!`jq -r '.skills | map("  [" + (.cluster | tostring) + "] " + .name + " — " + .description[:60]) | join("\n")' registry.json 2>/dev/null || echo "  (registry.json not found — run: make validate to generate it)"`
 
-Suite version: !`jq -r '.suiteVersion' .ai/registry.json 2>/dev/null || echo "unknown"`
-Total skills:  !`jq -r '.skills | length' .ai/registry.json 2>/dev/null || echo "0"`
+Suite version: !`jq -r '.suiteVersion' registry.json 2>/dev/null || echo "unknown"`
+Total skills:  !`jq -r '.skills | length' registry.json 2>/dev/null || echo "0"`
 ```
 
 **Active verticals in this repo:** SabiScore · TaxBridge · Hashablanca · SwarmX
@@ -203,14 +203,14 @@ After generating the SKILL.md, produce the JSON registry entry:
 Determine `installOrder` by reading the current max from the registry:
 
 ```bash
-jq '[.skills[].installOrder] | max + 1' .ai/registry.json
+jq '[.skills[].installOrder] | max + 1' registry.json
 ```
 
 Then produce the `jq` append command:
 
 ```bash
-jq '.skills += [<your registry entry JSON>]' .ai/registry.json > /tmp/registry_updated.json \
-  && mv /tmp/registry_updated.json .ai/registry.json
+jq '.skills += [<your registry entry JSON>]' registry.json > /tmp/registry_updated.json \
+  && mv /tmp/registry_updated.json registry.json
 ```
 
 ---
@@ -227,7 +227,7 @@ make validate
 
 **2. Duplicate trigger check:**
 ```bash
-jq -r '.skills | group_by(.triggers[]) | .[] | select(length > 1) | .[].name' .ai/registry.json
+jq -r '.skills | group_by(.triggers[]) | .[] | select(length > 1) | .[].name' registry.json
 # Must return empty — no two skills should share identical trigger phrases
 ```
 
@@ -269,9 +269,9 @@ Confirm the skill trace block is produced and the output is concrete, not generi
 After any skill addition or modification, verify suite integrity:
 
 ```bash
-make validate              # Schema compliance for all 34+ skills
+make validate              # Schema compliance for all 39+ skills
 make doctor               # Dependency graph — no circular deps, no missing refs
-jq '.skills | length' .ai/registry.json   # Confirm count incremented
+jq '.skills | length' registry.json   # Confirm count incremented
 ```
 
 If `make validate` fails, the skill is not installed. Fix the schema error before closing.

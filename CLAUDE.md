@@ -4,7 +4,7 @@
 This repository is governed by a modular AI skill system located in:
 
 ```
-.ai/skills/          ← 34-skill domain suite
+.ai/skills/          ← 39-skill domain suite
 .claude/skills/      ← Claude Code slash commands (nexus, forge, audit)
 ```
 
@@ -113,7 +113,7 @@ All tasks MUST begin with:
 NEXUS is the system orchestrator responsible for:
 
 - Task intent classification (including SabiScore-domain intents)
-- Skill selection from the 34-skill registry
+- Skill selection from the 39-skill registry
 - Dependency graph resolution
 - Execution ordering
 - Conflict resolution
@@ -214,14 +214,14 @@ NEXUS must recognize these SabiScore-domain intents in addition to the general t
 
 # REGISTRY NOTES
 
-The suite includes 34 skills:
+The suite includes 39 skills:
 
 **Cluster 1** — Editor & Environment (6 skills)
 **Cluster 2** — Frontend Design (8 skills: includes `data-visualization-architect`)
 **Cluster 3** — Backend Engineering (9 skills)
 **Cluster 4** — Application Layer (6 skills)
 **Cluster 5** — Mobile & Meta (2 skills)
-**Cluster 6** — Vertical Intelligence (2 skills: `nigerian-fintech-compliance-architect`, `multi-agent-orchestration-architect`)
+**Cluster 6** — Vertical Intelligence (7 skills: `nigerian-fintech-compliance-architect`, `multi-agent-orchestration-architect`, `sabiscore-betting-engine-auditor`, `sabiscore-provider-adapter-architect`, `sabiscore-settlement-calibration-architect`, `sabiscore-portfolio-staking-architect`, `sabiscore-dashboard-design-system`)
 **Cluster 7** — Real-Time & Data (2 skills: `real-time-systems-architect`, `data-visualization-architect`)
 
 ---
@@ -635,7 +635,7 @@ overrides all prior status docs — verify with a grep/read before acting.
 | ⚠️ Backend had NO deploy-parity stamp — and Render did not auto-deploy (2026-08-05) | Pushed `5ba928c` to `origin/master`, then tried to verify it was live and **could not**: the backend's `/health` (`api/endpoints/monitoring.py:120`) returned a hardcoded `"version": "1.0.0"` and no build identifier of any kind, so "is my push actually running?" was unanswerable from the public API. `uptime_seconds` cannot answer it either — CLAUDE.md already records (vΩ.32) that it cannot distinguish a redeploy from a free-tier cold-start wake. The frontend has had a `sha` stamp since vΩ.19; the backend never got one. **Fixed:** `/health` now returns `"sha": (os.getenv("RENDER_GIT_COMMIT") or "local")[:7]` — Render injects `RENDER_GIT_COMMIT` automatically, and the fallback is the literal `"local"` off-Render, never a fabricated SHA. **Separately, a real finding: the backend did not redeploy after the push.** Polled `uptime_seconds` every 60s for 8 minutes — it climbed monotonically 1234→1677s with no restart, proving the pre-push process was still serving. `render.yaml` declares `autoDeploy: true` + `branch: master`, so the *file* is correct; the live service uses whatever was last approved in the dashboard, which is consistent with the Blueprint-sync approval outstanding since vΩ.12 (same operator block as the three disabled provider ENABLE flags). ⚠️ **Do not assume a push to master reaches the Render backend.** After the next successful deploy, `/health` `sha` makes this a one-request check — compare it against local HEAD, exactly as the Vercel `sha` is already used. |
 
 ## Confirmed incomplete / next gates
-
+\
 | Gap | Files | Action |
 |---|---|---|
 | Vercel env var | Vercel dashboard (not code) | ✅ VERIFIED 2026-07-24: live `/api/health` on `web-lac-theta-42.vercel.app` returns `backendStatus: ok` with full readiness checks — `SABISCORE_BACKEND_URL` targets bav1 correctly. `BACKEND_URL` (daily Vercel cron route) still worth confirming, though the GitHub Actions keepalive (vΩ.20) no longer depends on it. |

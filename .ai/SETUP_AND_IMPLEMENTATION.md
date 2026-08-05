@@ -29,7 +29,7 @@ Claude will list all installed skills. Confirm you see the expected names.
 
 ---
 
-## Part 2 — The 34-Skill Map
+## Part 2 — The 39-Skill Map
 
 ### Cluster 1 — Editor & Environment (install first)
 

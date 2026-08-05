@@ -139,9 +139,9 @@ Every generated skill must pass before delivery:
 
 ---
 
-## The 34-Skill Suite Map
+## The 39-Skill Suite Map
 
-After generating a new skill, suggest the most relevant existing skills to pair it with from the 34-skill suite. Clusters:
+After generating a new skill, suggest the most relevant existing skills to pair it with from the 39-skill suite. Clusters:
 
 | Cluster | Skills |
 |---|---|

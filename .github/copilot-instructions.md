@@ -10,7 +10,7 @@
 
 ## SKILL SYSTEM
 
-Skills live in `.ai/skills/` — a 34-skill domain suite. Load skills by attaching
+Skills live in `.ai/skills/` — a 39-skill domain suite. Load skills by attaching
 them to your Copilot Chat message:
 
 ```
@@ -54,7 +54,7 @@ All tasks MUST begin with NEXUS. Invoke it one of three ways:
 ```
 
 NEXUS is responsible for: task intent classification · skill selection from the
-34-skill registry · dependency graph resolution · execution ordering ·
+39-skill registry · dependency graph resolution · execution ordering ·
 conflict resolution.
 
 No other skill may be invoked before NEXUS has run.

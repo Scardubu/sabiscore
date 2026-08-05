@@ -1,7 +1,7 @@
 ---
 name: nexus
 description: >
-  Invoke NEXUS — the 34-skill orchestration engine for the SabiScore monorepo.
+  Invoke NEXUS — the 39-skill orchestration engine for the SabiScore monorepo.
   Classifies task intent (including SabiScore-domain intents: provider gateway, evidence
   orchestration, betting engine, fixture identity, intelligence UI, ML/model), selects
   the minimum effective skill graph, resolves dependencies, and emits a Skill Trace Block
@@ -22,7 +22,7 @@ user-invocable: true
 ```
 Active branch:       !`git branch --show-current 2>/dev/null || echo "(unknown)"`
 Recent changes:      !`git diff --name-only HEAD 2>/dev/null | head -8 || echo "(no recent changes)"`
-Suite version:       !`jq -r '"Suite v" + .suiteVersion + " | " + (.skills | length | tostring) + " skills"' .ai/registry.json 2>/dev/null || echo "(registry.json not found — run: make validate)"`
+Suite version:       !`jq -r '"Suite v" + .suiteVersion + " | " + (.skills | length | tostring) + " skills"' registry.json 2>/dev/null || echo "(registry.json not found — run: make validate)"`
 Current vertical:    !`git diff --name-only HEAD 2>/dev/null | grep -qE "^backend/" && echo "SabiScore (FastAPI/Python)" || (git diff --name-only HEAD 2>/dev/null | grep -qE "^apps/web" && echo "SabiScore Frontend (Next.js)" || echo "(determine from task)")`
 ```
 
@@ -82,6 +82,9 @@ Identify **all** intent types present in the task. A single task may map to mult
 | Intelligence UI | "/intelligence", "decision card", "evidence rail", "odds snapshot", "model-vs-market", "price window", "bookmaker candidate", "readiness rail" |
 | ML / Model | "model artifact", "calibration", "feature registry", "prediction pipeline", "phase 9", "shadow mode", "xG", "pi-ratings", "Dixon-Coles", "SHAP", "bivariate Poisson" |
 | Scraper | "scraper manifest", "raw snapshot", "parser validation", "source allowlist", "robots policy", "apps/scraper" |
+| Settlement & Calibration | "wire up settlement", "walk_forward_validate", "get_settled_predictions", "drift detection", "promotion ladder", "Phase 2 gate" |
+| Portfolio Staking | "portfolio staking", "bankroll allocation", "exposure aggregation", "correlated-fixture risk", "drawdown limit", "CLV" |
+| Dashboard Design | "dashboard design", "verdict badge", "confidence gauge", "color-blind safe verdict", "odds table design" |
 
 ---
 
@@ -174,6 +177,13 @@ Conditional:
   opentelemetry-observability-architect  (prediction latency, model readiness metrics)
   backend-systems-auditor           (model artifact loading, readiness checks)
   security-hardening-auditor        (synthetic feature injection prevention)
+```
+
+**Settlement & Calibration / Portfolio Staking / Dashboard Design** (abbreviated — see NEXUS.md for full graphs):
+```
+  sabiscore-settlement-calibration-architect  (settlement/drift/promotion-ladder wiring)
+  sabiscore-portfolio-staking-architect       (exposure aggregation, CLV, drawdown — not single-bet Kelly)
+  sabiscore-dashboard-design-system           (verdict/confidence-state visuals) + data-visualization-architect
 ```
 
 **General skill graphs** (when no SabiScore-specific intent detected):
