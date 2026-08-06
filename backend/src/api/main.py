@@ -59,6 +59,13 @@ def _filter_sentry_event(event, hint):
                 return None
     return _redact(event)
 
+# OpenTelemetry (ADR-0006): no-op unless enable_tracing AND an OTLP endpoint
+# are both configured. Registered before router mounts, alongside the other
+# module-level integration setup (Sentry, above).
+from ..core.telemetry import setup_telemetry, shutdown_telemetry  # noqa: E402
+
+setup_telemetry()
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -229,6 +236,9 @@ async def lifespan(app: FastAPI):
     except Exception:
         logger.exception("Shutdown: failed to close provider HTTP client")
 
+    # Last, so any span/metric emitted by the teardown steps above still flushes.
+    shutdown_telemetry()
+
     logger.info("SabiScore API shutdown complete")
 
 def _resolve_active_leagues() -> tuple[str, ...]:
@@ -323,6 +333,15 @@ app = FastAPI(
 
 # Apply custom JSON encoder to the app
 app.json_encoder = CustomJSONEncoder
+
+# OpenTelemetry (ADR-0006): instrumentation is only mounted when tracing is
+# actually configured — the OTel API itself is a safe no-op without a
+# provider, but skipping instrument_app() entirely when unconfigured avoids
+# even the inert middleware hop on the free-tier dyno (ADR-0006 "Cost").
+if settings.enable_tracing and settings.otel_exporter_otlp_endpoint:
+    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+    FastAPIInstrumentor.instrument_app(app)
 
 
 def load_model_if_needed(start_background: bool = True):

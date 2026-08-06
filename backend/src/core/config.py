@@ -127,6 +127,12 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO")
     log_format: str = Field(default="json")
     enable_tracing: bool = Field(default=False)
+    # ADR-0006: boolean gate above is necessary but not sufficient — tracing
+    # only activates when an OTLP endpoint is also configured. Both no-op by
+    # default; no observability backend is provisioned today.
+    otel_exporter_otlp_endpoint: Optional[str] = Field(
+        default=None, alias="OTEL_EXPORTER_OTLP_ENDPOINT"
+    )
     sentry_dsn: Optional[str] = Field(default=None, alias="SENTRY_DSN")
     rate_limit_delay: float = Field(default=1.0, ge=0.1)
     rate_limit_requests: int = Field(default=60, ge=1)
