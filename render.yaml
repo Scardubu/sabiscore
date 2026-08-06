@@ -29,10 +29,16 @@
         value: /api/v1
       - key: LOG_LEVEL
         value: INFO
+      # 2026-08-05: the blueprint-managed `sabiscore-db` free-tier instance expired
+      # (Render auto-deletes free Postgres after 30 days) and crash-looped the API
+      # with a DNS failure (docs/DEBT.md, "Operator action outstanding"). It was
+      # replaced with a standalone instance provisioned directly in the dashboard,
+      # not through this blueprint — hence sync:false, not fromDatabase. Do NOT
+      # revert this to fromDatabase without first confirming a blueprint-managed
+      # `sabiscore-db` resource actually exists and is the intended target; doing
+      # so blind risks a sync silently rebinding to a dead or empty resource.
       - key: DATABASE_URL
-        fromDatabase:
-          name: sabiscore-db
-          property: connectionString
+        sync: false
       - key: REDIS_URL
         sync: false
       - key: REDIS_ENABLED
@@ -171,10 +177,23 @@
       # STATSBOMB_STALENESS_MAX_DAYS: max StatsBomb cache age before tactical features become DATA_GAP.
       - key: STATSBOMB_STALENESS_MAX_DAYS
         value: "7"
+      # ── Observability (ADR-0006; drift.py wiring still pending — see docs/DEBT.md) ─
+      # OTEL_EXPORTER_OTLP_ENDPOINT: unset = setup_telemetry() stays a no-op even
+      # with enable_tracing=true. No collector (Grafana/Jaeger/SigNoz) is
+      # provisioned yet; set both when one is.
+      - key: OTEL_EXPORTER_OTLP_ENDPOINT
+        sync: false
+      # SLACK_DRIFT_WEBHOOK_URL / SABISCORE_MONITORING_URL: alerting.py already
+      # reads these directly and no-ops gracefully when unset. Setting a real
+      # value here does NOT yet activate anything — drift.py (the only caller
+      # of trigger_slack_drift_alert) has no production caller of its own; see
+      # docs/DEBT.md for the reference-baseline + current-batch blockers.
+      - key: SLACK_DRIFT_WEBHOOK_URL
+        sync: false
+      - key: SABISCORE_MONITORING_URL
+        sync: false
 
-databases:
-  - name: sabiscore-db
-    databaseName: sabiscore_production
-    user: sabiscore_user
-    plan: free
-    region: oregon
+# No `databases:` block: the blueprint-managed `sabiscore-db` free-tier instance
+# this used to declare expired and was replaced by a standalone instance set
+# directly on DATABASE_URL above (sync:false). Declaring a `databases:` entry
+# here again would make Render provision/track a resource nothing points to.
