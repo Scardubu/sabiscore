@@ -1,6 +1,6 @@
 # 0006 — OpenTelemetry activation
 
-**Status:** Proposed · 2026-08-05
+**Status:** Accepted · implemented 2026-08-06
 
 ## Context
 
@@ -128,3 +128,39 @@ nothing depends on spans/metrics existing today.
 **Trigger:** if the chosen exporter target changes, or if overhead on the free-tier
 dyno proves non-trivial even at a conservative sampling rate — in which case revisit
 sampling policy before removing the wiring entirely.
+
+## Addendum — 2026-08-06 (implementation)
+
+Built as designed, with three small resolutions of things this ADR left open:
+
+1. **Exporter: OTLP/HTTP, not OTLP/gRPC.** `opentelemetry-exporter-otlp-proto-http==1.21.0`
+   pinned in `requirements.txt`, matching the existing `opentelemetry-api`/`-sdk`
+   version. Avoids `grpcio` (native extension, real memory/build cost) on the
+   single free-tier dyno this ADR's own "Cost" section flags.
+2. **Sampling: SDK default (`ALWAYS_ON`), no custom sampler.** Matches this ADR's
+   own reasoning — near-zero off-season traffic makes full sampling free today;
+   revisit once real traffic exists rather than guessing at a rate now.
+3. **`FastAPIInstrumentor.instrument_app(app)` gated on the same
+   `enable_tracing and otel_exporter_otlp_endpoint` check**, not called
+   unconditionally as the sketch implied. The OTel API is a safe no-op without a
+   registered provider, but skipping `instrument_app()` entirely avoids mounting
+   even an inert middleware hop when tracing is off — direct application of this
+   ADR's own dyno-cost concern.
+
+One implementation-time improvement over the sketch: `shutdown_telemetry()` holds
+a direct module-level reference to the `TracerProvider` it created and shuts that
+down explicitly, rather than calling `trace.get_tracer_provider().shutdown()`
+against the global proxy — avoids any ambiguity if the global provider is ever
+touched elsewhere before shutdown runs.
+
+**Not done by this ADR, unchanged:** `drift.py`'s metrics remain dormant —
+wiring its caller is a separate, larger gap (no reference baseline exists; none
+can be generated until ~1,000 real settled fixtures accumulate). Recorded in
+`docs/DEBT.md`, not attempted this session — building a caller now would have
+meant guessing at a "current batch" data source with nothing to validate it
+against.
+
+**Verification:** `enable_tracing` defaults `false` and `OTEL_EXPORTER_OTLP_ENDPOINT`
+is unset in `render.yaml` (`sync: false`, no value) — both `setup_telemetry()` and
+the instrumentation gate stay inert on deploy exactly as designed. Backend test
+suite green after the change (see CHANGELOG for the exact count).

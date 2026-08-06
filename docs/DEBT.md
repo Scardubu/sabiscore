@@ -341,21 +341,83 @@ migrations_online()`, keeping the fallback gate exactly where it is.
 
 ## Operator action outstanding (not code — no code change can resolve it)
 
-**Render PostgreSQL `sabiscore-db` no longer resolves. The API is crash-looping.**
-Observed 2026-08-05 in the Render logs:
+**RESOLVED 2026-08-06 — new PostgreSQL instance provisioned; render.yaml corrected
+to match.** The expired `sabiscore-db` (below) was replaced with a standalone
+instance (`sabiscore_db_v2`) created directly in the Render dashboard, outside
+blueprint management. `render.yaml` still declared `DATABASE_URL` via
+`fromDatabase: {name: sabiscore-db}` and still carried a `databases:` block for
+the now-dead resource — live drift that would have risked a future Blueprint
+sync (e.g. the one enabling the three disabled providers) silently rebinding
+`DATABASE_URL` back to a dead or freshly-empty resource. Fixed: `DATABASE_URL`
+is now `sync: false` (operator-managed, matching how the replacement was
+actually provisioned) and the `databases:` block is removed. No data was lost
+by this correction — the old instance was already unreachable (DNS failure)
+before the replacement existed, so there was nothing live to migrate.
+**Still worth confirming, operator-only:** that `sabiscore_db_v2` is on a plan
+that won't hit the same 30-day free-tier expiry (if it's also `plan: free`,
+this will recur).
 
-```
+**Original entry, 2026-08-05 (kept for the incident record):**
+Render PostgreSQL `sabiscore-db` no longer resolved and the API was crash-looping.
+Observed in the Render logs:
+
+```text
 failed to resolve host 'dpg-d95kg3e7r5hc73eh7g6g-a': [Errno -2] Name or service not known
 PostgreSQL unavailable and SQLite fallback is not explicitly allowed
 ==> Instance srv-d95kkffaqgkc73f8003g-nvp7j restarted
 ```
 
-`render.yaml:32` wires `DATABASE_URL` via `fromDatabase: sabiscore-db`. A DNS failure
-on the instance hostname means the database instance itself is gone, not that
-credentials drifted — Render's free PostgreSQL tier expires and is deleted after 30
-days. **Resolution is in the Render dashboard: create/restore the PostgreSQL instance,
-confirm `DATABASE_URL` resolves to it, then redeploy** (the `startCommand` runs
-`alembic upgrade head` and will rebuild the schema from migrations on a fresh
-database). Nothing in the application can be changed to work around a deleted
-database, and it should not be — serving predictions without the store that holds
-fixtures, predictions and settlements would violate the fail-closed invariant.
+`render.yaml:32` wired `DATABASE_URL` via `fromDatabase: sabiscore-db`. A DNS failure
+on the instance hostname meant the database instance itself was gone, not that
+credentials had drifted — Render's free PostgreSQL tier expires and is deleted after
+30 days.
+
+---
+
+## 8. `monitoring/drift.py` still has zero production callers — reference baseline cannot exist yet
+
+**Tier:** `NEXT` — trigger: ≥1,000 score-verified settled fixtures exist (the
+generator's own `--minimum-sample` default; see below). Not sooner.
+**Owner:** unassigned.
+**Found:** 2026-08-06, scoping a "wire drift → Slack alerting" task before starting it.
+
+`DriftMonitor` (`backend/src/monitoring/drift.py`) and `trigger_slack_drift_alert`
+(`backend/src/services/alerting.py`) are both correct and unit-tested, and
+`SLACK_DRIFT_WEBHOOK_URL` now has a `render.yaml` declaration (`sync: false`,
+this session). None of that makes wiring a periodic caller today a good idea —
+two independent blockers, both data, not code:
+
+1. **No reference baseline exists, and none can be generated.**
+   `backend/data/reference/` holds only a `README.md` and a
+   `baseline_v1.manifest.template.json` — never `baseline_v1.parquet` itself.
+   `scripts/generate_reference_baseline.py` → `ReferenceBaselineGenerator`
+   selects only score-verified settled fixtures and refuses to write an
+   artifact below `--minimum-sample` (default 1,000) — by design, it "never
+   fabricates or zero-fills a baseline." Zero fixtures are settled as of
+   2026-08-06 (Eredivisie's first ball hasn't been kicked). `DriftMonitor.__init__`
+   raises `DriftConfigurationError` without this file; there is nothing to
+   construct a monitor from yet.
+2. **No live write path stores a reconstructable feature vector for a
+   "current batch."** `MatchPredictionLog.payload` is written as `None` from
+   `api/endpoints/predictions.py` and as the full `MatchAnalysisResult` (not a
+   raw canonical feature row) from `services/analytics.py` — neither shape
+   matches the reference schema's `ordered_features` that `evaluate_batch()`
+   requires. Even once (1) is satisfied, sourcing `current_batch_df` is a
+   second, separate piece of work.
+
+Building periodic-task scaffolding around either blocker now would mean
+guessing at a shape with nothing real to validate it against — the same
+"stacked bug behind a broad except" class this codebase has hit before
+(vΩ.32). Deferred deliberately, not overlooked.
+
+**Blast radius:** none today — `drift.py` importing cleanly and its tests
+passing is the full extent of current behavior.
+**Cost:** the baseline half resolves itself once real settlement volume
+exists (run the generator; it either succeeds past 1,000 rows or refuses).
+The current-batch half needs a real decision: either widen a write path to
+log the canonical feature vector `engineer_features()` already produces, or
+source batches by re-deriving it from settled `MatchPredictionLog` rows —
+worth deciding once there's real data to test against, not now.
+**Impact:** none — advisory monitoring, not on any serving path.
+**Priority:** low until item 2's settlement volume climbs toward four figures;
+revisit alongside item 2/5's own settled-data gates.

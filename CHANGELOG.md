@@ -5,6 +5,102 @@ All notable changes to this skill suite are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## vΩ.38 — OTel activation (WP-11), render.yaml database drift fixed, drift.py wiring scoped honestly (2026-08-06)
+
+Three independent threads from one session: (1) `docs/adr/0006-otel-activation.md`
+built as designed and flipped Proposed → Accepted; (2) a real, dangerous
+`render.yaml` drift found and fixed — the blueprint declared a Postgres
+resource that no longer exists; (3) a fourth candidate work item ("wire
+`drift.py` → Slack alerting") was scoped, found genuinely blocked on data that
+cannot exist yet, and recorded rather than half-built.
+
+### Added
+
+- `backend/src/core/telemetry.py` — `setup_telemetry()`/`shutdown_telemetry()`,
+  no-op unless both `enable_tracing` and `otel_exporter_otlp_endpoint` are set.
+  Exporter is OTLP/HTTP (`opentelemetry-exporter-otlp-proto-http==1.21.0`, new
+  pin), not gRPC — avoids `grpcio`'s native-extension weight on the single
+  free-tier Render dyno. Wired into `api/main.py` at the three points ADR-0006
+  specified: module-level `setup_telemetry()` near the Sentry block,
+  `FastAPIInstrumentor.instrument_app(app)` gated on the same settings check
+  right after `app = FastAPI(...)`, `shutdown_telemetry()` last in the lifespan
+  shutdown sequence so it flushes after everything else tears down.
+  `otel_exporter_otlp_endpoint` added to `config.py`; `OTEL_EXPORTER_OTLP_ENDPOINT`
+  declared `sync: false` in `render.yaml` (no collector provisioned yet — stays
+  inert). `backend/tests/unit/test_telemetry.py` (3 tests) pins the no-op gate
+  from both directions (tracing off; tracing on but endpoint unset) plus a
+  clean shutdown with nothing registered.
+- `render.yaml` — `SLACK_DRIFT_WEBHOOK_URL` / `SABISCORE_MONITORING_URL`
+  declared `sync: false`. `alerting.py` already reads both directly and
+  no-ops gracefully when unset; declaring them costs nothing. Setting a real
+  value does **not** yet activate anything live — see below.
+
+### Fixed — render.yaml no longer describes a database that doesn't exist
+
+`docs/DEBT.md`'s 2026-08-05 "Operator action outstanding" entry recorded that
+the blueprint-managed `sabiscore-db` free-tier Postgres instance had expired
+(Render deletes free-tier Postgres after 30 days) and crash-looped the API
+with a DNS failure. A replacement instance was provisioned directly in the
+Render dashboard — but `render.yaml` still declared `DATABASE_URL` via
+`fromDatabase: {name: sabiscore-db}` and still carried a `databases:` block
+for the now-dead resource. Live drift, and a dangerous one: the next
+Blueprint sync (the one enabling the three still-disabled providers) could
+have silently rebound `DATABASE_URL` back to a dead or freshly-empty
+resource. `DATABASE_URL` is now `sync: false` (matching how the replacement
+was actually provisioned) and the vestigial `databases:` block is removed.
+No data was lost by this correction — the old instance was already
+unreachable before the replacement existed. `docs/DEBT.md`'s entry updated to
+record the resolution and flag one remaining operator check: confirm the
+replacement isn't itself on a plan that will hit the same 30-day expiry.
+
+### Scoped, not built — `monitoring/drift.py` still has zero production callers
+
+Wiring `drift.py` into a periodic Slack-alerting task was on this session's
+list. Checked before building it and found two independent, real blockers,
+both data rather than code: no reference baseline exists or can be generated
+(`scripts/generate_reference_baseline.py` refuses below 1,000 score-verified
+settled fixtures; zero exist as of 2026-08-06), and no live write path stores
+a feature vector shaped for `evaluate_batch()`'s `current_batch_df`
+(`MatchPredictionLog.payload` is either `None` or a full `MatchAnalysisResult`,
+neither matching the reference schema). Building scaffolding around either
+blocker now would mean guessing at a shape with nothing real to test it
+against. Recorded as `docs/DEBT.md` item 8 with both blockers named
+explicitly, triggered on real settlement volume — not attempted this session.
+
+### Also this session
+
+- **A credential re-exposure was caught and flagged, not acted on.** Several
+  Render environment values (including `DATABASE_URL`, `REDIS_URL`,
+  `SECRET_KEY`, and three provider keys) were pasted into the chat transcript
+  for this session — the exact scenario the project's own setup guide names
+  as an absolute rule ("any credential ever pasted into a chat ... is
+  compromised and must be rotated"). None were reproduced in any file, commit,
+  or this changelog. **Operator action required: rotate all of the above
+  again**, including the PostgreSQL and Upstash Redis credentials rotated
+  earlier the same day, since pasting the new values undid that rotation's
+  value. Going forward, secret values belong only in the Render dashboard
+  fields directly, never in chat.
+- A draft `CORS_ORIGINS` value under consideration for the Render dashboard
+  was reviewed and flagged before being applied: it dropped both origins that
+  actually matter in production (`sabiscore.com`,
+  `web-lac-theta-42.vercel.app`) in favor of two legacy Vercel projects
+  deleted back in vΩ.20. Not applied; `render.yaml`'s existing value is
+  correct and unchanged.
+
+### Verified
+
+- Ruff clean on all touched/new backend files. Full backend suite: 1092
+  passed (was 1089), 13 skipped — `+3` for `test_telemetry.py`, zero
+  regressions.
+- `main.py` sanity-imports cleanly with `setup_telemetry()` now running at
+  module load (confirmed inert with default settings).
+- Playwright `tests/e2e/container-parity.spec.ts` re-verified 12/12 green
+  against a fresh `NODE_ENV=production` build — this item (WP-19) was already
+  shipped in commit `5849e08`; re-confirmed rather than rebuilt, no code
+  changed for it this session.
+- `render.yaml` re-parses as valid YAML after the `databases:` removal; the
+  `services:`/`envVars:` structure is otherwise unchanged in shape.
+
 ## vΩ.37 — WP-15: CLV capture at kickoff (2026-08-06)
 
 Eredivisie's opening round kicks off 2026-08-07. `docs/adr/0004-clv-capture.md`
