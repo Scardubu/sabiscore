@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 from src.core.database import Base, Match
-from src.db.models import MatchPredictionLog
+from src.db.models import MarketSnapshot, MatchPredictionLog
 
 
 @pytest.fixture(autouse=True)
@@ -68,6 +68,69 @@ async def _seed(session: AsyncSession, n: int, *, league_id: str = "DED", base_d
                 away_probability=0.3,
                 confidence=0.4,
                 created_at=base_date + timedelta(days=i, hours=-1),
+            )
+        )
+    await session.commit()
+
+
+async def _seed_with_closing_lines(
+    session: AsyncSession,
+    n: int,
+    *,
+    league_id: str = "DED",
+    base_date: datetime | None = None,
+    finished: bool = True,
+) -> None:
+    """Match + MatchPredictionLog + a captured closing-line MarketSnapshot for
+    each of n fixtures. finished=False leaves matches unsettled (no scores) —
+    used to prove clv isn't gated by the walk-forward floor (they're
+    independent data sources in the same response, see performance.py)."""
+    base_date = base_date or datetime(2026, 8, 1, 15, 0)
+    for i in range(n):
+        match_id = f"clv-{league_id}-{i}"
+        match_date = base_date + timedelta(days=i)
+        session.add(
+            Match(
+                id=match_id,
+                home_team_id="team-home",
+                away_team_id="team-away",
+                league_id=league_id,
+                match_date=match_date,
+                status="finished" if finished else "scheduled",
+                home_score=(i % 3) if finished else None,
+                away_score=((i + 1) % 3) if finished else None,
+            )
+        )
+        session.add(
+            MatchPredictionLog(
+                match_id=match_id,
+                canonical_fixture_id=None,
+                model_version="v5_phase7",
+                calibration_method=None,
+                home_probability=0.5,
+                draw_probability=0.3,
+                away_probability=0.2,
+                confidence=0.5,
+                created_at=match_date - timedelta(hours=1),
+            )
+        )
+        session.add(
+            MarketSnapshot(
+                match_id=match_id,
+                canonical_fixture_id=None,
+                provider="the_odds_api",
+                bookmaker="consensus",
+                market_type="1X2",
+                home_odds=2.0,
+                draw_odds=3.4,
+                away_odds=3.8,
+                home_implied_prob_devigged=0.45,
+                draw_implied_prob_devigged=0.28,
+                away_implied_prob_devigged=0.27,
+                is_closing_line=True,
+                captured_at=match_date - timedelta(minutes=5),
+                coherent=True,
+                executable=False,
             )
         )
     await session.commit()
@@ -137,6 +200,45 @@ async def test_model_performance_league_filter_accepts_canonical_form(session: A
 
     assert status == 200
     assert body["settled_predictions"] == 10  # only the DED-league rows counted
+
+
+async def test_model_performance_clv_skipped_when_no_closing_lines(session: AsyncSession) -> None:
+    from src.api.endpoints.performance import model_performance
+
+    await _seed(session, n=10)  # predictions + finished matches, zero closing lines
+    response = await model_performance(league=None, window=180, db=session)
+    status, body = _status_and_body(response)
+
+    assert status == 200  # walk-forward has enough settled predictions
+    assert body["clv"]["skipped"] is True
+    assert body["clv"]["n"] == 0
+
+
+async def test_model_performance_clv_computed_once_enough_closing_lines(session: AsyncSession) -> None:
+    from src.api.endpoints.performance import model_performance
+
+    await _seed_with_closing_lines(session, n=10, finished=True)
+    response = await model_performance(league=None, window=180, db=session)
+    status, body = _status_and_body(response)
+
+    assert status == 200
+    assert body["clv"]["skipped"] is False
+    assert body["clv"]["n"] == 10
+
+
+async def test_model_performance_clv_not_gated_by_walk_forward_floor(session: AsyncSession) -> None:
+    """clv and walk_forward are independent data floors in the same response:
+    enough captured closing lines but zero finished matches must still 503
+    on walk-forward while clv itself reports a real, non-skipped result."""
+    from src.api.endpoints.performance import model_performance
+
+    await _seed_with_closing_lines(session, n=10, finished=False)
+    response = await model_performance(league=None, window=180, db=session)
+    status, body = _status_and_body(response)
+
+    assert status == 503
+    assert body["clv"]["skipped"] is False
+    assert body["clv"]["n"] == 10
 
 
 async def test_model_performance_summary_503_below_floor(session: AsyncSession) -> None:

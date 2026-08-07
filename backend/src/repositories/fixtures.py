@@ -9,7 +9,7 @@ from sqlalchemy import Select, and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.database import Match
-from ..db.models import MatchPredictionLog
+from ..db.models import MarketSnapshot, MatchPredictionLog
 
 # ``finished`` is the canonical status. The additional values cover historical
 # loaders that pre-date the normalized schema; scores are still required, so a
@@ -204,6 +204,143 @@ async def get_settled_predictions(
             }
         )
     return records
+
+
+# ---------------------------------------------------------------------------
+# CLV computation: join logged predictions to captured closing lines
+# ---------------------------------------------------------------------------
+#
+# Joins on match_id, not canonical_fixture_id. clv_capture_service.py and both
+# MatchPredictionLog write sites (api/endpoints/predictions.py,
+# services/analytics.py) all hardcode canonical_fixture_id=None — a join
+# through that FK would return zero rows forever. match_id is populated on
+# every row on both tables and already indexed on each
+# (ix_match_prediction_logs_match_time, ix_market_snapshots_match_id). See
+# docs/adr/0004-clv-capture.md, Addendum 2.
+#
+# Same latest-log-regardless-of-kickoff-timing caveat as
+# build_settled_predictions_query above: takes the most recent prediction log
+# per match without checking it was logged before the closing line was
+# captured. Not yet a live risk for the same reason stated there — no
+# automatic pre-kickoff inference job exists today.
+
+
+def build_clv_records_query(
+    *,
+    limit: int = 5_000,
+    league: str | None = None,
+    started_at: datetime | None = None,
+    ended_at: datetime | None = None,
+) -> Select[Any]:
+    """Join the most recent logged prediction per match to its most recent
+    captured closing line. Unlike build_settled_predictions_query, does NOT
+    require the match to be finished — a closing line exists as soon as
+    clv_capture_service captures it near kickoff, independent of the result.
+    """
+
+    validated_limit = _validated_limit(limit)
+
+    latest_prediction = (
+        select(
+            MatchPredictionLog.match_id,
+            func.max(MatchPredictionLog.created_at).label("latest_created_at"),
+        )
+        .group_by(MatchPredictionLog.match_id)
+        .subquery()
+    )
+    latest_closing_line = (
+        select(
+            MarketSnapshot.match_id,
+            func.max(MarketSnapshot.captured_at).label("latest_captured_at"),
+        )
+        .where(MarketSnapshot.is_closing_line.is_(True))
+        .group_by(MarketSnapshot.match_id)
+        .subquery()
+    )
+
+    statement = (
+        select(
+            MatchPredictionLog.home_probability,
+            MatchPredictionLog.draw_probability,
+            MatchPredictionLog.away_probability,
+            MarketSnapshot.home_implied_prob_devigged,
+            MarketSnapshot.draw_implied_prob_devigged,
+            MarketSnapshot.away_implied_prob_devigged,
+        )
+        .select_from(MatchPredictionLog)
+        .join(Match, MatchPredictionLog.match_id == Match.id)
+        .join(
+            latest_prediction,
+            and_(
+                MatchPredictionLog.match_id == latest_prediction.c.match_id,
+                MatchPredictionLog.created_at == latest_prediction.c.latest_created_at,
+            ),
+        )
+        .join(
+            latest_closing_line,
+            latest_closing_line.c.match_id == MatchPredictionLog.match_id,
+        )
+        .join(
+            MarketSnapshot,
+            and_(
+                MarketSnapshot.match_id == latest_closing_line.c.match_id,
+                MarketSnapshot.captured_at == latest_closing_line.c.latest_captured_at,
+            ),
+        )
+        .where(
+            MarketSnapshot.is_closing_line.is_(True),
+            MarketSnapshot.home_implied_prob_devigged.is_not(None),
+            MarketSnapshot.draw_implied_prob_devigged.is_not(None),
+            MarketSnapshot.away_implied_prob_devigged.is_not(None),
+        )
+    )
+
+    if league:
+        statement = statement.where(func.lower(Match.league_id) == league.lower())
+    if started_at is not None:
+        statement = statement.where(Match.match_date >= started_at)
+    if ended_at is not None:
+        statement = statement.where(Match.match_date <= ended_at)
+
+    return statement.order_by(Match.match_date.asc()).limit(validated_limit)
+
+
+async def get_clv_records(
+    session: AsyncSession,
+    *,
+    limit: int = 5_000,
+    league: str | None = None,
+    started_at: datetime | None = None,
+    ended_at: datetime | None = None,
+) -> List[Dict[str, Any]]:
+    """Return prediction/closing-line pairs shaped for
+    ``services.clv_service.compute_clv_summary()``:
+    ``{"model_probs": [h, d, a], "closing_probs": [h, d, a]}``.
+    """
+
+    result = await session.execute(
+        build_clv_records_query(
+            limit=limit,
+            league=league,
+            started_at=started_at,
+            ended_at=ended_at,
+        )
+    )
+
+    return [
+        {
+            "model_probs": [home_prob, draw_prob, away_prob],
+            "closing_probs": [home_implied, draw_implied, away_implied],
+        }
+        for (
+            home_prob,
+            draw_prob,
+            away_prob,
+            home_implied,
+            draw_implied,
+            away_implied,
+        ) in result.all()
+    ]
 
 
 async def get_next_upcoming_fixture(

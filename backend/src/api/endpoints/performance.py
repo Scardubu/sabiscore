@@ -10,7 +10,8 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...db.session import get_async_session
-from ...repositories.fixtures import get_settled_predictions
+from ...repositories.fixtures import get_clv_records, get_settled_predictions
+from ...services.clv_service import compute_clv_summary
 from ...services.settlement_service import get_walk_forward_registry
 from ...services.upcoming_match_service import UpcomingMatchService
 
@@ -173,6 +174,13 @@ async def model_performance(
     result = await _walk_forward_summary(db, league=league, window=window)
     records, validation = result["records"], result["validation"]
 
+    # CLV has its own data floor, independent of walk-forward's — a season can
+    # have plenty of captured closing lines and too few *finished* matches for
+    # RPS, or vice versa. Computed unconditionally so neither gates the other.
+    started_at = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=window)
+    clv_records = await get_clv_records(db, league=_resolve_league_code(league), started_at=started_at)
+    clv = compute_clv_summary(clv_records)
+
     if not records or validation.get("skipped"):
         return JSONResponse(
             status_code=503,
@@ -182,6 +190,7 @@ async def model_performance(
                 "league": league,
                 "window": window,
                 "settled_predictions": len(records),
+                "clv": clv,
                 "generated_at": datetime.now(timezone.utc).isoformat(),
             },
         )
@@ -198,6 +207,7 @@ async def model_performance(
         # owner instead of a hardcoded copy on the client.
         "baseline_accuracy": 1.0 / 3.0,
         "walk_forward": validation,
+        "clv": clv,
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
 

@@ -231,8 +231,9 @@ moment item 2's telemetry is live against real matches.
 
 ## 6. CLV and ROI are structurally unavailable, not merely unimplemented
 
-**Tier:** `ACCEPTED` — rationale below; review only if the two blockers named here
-actually change.
+**Tier:** `ACCEPTED` — ROI half unchanged/out of scope by construction; CLV half now
+computed. Kept as the incident record + the ROI rationale, matching item 2/3/4's
+"update in place, don't delete" precedent.
 **Owner:** unassigned.
 **Found:** 2026-08-05, while wiring `/performance` to the settlement join (item 2).
 **Updated:** 2026-08-06 — **the CLV capture half is now shipped**, not just
@@ -249,16 +250,33 @@ nullable `closing_market_snapshot_id` FK, always NULL for now — see the ADR's
 join key, is never populated for an ordinary upcoming fixture; the job keys on
 the legacy `matches.id` instead). 8 new unit tests
 (`tests/unit/test_clv_capture_service.py`); backend suite 1089 passed.
-**Still not done:** the CLV *number itself* is not computed anywhere yet —
-this ships capture only, per the ADR's own scoping, so a kickoff passing
-before 7 August is no longer a permanent loss, but nothing reads these rows
-back into a dashboard card or a per-prediction CLV figure. **ROI is
-unchanged and stays unreachable by construction** — it needs a placed stake, which
-this platform never places. The guard below against re-adding either card as a
-"coming soon" placeholder remains in force: restoring the CLV card is still out
-of scope until something computes CLV from these rows and joins it to a
-specific prediction (blocked on the same `canonical_fixture_id`/`match_id`
-identity gap noted above).
+**Updated 2026-08-07 — the CLV computation half now ships too.**
+`repositories/fixtures.py::get_clv_records()` joins the latest logged
+prediction per match to its latest captured closing line **on `match_id`, not
+`canonical_fixture_id`** — both `MatchPredictionLog` write sites and the
+capture job itself hardcode `canonical_fixture_id=None`, so that FK was never
+a real prerequisite despite how the 2026-08-06 addendum below reads;
+`match_id` is populated and indexed on both tables today, so no
+identity-resolution work was needed to unblock this. `services/clv_service.py
+::compute_clv_summary()` computes a mean CLV
+(`model_prob[argmax] - closing_implied_prob[argmax]`) plus a positive-rate,
+gated on `n >= 10` joined records (reuses `model_registry.py`'s own
+`MIN_RECORDS_FOR_DECOMPOSITION` threshold rather than inventing a second magic
+number in the same response), surfaced as an independent `clv` field on
+`GET /model-performance` — independent of the walk-forward floor already in
+that response, since a season can have enough closing lines and too few
+finished matches, or the reverse. **Two things this deliberately did NOT do:**
+it does not touch `MatchActionability.clv_pct`
+(`services/intelligence_synthesizer.py`, `full_analysis.py:448`, still
+hardcoded `None` / "Sprint 5") — that field lives in the Kelly/verdict/abstain
+advisory surface, the same category as `betting_intelligence.py`/
+`core_engine.py` even though it isn't literally those files, and is a
+different "CLV" concept (per-recommendation, not this diagnostic aggregate);
+and it does not restore the `/performance` frontend CLV card — an explicit
+user scope decision this session, not a technical blocker (the computation
+prerequisite the guard below names is now satisfied). **ROI is unchanged and
+stays unreachable by construction** — it needs a placed stake, which this
+platform never places.
 
 `/performance` used to carry "30d CLV" and "30d ROI" stat cards. They were removed
 rather than left showing an em-dash, because an em-dash means "awaiting data" and
@@ -278,23 +296,36 @@ neither figure is awaiting anything:
   construction rather than by backlog position.
 
 **Blast radius:** none today — removing the cards changed no computation. The risk this
-entry guards against is someone re-adding them as "coming soon" placeholders, which
-would be an INV-01 fabrication surface of exactly the vΩ.24/vΩ.28 kind (a neutral
-default rendered where a measurement belongs).
-**Cost to actually deliver CLV:** the schema expand and capture job shipped 2026-08-06
-(above). Remaining: a query/service that reads `MarketSnapshot(is_closing_line=True)`
-rows and computes `model_prob - closing_implied_prob` per outcome
-(`connectors/odds_market.py::market_movement_features` already does this math, just
-needs a real `closing_odds` snapshot wired in), plus resolving the
-`canonical_fixture_id`/`match_id` join gap before it can attach to a specific
-prediction rather than just a fixture. Low-medium now that capture exists.
+entry guards against is someone re-adding the *ROI* card as a "coming soon"
+placeholder, which would be an INV-01 fabrication surface of exactly the
+vΩ.24/vΩ.28 kind (a neutral default rendered where a measurement belongs). The
+CLV card's own prerequisite (a real computed number) is satisfied as of
+2026-08-07 — restoring it is now a scope decision, not a fabrication risk.
+**Cost to actually deliver CLV:** **done, 2026-08-07** — the schema/capture job
+shipped 2026-08-06, computation shipped 2026-08-07 (above). Correcting a
+citation error from the previous version of this entry: the "already does this
+math" reference here previously named `connectors/odds_market.py::
+market_movement_features` — that function does not exist in that module at
+all (`market_movement_features` lives in `features/market.py` and has no
+`model_probabilities` parameter, so it cannot compute CLV under any wiring).
+The function that *does* compute CLV, `connectors/odds_market.py::
+compute_market_features()`, was deliberately **not** called by the shipped
+implementation either — it re-derives de-vig arithmetic from raw odds that
+`MarketSnapshot.*_implied_prob_devigged` already stores precomputed, so
+`clv_service.py` does a direct subtraction on those columns instead. Remaining
+cost, if ever wanted: wiring the diagnostic `clv` field into the `/performance`
+frontend (out of scope this pass) and, separately, deciding whether/how to
+populate `MatchActionability.clv_pct` from the same joined data (a
+verdict-adjacent surface, not touched here).
 **Cost to deliver ROI:** not applicable; it requires reversing a deliberate product
 decision, not writing code.
-**Impact:** the dashboard now shows only what the walk-forward harness actually
-produces — accuracy, ranked probability score, settled count, fold count.
-**Priority:** none. Revisit CLV if and when a market snapshot is persisted per
-prediction; ROI never, absent an explicit operator decision to change what the product
-is.
+**Impact:** `GET /model-performance` now returns an independent `clv` field
+(mean CLV + positive-rate, `n >= 10` floor) alongside the walk-forward harness
+output; the `/performance` frontend page is unchanged and does not render it
+yet.
+**Priority:** none for CLV computation (done). Low for the `/performance` card
+restoration, whenever that scope is picked up. ROI: never, absent an explicit
+operator decision to change what the product is.
 
 ## 7. `core/database.py` opens a connection at import time, so every offline tool needs a live DB
 

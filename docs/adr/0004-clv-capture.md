@@ -148,3 +148,54 @@ raw odds columns duplicated per row) is unchanged; only which key currently
 carries real data is different. Do not backfill `canonical_fixture_id`
 speculatively; when identity resolution lands, it should backfill this column
 the same way it backfills every other `canonical_fixture_id` in the schema.
+
+## Addendum 2 — 2026-08-07: computation shipped, and it did not need to wait
+
+Addendum 1 (above) reads as though CLV computation is blocked until identity
+resolution populates `canonical_fixture_id`. It isn't, and computation shipped
+this session without waiting on that: `match_id` is non-null and populated on
+every row this platform actually writes to both `market_snapshots` (the
+capture job) and `match_prediction_logs` (both write sites,
+`api/endpoints/predictions.py` and `services/analytics.py` — both hardcode
+`canonical_fixture_id=None` too, confirmed by reading them directly), and both
+columns are already indexed. `canonical_fixture_id` was never a real
+prerequisite for the join — only for the `closing_market_snapshot_id`
+backfill described in the original Decision section, which remains undone and
+still correctly waits on identity resolution.
+
+**Shipped:** `repositories/fixtures.py::build_clv_records_query()` /
+`get_clv_records()` join the latest `MatchPredictionLog` per `match_id` to the
+latest `MarketSnapshot(is_closing_line=True)` for that same `match_id` (two
+`MAX()`-per-`match_id` subqueries, mirroring `build_settled_predictions_query`'s
+existing pattern one section above it in the same file). Unlike the settled-
+predictions join, this one does not require the match to be finished — a
+closing line exists as soon as the capture job runs, independent of the
+result. `services/clv_service.py::compute_clv_summary()` takes the joined
+`(model_probs, closing_probs)` pairs and computes
+`model_prob[argmax] - closing_implied_prob[argmax]` per record (mirroring
+`walk_forward_validate()`'s own argmax convention for `accuracy`), averaged,
+plus a positive-rate, gated on `n >= 10` (reuses
+`model_registry.MIN_RECORDS_FOR_DECOMPOSITION`'s threshold rather than
+inventing a second one). Surfaced as an independent `clv` field on
+`GET /model-performance`, computed unconditionally so it is never gated by the
+walk-forward floor already in that same response (the two data sources —
+finished matches vs. captured closing lines — can be insufficient
+independently of each other).
+
+**Deliberately not called:** `connectors/odds_market.py::
+compute_market_features()`, despite computing an equivalent `clv_{outcome}`
+value. It accepts raw decimal odds and re-derives the de-vig internally —
+`MarketSnapshot.*_implied_prob_devigged` already stores that arithmetic done
+once, at capture time, which is the entire point of those columns per this
+ADR's own Decision section. Routing through a 12-field function built for a
+different (Phase-9 shadow-feature) use case to get 3 numbers already sitting
+in the database was judged the wrong rung of the ladder; `clv_service.py`
+subtracts the stored columns directly.
+
+**Deliberately not touched:** `MatchActionability.clv_pct`
+(`services/intelligence_synthesizer.py`, `full_analysis.py:448`) — a
+different, still-dormant "CLV" concept living in the Kelly/verdict/abstain
+advisory surface (per-recommendation, not this diagnostic aggregate); and the
+`/performance` frontend CLV card — out of scope by explicit product-owner
+decision this session, not by any remaining technical blocker. See
+`docs/DEBT.md` item 6 for the current, dated status of both.
