@@ -7,7 +7,11 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
 from ..core.exceptions import DataUnavailableError, OddsUnavailableError
-from ..models.feature_registry import CANONICAL_FEATURES_68, DEFAULT_FEATURE_VALUES_68
+from ..models.feature_registry import (
+    CANONICAL_FEATURES_68,
+    DEFAULT_FEATURE_VALUES_68,
+    derive_last5_form_features,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -328,15 +332,18 @@ class FeatureTransformer:
         home_form_5 = get_num("home_form_5", 0.5)
         away_form_5 = get_num("away_form_5", 0.45)
 
-        canonical["home_form_last5_home"] = home_form_5 * 3.0
-        canonical["away_form_last5_away"] = away_form_5 * 3.0
-
-        canonical["home_wins_last5_home"] = float(round(get_num("home_win_rate_5", 0.5) * 5.0))
-        canonical["away_wins_last5_away"] = float(round(get_num("away_win_rate_5", 0.4) * 5.0))
-        canonical["home_draws_last5_home"] = max(0.0, 5.0 - canonical["home_wins_last5_home"] - 2.0)
-        canonical["away_draws_last5_away"] = max(0.0, 5.0 - canonical["away_wins_last5_away"] - 2.0)
-        canonical["home_losses_last5_home"] = max(0.0, 5.0 - canonical["home_wins_last5_home"] - canonical["home_draws_last5_home"])
-        canonical["away_losses_last5_away"] = max(0.0, 5.0 - canonical["away_wins_last5_away"] - canonical["away_draws_last5_away"])
+        # WP-18: delegate to the shared pure formula in feature_registry.py —
+        # was duplicated inline here and never reused by
+        # upcoming_match_feature_service.py's own pipeline (now wired too).
+        # Numerically identical to the prior inline formula; no wins_5/draws_5/
+        # losses_5 available from an already-engineered features row, so this
+        # always takes the round()/estimate path, same as before.
+        canonical.update(derive_last5_form_features(
+            home_form_5, get_num("home_win_rate_5", 0.5), is_home=True,
+        ))
+        canonical.update(derive_last5_form_features(
+            away_form_5, get_num("away_win_rate_5", 0.4), is_home=False,
+        ))
 
         canonical["home_goals_for_avg"] = get_num("home_goals_per_match_5", 1.55)
         canonical["away_goals_for_avg"] = get_num("away_goals_per_match_5", 1.25)

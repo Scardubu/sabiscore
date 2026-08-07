@@ -43,6 +43,7 @@ from ..models.feature_registry import (
     PHASE8_FEATURES_PI,
     active_canonical_features,
     active_default_feature_values,
+    derive_last5_form_features,
 )
 from ..utils.season import canonical_season
 from .odds_service import OddsService
@@ -67,6 +68,22 @@ _CALLER_RESOLVED_FEATURES = (
     | frozenset(PHASE8_FEATURES_MARKET)
     | frozenset(PHASE8_FEATURES_CONTEXT)
 )
+
+# WP-18/WP-10.3: the last5-form + goals/gd canonical fields rescued from
+# unconditional-gap status once _get_team_stats()/to_projection_stats() data
+# is available for that side and the remap in project_match_features() has
+# run. Resolved per side, independently — one side having history doesn't
+# rescue the other's.
+_HOME_REMAP_FEATURES = frozenset({
+    "home_form_last5_home", "home_wins_last5_home", "home_draws_last5_home",
+    "home_losses_last5_home", "home_goals_for_avg", "home_goals_against_avg",
+    "home_gd_recent",
+})
+_AWAY_REMAP_FEATURES = frozenset({
+    "away_form_last5_away", "away_wins_last5_away", "away_draws_last5_away",
+    "away_losses_last5_away", "away_goals_for_avg", "away_goals_against_avg",
+    "away_gd_recent",
+})
 
 
 class UpcomingMatchFeatureProjector:
@@ -118,6 +135,7 @@ class UpcomingMatchFeatureProjector:
                 "data_quality": {
                     "historical_data_ratio": float (0-1),
                     "defaults_used_count": int,
+                    "feature_defaulted_ratio": float (0-1),
                     "is_synthetic": bool
                 }
             }
@@ -140,8 +158,8 @@ class UpcomingMatchFeatureProjector:
         home_team_id = home_team_id_resolved or match_dict["home_team"]
         away_team_id = away_team_id_resolved or match_dict["away_team"]
 
-        home_stats = await self._get_team_stats(home_team_id, db, match_date)
-        away_stats = await self._get_team_stats(away_team_id, db, match_date)
+        home_stats = await self._get_team_stats(home_team_id, db, match_date, is_home=True)
+        away_stats = await self._get_team_stats(away_team_id, db, match_date, is_home=False)
 
         # is_synthetic (below) gates public prediction publishing (WP-0/vΩ.32:
         # upcoming_match_service.py `publishable = not is_fallback and not
@@ -152,11 +170,44 @@ class UpcomingMatchFeatureProjector:
         away_db_missing = away_stats is None
         league_hint = match_dict.get("league")
         home_stats, home_scraped_provenance = self._apply_scraped_fallback(
-            home_stats, competition=league_hint, team=match_dict["home_team"], match_date=match_date
+            home_stats, competition=league_hint, team=match_dict["home_team"], match_date=match_date, is_home=True
         )
         away_stats, away_scraped_provenance = self._apply_scraped_fallback(
-            away_stats, competition=league_hint, team=match_dict["away_team"], match_date=match_date
+            away_stats, competition=league_hint, team=match_dict["away_team"], match_date=match_date, is_home=False
         )
+
+        # WP-18/WP-10.3: wire the canonical last5-form + goals/gd remap that
+        # FeatureTransformer._project_to_canonical_features() has always used
+        # elsewhere (data/transformers.py) into this pipeline, now that
+        # _get_team_stats()/to_projection_stats() correctly prefix by side
+        # (D8b fixed above). Mutates home_stats/away_stats in place so the
+        # existing defaults_count bookkeeping below needs no changes — it
+        # already generically credits any key also present in self.defaults,
+        # and every new canonical key genuinely is.
+        if home_stats:
+            home_stats.update(derive_last5_form_features(
+                home_stats.get("home_form_5", 0.5),
+                home_stats.get("home_win_rate_5", 0.5),
+                is_home=True,
+                wins_5=home_stats.get("wins_5"),
+                draws_5=home_stats.get("draws_5"),
+                losses_5=home_stats.get("losses_5"),
+            ))
+            home_stats["home_goals_for_avg"] = home_stats.get("home_goals_per_match_5", 1.5)
+            home_stats["home_goals_against_avg"] = home_stats.get("home_goals_conceded_per_match_5", 1.2)
+            home_stats["home_gd_recent"] = home_stats.get("home_gd_avg_5", 0.0)
+        if away_stats:
+            away_stats.update(derive_last5_form_features(
+                away_stats.get("away_form_5", 0.45),
+                away_stats.get("away_win_rate_5", 0.4),
+                is_home=False,
+                wins_5=away_stats.get("wins_5"),
+                draws_5=away_stats.get("draws_5"),
+                losses_5=away_stats.get("losses_5"),
+            ))
+            away_stats["away_goals_for_avg"] = away_stats.get("away_goals_per_match_5", 1.5)
+            away_stats["away_goals_against_avg"] = away_stats.get("away_goals_conceded_per_match_5", 1.2)
+            away_stats["away_gd_recent"] = away_stats.get("away_gd_avg_5", 0.0)
 
         features_dict = dict(self.defaults)
         defaults_count = len(self.defaults)
@@ -176,17 +227,24 @@ class UpcomingMatchFeatureProjector:
 
         # A canonical feature is a gap here unless it's resolved by the caller
         # (_CALLER_RESOLVED_FEATURES — elo/statsbomb/phase8, tracked authoritatively
-        # one layer up) — never inferred from the numeric value. `home_stats`/
-        # `away_stats` never actually intersect a canonical feature name (confirmed:
-        # e.g. "home_form_5" vs the canonical "home_form_last5_home"), so every
-        # remaining base feature is unconditionally left at its registry default
-        # today; a value-equality check (old: `in (None, 0.0)`) was both a false
-        # positive (a genuinely-computed 0.0 flagged as missing) and a false
-        # negative (a non-zero default like home_berrar_rating=1500.0 silently
-        # never flagged) for exactly the features that heuristic was meant to catch.
+        # one layer up) or by the last5-form/goals/gd remap just above
+        # (_HOME_REMAP_FEATURES/_AWAY_REMAP_FEATURES, WP-18/WP-10.3) — never
+        # inferred from the numeric value. A value-equality check (old:
+        # `in (None, 0.0)`) was both a false positive (a genuinely-computed 0.0
+        # flagged as missing) and a false negative (a non-zero default like
+        # home_berrar_rating=1500.0 silently never flagged) for exactly the
+        # features that heuristic was meant to catch. Every remaining base
+        # feature (market/h2h/combined — no remap wired for those yet) stays
+        # unconditionally at its registry default, same as before WP-18.
+        _remap_resolved: set = set()
+        if home_stats and _HOME_REMAP_FEATURES.issubset(home_stats.keys()):
+            _remap_resolved |= _HOME_REMAP_FEATURES
+        if away_stats and _AWAY_REMAP_FEATURES.issubset(away_stats.keys()):
+            _remap_resolved |= _AWAY_REMAP_FEATURES
+
         data_gaps = [
             feature for feature in self.canonical_features
-            if feature not in _CALLER_RESOLVED_FEATURES
+            if feature not in _CALLER_RESOLVED_FEATURES and feature not in _remap_resolved
         ]
 
         for always_gap in PHASE7_FEATURES_ALWAYS_DATA_GAP:
@@ -210,12 +268,20 @@ class UpcomingMatchFeatureProjector:
             if self.defaults
             else 0.0,
             "defaults_used_count": max(0, defaults_count),
+            # WP-18/WP-10.3: fraction of canonical features still at their registry
+            # default (derived from data_gaps, not defaults_count — defaults_count
+            # was silently constant before this fix, since home_stats/away_stats
+            # keys never intersected self.defaults at all until the remap wired
+            # canonical names into them). 1.0 = fully defaulted, 0.0 = fully resolved.
+            "feature_defaulted_ratio": (
+                len(data_gaps) / len(self.canonical_features) if self.canonical_features else 0.0
+            ),
             "is_synthetic": home_db_missing or away_db_missing,
-            # Provenance-tagged only (INV-10) — closes D12 (ScrapedTeamFormStore had
-            # zero callers) without claiming these values as DB-native. Behaviourally
-            # inert on the canonical feature vector today: the scraped keys share
-            # _get_team_stats()'s non-canonical shape (D8), so neither reaches
-            # features_array until the WP-10.3 remap (gated, not done here).
+            # Provenance-tagged (INV-10) — closes D12 (ScrapedTeamFormStore had zero
+            # callers) without claiming these values as DB-native. No longer inert on
+            # the canonical feature vector (WP-10.3 remap wired above): a scraped
+            # fallback's last5-form/goals/gd fields now reach features_array the
+            # same as DB-native ones, provenance-tagged here for auditability.
             "scraped_fallback": {
                 k: v
                 for k, v in {"home": home_scraped_provenance, "away": away_scraped_provenance}.items()
@@ -735,6 +801,7 @@ class UpcomingMatchFeatureProjector:
         team_id: str,
         db: AsyncSession,
         match_date: datetime,
+        is_home: bool = True,
     ) -> Optional[Dict[str, float]]:
         """Fetch recent team statistics for feature engineering.
 
@@ -742,7 +809,14 @@ class UpcomingMatchFeatureProjector:
         team of history whenever the gap since the last completed match exceeds
         it (e.g. the close season). ``.limit(20)`` alone bounds the query; a team
         with a real but old last match still resolves instead of going synthetic.
+
+        is_home controls only the home_/away_ prefix on the returned keys —
+        matches data/team_database.py:get_team_stats()'s is_home convention
+        (WP-18/D8b). Captured into `prefix` before the loop below, which binds
+        its own unrelated per-match `is_home` local; never reference the
+        parameter by name after this point.
         """
+        prefix = "home" if is_home else "away"
         query = (
             select(Match)
             .where(
@@ -782,53 +856,65 @@ class UpcomingMatchFeatureProjector:
                 points.append(0)
 
         if len(points) >= 5:
-            stats["home_form_5"] = sum(points[:5]) / 15.0
-            stats["home_win_rate_5"] = sum(1 for p in points[:5] if p == 3) / 5.0
+            stats[f"{prefix}_form_5"] = sum(points[:5]) / 15.0
+            stats[f"{prefix}_win_rate_5"] = sum(1 for p in points[:5] if p == 3) / 5.0
         else:
-            stats["home_form_5"] = sum(points) / (len(points) * 3.0) if points else 0.5
-            stats["home_win_rate_5"] = (
+            stats[f"{prefix}_form_5"] = sum(points) / (len(points) * 3.0) if points else 0.5
+            stats[f"{prefix}_win_rate_5"] = (
                 sum(1 for p in points if p == 3) / len(points) if points else 0.4
             )
 
-        if len(points) >= 10:
-            stats["home_form_10"] = sum(points[:10]) / 30.0
-        else:
-            stats["home_form_10"] = stats.get("home_form_5", 0.5)
+        # WP-18: real last-5 win/draw/loss counts from the points list already
+        # computed above — strictly more accurate than derive_last5_form_features()'s
+        # round()/estimate fallback. Deliberately unprefixed, matching
+        # ScrapedTeamForm.to_projection_stats()'s existing wins_5/draws_5/losses_5
+        # convention — safe despite the shared name across home_stats/away_stats
+        # because callers only ever read them off this per-side dict before the
+        # features_dict merge in project_match_features(), never out of the
+        # merged dict.
+        stats["wins_5"] = float(sum(1 for p in points[:5] if p == 3))
+        stats["draws_5"] = float(sum(1 for p in points[:5] if p == 1))
+        stats["losses_5"] = float(sum(1 for p in points[:5] if p == 0))
 
-        stats["home_goals_per_match_5"] = (
+        if len(points) >= 10:
+            stats[f"{prefix}_form_10"] = sum(points[:10]) / 30.0
+        else:
+            stats[f"{prefix}_form_10"] = stats.get(f"{prefix}_form_5", 0.5)
+
+        stats[f"{prefix}_goals_per_match_5"] = (
             np.mean(goals_for[:5]) if len(goals_for) >= 5 else np.mean(goals_for) if goals_for else 1.5
         )
-        stats["home_goals_conceded_per_match_5"] = (
+        stats[f"{prefix}_goals_conceded_per_match_5"] = (
             np.mean(goals_against[:5]) if len(goals_against) >= 5 else np.mean(goals_against) if goals_against else 1.2
         )
 
         if recent_matches:
             last_match_date = recent_matches[0].match_date
             rest_days = (match_date - last_match_date).days
-            stats["home_days_rest"] = min(rest_days, 10.0)
-            stats["home_fatigue_index"] = max(0.0, 1.0 - (rest_days / 7.0))
+            stats[f"{prefix}_days_rest"] = min(rest_days, 10.0)
+            stats[f"{prefix}_fatigue_index"] = max(0.0, 1.0 - (rest_days / 7.0))
         else:
-            stats["home_days_rest"] = 7.0
-            stats["home_fatigue_index"] = 0.3
+            stats[f"{prefix}_days_rest"] = 7.0
+            stats[f"{prefix}_fatigue_index"] = 0.3
 
         clean_sheets = sum(1 for ga in goals_against[:5] if ga == 0)
-        stats["home_clean_sheets_5"] = (
+        stats[f"{prefix}_clean_sheets_5"] = (
             clean_sheets / min(5, len(goals_against)) if goals_against else 0.3
         )
 
         gd = [f - a for f, a in zip(goals_for[:5], goals_against[:5])]
-        stats["home_gd_avg_5"] = np.mean(gd) if gd else 0.0
+        stats[f"{prefix}_gd_avg_5"] = np.mean(gd) if gd else 0.0
         if len(gd) >= 2:
             try:
                 trend = np.polyfit(range(len(gd)), gd, 1)[0]
-                stats["home_gd_trend"] = float(trend)
+                stats[f"{prefix}_gd_trend"] = float(trend)
             except Exception:
-                stats["home_gd_trend"] = 0.0
+                stats[f"{prefix}_gd_trend"] = 0.0
 
         xg_values = await self._get_team_xg(team_id, db, recent_matches)
         if xg_values:
-            stats["home_xg_avg_5"] = np.mean(xg_values[:5])
-            stats["home_xg_consistency"] = np.std(xg_values[:5]) if len(xg_values) >= 5 else 0.75
+            stats[f"{prefix}_xg_avg_5"] = np.mean(xg_values[:5])
+            stats[f"{prefix}_xg_consistency"] = np.std(xg_values[:5]) if len(xg_values) >= 5 else 0.75
 
         return stats if stats else None
 
@@ -839,6 +925,7 @@ class UpcomingMatchFeatureProjector:
         competition: Optional[str],
         team: str,
         match_date: datetime,
+        is_home: bool = True,
     ) -> Tuple[Optional[Dict[str, float]], Optional[Dict[str, Any]]]:
         """WP-10.1 — consult the scraped football-data.co.uk CSV artifact only when
         the DB has zero completed-match history for this team (``stats is None``).
@@ -846,6 +933,10 @@ class UpcomingMatchFeatureProjector:
         provenance dict back separately and must not fold it into ``is_synthetic``.
         Never raises — a missing/corrupt artifact degrades to "no fallback", the
         same as if ``ScrapedTeamFormStore`` had never been called.
+
+        is_home is forwarded to to_projection_stats() so the fallback's keys
+        carry the correct home_/away_ prefix (WP-18/D8b) instead of always
+        defaulting to "home_".
         """
         if stats is not None or not competition:
             return stats, None
@@ -859,7 +950,7 @@ class UpcomingMatchFeatureProjector:
             return stats, None
         if record is None:
             return stats, None
-        return record.to_projection_stats(), {
+        return record.to_projection_stats(is_home=is_home), {
             "source": f"scraped:football-data-csv:{record.source_file.name}",
             "matches_sampled": record.matches_sampled,
             "acquired_at": record.latest_match_date.isoformat() if record.latest_match_date else None,

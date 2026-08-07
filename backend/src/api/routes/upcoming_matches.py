@@ -54,6 +54,7 @@ class ValueBetSchema(BaseModel):
 class DataQualitySchema(BaseModel):
     historical_data_ratio: float
     defaults_used_count: int
+    feature_defaulted_ratio: float
     is_synthetic: bool
 
 
@@ -171,6 +172,7 @@ async def get_upcoming_matches(
           "data_quality": {
             "historical_data_ratio": "<fraction of features from real data>",
             "defaults_used_count": "<count of features filled from league averages>",
+            "feature_defaulted_ratio": "<fraction of canonical features still at registry default>",
             "is_synthetic": false
           }
         }

@@ -90,6 +90,23 @@ async def test_get_team_stats_none_with_no_history(
     assert stats is None
 
 
+async def test_get_team_stats_is_home_controls_key_prefix(
+    session: AsyncSession, projector: UpcomingMatchFeatureProjector
+) -> None:
+    """WP-18/D8b regression: _get_team_stats() must prefix its output keys by
+    the is_home argument, not hardcode "home_" regardless of side — the exact
+    collision that would silently let one team's stats overwrite the other's
+    the moment any remap read these keys (which project_match_features()
+    now does)."""
+    await _seed_old_match(session, days_before=1)
+    home_shaped = await projector._get_team_stats("team-home", session, MATCH_DATE, is_home=True)
+    away_shaped = await projector._get_team_stats("team-home", session, MATCH_DATE, is_home=False)
+    assert "home_form_5" in home_shaped and "away_form_5" not in home_shaped
+    assert "away_form_5" in away_shaped and "home_form_5" not in away_shaped
+    # Same team, same underlying history — only the key prefix differs.
+    assert away_shaped["away_form_5"] == home_shaped["home_form_5"]
+
+
 async def test_get_team_results_sequence_finds_match_older_than_120_days(
     session: AsyncSession, projector: UpcomingMatchFeatureProjector
 ) -> None:
@@ -121,15 +138,89 @@ def test_caller_resolved_features_excludes_always_gap_feature() -> None:
 async def test_orphan_base_feature_always_flagged_as_gap(
     session: AsyncSession, projector: UpcomingMatchFeatureProjector
 ) -> None:
-    """home_form_last5_home is never populated by any code path in
-    project_match_features() — it must always be a gap, not value-inferred."""
+    """WP-18/WP-10.3: home_form_last5_home is now resolved once real DB
+    history exists and the canonical remap runs — home (team-home, a real
+    2-1 win) is rescued; away (team-away, zero match history and no scraped
+    fallback available in this test) remains a genuine gap."""
     await _seed_old_match(session, days_before=1)
     result = await projector.project_match_features(
         {"id": "m1", "home_team": "Home FC", "away_team": "Away FC", "league": "EPL"},
         session,
         MATCH_DATE,
     )
-    assert "home_form_last5_home" in result["data_gaps"]
+    assert "home_form_last5_home" not in result["data_gaps"]
+    assert "away_form_last5_away" in result["data_gaps"]
+
+
+async def test_project_match_features_home_and_away_form_dont_collide(
+    session: AsyncSession, projector: UpcomingMatchFeatureProjector
+) -> None:
+    """WP-18/D8b regression: home and away canonical last5 fields must reflect
+    each side's OWN history, not whichever side's stats merged last. Before
+    the fix, _get_team_stats() always wrote "home_"-prefixed keys regardless
+    of side, and the away-side dict.update() at the merge step would have
+    silently clobbered home's numbers under those identical keys the moment
+    a remap ever read them."""
+    session.add_all([
+        Team(id="team-winner", name="Winner FC", active=True),
+        Team(id="team-loser", name="Loser FC", active=True),
+        Team(id="team-foe1", name="Foe1 FC", active=True),
+        Team(id="team-foe2", name="Foe2 FC", active=True),
+    ])
+    await session.commit()
+    old_date = MATCH_DATE - timedelta(days=1)
+    session.add_all([
+        Match(
+            id="home-win", home_team_id="team-winner", away_team_id="team-foe1",
+            match_date=old_date, status="finished", home_score=3, away_score=0,
+        ),
+        Match(
+            id="away-loss", home_team_id="team-foe2", away_team_id="team-loser",
+            match_date=old_date, status="finished", home_score=3, away_score=0,
+        ),
+    ])
+    await session.commit()
+
+    result = await projector.project_match_features(
+        {"id": "m1", "home_team": "Winner FC", "away_team": "Loser FC", "league": "EPL"},
+        session,
+        MATCH_DATE,
+    )
+    fd = result["features_dict"]
+    assert fd["home_wins_last5_home"] == pytest.approx(1.0)  # Winner FC won its only match
+    assert fd["away_wins_last5_away"] == pytest.approx(0.0)  # Loser FC lost its only match
+    assert fd["home_form_last5_home"] != fd["away_form_last5_away"]
+
+
+async def test_feature_defaulted_ratio_reflects_resolved_canonical_fields(
+    session: AsyncSession, projector: UpcomingMatchFeatureProjector, tmp_path
+) -> None:
+    """WP-18: feature_defaulted_ratio is the before/after measurement
+    docs/DEBT.md item 1 calls for — it must drop as real team history
+    resolves canonical fields, not stay constant regardless of data (the
+    pre-fix behaviour, since home_stats/away_stats keys never intersected a
+    canonical feature name at all until this work package)."""
+    projector.scraped_form_store = ScrapedTeamFormStore(tmp_path)  # empty dir — no fallback noise
+
+    no_data_result = await projector.project_match_features(
+        {"id": "m1", "home_team": "Nobody FC", "away_team": "Nowhere FC", "league": "EPL"},
+        session,
+        MATCH_DATE,
+    )
+    baseline_ratio = no_data_result["data_quality"]["feature_defaulted_ratio"]
+
+    await _seed_old_match(session, days_before=1)
+    home_only_result = await projector.project_match_features(
+        {"id": "m1", "home_team": "Home FC", "away_team": "Away FC", "league": "EPL"},
+        session,
+        MATCH_DATE,
+    )
+    home_only_ratio = home_only_result["data_quality"]["feature_defaulted_ratio"]
+
+    n_canonical = len(projector.canonical_features)
+    expected_home_only = baseline_ratio - (7 / n_canonical)  # 7 = len(_HOME_REMAP_FEATURES)
+    assert home_only_ratio == pytest.approx(expected_home_only)
+    assert home_only_ratio < baseline_ratio
 
 
 async def test_caller_resolved_features_never_locally_flagged(
@@ -274,14 +365,16 @@ def _write_scraped_form(tmp_path, *, league: str, team: str) -> None:
     (tmp_path / f"team-form-{league}-2526.json").write_text(json.dumps(payload), encoding="utf-8")
 
 
-async def test_scraped_fallback_used_when_db_has_no_history_but_stays_inert(
+async def test_scraped_fallback_rescues_canonical_form_features(
     session: AsyncSession, projector: UpcomingMatchFeatureProjector, tmp_path
 ) -> None:
-    """WP-10.1: team-away has zero DB history; a scraped artifact exists for it.
-    The fallback must (1) be consulted and tagged with provenance, (2) NOT flip
-    is_synthetic (the zero-fab publish gate — see project_match_features), and
-    (3) NOT rescue the canonical feature from data_gaps (D8: scraped keys are
-    non-canonical too, until the gated WP-10.3 remap)."""
+    """WP-18/WP-10.3: team-away has zero DB history; a scraped artifact exists
+    for it. The fallback must (1) be consulted and tagged with provenance,
+    (2) NOT flip is_synthetic (the zero-fab publish gate — see
+    project_match_features), and (3) now DOES rescue the canonical last5-form
+    + goals/gd fields from data_gaps on both sides — home from real DB
+    history, away from the scraped fallback — using real wins/draws/losses
+    counts in preference to the round()-based estimate wherever available."""
     await _seed_old_match(session, days_before=1)
     _write_scraped_form(tmp_path, league="EPL", team="Away FC")
     projector.scraped_form_store = ScrapedTeamFormStore(tmp_path)
@@ -298,7 +391,38 @@ async def test_scraped_fallback_used_when_db_has_no_history_but_stays_inert(
     assert "home" not in fallback  # team-home had real DB history — never consulted
 
     assert result["data_quality"]["is_synthetic"] is True  # DB was still missing for "away"
-    assert "away_form_last5_away" in result["data_gaps"]  # canonical vector unaffected
+
+    for feature in (
+        "home_form_last5_home", "home_wins_last5_home", "home_draws_last5_home",
+        "home_losses_last5_home", "home_goals_for_avg", "home_goals_against_avg",
+        "home_gd_recent",
+        "away_form_last5_away", "away_wins_last5_away", "away_draws_last5_away",
+        "away_losses_last5_away", "away_goals_for_avg", "away_goals_against_avg",
+        "away_gd_recent",
+    ):
+        assert feature not in result["data_gaps"], feature
+
+    fd = result["features_dict"]
+    # Home: 1 real match (a 2-1 win) — real counts must win over the estimate,
+    # which would fabricate wins=round(1.0*5.0)=5.0 from win_rate_5=1.0 alone.
+    assert fd["home_wins_last5_home"] == pytest.approx(1.0)
+    assert fd["home_draws_last5_home"] == pytest.approx(0.0)
+    assert fd["home_losses_last5_home"] == pytest.approx(0.0)
+    assert fd["home_form_last5_home"] == pytest.approx(3.0)
+    assert fd["home_goals_for_avg"] == pytest.approx(2.0)
+    assert fd["home_goals_against_avg"] == pytest.approx(1.0)
+    assert fd["home_gd_recent"] == pytest.approx(1.0)
+
+    # Away: scraped fixture (matches_sampled=5, wins=2, draws=2, losses=1) —
+    # real counts must win over the estimate, which would derive draws=1.0/
+    # losses=2.0 from win_rate_5=0.4 alone (only wins=2.0 happens to coincide).
+    assert fd["away_wins_last5_away"] == pytest.approx(2.0)
+    assert fd["away_draws_last5_away"] == pytest.approx(2.0)
+    assert fd["away_losses_last5_away"] == pytest.approx(1.0)
+    assert fd["away_form_last5_away"] == pytest.approx(1.8)
+    assert fd["away_goals_for_avg"] == pytest.approx(1.4)
+    assert fd["away_goals_against_avg"] == pytest.approx(1.0)
+    assert fd["away_gd_recent"] == pytest.approx(0.4)
 
 
 async def test_scraped_fallback_absent_leaves_prior_behaviour_unchanged(

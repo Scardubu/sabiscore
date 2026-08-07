@@ -114,6 +114,7 @@ class ValueBetSchema(BaseModel):
 class DataQualitySchema(BaseModel):
     historical_data_ratio: float
     defaults_used_count: int
+    feature_defaulted_ratio: float
     is_synthetic: bool
 
 

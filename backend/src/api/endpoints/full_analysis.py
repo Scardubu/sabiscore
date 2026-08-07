@@ -93,6 +93,7 @@ def _default_live_vector(
         "data_quality": {
             "historical_data_ratio": 0.0,
             "defaults_used_count": len(canonical_features),
+            "feature_defaulted_ratio": 1.0,
             "is_synthetic": True,
         },
     }

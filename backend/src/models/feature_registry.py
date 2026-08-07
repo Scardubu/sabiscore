@@ -1,6 +1,6 @@
 """Canonical feature registry for inference-safe SabiScore models."""
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 # Canonical production feature schema (58) from sabiscore_production_v2 metadata.
 CANONICAL_FEATURES_58: List[str] = [
@@ -339,3 +339,43 @@ def canonical_feature_count_phase7() -> int:
 def canonical_feature_count_phase8() -> int:
     """Returns the Phase 8 confirmed feature count (86 = 65 phase7 + 21 phase8)."""
     return len(CANONICAL_FEATURES_86)
+
+
+def derive_last5_form_features(
+    form_5: float,
+    win_rate_5: float,
+    *,
+    is_home: bool,
+    wins_5: Optional[float] = None,
+    draws_5: Optional[float] = None,
+    losses_5: Optional[float] = None,
+) -> Dict[str, float]:
+    """WP-18/WP-10.3: pure remap from rate-based team-form stats (the
+    home_form_5/home_win_rate_5-style keys UpcomingMatchFeatureProjector and
+    ScrapedTeamForm.to_projection_stats() both produce) onto the 4 canonical
+    last-5 fields CANONICAL_FEATURES_58 declares per side
+    (``{side}_form_last5_{side}`` etc.). This is the same formula
+    FeatureTransformer._project_to_canonical_features() has always used:
+    form_last5 = form_5 * 3.0; wins_last5 = round(win_rate_5 * 5.0), with
+    draws/losses split from a fixed 2-loss baseline — an algebraic estimate,
+    not a real count.
+
+    When wins_5/draws_5/losses_5 (real last-5 integer counts) are all
+    supplied, they're used verbatim instead of the estimate — strictly more
+    accurate whenever the caller has them. All-or-nothing: a partial trio
+    (e.g. only wins_5) falls back to the full estimate rather than mixing
+    real and derived values.
+    """
+    side = "home" if is_home else "away"
+    if wins_5 is not None and draws_5 is not None and losses_5 is not None:
+        wins, draws, losses = float(wins_5), float(draws_5), float(losses_5)
+    else:
+        wins = float(round(win_rate_5 * 5.0))
+        draws = max(0.0, 5.0 - wins - 2.0)
+        losses = max(0.0, 5.0 - wins - draws)
+    return {
+        f"{side}_form_last5_{side}": form_5 * 3.0,
+        f"{side}_wins_last5_{side}": wins,
+        f"{side}_draws_last5_{side}": draws,
+        f"{side}_losses_last5_{side}": losses,
+    }

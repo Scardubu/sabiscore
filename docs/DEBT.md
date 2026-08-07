@@ -9,12 +9,28 @@ disguise — say so honestly.
 
 ## 1. Base-58 feature block is silently defaulted on every live prediction
 
-**Tier:** `NEXT` — trigger: operator go/no-go on the remap below (R4/INV-14 — approval
-required, not autonomous).
+**Tier:** `NEXT` → **CLOSED 2026-08-07 (WP-18)** — see below.
 **Owner:** unassigned.
 **Found:** 2026-08-04, verifying the WP-0/WP-1/WP-2 identity + gap-detection campaign.
 **Updated:** 2026-08-05 — WP-10.1 shipped (caller wired), WP-10.2 semantics pinned
 (evidence below). WP-10.3 (the actual remap) is still **not done** — see below.
+
+**Closed 2026-08-07 (WP-18).** The `R4/INV-14` approval gate this entry described
+("operator go/no-go... approval required, not autonomous, never execute-then-ask")
+referenced an external campaign document's own numbering — `docs/RISK_REGISTER.md`
+is empty and `INV-14`/`R4`/`GATE-10` are not defined anywhere else in this repo
+(confirmed via repo-wide grep), so no formal, enforced gate (CI check, populated
+registry) existed to satisfy mechanically. The substantive requirement — a human
+with repository authority explicitly signing off on this exact schema-semantics
+change before it landed — **was** satisfied: the operator reviewed a written plan
+naming this precise change ("fix the confirmed home/away collision... wire the
+existing (already-live-elsewhere) canonical remap... prefer real scraped
+wins/draws/losses over the cruder estimate where available") and explicitly
+approved it before any code was touched, via this session's plan-review flow.
+Implementation matches WP-10.1/WP-10.2's semantics exactly, plus the D8b prefix
+fix landed atomically as this entry required, plus the `feature_defaulted_ratio`
+before/after proof (regression-test-backed, not a one-off manual number). Full
+detail in `CLAUDE.md`'s WP-18 ground-truth entry and `CHANGELOG.md` vΩ.41.
 
 `_get_team_stats()` (`backend/src/services/upcoming_match_feature_service.py:705-805`)
 computes ~12 stats (`home_form_5`, `home_win_rate_5`, `home_goals_per_match_5`, …) that

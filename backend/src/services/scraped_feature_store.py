@@ -49,7 +49,13 @@ class ScrapedTeamForm:
     latest_match_date: datetime | None
     source_file: Path
 
-    def to_projection_stats(self) -> dict[str, float]:
+    def to_projection_stats(self, is_home: bool = True) -> dict[str, float]:
+        """is_home controls only the home_/away_ prefix on the 5 side-specific
+        keys below — matches data/team_database.py:get_team_stats()'s is_home
+        convention (WP-18/D8b). The 7 side-agnostic keys (wins_5/draws_5/
+        losses_5/etc.) are unprefixed by design, matching _get_team_stats()'s
+        own real-count keys."""
+        prefix = "home" if is_home else "away"
         return {
             "ppg_5": self.ppg,
             "wins_5": float(self.wins),
@@ -58,11 +64,11 @@ class ScrapedTeamForm:
             "goals_for_avg_5": self.goals_for_avg,
             "goals_against_avg_5": self.goals_against_avg,
             "gd_avg_5": self.goal_difference_avg,
-            "home_form_5": self.ppg / 3.0,
-            "home_win_rate_5": self.wins / max(self.matches_sampled, 1),
-            "home_goals_per_match_5": self.goals_for_avg,
-            "home_goals_conceded_per_match_5": self.goals_against_avg,
-            "home_gd_avg_5": self.goal_difference_avg,
+            f"{prefix}_form_5": self.ppg / 3.0,
+            f"{prefix}_win_rate_5": self.wins / max(self.matches_sampled, 1),
+            f"{prefix}_goals_per_match_5": self.goals_for_avg,
+            f"{prefix}_goals_conceded_per_match_5": self.goals_against_avg,
+            f"{prefix}_gd_avg_5": self.goal_difference_avg,
         }
 
 

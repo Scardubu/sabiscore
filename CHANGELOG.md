@@ -5,6 +5,76 @@ All notable changes to this skill suite are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## vΩ.41 — WP-18: canonical feature-remap unification (D8b + WP-10.3), CLV-computation documentation catch-up (2026-08-07)
+
+### Docs — CLV computation (b97d876) had shipped with zero changelog/ground-truth entry
+
+The prior commit added `services/clv_service.py::compute_clv_summary()` and
+`repositories/fixtures.py::get_clv_records()`, wired unconditionally into
+`GET /api/v1/model-performance` as an independent `clv` field, with 13 new
+tests — but no `CHANGELOG.md` or `CLAUDE.md` entry existed for it. Documented
+this session per the repo's capability-maturity ladder: EXISTS / TESTED /
+WIRED / CALLED confirmed; DATA-FED blocked (`the_odds_api` still disabled in
+production, so nothing real exists yet to join against); DEPLOYED confirmed
+(`sha:"b97d876"` live on the backend). See `CLAUDE.md` ground truth for the
+full entry, including the join-key correction (`match_id`, not
+`canonical_fixture_id` — that FK stays permanently NULL by design).
+
+### Fixed — home/away key collision in the upcoming-fixtures feature pipeline (D8b)
+
+`UpcomingMatchFeatureProjector._get_team_stats()`
+(`backend/src/services/upcoming_match_feature_service.py`) hardcoded every
+output key with a literal `"home_"` prefix regardless of which side was
+queried. The away-side call's `dict.update()` in the merge step would have
+silently and completely overwritten the home side's numbers under
+identically-named keys the moment any remap read them as canonical
+features — which is exactly what this release does. Confirmed inert before
+the fix (the raw keys never matched a canonical name), fixed anyway as part
+of the atomic change below. Now parameterized by `is_home: bool = True`,
+matching `data/team_database.py::get_team_stats()`'s existing convention.
+`ScrapedTeamFormStore.to_projection_stats()` gets the same `is_home`
+parameter for the same reason.
+
+### Added — WP-10.3: the canonical last5-form + goals/gd remap, wired into the path that lacked it
+
+`FeatureTransformer._project_to_canonical_features()`
+(`backend/src/data/transformers.py`) has always derived 14 base-58 canonical
+fields (last5 form/wins/draws/losses + goals-for/against/gd, both sides) from
+raw `_5`-suffixed stats — but only for its own callers
+(`services/prediction.py`, `insights/engine.py`). The separate
+`UpcomingMatchFeatureProjector` pipeline serving `/api/v1/upcoming/matches`
+never called it, so these 14 fields stayed unconditionally flagged as
+`data_gaps` there regardless of whether real team history existed. The
+formula is now a shared pure function,
+`models/feature_registry.py::derive_last5_form_features()`, called by both
+pipelines — deleting a duplicate implementation rather than adding a second
+one.
+
+Real win/draw/loss counts are now preferred over the formula's
+`round(win_rate_5*5.0)`/`max(0,5-wins-2)` algebraic estimate wherever
+available: `_get_team_stats()` derives them for free from its own already-computed
+match-points list, and `ScrapedTeamForm.to_projection_stats()`'s real integer
+counts (previously computed but never read downstream) are used verbatim
+instead of being re-estimated.
+
+`data_gaps` computation updated to reflect which of the 14 fields actually
+resolved per side (was: every non-caller-resolved base feature flagged
+unconditionally, regardless of data availability). New `feature_defaulted_ratio`
+field added to `data_quality` (surfaced in 3 response-schema sites) — computed
+from the now-accurate `data_gaps`, not from `defaults_used_count`, which
+direct inspection showed has been silently constant on every request until
+this fix.
+
+8 new tests (home/away non-collision regression at both the `_get_team_stats()`
+and `project_match_features()` level, `feature_defaulted_ratio` before/after,
+4 pure-function tests on the extracted formula, 1 on `to_projection_stats`'s
+`is_home` parameter); 2 existing tests rewritten to their new, correct
+expected behavior. Backend suite 1126 → 1134 passed, 0 failed, 13 skipped
+unchanged; ruff clean. Dual-engine rule confirmed not applicable (neither
+`betting_intelligence.py` nor `core_engine.py` touches this code path).
+
+Closes `docs/DEBT.md` item 1.
+
 ## vΩ.40 — WP-16: Brier decomposition, fixture-sync failure visibility, two stale DEBT.md entries corrected (2026-08-07)
 
 ### Added — Brier score decomposition (WP-16 diagnostic layer)
