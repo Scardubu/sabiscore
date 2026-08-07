@@ -153,8 +153,16 @@ async def sync_settled_results(session: AsyncSession, *, days_back: int = 3) -> 
 
 
 async def run_fixture_sync() -> None:
-    """Entry point for the startup background task — swallows all errors."""
+    """Entry point for the startup background task — swallows all errors.
+
+    Unlike settlement_service/clv_capture_service, this task only fires once
+    at boot rather than on a recurring cadence, so it has no periodic
+    opportunity to self-correct — a failure here is silent until someone
+    reads logs. Recorded via the same metrics_collector GET /metrics already
+    surfaces (docs/DEBT.md item 3), rather than a bespoke tracking dict.
+    """
     from ..db.session import AsyncSessionLocal
+    from ..monitoring.metrics import metrics_collector
 
     if AsyncSessionLocal is None:
         logger.warning("fixture_sync: DB not ready, skipping")
@@ -164,5 +172,11 @@ async def run_fixture_sync() -> None:
         async with AsyncSessionLocal() as session:
             count = await sync_upcoming_fixtures(session)
             logger.info("fixture_sync: %d new upcoming fixtures seeded", count)
-    except Exception:
+    except Exception as exc:
         logger.exception("fixture_sync: unhandled error — continuing without fixture data")
+        metrics_collector.increment("fixture_sync.failures")
+        metrics_collector.record_error(
+            error_type=type(exc).__name__,
+            message=str(exc),
+            context={"task": "fixture_sync"},
+        )

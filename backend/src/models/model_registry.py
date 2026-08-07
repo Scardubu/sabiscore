@@ -10,6 +10,7 @@ import math
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
+import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
@@ -328,7 +329,7 @@ class ModelRegistry:
             ``n_splits * 2`` records are available.
         """
         try:
-            from .evaluation.metrics import ranked_probability_score
+            from .evaluation.metrics import brier_score_decomposition, ranked_probability_score
         except ImportError:
             logger.warning("ranked_probability_score not available; walk-forward skipped")
             return {"skipped": True, "reason": "metrics module unavailable"}
@@ -344,6 +345,12 @@ class ModelRegistry:
 
         fold_size = n // (n_splits + 1)
         fold_results: List[Dict[str, Any]] = []
+        # Pooled across every fold's validated records, for the Brier decomposition
+        # below — a per-fold decomposition would fragment an already-thin sample
+        # across bins the same way rps_overall avoids by scoring folds separately
+        # but reporting one aggregate.
+        pooled_outcomes: List[int] = []
+        pooled_probs: List[List[float]] = []
 
         for fold in range(n_splits):
             train_end = (fold + 1) * fold_size
@@ -355,6 +362,7 @@ class ModelRegistry:
                 continue
 
             rps_scores = []
+            brier_scores = []
             correct = 0
             for rec in test_records:
                 outcome = rec.get("outcome")
@@ -377,6 +385,17 @@ class ModelRegistry:
                     continue
 
                 rps_scores.append(ranked_probability_score(outcome_index, probabilities))
+                # Multi-category Brier score (Brier 1950): sum of squared errors
+                # against the one-hot outcome vector. Distinct from RPS (which
+                # credits distance along the ordered outcome axis) — this is the
+                # metric brier_score_decomposition() below breaks into
+                # reliability/resolution/uncertainty.
+                one_hot = [1.0 if outcome_index == i else 0.0 for i in range(3)]
+                brier_scores.append(
+                    sum((p - t) ** 2 for p, t in zip(probabilities, one_hot))
+                )
+                pooled_outcomes.append(outcome_index)
+                pooled_probs.append(probabilities)
                 # Top-class hit rate, scored over the same validated records as RPS so the
                 # two metrics can never describe different populations. RPS stays the
                 # primary scoring rule (it credits distance, not just the argmax); accuracy
@@ -396,6 +415,7 @@ class ModelRegistry:
                 "rps_mean": sum(rps_scores) / len(rps_scores),
                 "rps_min": min(rps_scores),
                 "rps_max": max(rps_scores),
+                "brier_mean": sum(brier_scores) / len(brier_scores),
                 "accuracy": correct / len(rps_scores),
                 "date_range": {
                     "from": test_records[0].get("date"),
@@ -407,7 +427,26 @@ class ModelRegistry:
             return {"skipped": True, "reason": "no_valid_folds"}
 
         all_rps = [f["rps_mean"] for f in fold_results]
+        all_brier = [f["brier_mean"] for f in fold_results]
         all_accuracy = [f["accuracy"] for f in fold_results]
+
+        # Diagnostic layer, not a promotion gate (RPS keeps that role): needs its
+        # own floor, since binning below ~10 pooled records is not meaningful even
+        # when enough records existed to form RPS folds.
+        MIN_RECORDS_FOR_DECOMPOSITION = 10
+        if len(pooled_outcomes) >= MIN_RECORDS_FOR_DECOMPOSITION:
+            brier_decomposition = brier_score_decomposition(
+                np.array(pooled_outcomes), np.array(pooled_probs)
+            )
+        else:
+            brier_decomposition = {
+                "skipped": True,
+                "reason": (
+                    f"need >= {MIN_RECORDS_FOR_DECOMPOSITION} pooled validated records, "
+                    f"got {len(pooled_outcomes)}"
+                ),
+            }
+
         return {
             "skipped": False,
             "n_splits": len(fold_results),
@@ -417,6 +456,8 @@ class ModelRegistry:
             # Mean of fold means, matching rps_overall's convention rather than
             # introducing a second aggregation rule in the same payload.
             "accuracy_overall": sum(all_accuracy) / len(all_accuracy),
+            "brier_overall": sum(all_brier) / len(all_brier),
+            "brier_decomposition": brier_decomposition,
             "folds": fold_results,
             "validated_at": datetime.now(timezone.utc).isoformat(),
         }

@@ -153,59 +153,54 @@ Phase 2 can honestly begin.
 
 ## 3. OTel telemetry entirely unregistered; fixture-sync failures are invisible
 
-**Tier:** `ARCH-DEBT` — needs an ADR (exporter target, sampling policy, cost on a
-free-tier dyno) before implementation, not just a code drop.
+**Tier:** `ACCEPTED` — both halves shipped; kept only as the incident record + a
+pointer to the residual gap named below.
 **Owner:** unassigned.
-**Updated:** 2026-08-05 — the ADR this entry demands is now filed as
-`docs/adr/0006-otel-activation.md` (**Proposed**, awaiting go/no-go). It carries the
-full `core/telemetry.py` design ready to execute on approval, and answers the three
-questions above explicitly rather than deferring them again. Two further findings
-recorded there: `settings.enable_tracing` (`core/config.py:129`) already exists with
-**zero readers**, so the gate is built and unwired like the tracer handles themselves;
-and `opentelemetry-exporter-otlp-proto-grpc` is **not** in `requirements.txt`, so
-approval must also pick grpc (one new pin) or http. This entry stays open — a filed
-proposal is not an implementation.
+**CLOSED 2026-08-06/07 — verified against code, not carried forward from a stale
+note.** `docs/adr/0006-otel-activation.md` moved from Proposed to **Accepted**;
+`core/telemetry.py::setup_telemetry()` registers a real `TracerProvider` +
+`BatchSpanProcessor(OTLPSpanExporter(...))` and a `MeterProvider`, called from
+`api/main.py:67`, with `FastAPIInstrumentor.instrument_app()` applied at
+`api/main.py:342` — both gated on `settings.enable_tracing AND
+settings.otel_exporter_otlp_endpoint` both being set, so this remains a true
+no-op in every environment that hasn't configured an OTLP endpoint (safe-defaults
+preserved). OTLP/HTTP was chosen over gRPC specifically to avoid the `grpcio`
+native-extension cost on the free-tier dyno (ADR-0006 §Cost) — no new pin needed.
+The fixture-sync half is also closed: `run_fixture_sync()`
+(`backend/src/services/fixture_sync_service.py`) now calls
+`metrics_collector.increment("fixture_sync.failures")` +
+`.record_error(...)` on its swallow path, surfaced live via the already-wired
+`GET /metrics` (`api/endpoints/monitoring.py:560`,
+`metrics_collector.get_summary()`) — no new endpoint needed, this task was the
+one swallow site without any tracking at all. `_background_settlement_sync` and
+`_background_clv_capture` were checked and did **not** need the same fix — both
+already track outcome/`consecutive_failures` in an in-memory `_last_result` dict
+surfaced via `/health` `components.settlement`/`components.clv_capture`
+(item 2's own delivery), predating this entry.
 
-No `TracerProvider`, `FastAPIInstrumentor.instrument_app()`, or OTLP exporter exists
-anywhere in the tree (repo-wide grep, zero hits) despite
-`opentelemetry-instrumentation-fastapi`/`opentelemetry-sdk` being in
-`backend/requirements.txt`. The tracer/meter handles obtained in
-`models/prediction.py:54-55` and `monitoring/drift.py:21` are therefore always the
-no-op default. Separately: `_background_fixture_sync`
-(`backend/src/api/main.py:132`) and `run_fixture_sync()`
-(`backend/src/services/fixture_sync_service.py:110-123`) both wrap their entire body in
-`try/except Exception: logger.exception(...)` — a total sync failure is visible only by
-tailing logs, no metric or alert fires.
-
-**Blast radius:** every request (no tracing); fixture ingestion (no failure signal).
-**Cost:** moderate for the FastAPI instrumentation itself; the fixture-sync-failure
-signal is small in isolation (one counter/metric) but is currently the closest thing to
-a fix for this specific blind spot and could ship independently of full OTel.
-**Impact:** an ingestion outage would currently be silent until someone notices empty
-fixtures.
-**Priority:** medium — real risk, but lower urgency than items 1–2 given the season
-opener is days away and this doesn't block correctness, only observability.
+**Blast radius:** none remaining — was every request (no tracing) and fixture
+ingestion (no failure signal); both now have a signal.
+**Impact:** none remaining.
+**Priority:** none — revisit only if a future OTel exporter change needs a fresh
+ADR.
 
 ---
 
 ## 4. Duplicate season-string writer
 
-**Tier:** `FIX-NOW` — trivial, ~1 line, no behavior change today.
+**Tier:** `ACCEPTED` — fixed; kept as the incident record only.
 **Owner:** unassigned.
+**CLOSED — verified against code 2026-08-07** (this entry's "not yet fixed"
+framing was stale; the fix was already live, undocumented here until now).
+`backend/src/data/loaders/football_data.py:322` calls
+`season=canonical_season(match_data["match_date"])`, deriving from the match's own
+date rather than re-deriving `"YYYY/YYYY"` from the source filename — there is now
+exactly one season-string writer (`backend/src/utils/season.py`), matching
+`fixture_sync_service.py` and `upcoming_match_feature_service.py`.
 
-`backend/src/data/loaders/football_data.py:315` builds
-`season=f"20{season[:2]}/20{season[2:]}"` independently instead of calling the
-`canonical_season()` helper added 2026-08-04
-(`backend/src/utils/season.py`) that `fixture_sync_service.py` and
-`upcoming_match_feature_service.py` both already use. Produces the identical
-`"YYYY/YYYY"` output today — this is not a live bug — but it is exactly the
-un-unified-duplicate shape that caused the original season-namespace defect (two
-writers silently drifting apart). Swap the call site next time this file is touched.
-
-**Blast radius:** none today.
-**Cost:** trivial.
-**Impact:** none today; latent drift risk.
-**Priority:** low, but cheap enough to fold into any unrelated touch of this file.
+**Blast radius:** none.
+**Impact:** none.
+**Priority:** none.
 
 ---
 

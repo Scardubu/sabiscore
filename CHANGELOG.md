@@ -5,6 +5,58 @@ All notable changes to this skill suite are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## vΩ.40 — WP-16: Brier decomposition, fixture-sync failure visibility, two stale DEBT.md entries corrected (2026-08-07)
+
+### Added — Brier score decomposition (WP-16 diagnostic layer)
+
+`backend/src/models/evaluation/metrics.py` gains
+`brier_score_decomposition()` — Murphy (1973) three-term decomposition
+(`brier_score = reliability - resolution + uncertainty`), scored one-vs-rest
+per class using the same binning convention as the existing
+`expected_calibration_error()`. Diagnostic, not a promotion gate — RPS keeps
+that role. High reliability error is fixable by recalibration; low
+resolution means the model needs new signal, not a calibrator.
+
+Wired into `model_registry.walk_forward_validate()` alongside the existing
+RPS/accuracy: each fold gains `brier_mean`; the aggregate result gains
+`brier_overall` and a pooled `brier_decomposition`, gated on its own
+10-record floor (binning below that is not meaningful even when enough
+records exist for RPS folds) — reports `{"skipped": True, "reason": ...}`
+below the floor, matching the repo's established honest-skip convention.
+Ships with its consumer in the same sense WP-15 did *not* the first time:
+`settlement_service.run_settlement_pass()` already returns the whole
+`walk_forward_validate()` dict as-is, so `/model-performance` surfaces these
+fields with no separate wiring step. A reliability-diagram UI is deliberately
+out of scope for this change — no real settled data exists yet to render one
+against (Eredivisie's opener is 2026-08-07).
+
+10 new/updated tests in `backend/tests/test_model_registry_walk_forward.py`
+(perfect-forecast, uninformative-forecast, bin-count integrity, below-floor
+skip, exact-key-set update). Backend suite 1109 → 1113 passed.
+
+### Fixed — fixture-sync failures were the one truly invisible swallow site
+
+`run_fixture_sync()` (`backend/src/services/fixture_sync_service.py`) now
+calls `metrics_collector.increment("fixture_sync.failures")` +
+`.record_error(...)` on its except path, surfaced live via the already-wired
+`GET /metrics` (no new endpoint). Checked `_background_settlement_sync` and
+`_background_clv_capture` for the same gap first — both already track
+outcome/`consecutive_failures` via `/health` `components.settlement` /
+`components.clv_capture`, so only the one-shot boot task needed this.
+
+### Docs — two DEBT.md entries were stale relative to shipped code
+
+- **Item 3** (OTel unregistered) — closed. `core/telemetry.py` has genuinely
+  registered a `TracerProvider`/`FastAPIInstrumentor`/OTLP exporter since
+  WP-11 (vΩ.38, ADR-0006 Accepted); the ledger entry still described it as
+  "Proposed, awaiting go/no-go."
+- **Item 4** (duplicate season-string writer) — closed. Already fixed
+  (`data/loaders/football_data.py:322` calls `canonical_season()`); the
+  entry still read "not yet fixed."
+
+Both corrected against a direct code read this session, not carried forward
+from the previous note — the ledger is only useful if it matches reality.
+
 ## vΩ.39 — WP-17: portfolio exposure policy, and a prerequisite Kelly-cap bug fixed (2026-08-06)
 
 `docs/adr/0005-portfolio-exposure-policy.md` flipped Proposed → Accepted and
