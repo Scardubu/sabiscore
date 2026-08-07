@@ -14,6 +14,7 @@ from sqlalchemy.orm import aliased
 
 from ..core.cache import cache_manager
 from ..core.config import settings
+from ..core.portfolio_exposure import compute_portfolio_exposure
 from ..data.loaders.football_data_api import FootballDataAPIClient, FootballDataAPIError
 from ..db.models import Match, Team
 from .upcoming_match_feature_service import UpcomingMatchFeatureProjector
@@ -277,7 +278,7 @@ class UpcomingMatchService:
                 value_bets = []
                 if include_value_bets and odds_available and publishable:
                     value_bets = PredictionEngine.calculate_value_bets(
-                        predictions, odds
+                        predictions, odds, league=match.get("league", "")
                     )
 
                 # 5. Add enriched data to match
@@ -321,6 +322,9 @@ class UpcomingMatchService:
         avg_edge_pct = (
             total_edge_pct / matches_with_value if matches_with_value > 0 else 0.0
         )
+        # Advisory only (ADR-0005) — flags/haircuts a display number, never
+        # gates or resizes what's already been computed above.
+        portfolio_exposure = compute_portfolio_exposure(enriched_matches)
 
         response = {
             "upcoming_matches": enriched_matches,
@@ -330,6 +334,7 @@ class UpcomingMatchService:
             "cache_hit": False,
             "ttl_seconds": settings.fixture_cache_ttl,
             "source": f"{source}+predictions",
+            "portfolio_exposure": portfolio_exposure,
         }
 
         # Cache result

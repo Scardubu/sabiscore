@@ -38,6 +38,7 @@ import numpy as np
 
 from ..core.cache import cache_manager
 from ..core.config import settings
+from ..core.league_policy import LeaguePolicyUnavailableError, get_league_policy
 
 # ── Soft import: calibration module (requires scipy / sklearn) ─────────────────
 _apply_calibrator = None
@@ -57,6 +58,23 @@ except ImportError:
     pass
 
 logger = logging.getLogger(__name__)
+
+# Hard ceiling on any single recommended stake, independent literal by this
+# codebase's own established convention (see insights/engine.py, betting_intelligence.py,
+# core_engine.py — all currently 0.05, never a shared import).
+MAX_KELLY_CAP = 0.05
+
+
+def _kelly_cap_for_league(league: Optional[str]) -> float:
+    """Per-league Kelly ceiling, defaulting to the conservative global cap.
+    Mirrors insights/engine.py's _league_kelly_cap exactly."""
+    if not league:
+        return MAX_KELLY_CAP
+    try:
+        return min(get_league_policy(league).kelly_cap, MAX_KELLY_CAP)
+    except LeaguePolicyUnavailableError:
+        return MAX_KELLY_CAP
+
 
 # ── League name → model file slug ─────────────────────────────────────────────
 
@@ -474,13 +492,19 @@ class PredictionEngine:
         kelly_fraction: float = 0.25,
         min_edge_pct: float = 3.0,
         closing_odds: Optional[Dict[str, float]] = None,
+        league: Optional[str] = None,
     ) -> list:
         """Return value bets sorted by edge (highest first).
 
         Parameters match the legacy ``PredictionService.calculate_value_bets``
         signature so callers can swap imports without changing call sites.
         Per B-contract: ``clv_pct`` is null whenever ``closing_odds`` is absent.
+        ``league`` (optional, backward-compatible) caps the raw Kelly fraction at
+        the per-league policy cap — previously unbounded here, unlike every
+        other Kelly computation in this codebase (insights/engine.py,
+        betting_intelligence.py, core_engine.py all clamp).
         """
+        cap = _kelly_cap_for_league(league)
         bets = []
         for outcome in ("home_win", "draw", "away_win"):
             try:
@@ -492,7 +516,7 @@ class PredictionEngine:
                 edge_pct = (pred_prob - implied) * 100
                 if edge_pct < min_edge_pct:
                     continue
-                kelly_pct = (edge_pct / 100 / (odds - 1)) * kelly_fraction
+                kelly_pct = min((edge_pct / 100 / (odds - 1)) * kelly_fraction, cap)
                 ev_cents = (pred_prob * odds - 1.0) * 100
                 clv_pct: Optional[float] = None
                 if closing_odds is not None:

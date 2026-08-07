@@ -1,6 +1,6 @@
 # 0005 — Portfolio exposure policy
 
-**Status:** Proposed · 2026-08-05
+**Status:** Accepted · 2026-08-05 (policy) · Addendum 2026-08-06 (implementation)
 
 ## Context
 
@@ -77,3 +77,50 @@ change to any executed decision (none exist to affect).
 **Trigger:** if the correlation-haircut curve in (b) needs real historical
 same-matchday settlement data to calibrate honestly rather than a defensible prior —
 in which case wait for ADR-0004's closing-price/settlement data to accumulate first.
+
+## Addendum — 2026-08-06: implementation scope, a prerequisite correction, and constants
+
+**Scope, confirmed narrower than "wherever a recommendation exists":** this ADR
+targets `PredictionEngine.calculate_value_bets`
+(`backend/src/models/prediction.py`), the Kelly path feeding
+`upcoming_match_service.py`'s `GET /upcoming/matches` — the endpoint that actually
+backs the frontend's "today's slate" panel. `betting_intelligence.py` and
+`core_engine.py` (the on-demand "analyze these N specific matches" engines) are
+untouched; CLAUDE.md's dual-engine rule does not apply because neither is modified.
+
+**A prerequisite bug, found and fixed during implementation.** This ADR's Context
+section assumed Quarter-Kelly sizing is already capped per-league everywhere.
+`calculate_value_bets` was the one exception — it computed
+`kelly_pct = (edge_pct/100/(odds-1)) * kelly_fraction` with **no cap at all**, unlike
+`insights/engine.py`, `betting_intelligence.py`, and `core_engine.py`, which all clamp
+via `min(get_league_policy(league).kelly_cap, MAX_KELLY_CAP)`. Fixed as a prerequisite
+(same clamp, same pattern) — an aggregate cap over individually-uncapped stakes would
+have been meaningless.
+
+**Correction to Consequences: no new persistence is required.** Since no
+`EXECUTE_BET` path exists, "concurrently recommended" means nothing beyond
+"co-present in one stateless batch response" — `enriched_matches` already holds every
+fixture needed, in memory, at the moment it's needed. The persistence caveat above
+applies only to a hypothetical future execution-aware version.
+
+**Grouping semantics, resolved:** policy (a)'s cap is whole-batch (every
+`has_value=True` fixture in the response, any date). Policy (b)'s haircut groups by
+(canonical league, UTC calendar day of `match_date`) — no kickoff-time window needed,
+since all 7 supported leagues kick off same-UTC-day. League grouping goes through
+`canonical_league_id()`; the raw `league` field on each match is never mutated (the
+frontend's league-color lookup depends on the existing display string).
+
+**Constants chosen** (`backend/src/core/portfolio_exposure.py`), reasoned starting
+points marked `PORTFOLIO_POLICY_SOURCE = "DEFAULT_PENDING_CALIBRATION"` — no
+same-matchday settlement data exists yet to calibrate against:
+
+- `AGGREGATE_CAP_MULTIPLIER = 3.0` — aggregate cap = 3× the largest per-league
+  `kelly_cap` present in the batch (reuses an existing deliberated number rather than
+  a fresh invented percentage).
+- `HAIRCUT_PER_ADDITIONAL_FIXTURE = 0.10`, floored at `HAIRCUT_FLOOR_MULTIPLIER = 0.50`.
+- Policy (c)'s pause threshold is **not** assigned a placeholder number — there is no
+  formula yet, only an absence. The stub always reports
+  `status: "insufficient_settled_predictions"` (reusing the exact string
+  `/model-performance` already established), never a fabricated `0.0`.
+
+See `docs/DEBT.md` item 9 for the recalibration trigger.

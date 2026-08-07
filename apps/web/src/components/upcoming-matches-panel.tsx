@@ -136,6 +136,14 @@ interface UpcomingMatch {
   clv_pct?: number | null;
   /** UCL knockout/group stage slug: "group" | "r16" | "qf" | "sf" | "final". Null for domestic leagues. */
   competition_stage?: string | null;
+  /** Advisory portfolio-exposure annotation (ADR-0005). Null on non-value fixtures. */
+  portfolio?: {
+    raw_kelly_stake_pct: number;
+    correlation_group_size: number;
+    correlation_haircut_multiplier: number;
+    adjusted_kelly_stake_pct: number;
+    exceeds_aggregate_cap: boolean;
+  } | null;
 }
 
 interface UpcomingMatchesResponse {
@@ -146,6 +154,13 @@ interface UpcomingMatchesResponse {
   source: string;
   offseason?: boolean;
   next_season_start?: string | null;
+  /** Batch-level advisory exposure summary (ADR-0005). Null when predictions weren't requested. */
+  portfolio_exposure?: {
+    aggregate_recommended_pct: number;
+    aggregate_cap_pct: number;
+    exceeds_aggregate_cap: boolean;
+    drawdown: { status: string; realized_drawdown_pct: number | null; paused: boolean };
+  } | null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -301,6 +316,11 @@ function MatchRow({ match }: { match: UpcomingMatch }) {
               Partial
             </span>
           )}
+          {match.portfolio?.exceeds_aggregate_cap && (
+            <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-300">
+              Exceeds portfolio cap
+            </span>
+          )}
           {clv !== null && <CLVBadge clvPct={clv} />}
         </div>
       </div>
@@ -402,6 +422,11 @@ function UpcomingMatchesPanelInner({ league: leagueProp, title = "Upcoming Fixtu
           {data && data.matches_with_value > 0 && (
             <span className="text-xs text-slate-500">
               {data.matches_with_value} with value · avg edge {data.avg_edge_pct.toFixed(1)}%
+              {data.portfolio_exposure?.exceeds_aggregate_cap && (
+                <span className="ml-2 text-amber-400">
+                  · {data.portfolio_exposure.aggregate_recommended_pct.toFixed(1)}% recommended exceeds {data.portfolio_exposure.aggregate_cap_pct.toFixed(1)}% portfolio cap
+                </span>
+              )}
             </span>
           )}
         </div>

@@ -5,6 +5,54 @@ All notable changes to this skill suite are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## vΩ.39 — WP-17: portfolio exposure policy, and a prerequisite Kelly-cap bug fixed (2026-08-06)
+
+`docs/adr/0005-portfolio-exposure-policy.md` flipped Proposed → Accepted and
+implemented, scoped to `upcoming_match_service.py`'s `GET /upcoming/matches`
+only (the "today's slate" endpoint) — a third, independent prediction path
+that never touches `betting_intelligence.py`/`core_engine.py`, so the
+dual-engine rule doesn't apply here.
+
+### Fixed — `calculate_value_bets` had no Kelly cap at all
+
+`PredictionEngine.calculate_value_bets` (`backend/src/models/prediction.py`)
+computed its Kelly stake with no ceiling applied anywhere — a 4th,
+independent, uncapped implementation beyond the 3 `MAX_KELLY_CAP=0.05`
+literals already known (`insights/engine.py`, `betting_intelligence.py`,
+`core_engine.py`, all clamping via
+`min(get_league_policy(league).kelly_cap, MAX_KELLY_CAP)`). Fixed as a
+prerequisite — an aggregate exposure cap over individually-uncapped stakes
+would have been meaningless. New `league` parameter (optional, backward
+compatible) on `calculate_value_bets`; the one live call site now passes it.
+
+### Added
+
+- `backend/src/core/portfolio_exposure.py` — stateless `compute_portfolio_exposure()`.
+  Groups `has_value` fixtures by (canonical league, UTC calendar day of
+  `match_date`), applies a correlation haircut that grows with group size
+  (floored at 50% off), and flags fixtures whose edge-ranked cumulative stake
+  crosses an aggregate cap (3× the largest per-league `kelly_cap` present in
+  the batch). Drawdown (policy c) is stubbed honestly —
+  `status: "insufficient_settled_predictions"`, never a fabricated `0.0` — since
+  no settled positions exist yet to compute a real one from. No persistence:
+  "concurrently recommended" means "co-present in one stateless batch
+  response," since no `EXECUTE_BET` path exists to make any other definition
+  meaningful. Constants marked `PORTFOLIO_POLICY_SOURCE =
+  "DEFAULT_PENDING_CALIBRATION"` — reasoned starting points, not calibrated
+  against real same-matchday settlement data (`docs/DEBT.md` item 9).
+- `backend/src/api/endpoints/upcoming_matches.py` — `PortfolioMatchSchema`,
+  `PortfolioExposureSchema`, `DrawdownStatusSchema`; additive `portfolio`/
+  `portfolio_exposure` fields on the existing response schemas.
+- `apps/web/src/components/upcoming-matches-panel.tsx` — typed the same two
+  fields and added one per-fixture "Exceeds portfolio cap" chip plus one
+  header-line summary, both reusing the panel's existing chip/summary idiom
+  rather than introducing new UI.
+- `backend/tests/test_portfolio_exposure.py` (14 tests) — grouping,
+  haircut floor, cap-fallback, league-vocabulary regression (the vΩ.26 defect
+  class — "Eredivisie" vs "EREDIVISIE" must group together), mutation safety,
+  empty-batch handling. 2 tests added to `test_upcoming_match_service.py` for
+  the Kelly-cap fix.
+
 ## vΩ.38 — OTel activation (WP-11), render.yaml database drift fixed, drift.py wiring scoped honestly (2026-08-06)
 
 Three independent threads from one session: (1) `docs/adr/0006-otel-activation.md`

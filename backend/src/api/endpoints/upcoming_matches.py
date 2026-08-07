@@ -117,6 +117,32 @@ class DataQualitySchema(BaseModel):
     is_synthetic: bool
 
 
+class PortfolioMatchSchema(BaseModel):
+    """Per-fixture advisory exposure annotation (ADR-0005). Never influences
+    value_bets/best_value_bet/kelly_stake_pct — additive display data only."""
+
+    raw_kelly_stake_pct: float
+    correlation_group_size: int
+    correlation_haircut_multiplier: float
+    adjusted_kelly_stake_pct: float
+    exceeds_aggregate_cap: bool
+
+
+class DrawdownStatusSchema(BaseModel):
+    status: str
+    realized_drawdown_pct: Optional[float] = None
+    paused: bool = False
+
+
+class PortfolioExposureSchema(BaseModel):
+    """Batch-level advisory summary (ADR-0005)."""
+
+    aggregate_recommended_pct: float
+    aggregate_cap_pct: float
+    exceeds_aggregate_cap: bool
+    drawdown: DrawdownStatusSchema
+
+
 class UpcomingMatchSchema(BaseModel):
     match_id: str
     home_team: str
@@ -138,6 +164,8 @@ class UpcomingMatchSchema(BaseModel):
     clv_pct: Optional[float] = None
     # UCL stage: group, r16, qf, sf, final. Null for domestic leagues.
     competition_stage: Optional[str] = None
+    # Advisory portfolio-exposure annotation (ADR-0005). None on non-value fixtures.
+    portfolio: Optional[PortfolioMatchSchema] = None
 
 
 class UpcomingMatchesResponseSchema(BaseModel):
@@ -150,6 +178,9 @@ class UpcomingMatchesResponseSchema(BaseModel):
     source: str
     offseason: bool = False
     next_season_start: Optional[str] = None
+    # Batch-level advisory exposure summary (ADR-0005). None when predictions
+    # weren't requested (include_predictions=False path never computes it).
+    portfolio_exposure: Optional[PortfolioExposureSchema] = None
 
 
 class UpcomingAllFixtureSchema(BaseModel):

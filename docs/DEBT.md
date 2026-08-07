@@ -421,3 +421,38 @@ worth deciding once there's real data to test against, not now.
 **Impact:** none — advisory monitoring, not on any serving path.
 **Priority:** low until item 2's settlement volume climbs toward four figures;
 revisit alongside item 2/5's own settled-data gates.
+
+---
+
+## 9. Portfolio-exposure haircut curve and aggregate-cap multiplier are placeholders, not calibrated values
+
+**Tier:** `NEXT` — trigger: ≥1 fully-settled same-league/same-matchday round
+exists (Eredivisie's opening weekend, 2026-08-07 onward, is the earliest
+candidate). Not sooner.
+**Owner:** unassigned.
+**Found:** 2026-08-06, implementing WP-17 (`docs/adr/0005-portfolio-exposure-policy.md`).
+
+`backend/src/core/portfolio_exposure.py`'s `HAIRCUT_PER_ADDITIONAL_FIXTURE` (0.10),
+`HAIRCUT_FLOOR_MULTIPLIER` (0.50), and `AGGREGATE_CAP_MULTIPLIER` (3.0) are reasoned
+starting points, not derived from real same-matchday settlement outcomes — none exist
+yet. ADR-0005's Reversal/Trigger clause names this same gap. Marked
+`PORTFOLIO_POLICY_SOURCE = "DEFAULT_PENDING_CALIBRATION"`, mirroring
+`LeaguePolicy.policy_source`'s own vocabulary. Policy (c)'s drawdown-pause threshold has
+no placeholder at all — it's deferred entirely (no settled positions exist to compute a
+real drawdown from), never a fabricated value.
+
+Same session also found and fixed a genuine prerequisite bug while implementing this:
+`PredictionEngine.calculate_value_bets` (`backend/src/models/prediction.py`) computed
+Kelly stakes with no cap at all — a 4th, independent, uncapped implementation beyond
+the 3 `MAX_KELLY_CAP=0.05` literals already known (`insights/engine.py`,
+`betting_intelligence.py`, `core_engine.py`). Now clamped via
+`min(get_league_policy(league).kelly_cap, MAX_KELLY_CAP)`, matching the established
+pattern. This was a real, live-affecting fix, not part of the placeholder gap above.
+
+**Blast radius:** none — advisory-only, flags/haircuts a display number never read as
+a gate (`EXECUTE_BET` doesn't exist).
+**Cost:** recalibrate once real settled outcomes exist for ≥1 same-league/matchday
+group.
+**Impact:** low today; the risk is the placeholder looking more authoritative than it
+is if the marker is ever dropped.
+**Priority:** low until Eredivisie's opening round settles.

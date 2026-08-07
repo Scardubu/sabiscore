@@ -94,3 +94,32 @@ def test_fallback_prediction_would_fabricate_a_positive_edge_if_ungated():
 
     assert len(bets) > 0
     assert bets[0]["edge_pct"] > 0
+
+
+def test_calculate_value_bets_caps_kelly_stake_at_league_policy_cap():
+    """WP-17 prerequisite fix: calculate_value_bets previously applied no cap
+    at all (a 4th, independent, uncapped Kelly implementation beyond
+    insights/engine.py, betting_intelligence.py, core_engine.py). A
+    pathological high-edge input must still respect EREDIVISIE's 0.025
+    kelly_cap via get_league_policy, not an arbitrarily large raw stake."""
+    predictions = {"home_win": 0.99, "draw": 0.005, "away_win": 0.005}
+    odds = {"home_win": 1.5, "draw": 20.0, "away_win": 20.0}
+
+    bets = PredictionEngine.calculate_value_bets(predictions, odds, league="EREDIVISIE")
+
+    home_bet = next(b for b in bets if b["outcome"] == "home_win")
+    assert home_bet["kelly_stake_pct"] <= 2.5
+
+
+def test_calculate_value_bets_falls_back_to_max_kelly_cap_for_unknown_league():
+    """Same pathological input, an unrecognized league string — falls back
+    to the conservative global MAX_KELLY_CAP (5.0%), not uncapped, and NOT
+    EREDIVISIE's tighter 2.5% cap (that would require a league that resolves)."""
+    predictions = {"home_win": 0.99, "draw": 0.005, "away_win": 0.005}
+    odds = {"home_win": 1.5, "draw": 20.0, "away_win": 20.0}
+
+    bets = PredictionEngine.calculate_value_bets(predictions, odds, league="NOT_A_REAL_LEAGUE")
+
+    home_bet = next(b for b in bets if b["outcome"] == "home_win")
+    assert home_bet["kelly_stake_pct"] <= 5.0
+    assert home_bet["kelly_stake_pct"] > 2.5
