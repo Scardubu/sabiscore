@@ -1,6 +1,6 @@
 {
   "accuracy": 0.464,
-  "brier_score": 0.6492693428679353,
+  "brier_score": 0.6492693428679354,
   "data_source": "football-data.co.uk (real matches)",
   "feature_count": 68,
   "holdout_samples": 375,
@@ -8,6 +8,6 @@
   "log_loss": 1.0731167344781576,
   "responsive_features": 22,
   "rps": 0.23036328683498208,
-  "trained_at": "2026-08-08T15:26:36.996977",
+  "trained_at": "2026-08-08T16:43:45.200771",
   "training_samples": 2196
 }

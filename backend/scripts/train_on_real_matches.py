@@ -66,7 +66,7 @@ import sys
 from collections import defaultdict, deque
 from datetime import datetime
 from pathlib import Path
-from typing import Deque, Dict, List, Optional, Tuple
+from typing import Any, Deque, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -294,6 +294,57 @@ def _sensitivity(models: dict, X_ref: np.ndarray) -> int:
     return moved
 
 
+def _build_meta_features(models: dict, X: np.ndarray) -> Any:
+    """Reproduce SabiScoreEnsemble._create_meta_features() exactly.
+
+    Column names and order must match what that method emits at inference —
+    it iterates ``self.models.items()`` and appends
+    ``{name}_prob_home`` / ``_prob_draw`` / ``_prob_away`` per model.
+    """
+    import pandas as pd
+
+    frame = pd.DataFrame()
+    for name, model in models.items():
+        probs = model.predict_proba(X)
+        frame[f"{name}_prob_home"] = probs[:, 0]
+        frame[f"{name}_prob_draw"] = probs[:, 1]
+        frame[f"{name}_prob_away"] = probs[:, 2]
+    return frame
+
+
+def _fit_meta_model(models: dict, X_train: np.ndarray, y_train: np.ndarray):
+    """Stacking meta-learner over out-of-fold base predictions.
+
+    REQUIRED, not optional: two independent loaders read these artifacts.
+    `PredictionEngine._ensemble_predict_dict` averages the base learners and
+    ignores this, but `SabiScoreEnsemble.predict()` — the strict startup path
+    behind `/health/ready` — calls `meta_model.predict_proba()` and raises
+    "Meta model is not initialized" on None, which aborts application startup.
+
+    Meta features come from `cross_val_predict`, never from base models scoring
+    their own training rows: an in-sample fit would hand the meta-learner
+    near-perfect inputs it will never see again and teach it to trust whichever
+    base model overfits hardest.
+    """
+    import pandas as pd
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.model_selection import StratifiedKFold, cross_val_predict
+
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    oof = pd.DataFrame()
+    for name, model in models.items():
+        probs = cross_val_predict(model, X_train, y_train, cv=cv, method="predict_proba", n_jobs=1)
+        oof[f"{name}_prob_home"] = probs[:, 0]
+        oof[f"{name}_prob_draw"] = probs[:, 1]
+        oof[f"{name}_prob_away"] = probs[:, 2]
+
+    # multinomial is the default for multiclass in sklearn >= 1.5; the explicit
+    # multi_class kwarg was removed in 1.8.
+    meta = LogisticRegression(max_iter=1000, random_state=42)
+    meta.fit(oof, y_train)
+    return meta
+
+
 def train_league(league: str, data: dict, holdout_season: str) -> Optional[dict]:
     from lightgbm import LGBMClassifier
     from sklearn.ensemble import RandomForestClassifier
@@ -332,8 +383,15 @@ def train_league(league: str, data: dict, holdout_season: str) -> Optional[dict]
     for model in models.values():
         model.fit(X_train, y_train)
 
+    meta_model = _fit_meta_model(models, X_train, y_train)
+
     probs = np.mean([m.predict_proba(X_test) for m in models.values()], axis=0)
     metrics = evaluate(y_test, probs)
+    # The stacked head is what SabiScoreEnsemble.predict() serves, so it is
+    # scored here too rather than assumed equivalent to the averaged base.
+    metrics["stacked"] = evaluate(
+        y_test, meta_model.predict_proba(_build_meta_features(models, X_test))
+    )
     metrics["train_n"] = int(len(y_train))
     metrics["responsive_features"] = _sensitivity(models, X_test[0].copy())
 
@@ -344,16 +402,17 @@ def train_league(league: str, data: dict, holdout_season: str) -> Optional[dict]
     metrics["baseline_rps_trainprior"] = ranked_probability_score(y_test, prior)
 
     logger.info(
-        "  %-12s train=%5d test=%4d | acc=%.4f (home-only %.4f) rps=%.4f (prior %.4f) "
-        "brier=%.4f responsive=%d/68",
-        league, metrics["train_n"], metrics["n"], metrics["accuracy"],
-        metrics["baseline_accuracy_home"], metrics["rps"],
-        metrics["baseline_rps_trainprior"], metrics["brier"], metrics["responsive_features"],
+        "  %-12s train=%5d test=%4d | avg: acc=%.4f rps=%.4f | stacked: acc=%.4f rps=%.4f "
+        "| home-only %.4f prior-rps %.4f responsive=%d/68",
+        league, metrics["train_n"], metrics["n"], metrics["accuracy"], metrics["rps"],
+        metrics["stacked"]["accuracy"], metrics["stacked"]["rps"],
+        metrics["baseline_accuracy_home"], metrics["baseline_rps_trainprior"],
+        metrics["responsive_features"],
     )
 
     return {
         "models": models,
-        "meta_model": None,
+        "meta_model": meta_model,
         "feature_columns": list(CANONICAL_FEATURES_68),
         "is_trained": True,
         "model_metadata": {
