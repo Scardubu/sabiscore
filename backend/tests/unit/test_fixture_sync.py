@@ -99,7 +99,7 @@ async def test_synced_league_id_is_canonical(session: AsyncSession) -> None:
     on every synced fixture. Downstream systems (league_policy, full_analysis, model_fetcher,
     capability probe) all expect canonical IDs.
     """
-    from sqlalchemy import select, text
+    from sqlalchemy import text
     from src.services.fixture_sync_service import sync_upcoming_fixtures
 
     matches = [

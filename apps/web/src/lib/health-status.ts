@@ -11,7 +11,12 @@ export interface BackendReadinessCheck {
   status?: unknown;
 }
 
-export type CapabilityStatus = "verified" | "unverified_no_fixtures" | "failed" | "unknown";
+export type CapabilityStatus =
+  | "verified"
+  | "unverified_no_fixtures"
+  | "unverified_insufficient_evidence"
+  | "failed"
+  | "unknown";
 
 export interface BackendHealthPayload {
   backendStatus?: unknown;
@@ -48,6 +53,7 @@ export interface BackendReadinessStats {
 const CAPABILITY_STATUSES = new Set<CapabilityStatus>([
   "verified",
   "unverified_no_fixtures",
+  "unverified_insufficient_evidence",
   "failed",
 ]);
 

@@ -32,6 +32,14 @@ _LEAGUE_META: dict[str, tuple[str, str]] = {
 }
 
 
+# How far ahead fixtures are seeded. The readiness capability probe imports this
+# so the two horizons can never drift apart: a probe window narrower than the sync
+# window leaves the probe with nothing to test even when fixtures exist (observed
+# 2026-08-08 — 28 required-league fixtures seeded, probe still reporting
+# "unverified_no_fixtures" against its own hardcoded 7 days).
+SYNC_HORIZON_DAYS = 14
+
+
 def _team_id(team_name: str, league_id: str) -> str:
     """Deterministic stable team ID so re-syncs are idempotent."""
     slug = f"{league_id}:{team_name}".lower().replace(" ", "_")
@@ -48,7 +56,7 @@ async def sync_upcoming_fixtures(session: AsyncSession) -> int:
 
     client = FootballDataAPIClient()
     try:
-        matches_raw = await client.get_upcoming_matches(days_ahead=14, limit=50)
+        matches_raw = await client.get_upcoming_matches(days_ahead=SYNC_HORIZON_DAYS, limit=50)
     except FootballDataAPIError as exc:
         logger.warning("fixture_sync: football-data.org unavailable: %s", exc)
         return 0

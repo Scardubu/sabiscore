@@ -295,12 +295,16 @@ _CAPABILITY_TTL_SECONDS = 900  # ponytail: single free-tier dyno — cheap relat
 async def _compute_capability(db: AsyncSession) -> Dict[str, Any]:
     """Attempt a real prediction for the next upcoming fixture — component liveness
     (DB/migrations/cache/models) never proves the system can actually produce one."""
-    fixture = await get_next_upcoming_fixture(db, leagues=_resolve_required_leagues(), within_days=7)
+    from ...services.fixture_sync_service import SYNC_HORIZON_DAYS
+
+    fixture = await get_next_upcoming_fixture(
+        db, leagues=_resolve_required_leagues(), within_days=SYNC_HORIZON_DAYS
+    )
     now = datetime.now(timezone.utc).isoformat()
     if fixture is None:
         return {
             "status": "unverified_no_fixtures",
-            "message": "No upcoming fixture in the 7-day horizon for a required league",
+            "message": f"No upcoming fixture in the {SYNC_HORIZON_DAYS}-day horizon for a required league",
             "match_id": None,
             "league": None,
             "checked_at": now,
@@ -308,13 +312,21 @@ async def _compute_capability(db: AsyncSession) -> Dict[str, Any]:
     try:
         analysis = await get_full_analysis(match_id=fixture.id, league=fixture.league_id, db=db)
         identity_ok = "FIXTURE_IDENTITY_UNVERIFIED" not in analysis.get("evidence_quality", {}).get("critical_gaps", [])
-        verified = analysis.get("prediction_status") == "AVAILABLE" and identity_ok
-        status = "verified" if verified else "failed"
-        message = (
-            "Live pipeline produced a verified 1X2 triple"
-            if verified
-            else f"prediction_status={analysis.get('prediction_status')} identity_verified={identity_ok}"
-        )
+        prediction_status = analysis.get("prediction_status")
+
+        if prediction_status == "AVAILABLE" and identity_ok:
+            status = "verified"
+            message = "Live pipeline produced a verified 1X2 triple"
+        elif identity_ok:
+            # ponytail: the pipeline ran end-to-end and fail-closed correctly —
+            # a fixture days out simply has no odds/lineups published yet. That is
+            # not an outage, and must never paint the readiness ring red. Only a
+            # raised exception or an identity failure earns "failed".
+            status = "unverified_insufficient_evidence"
+            message = f"Pipeline ran; evidence incomplete (prediction_status={prediction_status})"
+        else:
+            status = "failed"
+            message = f"prediction_status={prediction_status} identity_verified={identity_ok}"
     except Exception as exc:
         logger.error("Readiness capability probe failed for %s: %s", fixture.id, exc)
         status, message = "failed", str(exc)

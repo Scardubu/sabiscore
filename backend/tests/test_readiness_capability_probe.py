@@ -56,18 +56,52 @@ async def test_available_prediction_with_verified_identity_is_verified(
     assert result["match_id"] == "fd-1"
 
 
-async def test_non_available_prediction_status_is_failed(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("prediction_status", ["REDUCED_EVIDENCE_BASELINE", "UNAVAILABLE"])
+async def test_thin_evidence_is_unverified_not_failed(
+    monkeypatch: pytest.MonkeyPatch, prediction_status: str
+) -> None:
+    """A fixture days out has no odds or lineups published yet, so the pipeline
+    correctly fail-closes. It ran end-to-end — that is not an outage.
+
+    Previously asserted "failed", which painted the readiness ring rose-400 for a
+    healthy system. Rewritten deliberately: with the probe horizon now matching the
+    14-day sync window, the most common probe subject is a distant fixture, so the
+    old mapping would have reported a false outage on nearly every check.
+    """
     monkeypatch.setattr(monitoring, "cache", None)
     monkeypatch.setattr(monitoring, "get_next_upcoming_fixture", lambda *a, **k: _fixture())
     monkeypatch.setattr(
         monitoring,
         "get_full_analysis",
-        lambda **k: _analysis("REDUCED_EVIDENCE_BASELINE", []),
+        lambda **k: _analysis(prediction_status, []),
     )
 
     result = await monitoring._compute_capability(db=object())
 
-    assert result["status"] == "failed"
+    assert result["status"] == "unverified_insufficient_evidence"
+    assert result["status"] != "failed"
+
+
+async def test_probe_horizon_matches_the_fixture_sync_window(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The probe must not use a narrower horizon than the sync window, or it has
+    nothing to test even when fixtures exist (observed in production 2026-08-08).
+    """
+    from src.services.fixture_sync_service import SYNC_HORIZON_DAYS
+
+    seen: dict[str, object] = {}
+
+    def _capture(*_args, **kwargs):
+        seen.update(kwargs)
+        return _none()
+
+    monkeypatch.setattr(monitoring, "cache", None)
+    monkeypatch.setattr(monitoring, "get_next_upcoming_fixture", _capture)
+
+    await monitoring._compute_capability(db=object())
+
+    assert seen["within_days"] == SYNC_HORIZON_DAYS
 
 
 async def test_unverified_identity_is_failed_even_when_prediction_available(

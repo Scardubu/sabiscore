@@ -16,6 +16,12 @@ import {
 const CAPABILITY_COPY: Record<CapabilityStatus, { text: string; className: string }> = {
   verified: { text: "Predictions verified", className: "text-emerald-400" },
   unverified_no_fixtures: { text: "No fixtures to verify yet", className: "text-slate-500" },
+  // Pipeline ran and fail-closed correctly — a fixture days out has no odds or
+  // lineups published yet. Amber (partial), never rose: this is not an outage.
+  unverified_insufficient_evidence: {
+    text: "Awaiting pre-match evidence",
+    className: "text-amber-400",
+  },
   failed: { text: "Predictions not verified", className: "text-rose-400" },
   unknown: { text: "No fixtures to verify yet", className: "text-slate-500" },
 };
