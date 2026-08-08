@@ -5,6 +5,69 @@ All notable changes to this skill suite are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## vΩ.47 — Incident: the retrain could not deploy; two loaders, one artifact (2026-08-08)
+
+vΩ.46's retrained artifacts shipped `"meta_model": None`. Every boot of the new
+release exited with status 3, so the retrain never reached users.
+
+**Blast radius, stated precisely:** Render's health-gated deploy failed and held
+the previous release, so `sabiscore-api-bav1` continued serving `11603bd`
+throughout — this was a **failed deploy, not an outage**. The cost was that
+vΩ.46's entire retrain sat undeployed while appearing pushed, which is exactly
+the "shipped ≠ deployed" trap CLAUDE.md already warns about, reached from the
+other direction.
+
+**Two independent loaders read the same `*_ensemble_v5_phase7.pkl` files and need
+different things from them.**
+
+| Path | Reads | Used by |
+|---|---|---|
+| `PredictionEngine._ensemble_predict_dict` | averages `models`, never touches `meta_model` | every request (`/upcoming/matches`, `/full-analysis`) |
+| `SabiScoreEnsemble.load_model` → `.predict()` | stacks via `meta_model.predict_proba()` | **startup**, via `_startup_load_models_strict` |
+
+The retrain was validated against the first and only the first. All six artifacts
+loaded and predicted correctly through the request path while the strict startup
+check rejected every one of them with `ValueError: Meta model is not initialized`
+— which propagates out of the lifespan as
+`RuntimeError: Startup aborted: model initialization failed`, so uvicorn never
+binds and Render restarts the container in a loop.
+
+⚠️ **The existence of the second loader was already known and written down** — the
+vΩ.45 DEBT entry recorded "two independent loaders exist for the same artifacts,
+and only one of them is what `upcoming_match_service.py`/`full_analysis.py`
+actually call." It was noted as an explanation for an eredivisie load discrepancy
+and then not carried forward as a constraint when the artifacts were rewritten.
+Knowing about a second consumer is not the same as testing against it.
+
+**Fix.** A real stacking head, fitted on out-of-fold base predictions
+(`cross_val_predict`, 5-fold stratified) rather than in-sample ones — an
+in-sample fit hands the meta-learner near-perfect inputs it will never see again
+and teaches it to trust whichever base model overfits hardest. Meta-feature
+column names and order reproduce `_create_meta_features()` exactly.
+
+The stacked head also outperforms the averaging it replaces, on the same holdout:
+
+| League | Averaged RPS | Stacked RPS | Stacked accuracy |
+|---|---|---|---|
+| Bundesliga | 0.2335 | **0.2260** | 0.4426 |
+| EPL | 0.2304 | **0.2216** | 0.4907 |
+| La Liga | 0.2194 | **0.2129** | 0.4789 |
+| Ligue 1 | 0.2290 | **0.2272** | 0.5065 |
+| Serie A | 0.2161 | **0.2106** | 0.4640 |
+| Pooled | 0.2191 | **0.2179** | 0.4786 |
+
+Serie A and La Liga now sit under the ≤0.21 precision gate.
+
+**Guard.** `tests/unit/test_artifact_serves_both_loaders.py` runs every committed
+artifact through both paths, including the exact `_smoke_test_ensemble_model()`
+call the startup code performs. ⚠️ **Any change to an artifact's structure must be
+validated against both loaders** — a shape-compatible change that satisfies the
+request path can still be fatal at boot.
+
+Backend 1219 passed / 0 failed, ruff 0 on `src/`.
+
+---
+
 ## vΩ.46 — The model was trained on random noise; retrained on 12,765 real matches (2026-08-08)
 
 vΩ.45 established that the certified artifacts responded to only 4 of 68 inputs
