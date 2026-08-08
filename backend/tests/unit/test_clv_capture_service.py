@@ -98,7 +98,7 @@ async def test_capture_writes_snapshot_for_due_fixture_with_coherent_odds(factor
     from src.services.clv_capture_service import run_clv_capture_pass
 
     kickoff = _due_kickoff(5)
-    await _seed_match(factory, match_id="fd-ded-1", league_id="DED", kickoff=kickoff)
+    await _seed_match(factory, match_id="fd-ded-1", league_id="EREDIVISIE", kickoff=kickoff)
     records = [_odds_record("evt-1", kickoff)]
 
     mock_provider = AsyncMock()
@@ -128,7 +128,7 @@ async def test_capture_writes_snapshot_for_due_fixture_with_coherent_odds(factor
 async def test_capture_skips_fixture_outside_window(factory) -> None:
     from src.services.clv_capture_service import run_clv_capture_pass
 
-    await _seed_match(factory, match_id="fd-ded-2", league_id="DED", kickoff=_due_kickoff(120))
+    await _seed_match(factory, match_id="fd-ded-2", league_id="EREDIVISIE", kickoff=_due_kickoff(120))
 
     mock_provider = AsyncMock()
     with patch("src.db.session.AsyncSessionLocal", new=factory), patch(
@@ -146,7 +146,7 @@ async def test_capture_dedupes_already_captured_fixture(factory) -> None:
     from src.services.clv_capture_service import run_clv_capture_pass
 
     kickoff = _due_kickoff(5)
-    await _seed_match(factory, match_id="fd-ded-3", league_id="DED", kickoff=kickoff)
+    await _seed_match(factory, match_id="fd-ded-3", league_id="EREDIVISIE", kickoff=kickoff)
     async with factory() as session:
         session.add(
             MarketSnapshot(
@@ -193,14 +193,14 @@ async def test_capture_skips_unsupported_league(factory) -> None:
 
 
 async def test_capture_skips_ambiguous_event_match(factory) -> None:
-    """Two DED fixtures kicking off within tolerance of the same odds-board
+    """Two EREDIVISIE fixtures kicking off within tolerance of the same odds-board
     event: never guess which one it belongs to."""
     from src.services.clv_capture_service import run_clv_capture_pass
 
     kickoff = _due_kickoff(5)
-    await _seed_match(factory, match_id="fd-ded-4a", league_id="DED", kickoff=kickoff)
+    await _seed_match(factory, match_id="fd-ded-4a", league_id="EREDIVISIE", kickoff=kickoff)
     await _seed_match(
-        factory, match_id="fd-ded-4b", league_id="DED", kickoff=kickoff + timedelta(minutes=2)
+        factory, match_id="fd-ded-4b", league_id="EREDIVISIE", kickoff=kickoff + timedelta(minutes=2)
     )
     records = [_odds_record("evt-ambiguous", kickoff)]
 
@@ -218,7 +218,7 @@ async def test_capture_skips_ambiguous_event_match(factory) -> None:
 async def test_capture_provider_returns_no_records_is_graceful(factory) -> None:
     from src.services.clv_capture_service import run_clv_capture_pass
 
-    await _seed_match(factory, match_id="fd-ded-5", league_id="DED", kickoff=_due_kickoff(5))
+    await _seed_match(factory, match_id="fd-ded-5", league_id="EREDIVISIE", kickoff=_due_kickoff(5))
 
     mock_provider = AsyncMock()
     mock_provider.odds.return_value = _provider_result([])
@@ -244,7 +244,7 @@ async def test_run_clv_capture_pass_db_not_ready() -> None:
 async def test_run_clv_capture_pass_genuine_exception_yields_error(factory) -> None:
     from src.services import clv_capture_service
 
-    await _seed_match(factory, match_id="fd-ded-6", league_id="DED", kickoff=_due_kickoff(5))
+    await _seed_match(factory, match_id="fd-ded-6", league_id="EREDIVISIE", kickoff=_due_kickoff(5))
 
     with patch("src.db.session.AsyncSessionLocal", new=factory), patch(
         "src.providers.the_odds_api.TheOddsAPIProvider", side_effect=RuntimeError("boom")

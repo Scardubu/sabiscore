@@ -90,3 +90,38 @@ async def test_malformed_date_skipped(session: AsyncSession) -> None:
         count = await sync_upcoming_fixtures(session)
 
     assert count == 2  # bad-date match dropped, two valid matches inserted
+
+
+async def test_synced_league_id_is_canonical(session: AsyncSession) -> None:
+    """WP-A regression: stored league_id must be canonical ("EPL"), not a fd.org code ("PL").
+
+    Before WP-A, _LEAGUE_META stored fd.org codes which caused LEAGUE_POLICY_UNAVAILABLE
+    on every synced fixture. Downstream systems (league_policy, full_analysis, model_fetcher,
+    capability probe) all expect canonical IDs.
+    """
+    from sqlalchemy import select, text
+    from src.services.fixture_sync_service import sync_upcoming_fixtures
+
+    matches = [
+        _match(30, league="EPL"),
+        _match(31, league="Eredivisie"),
+    ]
+    with patch("src.data.loaders.football_data_api.FootballDataAPIClient") as MockCls:
+        MockCls.return_value = _mock_client(matches)
+        await sync_upcoming_fixtures(session)
+
+    # Leagues table must store canonical IDs, never fd.org codes
+    rows = (await session.execute(text("SELECT id FROM leagues"))).fetchall()
+    stored_ids = {row[0] for row in rows}
+    assert "EPL" in stored_ids, f"Expected canonical 'EPL', got: {stored_ids}"
+    assert "EREDIVISIE" in stored_ids, f"Expected canonical 'EREDIVISIE', got: {stored_ids}"
+    # fd.org codes must not be present
+    assert "PL" not in stored_ids, "fd.org code 'PL' leaked into leagues table"
+    assert "DED" not in stored_ids, "fd.org code 'DED' leaked into leagues table"
+
+    # Match rows must also carry canonical league_id
+    match_rows = (await session.execute(text("SELECT league_id FROM matches"))).fetchall()
+    match_league_ids = {row[0] for row in match_rows}
+    assert match_league_ids <= {"EPL", "EREDIVISIE"}, (
+        f"Match league_ids contain non-canonical values: {match_league_ids}"
+    )

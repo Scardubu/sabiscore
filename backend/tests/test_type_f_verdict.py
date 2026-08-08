@@ -282,11 +282,16 @@ class TestNarrativeInvariants:
         result = SYNTH.synthesize(**_synth())
         assert result.narrative.strip()
 
-    def test_narrative_contains_verdict(self):
-        """Narrative must reference the verdict for grounding (B14 audit trail)."""
+    def test_narrative_has_no_bracket_prefix(self):
+        """Narrative must not contain machine-readable [VERDICT] bracket prefix.
+        The verdict badge in the frontend already communicates verdict — bracket tags
+        in narrative are noisy on a user-facing surface and were removed (WP-B).
+        """
         for gaps in ([], ["elo_ratings"]):
             result = SYNTH.synthesize(**_synth(data_gaps=gaps))
-            assert f"[{result.verdict}]" in result.narrative
+            assert not result.narrative.startswith("["), (
+                f"Narrative has machine-readable bracket prefix: {result.narrative!r}"
+            )
 
 
 # ---------------------------------------------------------------------------

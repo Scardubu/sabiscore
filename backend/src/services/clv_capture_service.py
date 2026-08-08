@@ -41,15 +41,20 @@ def last_clv_capture_result() -> dict[str, Any]:
 
 
 def _fd_code_to_canonical() -> dict[str, str]:
-    """football-data.org short code (Match.league_id, e.g. "DED") -> canonical
-    SabiScore competition code (e.g. "EREDIVISIE"). Derived from
-    fixture_sync_service's own _LEAGUE_META rather than a second hardcoded
-    table — that dict is the single source of truth for what fixture_sync
-    actually writes into Match.league_id."""
-    from ..core.league_policy import canonical_league_id
+    """Canonical league ID (Match.league_id) → canonical league ID.
+
+    After migration 0006_canonical_league_ids, _LEAGUE_META stores canonical
+    SabiScore IDs directly (e.g. "EREDIVISIE") instead of fd.org codes ("DED").
+    This function is now an identity map that validates which IDs are supported —
+    derived from _LEAGUE_META so it stays in sync with what fixture_sync writes.
+
+    Kept as a dict lookup (rather than set membership) so callers that use the
+    return value as a translation table continue to work without code changes.
+    """
     from .fixture_sync_service import _LEAGUE_META
 
-    return {code: canonical_league_id(name) for name, (code, _country) in _LEAGUE_META.items()}
+    # ponytail: identity map — _LEAGUE_META[name] = (canonical_id, country) after WP-A
+    return {code: code for _name, (code, _country) in _LEAGUE_META.items()}
 
 
 def _match_events_to_fixtures(

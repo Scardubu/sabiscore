@@ -405,16 +405,16 @@ class IntelligenceSynthesizer:
 
         if not probabilities_available or partial:
             narrative = textwrap.shorten(
-                f"[{verdict}] No bet — insufficient verified evidence. "
+                f"No bet — insufficient verified evidence. "
                 f"{len(evidence_quality.critical_gaps)} critical gap(s), "
                 f"{len(evidence_quality.conflicts)} conflict(s).",
                 width=280,
                 placeholder="…",
             )
         elif verdict == "SPECULATIVE":
-            narrative = "[SPECULATIVE] Watchlist only — no stake is permitted."
+            narrative = "Watchlist only — no stake is permitted."
         elif verdict in {"HOLD", "NO_BET"}:
-            narrative = f"[{verdict}] No bet — the public stake gate is closed."
+            narrative = "No bet — the public stake gate is closed."
         else:
             narrative = self._compose_narrative(
                 ensemble=ensemble,
@@ -578,8 +578,6 @@ class IntelligenceSynthesizer:
             parts.append(f"RL: stake {stake_pct}%.")
         elif rl_rec.abstain:
             parts.append("RL: abstain.")
-
-        parts.append(f"[{verdict}]")
 
         narrative = " ".join(parts)
         # B11: hard cap at 280 characters.

@@ -17,15 +17,18 @@ from .team_identity import resolve_team_id
 logger = logging.getLogger(__name__)
 
 # Human-readable league name (as returned by FootballDataAPIClient.TOP_COMPETITIONS)
-# mapped to (league_id, country). Closed set — only supported competitions.
+# mapped to (canonical_league_id, country). Closed set — only supported competitions.
+# IMPORTANT: the second tuple element is the canonical SabiScore league_id (as used
+# by league_policy, model_fetcher, full_analysis, etc.) — NOT the fd.org competition
+# code. Migration 0006_canonical_league_ids renamed any existing fd.org code rows.
 _LEAGUE_META: dict[str, tuple[str, str]] = {
-    "EPL": ("PL", "England"),
-    "La Liga": ("PD", "Spain"),
-    "Bundesliga": ("BL1", "Germany"),
-    "Serie A": ("SA", "Italy"),
-    "Ligue 1": ("FL1", "France"),
-    "Eredivisie": ("DED", "Netherlands"),
-    "UCL": ("CL", "Europe"),
+    "EPL":        ("EPL",        "England"),
+    "La Liga":    ("LA_LIGA",    "Spain"),
+    "Bundesliga": ("BUNDESLIGA", "Germany"),
+    "Serie A":    ("SERIE_A",    "Italy"),
+    "Ligue 1":    ("LIGUE_1",    "France"),
+    "Eredivisie": ("EREDIVISIE", "Netherlands"),
+    "UCL":        ("UCL",        "Europe"),
 }
 
 
@@ -45,7 +48,7 @@ async def sync_upcoming_fixtures(session: AsyncSession) -> int:
 
     client = FootballDataAPIClient()
     try:
-        matches_raw = await client.get_upcoming_matches(days_ahead=7, limit=50)
+        matches_raw = await client.get_upcoming_matches(days_ahead=14, limit=50)
     except FootballDataAPIError as exc:
         logger.warning("fixture_sync: football-data.org unavailable: %s", exc)
         return 0
