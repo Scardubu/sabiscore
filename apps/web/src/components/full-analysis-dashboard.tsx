@@ -9,6 +9,7 @@ import {
 } from "@/lib/api";
 import {
   mapFullAnalysisPresentation,
+  describeEvidenceCode,
   type FullMatchAnalysisResponse,
   type FullMatchEloContext,
   type FullMatchUncertainty,
@@ -400,10 +401,22 @@ function EnhancedMatchHero({
             <VerdictBadge verdict={data.verdict} />
             <VictorySparkle active={presentation.stakePermitted && data.verdict === "HIGH_CONVICTION"} />
           </div>
-          <FreshnessPill
-            tag={data.freshness_tag ?? (data.staleness_seconds > 0 ? (data.staleness_seconds < 86400 ? "RECENT" : "STALE") : "LIVE")}
-            stalenessSecs={data.staleness_seconds ?? 0}
-          />
+          {/* WP-F: suppress alarming STALE badge when no live evidence was produced.
+              A baseline/reduced-evidence response references historical training data,
+              not a live evidence bundle — "810d ago" is meaningless and alarming. */}
+          {presentation.isReducedEvidenceBaseline || (data.staleness_seconds ?? 0) >= 365 * 86400 ? (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-700/40 bg-slate-800/40 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500"
+              title="Evidence freshness: time since team statistics were last updated from providers."
+            >
+              Historical data only
+            </span>
+          ) : (
+            <FreshnessPill
+              tag={data.freshness_tag ?? (data.staleness_seconds > 0 ? (data.staleness_seconds < 86400 ? "RECENT" : "STALE") : "LIVE")}
+              stalenessSecs={data.staleness_seconds ?? 0}
+            />
+          )}
           <PredictionAgePill
             generatedAt={data.generated_at}
             stalenessSecs={data.staleness_seconds ?? 0}
@@ -1153,6 +1166,88 @@ function DataFreshnessSection() {
   );
 }
 
+// ─── Evidence Status Card (WP-E): structured "why no prediction" summary ─────
+// Shown when stake is not permitted so users understand what's missing and
+// what would help, rather than seeing grey dashes with no explanation.
+
+function EvidenceStatusCard({ data }: { data: FullMatchAnalysisResponse }) {
+  const presentation = mapFullAnalysisPresentation(data);
+  if (presentation.stakePermitted) return null;
+
+  const critical = data.evidence_quality.critical_gaps;
+  const conflicts = data.evidence_quality.conflicts;
+  const blocking = [...critical, ...conflicts];
+  const fixtureVerified = !critical.includes("FIXTURE_IDENTITY_UNVERIFIED");
+  // Show uncollapsed when ≤5 blocking gaps; use <details> to collapse a long list
+  const needsCollapse = blocking.length > 5;
+  // Filter identity gap from list body (it's surfaced via the header check row)
+  const listGaps = blocking.filter((g) => g !== "FIXTURE_IDENTITY_UNVERIFIED");
+
+  return (
+    <div
+      role="region"
+      aria-label="Why no prediction — evidence status"
+      className="rounded-xl border border-slate-800/50 bg-slate-900/30 px-5 py-4 space-y-3"
+    >
+      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+        Why no prediction
+      </p>
+
+      {/* Fixture identity row */}
+      <div className="flex items-start gap-2.5 text-sm">
+        <span
+          className={cn(
+            "mt-0.5 flex-shrink-0 text-[11px]",
+            fixtureVerified ? "text-emerald-400" : "text-rose-400"
+          )}
+          aria-hidden
+        >
+          {fixtureVerified ? "●" : "✗"}
+        </span>
+        <span className={fixtureVerified ? "text-slate-300" : "text-slate-400"}>
+          Fixture {fixtureVerified ? "identified in schedule" : "could not be matched to a scheduled fixture — team history unverifiable"}
+        </span>
+      </div>
+
+      {/* Blocking gaps list */}
+      {listGaps.length > 0 && (
+        needsCollapse ? (
+          <details className="space-y-1">
+            <summary className="cursor-pointer select-none text-[11px] text-slate-500 hover:text-slate-400 transition-colors list-none flex items-center gap-1.5">
+              <span className="text-rose-400">✗</span>
+              {listGaps.length} required input{listGaps.length !== 1 ? "s" : ""} unavailable
+              <span className="ml-auto text-[10px] text-slate-600">▼ show</span>
+            </summary>
+            <ul className="mt-2 space-y-1.5 pl-1" aria-label="Missing inputs">
+              {listGaps.map((gap) => (
+                <li key={gap} className="flex items-start gap-2 text-xs text-slate-500">
+                  <span className="mt-0.5 flex-shrink-0 text-rose-500 text-[10px]" aria-hidden>✗</span>
+                  <span className="capitalize">{describeEvidenceCode(gap)}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        ) : (
+          <ul className="space-y-1.5" aria-label="Missing inputs">
+            {listGaps.map((gap) => (
+              <li key={gap} className="flex items-start gap-2 text-xs text-slate-500">
+                <span className="mt-0.5 flex-shrink-0 text-rose-500 text-[10px]" aria-hidden>✗</span>
+                <span className="capitalize">{describeEvidenceCode(gap)}</span>
+              </li>
+            ))}
+          </ul>
+        )
+      )}
+
+      <p className="text-[11px] text-slate-600 border-t border-slate-800/30 pt-2.5">
+        {blocking.length > 0
+          ? "Check back closer to kickoff — providers update when squads and markets are confirmed."
+          : "Model abstained on risk grounds. Evidence may be sufficient closer to kickoff."}
+      </p>
+    </div>
+  );
+}
+
 function ActionabilityStrip({ data }: { data: FullMatchAnalysisResponse }) {
   const summary = getActionabilitySummary(data);
 
@@ -1493,6 +1588,9 @@ function FullAnalysisDashboardInner({
       />
 
       <ActionabilityStrip data={data} />
+
+      {/* ── WP-E: Evidence status card (why no prediction, structured breakdown) ── */}
+      <EvidenceStatusCard data={data} />
 
       {/* ── CLV Evidence Panel (Sprint 4 Slice A) ── */}
       {data.actionability && presentation.stakePermitted && (

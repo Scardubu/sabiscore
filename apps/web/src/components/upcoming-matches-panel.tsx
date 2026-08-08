@@ -306,7 +306,14 @@ function MatchRow({ match }: { match: UpcomingMatch }) {
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <span className={leagueChip(match.league)}>{match.league}</span>
-          <span className="text-[10px] text-slate-600">{formatMatchDate(match.match_date)}</span>
+          <span className="text-[10px] text-slate-600">
+            {formatMatchDate(match.match_date)}
+            {" · "}
+            {new Date(match.match_date).toLocaleTimeString("en-NG", {
+              hour: "2-digit", minute: "2-digit",
+              timeZone: "Africa/Lagos", hour12: false,
+            })}
+          </span>
           <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider", freshness.className)}>
             {freshness.label}
           </span>

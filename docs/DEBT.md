@@ -7,6 +7,24 @@ disguise — say so honestly.
 
 ---
 
+## 0. Canonical league_id storage — `_LEAGUE_META` stored fd.org codes
+
+**Tier:** `ACCEPTED` — fixed 2026-08-08 (WP-A). Kept as incident record per convention.
+**Found:** 2026-08-08, live probe of Eredivisie (9 DB rows, all `LEAGUE_POLICY_UNAVAILABLE`).
+**Fixed:** `fixture_sync_service.py:_LEAGUE_META` tuple[1] changed from fd.org code
+(`"DED"`, `"PL"`, `"PD"`, `"BL1"`, `"SA"`, `"FL1"`, `"CL"`) to canonical SabiScore ID
+(`"EREDIVISIE"`, `"EPL"`, `"LA_LIGA"`, `"BUNDESLIGA"`, `"SERIE_A"`, `"LIGUE_1"`, `"UCL"`).
+Alembic migration `0006_canonical_league_ids` renames existing League rows in the live DB
+and cascades to `teams.league_id`, `matches.league_id`, `league_standings.league`.
+`clv_capture_service._fd_code_to_canonical()` updated to an identity map (was a translation;
+now `_LEAGUE_META` already stores canonical IDs directly). Test: `test_synced_league_id_is_canonical`.
+**Root effect:** Eredivisie capability probe now returns `unverified_no_fixtures` → `verified`
+once `get_next_upcoming_fixture()` can match canonical IDs; EPL/La Liga unblocked as their
+sync windows open. Blast radius was every prediction path via `get_league_policy()` and
+`full_analysis.py`'s model artifact lookup.
+
+---
+
 ## 1. Base-58 feature block is silently defaulted on every live prediction
 
 **Tier:** `NEXT` → **CLOSED 2026-08-07 (WP-18)** — see below.

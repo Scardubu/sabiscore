@@ -5,6 +5,69 @@ All notable changes to this skill suite are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## vΩ.42 — APEX Final: canonical league_id fix, narrative polish, UX activation (2026-08-08)
+
+### Fixed — WP-A: `_LEAGUE_META` stored fd.org codes instead of canonical league IDs
+
+`fixture_sync_service.py:_LEAGUE_META` mapped competition display names to football-data.org
+codes (`"DED"`, `"PL"`, `"PD"`, etc.) as the second tuple element, which became `League.id`
+and propagated to `matches.league_id`, `teams.league_id`. Every downstream consumer expects
+canonical SabiScore IDs (`"EREDIVISIE"`, `"EPL"`, `"LA_LIGA"`, etc.):
+`get_next_upcoming_fixture()`, `get_league_policy()`, `full_analysis.py`'s model lookup,
+`clv_capture_service.py`'s league-supported check. Result: all 9 Eredivisie fixtures in the
+live DB produced `LEAGUE_POLICY_UNAVAILABLE` critical gap and the capability probe returned
+`unverified_no_fixtures` despite a correctly synced season. EPL/La Liga would have hit the
+same wall the moment their sync windows opened. `_LEAGUE_META` second element is now the
+canonical ID directly. Alembic migration `0006_canonical_league_ids` renames existing
+`leagues.id` rows from fd.org codes to canonical names and cascades to the FK child tables
+(`teams.league_id`, `matches.league_id`, `league_standings.league`) in a single idempotent
+transaction. `_fd_code_to_canonical()` in `clv_capture_service.py` updated to an identity map
+(was a translation map; after the fix `_LEAGUE_META` already stores canonical IDs).
+
+### Fixed — WP-B: verdict bracket prefix stripped from all narrative construction sites
+
+`intelligence_synthesizer.py` emitted `"[PARTIAL] No bet..."`, `"[SPECULATIVE] Watchlist
+only..."`, `"[HOLD] No bet — the public stake gate is closed."` and a generic `"[{verdict}]"`
+prefix in `_compose_narrative`. These machine-readable bracket tags were noise on user-facing
+surfaces — the verdict badge already communicates the tier. All four construction sites now
+emit bare narrative text. Regression test in `test_type_f_verdict.py` asserts no narrative
+starts with `[`.
+
+### Fixed — WP-C: loading.tsx team names now prefer `?home=` / `?away=` query params
+
+`app/match/[id]/loading.tsx` parsed team names by splitting `params.id` on `" vs "`. For
+canonical fixture IDs like `fd-558217` this produced "Home Team / Away Team". URLs built by
+`buildMatchInsightsHref` already carry `?home=PSV&away=Fortuna%20Sittard`. Loading screen now
+reads these params first, falling back to the `" vs "` split only for legacy hypothetical URLs.
+
+### Added — WP-D: kickoff times in BigMatchesCarousel and UpcomingMatchesPanel
+
+Both fixture surfaces now show local kickoff time in Africa/Lagos (WAT). `BigMatchesCarousel`
+cards display time on a third line below the away team; `UpcomingMatchesPanel` rows show time
+inline after the date, formatted `HH:MM WAT`.
+
+### Added — WP-E: EvidenceStatusCard explains why no prediction is available
+
+When `stakePermitted=false`, a new inline card renders between `ActionabilityStrip` and the CLV
+panel showing: fixture identity status (✓ identified / ✗ not identified), blocking critical gaps
+with human-readable labels via `describeEvidenceCode()`, collapsed to `<details>` when >5 gaps,
+and a "Check back closer to kickoff" footer. Does not render when `stakePermitted=true`.
+
+### Fixed — WP-F: STALE badge suppressed for baseline predictions
+
+`FreshnessPill` showed "STALE · 810d ago" for off-season hypothetical matchups — alarming copy
+referencing historical training data age, not a real evidence freshness concern. When
+`isReducedEvidenceBaseline=true` or `staleness_seconds ≥ 1 year`, the pill is replaced with
+a quiet "Historical data only" chip. The alert colour and days-ago count are reserved for
+genuinely fresh but stale evidence.
+
+### Changed — WP-G: sync window extended from 7 to 14 days
+
+`sync_upcoming_fixtures()` `days_ahead` increased from 7 to 14 so EPL/La Liga fixtures
+(openers Aug 21/Aug 16) appear in the sync window at least a week early.
+
+---
+
 ## vΩ.41 — WP-18: canonical feature-remap unification (D8b + WP-10.3), CLV-computation documentation catch-up (2026-08-07)
 
 ### Docs — CLV computation (b97d876) had shipped with zero changelog/ground-truth entry

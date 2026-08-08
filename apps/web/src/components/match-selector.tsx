@@ -187,6 +187,15 @@ function BigMatchesCarousel({ onSelectFixture }: BigMatchesCarouselProps) {
                   )}
                   <p className="text-[11px] font-semibold text-slate-100 truncate">{match.home_team}</p>
                   <p className="text-[10px] text-slate-500">vs {match.away_team}</p>
+                  {match.match_date && (
+                    <p className="text-[9px] text-slate-600 mt-0.5">
+                      {new Date(match.match_date).toLocaleString("en-NG", {
+                        weekday: "short", day: "numeric", month: "short",
+                        hour: "2-digit", minute: "2-digit",
+                        timeZone: "Africa/Lagos", hour12: false,
+                      })} WAT
+                    </p>
+                  )}
                   <div className="mt-2 flex flex-wrap items-center gap-1">
                     {edgePct != null && (
                       <span
