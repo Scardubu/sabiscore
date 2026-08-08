@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import httpx
 
+from ...connectors.base import AsyncJSONClient, ConnectorError, ConnectorRateLimitError
 from ...core.config import settings
+
+logger = logging.getLogger(__name__)
+
+# Free tier is 10 requests/minute, so the quota window resets within a minute.
+# Waiting longer than that on a boot background task buys nothing.
+_RATE_LIMIT_MAX_WAIT_SECONDS = 60.0
 
 
 class FootballDataAPIError(RuntimeError):
@@ -46,40 +54,85 @@ class FootballDataAPIClient:
             raise FootballDataAPIError("FOOTBALL_DATA_API_KEY is not configured")
 
         now = datetime.now(timezone.utc)
-        date_from = now.date().isoformat()
-        date_to = (now + timedelta(days=max(days_ahead, 1))).date().isoformat()
+        return await self._fetch_competitions(
+            competitions=self._resolve_competitions(league),
+            date_from=now.date().isoformat(),
+            date_to=(now + timedelta(days=max(days_ahead, 1))).date().isoformat(),
+            status="SCHEDULED",
+            limit=limit,
+            normalizer=self._normalize_match,
+        )
 
-        competitions = self._resolve_competitions(league)
+    async def _fetch_competitions(
+        self,
+        *,
+        competitions: List[str],
+        date_from: str,
+        date_to: str,
+        status: str,
+        limit: int,
+        normalizer: Callable[[Dict[str, Any]], Optional[Dict[str, Any]]],
+    ) -> List[Dict[str, Any]]:
+        """Fetch one status window across competitions, isolating per-competition failure.
+
+        The free tier allows 10 requests/minute and this issues one request per
+        competition, so hitting the quota mid-loop is routine rather than
+        exceptional. Previously any single failure raised and discarded every
+        competition already collected *and* every one not yet attempted —
+        observed in production 2026-08-08, where a 429 on the first competition
+        seeded 0 fixtures across all seven leagues.
+
+        Failures are now isolated per competition. A 429 that survives the
+        Retry-After backoff means the quota is genuinely spent, so the loop stops
+        rather than burning further requests, but still returns what it collected.
+        Raises only when every competition failed and nothing came back at all.
+        """
         normalized: List[Dict[str, Any]] = []
+        failures: List[str] = []
 
-        headers = {
-            "X-Auth-Token": self.api_key,
-            "Accept": "application/json",
-        }
-
-        async with httpx.AsyncClient(timeout=self.timeout, headers=headers) as client:
-            for competition in competitions:
+        async with AsyncJSONClient(
+            base_url=self.BASE_URL,
+            headers={"X-Auth-Token": self.api_key},
+            timeout_seconds=float(self.timeout),
+        ) as client:
+            for index, competition in enumerate(competitions):
                 params = {
                     "dateFrom": date_from,
                     "dateTo": date_to,
-                    "status": "SCHEDULED",
+                    "status": status,
                     "limit": limit,
                 }
-
-                response = await client.get(f"{self.BASE_URL}/competitions/{competition}/matches", params=params)
-                if response.status_code == 429:
-                    raise FootballDataAPIError("Football-Data API rate limit exceeded")
-                if response.status_code >= 400:
-                    raise FootballDataAPIError(
-                        f"Football-Data API request failed ({response.status_code}) for {competition}"
+                try:
+                    payload = await client.get_json_with_rate_limit_backoff(
+                        f"/competitions/{competition}/matches",
+                        params=params,
+                        max_wait_seconds=_RATE_LIMIT_MAX_WAIT_SECONDS,
                     )
+                except ConnectorRateLimitError:
+                    # ponytail: quota genuinely spent (the 429 survived a full
+                    # Retry-After wait) — further requests only waste it.
+                    failures.append(f"{competition}: rate limited")
+                    logger.warning(
+                        "football_data: quota exhausted at %s — keeping %d match(es) from %d competition(s)",
+                        competition,
+                        len(normalized),
+                        index,
+                    )
+                    break
+                except (ConnectorError, httpx.HTTPError) as exc:
+                    failures.append(f"{competition}: {type(exc).__name__}")
+                    logger.warning("football_data: %s unavailable: %s", competition, exc)
+                    continue
 
-                payload = response.json()
                 for match in payload.get("matches", []):
-                    item = self._normalize_match(match)
-                    if not item:
-                        continue
-                    normalized.append(item)
+                    item = normalizer(match)
+                    if item:
+                        normalized.append(item)
+
+        if failures and not normalized:
+            raise FootballDataAPIError(
+                f"Football-Data API returned no data ({'; '.join(failures)})"
+            )
 
         normalized.sort(key=lambda x: x.get("match_date") or "")
         return normalized[:limit]
@@ -102,43 +155,14 @@ class FootballDataAPIClient:
             raise FootballDataAPIError("FOOTBALL_DATA_API_KEY is not configured")
 
         now = datetime.now(timezone.utc)
-        date_from = (now - timedelta(days=max(days_back, 1))).date().isoformat()
-        date_to = now.date().isoformat()
-
-        competitions = self._resolve_competitions(league)
-        normalized: List[Dict[str, Any]] = []
-
-        headers = {
-            "X-Auth-Token": self.api_key,
-            "Accept": "application/json",
-        }
-
-        async with httpx.AsyncClient(timeout=self.timeout, headers=headers) as client:
-            for competition in competitions:
-                params = {
-                    "dateFrom": date_from,
-                    "dateTo": date_to,
-                    "status": "FINISHED",
-                    "limit": limit,
-                }
-
-                response = await client.get(f"{self.BASE_URL}/competitions/{competition}/matches", params=params)
-                if response.status_code == 429:
-                    raise FootballDataAPIError("Football-Data API rate limit exceeded")
-                if response.status_code >= 400:
-                    raise FootballDataAPIError(
-                        f"Football-Data API request failed ({response.status_code}) for {competition}"
-                    )
-
-                payload = response.json()
-                for match in payload.get("matches", []):
-                    item = self._normalize_result(match)
-                    if not item:
-                        continue
-                    normalized.append(item)
-
-        normalized.sort(key=lambda x: x.get("match_date") or "")
-        return normalized[:limit]
+        return await self._fetch_competitions(
+            competitions=self._resolve_competitions(league),
+            date_from=(now - timedelta(days=max(days_back, 1))).date().isoformat(),
+            date_to=now.date().isoformat(),
+            status="FINISHED",
+            limit=limit,
+            normalizer=self._normalize_result,
+        )
 
     def _resolve_competitions(self, league: Optional[str]) -> List[str]:
         if not league:
