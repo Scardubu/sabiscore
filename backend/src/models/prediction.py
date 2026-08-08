@@ -227,11 +227,21 @@ class PredictionEngine:
                     candidate = directory / f"{slug}{suffix}{ext}"
                     if candidate.exists():
                         try:
-                            raw = (
-                                joblib.load(candidate)
-                                if ext == ".joblib"
-                                else pickle.load(open(candidate, "rb"))  # noqa: SIM115
-                            )
+                            # joblib.load first for BOTH extensions. Every committed
+                            # artifact is joblib-serialised regardless of whether it
+                            # is named .pkl or .joblib, and plain pickle.load cannot
+                            # read one — it misreads the payload and raises
+                            # "No module named 'random_forest'". Selecting the reader
+                            # by file extension therefore failed to load every single
+                            # .pkl artifact, so `bundle` was always None and every
+                            # inference returned model_version="fallback" on every
+                            # league. joblib.load also reads plain pickles, so the
+                            # pickle path below is only a defensive fallback.
+                            try:
+                                raw = joblib.load(candidate)
+                            except Exception:
+                                with open(candidate, "rb") as handle:
+                                    raw = pickle.load(handle)
                             bundle = self._wrap_artifact(raw, slug, candidate)
                             if bundle is not None:
                                 logger.info("PredictionEngine: loaded %s from %s", slug, candidate)
