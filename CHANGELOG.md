@@ -5,6 +5,66 @@ All notable changes to this skill suite are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## vΩ.43 — Live incident: fixture ingestion recovered, capability probe made honest (2026-08-08)
+
+### Fixed — fixture sync discarded all seven competitions on one rate limit
+
+Production log after the vΩ.42 deploy read `fixture_sync: 0 new upcoming fixtures
+seeded`. `FootballDataAPIClient.get_upcoming_matches()` loops seven competitions;
+a 429 on the **first** raised `FootballDataAPIError` and discarded all seven —
+including the six never attempted and anything already collected. The free tier
+allows 10 req/min against one request per competition, so hitting the quota
+mid-loop is routine rather than exceptional. `get_recent_results()` carried the
+identical hand-rolled `httpx` loop.
+
+Both now route through one `_fetch_competitions()` helper built on the existing
+`AsyncJSONClient.get_json_with_rate_limit_backoff()` — a method whose own docstring
+already named "football-data.org free tier" as its intended consumer but which this
+client never used, bringing bounded retries, exponential jitter and `Retry-After`
+handling for free. Failures are isolated per competition; a 429 surviving the
+`Retry-After` wait stops the loop but returns what was collected. Raises only when
+every competition failed and nothing came back, preserving the caller's warning and
+metrics path. **Live result: 9 fixtures (all Eredivisie) → 49 across 5 leagues.**
+
+### Fixed — fixture sync was one-shot, so a failed boot tick was unrecoverable
+
+`run_fixture_sync()`'s own docstring named the consequence: "no periodic opportunity
+to self-correct — a failure here is silent until someone reads logs." The incident
+above realised it exactly. Now uses the same while/sleep/try shape already proven by
+`_background_settlement_sync` and `_background_clv_capture`: runs immediately, then
+every 6h (~0.008 req/min). Task handle stored on `app.state` so it cancels cleanly on
+shutdown; the three cancels collapse into one loop.
+
+### Fixed — capability probe reported healthy fail-closed behaviour as an outage
+
+Two coupled defects, both surfaced by verifying the above live.
+
+**Horizon mismatch:** the probe hardcoded a 7-day window against a 14-day sync
+window, so with 28 required-league fixtures freshly seeded it still reported
+`unverified_no_fixtures` — structurally unable to test anything. Both now read
+`SYNC_HORIZON_DAYS` from `fixture_sync_service` so they cannot drift apart again.
+
+**Latent false alarm, fixed before it could fire:** `prediction_status` is a tristate
+but the probe mapped everything except `AVAILABLE` to `failed`, which `ReadinessRing`
+paints rose-400. A fixture days out legitimately returns `REDUCED_EVIDENCE_BASELINE`
+(no odds or lineups published yet) — the pipeline ran end-to-end and fail-closed
+correctly. Widening the horizon makes a distant fixture the common probe subject, so
+this would have shown a false outage on nearly every check from ~Aug 14. New honest
+state `unverified_insufficient_evidence`, rendered amber ("Awaiting pre-match
+evidence"); `failed` is now reserved for a raised exception or an identity failure.
+Same principle as vΩ.33's readiness-vs-capability split: inability to confirm is not
+an outage. `test_non_available_prediction_status_is_failed` pinned the old behaviour
+and was rewritten to the new expectation, parameterized over both non-`AVAILABLE`
+states, plus a guard that the two horizons stay equal.
+
+### Added — plain-language copy for the most-shown evidence gap
+
+`COHERENT_1X2_MARKET_UNAVAILABLE` fell through `describeEvidenceCode()` to a
+title-cased fallback. With `the_odds_api` still operator-disabled it appears on every
+fixture, so it was the single most-rendered gap in the new `EvidenceStatusCard`.
+
+---
+
 ## vΩ.42 — APEX Final: canonical league_id fix, narrative polish, UX activation (2026-08-08)
 
 ### Fixed — WP-A: `_LEAGUE_META` stored fd.org codes instead of canonical league IDs
