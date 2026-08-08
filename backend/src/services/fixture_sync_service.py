@@ -156,13 +156,13 @@ async def sync_settled_results(session: AsyncSession, *, days_back: int = 3) -> 
 
 
 async def run_fixture_sync() -> None:
-    """Entry point for the startup background task — swallows all errors.
+    """Entry point for the background sync loop — swallows all errors.
 
-    Unlike settlement_service/clv_capture_service, this task only fires once
-    at boot rather than on a recurring cadence, so it has no periodic
-    opportunity to self-correct — a failure here is silent until someone
-    reads logs. Recorded via the same metrics_collector GET /metrics already
-    surfaces (docs/DEBT.md item 3), rather than a bespoke tracking dict.
+    Called immediately at boot and then every _FIXTURE_SYNC_INTERVAL_SECONDS
+    (api/main.py), so a failed tick self-corrects on the next one rather than
+    leaving the platform with zero fixtures until the next deploy. Failures are
+    recorded via the same metrics_collector GET /metrics already surfaces
+    (docs/DEBT.md item 3), rather than a bespoke tracking dict.
     """
     from ..db.session import AsyncSessionLocal
     from ..monitoring.metrics import metrics_collector

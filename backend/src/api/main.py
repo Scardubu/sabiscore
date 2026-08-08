@@ -90,13 +90,29 @@ class CustomJSONEncoder(json.JSONEncoder):
             return obj.model_dump()
         return str(obj)  # Fallback to string representation
 
+# Fixtures enter the sync window as each league's season opens, so this must keep
+# running rather than seeding once. 7 requests per tick every 6h is ~0.008 req/min
+# against football-data.org's 10 req/min free tier. The cadence exists for recovery,
+# not freshness: a boot-time 429 previously left the platform with zero fixtures
+# until the next deploy (observed in production 2026-08-08).
+_FIXTURE_SYNC_INTERVAL_SECONDS = 21600
+
+
 async def _background_fixture_sync() -> None:
-    """Non-blocking task: seed upcoming fixtures from football-data.org."""
-    try:
-        from ..services.fixture_sync_service import run_fixture_sync
-        await run_fixture_sync()
-    except Exception:
-        logger.exception("Background fixture sync failed")
+    """Seed upcoming fixtures, then re-seed periodically.
+
+    Runs immediately (the dashboard needs data on first deploy, not in 6 hours),
+    then loops. run_fixture_sync() swallows its own errors, so a failed tick is
+    logged and recorded in metrics without breaking the loop.
+    """
+    from ..services.fixture_sync_service import run_fixture_sync
+
+    while True:
+        try:
+            await run_fixture_sync()
+        except Exception:
+            logger.exception("Background fixture sync failed")
+        await asyncio.sleep(_FIXTURE_SYNC_INTERVAL_SECONDS)
 
 
 # 7 requests/tick (one per competition, same shape as the fixture-sync loop) at an
@@ -108,9 +124,9 @@ _SETTLEMENT_SYNC_INTERVAL_SECONDS = 3600
 
 
 async def _background_settlement_sync() -> None:
-    """Genuinely periodic (unlike the one-shot fixture-sync task above): matches
-    finish all through a matchday, not just at boot. Sleeps first so the initial
-    tick never collides with fixture-sync's own boot-time request burst."""
+    """Matches finish all through a matchday, not just at boot. Sleeps first so
+    the initial tick never collides with fixture-sync's own boot-time request
+    burst — both hit football-data.org's shared 10 req/min free-tier quota."""
     from ..services.settlement_service import run_settlement_pass
 
     while True:
@@ -176,8 +192,9 @@ async def lifespan(app: FastAPI):
         logger.exception("Startup: failed to initialize async database")
 
     # Seed upcoming fixtures in the background so the intelligence dashboard
-    # has data immediately after first deploy. Swallows all errors internally.
-    asyncio.create_task(_background_fixture_sync())
+    # has data immediately after first deploy, then re-seed on a slow cadence.
+    # Handle stored so it cancels cleanly on shutdown, same as the two below.
+    app.state.fixture_sync_task = asyncio.create_task(_background_fixture_sync())
 
     # Periodic settlement pass: settle finished fixtures, then run walk-forward
     # validation against whatever's settled. Handle stored (not fire-and-forget
@@ -213,16 +230,12 @@ async def lifespan(app: FastAPI):
     # === SHUTDOWN ===
     logger.info("Shutting down SabiScore API...")
 
-    # Unlike the one-shot fixture-sync task, the settlement loop runs forever —
-    # cancel it explicitly or every redeploy logs an asyncio "task destroyed
-    # while pending" warning.
-    settlement_task = getattr(app.state, "settlement_task", None)
-    if settlement_task is not None:
-        settlement_task.cancel()
-
-    clv_capture_task = getattr(app.state, "clv_capture_task", None)
-    if clv_capture_task is not None:
-        clv_capture_task.cancel()
+    # All three background loops run forever — cancel them explicitly or every
+    # redeploy logs an asyncio "task destroyed while pending" warning.
+    for task_name in ("fixture_sync_task", "settlement_task", "clv_capture_task"):
+        task = getattr(app.state, task_name, None)
+        if task is not None:
+            task.cancel()
 
     try:
         await close_db()
