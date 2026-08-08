@@ -82,17 +82,44 @@ CANONICAL_FEATURES_58: List[str] = [
 #     set_piece_xg_diff       — mixed signal across leagues; validation returned inconclusive
 #                               directionality. Remove until per-league ATE can be confirmed.
 #
-# CANONICAL_FEATURES_68 is now a CONFIRMED-ONLY 65-feature set (58 base + 7 phase7).
+# CANONICAL_FEATURES_68 is the artifact-compatible set (58 base + 10 phase7).
 # PENDING FEATURE COUNT: 0 — gate cleared for Phase 8 training path.
-PHASE7_FEATURES_7: List[str] = [
+# Column order is the trained artifact's own `feature_columns`, verified identical
+# across all six v5_phase7 .pkl files. It is NOT free to reorder: inference indexes
+# positionally.
+#
+# ⚠️ elo_league_adjusted / key_passes_under_pressure_diff / set_piece_xg_diff were
+# deleted from this list on 2026-06-10 as carrying no independent ATE signal. Removing
+# the *slots* rather than just the computation broke every artifact: they expect 68
+# columns, the registry then emitted 65, and PredictionEngine correctly refuses to
+# zero-pad a short vector (that refusal is the anti-fabrication guard, working as
+# designed). The result was model_version="fallback" on every single inference —
+# the certified model never ran in production once between that change and
+# 2026-08-08, on any league.
+#
+# They are restored here as slots only. Every one of them is in
+# PHASE7_FEATURES_ALWAYS_DATA_GAP below, so the value is always the registry default
+# and is never computed from live data — exactly the existing treatment of
+# shot_quality_diff, which has always sat in both lists. The substantive B13
+# invariant ("never compute a live value for an unvalidated feature") is unchanged;
+# only "absent from the vector" changed, because that part was incompatible with
+# the artifacts actually being served.
+PHASE7_FEATURES_10: List[str] = [
     "elo_difference",
     "elo_home_trend_5",
     "elo_away_trend_5",
+    "elo_league_adjusted",
     "elo_momentum_cross",
     "home_pressing_intensity",
     "progressive_carry_diff",
     "shot_quality_diff",
+    "key_passes_under_pressure_diff",
+    "set_piece_xg_diff",
 ]
+
+# Deprecated alias — holds 10, not 7. Retained because production code imports it by
+# name (upcoming_match_feature_service.py); same object, not a copy.
+PHASE7_FEATURES_7 = PHASE7_FEATURES_10
 
 # Removed Phase 7 features — kept for audit trail and future re-evaluation.
 # DO NOT include these in any training vector without re-running ATE validation.
@@ -102,7 +129,7 @@ PHASE7_FEATURES_REMOVED: List[str] = [
     "set_piece_xg_diff",             # mixed/inconclusive directional signal
 ]
 
-# Features that remain in CANONICAL_FEATURES_65 for backward compatibility with v5_phase7
+# Features that remain in CANONICAL_FEATURES_68 for backward compatibility with v5_phase7
 # model artifacts (removing them would cause dimension mismatch on loaded .pkl files) but
 # MUST always be returned as DATA_GAP at inference time. The vector slot is present; the
 # value is always the registry default. Do not compute live values for these features.
@@ -112,20 +139,23 @@ PHASE7_FEATURES_REMOVED: List[str] = [
 #   Proxy derived from xg_avg_5 difference collapses to q75=0 on synthetic training data,
 #   making ATE estimates non-discriminative. Permanent DATA_GAP until real StatsBomb
 #   event-level shots corpus confirms ATE >= 0.02 (see guardrail 12 in Sprint 4 brief).
-PHASE7_FEATURES_ALWAYS_DATA_GAP: List[str] = ["shot_quality_diff"]
-
-CANONICAL_FEATURES_65: List[str] = [
-    *CANONICAL_FEATURES_58,
-    *PHASE7_FEATURES_7,
+PHASE7_FEATURES_ALWAYS_DATA_GAP: List[str] = [
+    "shot_quality_diff",
+    # Restored as slots for artifact compatibility (see PHASE7_FEATURES_10) and
+    # listed here so they are never computed live — the vector position exists,
+    # the value is always the registry default.
+    *PHASE7_FEATURES_REMOVED,
 ]
 
-# Alias: CANONICAL_FEATURES_68 is intentionally renamed to _65 to reflect the
-# corrected count after pending-feature removal. The alias below ensures backward
-# compatibility with code that imports CANONICAL_FEATURES_68 by name — it now
-# resolves to the 65-feature confirmed-only set. v5_phase7 models trained on the
-# original 68-column vector will continue to load correctly; the registry change
-# affects only future training runs.
-CANONICAL_FEATURES_68 = CANONICAL_FEATURES_65
+CANONICAL_FEATURES_68: List[str] = [
+    *CANONICAL_FEATURES_58,
+    *PHASE7_FEATURES_10,
+]
+
+# Deprecated alias — holds 68, not 65. The 2026-06-10 rename to _65 described a
+# vector the serving artifacts could not accept; see PHASE7_FEATURES_10. Retained
+# because tests and older code import it by name; same object, not a copy.
+CANONICAL_FEATURES_65 = CANONICAL_FEATURES_68
 
 DEFAULT_FEATURE_VALUES_58: Dict[str, float] = {
     "home_form_last5_home": 1.5,
@@ -197,18 +227,22 @@ DEFAULT_FEATURE_VALUES_68: Dict[str, float] = {
     "home_pressing_intensity": 0.55,
     "progressive_carry_diff": 0.0,
     "shot_quality_diff": 0.0,
-    # NOTE: elo_league_adjusted, key_passes_under_pressure_diff, and set_piece_xg_diff
-    # were removed from the canonical set on 2026-06-10 (pending-feature resolution,
-    # Phase 8 Sprint 1). They are intentionally absent from this dict.
+    # Restored 2026-08-08 for artifact compatibility. These three are permanently
+    # in PHASE7_FEATURES_ALWAYS_DATA_GAP, so this default is the ONLY value they
+    # ever take — nothing computes them from live data. Neutral (0.0), matching
+    # their Phase 7 siblings above.
+    "elo_league_adjusted": 0.0,
+    "key_passes_under_pressure_diff": 0.0,
+    "set_piece_xg_diff": 0.0,
 }
 
 
 # ── Phase 8 feature expansion ─────────────────────────────────────────────────
-# Phase 8 feature expansion — built on top of the confirmed-only 65-feature set.
-# CANONICAL_FEATURES_65 (formerly 68) is the base; new features are accumulated here.
+# Phase 8 feature expansion — built on top of the artifact-compatible 68-feature set.
+# CANONICAL_FEATURES_68 is the base; new features are accumulated here.
 # Do not append to the Phase 7 list — v5_phase7 models were trained on a 68-column
 # vector (pre-removal) and will continue to load correctly at inference time via
-# backward-compatible defaults. New v6_phase8 models will train on CANONICAL_FEATURES_86.
+# backward-compatible defaults. New v6_phase8 models will train on CANONICAL_FEATURES_89.
 #
 # Phase 8 feature groups (21 new features, ATE validation required):
 #   Pi-ratings (6):  home/away attack+defense, diffs      [5a]
@@ -265,24 +299,28 @@ PHASE8_FEATURES_21: List[str] = [
     *PHASE8_FEATURES_CONTEXT,
 ]
 
-# 65 confirmed Phase 7 + 21 Phase 8 = 86.
-CANONICAL_FEATURES_86: List[str] = [
-    *CANONICAL_FEATURES_65,
+# 68 Phase 7 (artifact-compatible) + 21 Phase 8 = 89.
+# Was 86 while the Phase 7 base was 65; restoring the three artifact slots moved it.
+# Phase 8 is shadow-only and disabled in production (PHASE9_SHADOW_ONLY / phase8_enabled),
+# so nothing is served from this set today — but a v6_phase8 retrain must train on 89.
+CANONICAL_FEATURES_89: List[str] = [
+    *CANONICAL_FEATURES_68,
     *PHASE8_FEATURES_21,
 ]
 
-# Deprecated aliases — the counts in these names are wrong (they hold 21 and 86
-# respectively). Retained, not deleted: both are imported across production code
+# Deprecated aliases — the counts in these names are wrong (they hold 21, 89 and 89
+# respectively). Retained, not deleted: all are imported across production code
 # (`api/endpoints/phase8_features.py`) and tests, so removing them is a breaking
 # change under INV-17. Prefer the accurate names above in new code; these are the
 # same objects, not copies.
 PHASE8_FEATURES_18 = PHASE8_FEATURES_21
-CANONICAL_FEATURES_83 = CANONICAL_FEATURES_86
+CANONICAL_FEATURES_86 = CANONICAL_FEATURES_89
+CANONICAL_FEATURES_83 = CANONICAL_FEATURES_89
 
 # Default values for Phase 8 features — used when live data is unavailable.
 # Pi/Berrar defaults are 0.0 (neutral) because only diffs matter to the model.
 # Market defaults assume no observable drift. Context defaults to 0.3 (moderate).
-DEFAULT_FEATURE_VALUES_86: Dict[str, float] = {
+DEFAULT_FEATURE_VALUES_89: Dict[str, float] = {
     **DEFAULT_FEATURE_VALUES_68,
     # Pi-ratings
     "home_pi_attack": 0.0,
@@ -312,10 +350,13 @@ DEFAULT_FEATURE_VALUES_86: Dict[str, float] = {
     "match_importance_score": 0.2,
 }
 
+# Deprecated alias, same object — imported by name in tests and older code.
+DEFAULT_FEATURE_VALUES_86 = DEFAULT_FEATURE_VALUES_89
+
 
 def active_canonical_features(use_phase7: bool, use_phase8: bool = False) -> List[str]:
     if use_phase8:
-        return list(CANONICAL_FEATURES_86)
+        return list(CANONICAL_FEATURES_89)
     return list(CANONICAL_FEATURES_68 if use_phase7 else CANONICAL_FEATURES_58)
 
 
@@ -323,7 +364,7 @@ def active_default_feature_values(
     use_phase7: bool, use_phase8: bool = False
 ) -> Dict[str, float]:
     if use_phase8:
-        return dict(DEFAULT_FEATURE_VALUES_86)
+        return dict(DEFAULT_FEATURE_VALUES_89)
     return dict(DEFAULT_FEATURE_VALUES_68 if use_phase7 else DEFAULT_FEATURE_VALUES_58)
 
 
@@ -332,13 +373,13 @@ def canonical_feature_count() -> int:
 
 
 def canonical_feature_count_phase7() -> int:
-    """Returns the confirmed-only Phase 7 feature count (65 after pending removal)."""
-    return len(CANONICAL_FEATURES_65)
+    """Returns the Phase 7 serving feature count (68 — matches the v5_phase7 artifacts)."""
+    return len(CANONICAL_FEATURES_68)
 
 
 def canonical_feature_count_phase8() -> int:
-    """Returns the Phase 8 confirmed feature count (86 = 65 phase7 + 21 phase8)."""
-    return len(CANONICAL_FEATURES_86)
+    """Returns the Phase 8 feature count (89 = 68 phase7 + 21 phase8)."""
+    return len(CANONICAL_FEATURES_89)
 
 
 def derive_last5_form_features(

@@ -61,7 +61,13 @@ class TestPhase8RegistryInvariants:
 
         from src.models import feature_registry
 
-        deprecated_aliases = {"PHASE8_FEATURES_18", "CANONICAL_FEATURES_83", "CANONICAL_FEATURES_68"}
+        deprecated_aliases = {
+            "PHASE8_FEATURES_18",
+            "CANONICAL_FEATURES_83",
+            "CANONICAL_FEATURES_86",
+            "CANONICAL_FEATURES_65",
+            "PHASE7_FEATURES_7",
+        }
         mismatches = []
         for name in dir(feature_registry):
             match = re.fullmatch(r"(?:CANONICAL_FEATURES|PHASE\d+_FEATURES)_(\d+)", name)
@@ -75,15 +81,17 @@ class TestPhase8RegistryInvariants:
         assert not mismatches, "Feature-registry names disagree with their own length: " + "; ".join(mismatches)
 
     def test_canonical_features_86_count(self):
-        """CANONICAL_FEATURES_86 = 65 phase7 + 21 phase8 = 86 features."""
-        assert len(CANONICAL_FEATURES_86) == 86
+        """The Phase 8 set is 68 phase7 + 21 phase8 = 89. It was 86 while the Phase 7
+        base was 65; restoring the three artifact-compatibility slots moved it, and
+        CANONICAL_FEATURES_86 is now a deprecated alias for CANONICAL_FEATURES_89."""
+        assert len(CANONICAL_FEATURES_86) == 89
 
     def test_canonical_features_83_is_alias_for_86(self):
         """CANONICAL_FEATURES_83 and CANONICAL_FEATURES_86 resolve identically."""
         assert CANONICAL_FEATURES_83 is CANONICAL_FEATURES_86 or CANONICAL_FEATURES_83 == CANONICAL_FEATURES_86
 
     def test_canonical_feature_count_phase8_function(self):
-        assert canonical_feature_count_phase8() == 86
+        assert canonical_feature_count_phase8() == 89
 
     def test_phase8_pi_group_count(self):
         assert len(PHASE8_FEATURES_PI) == 6
@@ -122,11 +130,17 @@ class TestPhase8RegistryInvariants:
         overlap = base_set & p8_set
         assert overlap == set(), f"Base-58/Phase-8 feature overlap: {overlap}"
 
-    def test_phase8_no_removed_features_in_canonical_86(self):
-        """None of the Phase 7 removed features appear in CANONICAL_FEATURES_86."""
+    def test_phase8_removed_features_are_present_but_permanently_gapped(self):
+        """Re-scoped 2026-08-08. The three removed features occupy vector slots for
+        v5_phase7 artifact compatibility (all six .pkl files expect 68 columns), but
+        every one is pinned to DATA_GAP so no live value is ever computed for it —
+        which is the property that actually matters."""
+        from src.models.feature_registry import PHASE7_FEATURES_ALWAYS_DATA_GAP
+
         for feat in PHASE7_FEATURES_REMOVED:
-            assert feat not in CANONICAL_FEATURES_86, (
-                f"Removed feature '{feat}' unexpectedly in CANONICAL_FEATURES_86"
+            assert feat in CANONICAL_FEATURES_86
+            assert feat in PHASE7_FEATURES_ALWAYS_DATA_GAP, (
+                f"'{feat}' occupies a slot but is not pinned to DATA_GAP"
             )
 
     def test_default_values_86_covers_all_canonical_86(self):

@@ -25,6 +25,69 @@ sync windows open. Blast radius was every prediction path via `get_league_policy
 
 ---
 
+## 10. Offline Elo / StatsBomb artifacts are frozen at 2024-06-02
+
+**Tier:** `NEXT` — trigger: a real matchday's worth of settled results exists
+(Eredivisie opens 2026-08-08), making a regeneration run meaningful.
+**Owner:** unassigned.
+**Found:** 2026-08-08, tracing why STALE_REQUIRED_EVIDENCE fired on 100% of fixtures.
+
+`data/processed/statsbomb_features_cache.parquet` (2,058 rows) and
+`data/processed/elo_ratings.parquet` (4,116 rows) both end **2024-06-02** — the whole
+offline artifact set was frozen at the end of the 2023/24 season. Consequences:
+
+- StatsBomb supplies 2 of the 65 live features (`home_pressing_intensity`,
+  `progressive_carry_diff`); both are additionally forced to DATA_GAP because
+  `statsbomb_staleness_max_days` is exceeded. `shot_quality_diff` is a permanent
+  DATA_GAP by design (`PHASE7_FEATURES_ALWAYS_DATA_GAP`), unrelated to this.
+- The 4 Elo features come from `EloEngine`, which reads the parquet — so the Elo
+  context card and `elo_difference` are computed against ratings ~2 years stale.
+
+vΩ.44 stopped this from *blocking* every analysis (the staleness gate now
+distinguishes enrichment age from model-input age — see CHANGELOG), so the impact is
+now degraded enrichment rather than total abstention. But it is still real signal
+loss on 6 of 65 features.
+
+`EloEngine.update_after_match()` already exists and persists post-match updates, and
+as of vΩ.44 there are 12,765 real completed matches in the database to replay — so
+regenerating Elo is now a scripted replay rather than a data-sourcing problem.
+Regenerating StatsBomb needs the open-data corpus re-cloned (offline, large).
+
+**Blast radius:** 6 of 65 features degraded; no fabrication — every affected feature
+is honestly reported as a gap.
+**Cost:** Elo replay is small now that history exists. StatsBomb is a separate,
+larger offline job.
+**Impact:** moderate — reduces evidence quality, does not block predictions.
+**Priority:** medium for the Elo half (cheap, and history now exists); low for
+StatsBomb.
+
+---
+
+## 11. Eleven upcoming fixtures still have no history — lower-division clubs in cup ties
+
+**Tier:** `ACCEPTED` — correct fail-closed behaviour; recorded so it is not
+re-diagnosed as a bug.
+**Found:** 2026-08-08, measuring backfill coverage.
+
+38 of 49 upcoming fixtures resolve real history on both sides. The other 11 involve
+clubs genuinely absent from the six top-flight divisions the backfill covers —
+Coventry City, Hull City (Championship), Málaga, Deportivo La Coruña, Racing
+Santander (Segunda), ADO Den Haag, Cambuur, Willem II (Eerste Divisie), Le Mans
+(Ligue 2). They appear in the fixture feed because football-data.org's competition
+endpoints include cup ties.
+
+Those fixtures correctly return reduced evidence rather than a prediction built on a
+club the system has never seen. Loading second divisions would fix it but would put
+matches outside the seven-competition closed set into `matches`, with no canonical
+`league_id` to hold them — a deliberate boundary, not an oversight.
+
+**Blast radius:** those fixtures show no prediction.
+**Cost:** would require a decision on representing non-supported competitions.
+**Impact:** low — correct behaviour, just not maximal coverage.
+**Priority:** low.
+
+---
+
 ## 1. Base-58 feature block is silently defaulted on every live prediction
 
 **Tier:** `NEXT` → **CLOSED 2026-08-07 (WP-18)** — see below.

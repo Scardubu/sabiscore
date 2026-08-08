@@ -126,8 +126,12 @@
       # ── Phase 8 Sprint 1: Strict per-league model readiness ──────────────────
       # ACTIVE_LEAGUES controls which league model artifacts are loaded at startup.
       # Must be a comma-separated list matching {league}_ensemble_{version}.pkl filenames.
+      # Eredivisie is loaded here (it has a committed v5_phase7 artifact and real
+      # fixtures) but is NOT in the readiness required set — see
+      # core/model_fetcher.REQUIRED_LEAGUES. Its LeaguePolicy is still
+      # DEFAULT_PENDING_CALIBRATION, so its Kelly cap stays conservative.
       - key: ACTIVE_LEAGUES
-        value: "epl,la_liga,bundesliga,serie_a,ligue_1"
+        value: "epl,la_liga,bundesliga,serie_a,ligue_1,eredivisie"
       # ACTIVE_BASELINE_VERSION controls which artifact version is loaded at startup.
       - key: ACTIVE_BASELINE_VERSION
         value: "v5_phase7"

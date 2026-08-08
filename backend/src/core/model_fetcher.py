@@ -38,6 +38,20 @@ DEFAULT_LEAGUES: tuple[str, ...] = (
     "eredivisie",
 )
 
+# Leagues whose model artifact MUST be present for /health/ready to report ready.
+# Deliberately narrower than DEFAULT_LEAGUES (the *load* set): these five are the
+# LeaguePolicy CALIBRATED leagues. Eredivisie has a committed v5_phase7 artifact and
+# is loaded so its fixtures can be predicted, but its policy is still
+# DEFAULT_PENDING_CALIBRATION — a missing Eredivisie artifact must degrade that
+# league only, never take the whole service out of rotation.
+REQUIRED_LEAGUES: tuple[str, ...] = (
+    "epl",
+    "la_liga",
+    "bundesliga",
+    "serie_a",
+    "ligue_1",
+)
+
 # Keep in sync with scripts/fetch-models.sh
 ARTIFACTS = [
     "models/epl_ensemble.pkl",

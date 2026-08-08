@@ -37,6 +37,7 @@ from src.models.feature_registry import (
     DEFAULT_FEATURE_VALUES_68,
     DEFAULT_FEATURE_VALUES_86,
     PHASE7_FEATURES_7,
+    PHASE7_FEATURES_ALWAYS_DATA_GAP,
     PHASE7_FEATURES_REMOVED,
     PHASE8_FEATURES_MARKET,
     PHASE8_FEATURES_CONTEXT,
@@ -180,36 +181,35 @@ class TestFeatureRegistryNoRemovedFeatures:
         )
 
     @pytest.mark.parametrize("removed", PHASE7_FEATURES_REMOVED)
-    def test_removed_not_in_canonical_65(self, removed: str):
-        assert removed not in CANONICAL_FEATURES_65, (
-            f"Removed feature '{removed}' found in CANONICAL_FEATURES_65"
+    def test_removed_features_are_always_data_gap(self, removed: str):
+        """The real invariant: a removed feature is never computed from live data.
+
+        Re-scoped 2026-08-08. These three previously had to be *absent from the
+        vector*, but that broke every v5_phase7 artifact — all six expect 68
+        columns, so a 65-column vector hit PredictionEngine's zero-pad refusal and
+        every inference fell back. The certified model could not run at all.
+
+        The slot is now present for dimensional compatibility while the value stays
+        pinned to the registry default, which is exactly how shot_quality_diff has
+        always been handled. Nothing may ever compute a live value for them —
+        that is what this asserts, and it is the property B13 actually cares about.
+        """
+        assert removed in PHASE7_FEATURES_ALWAYS_DATA_GAP, (
+            f"Removed feature '{removed}' occupies a vector slot but is not pinned "
+            "to DATA_GAP — a live value could be computed for it"
         )
 
     @pytest.mark.parametrize("removed", PHASE7_FEATURES_REMOVED)
-    def test_removed_not_in_canonical_68_alias(self, removed: str):
-        """CANONICAL_FEATURES_68 is now the 65-feature alias — must also be clean."""
-        assert removed not in CANONICAL_FEATURES_68, (
-            f"Removed feature '{removed}' found in CANONICAL_FEATURES_68 alias"
-        )
+    def test_removed_not_in_canonical_58(self, removed: str):
+        """The 58-feature base predates Phase 7 and must stay clean."""
+        assert removed not in CANONICAL_FEATURES_58
 
     @pytest.mark.parametrize("removed", PHASE7_FEATURES_REMOVED)
-    def test_removed_not_in_phase8_set(self, removed: str):
-        assert removed not in CANONICAL_FEATURES_83, (
-            f"Removed feature '{removed}' found in CANONICAL_FEATURES_83"
-        )
-
-    @pytest.mark.parametrize("removed", PHASE7_FEATURES_REMOVED)
-    def test_removed_not_in_default_values_68(self, removed: str):
-        assert removed not in DEFAULT_FEATURE_VALUES_68, (
-            f"Removed feature '{removed}' found in DEFAULT_FEATURE_VALUES_68 — "
-            "this would silently inject a synthetic value during inference"
-        )
-
-    @pytest.mark.parametrize("removed", PHASE7_FEATURES_REMOVED)
-    def test_removed_not_in_default_values_86_alias(self, removed: str):
-        assert removed not in DEFAULT_FEATURE_VALUES_86, (
-            f"Removed feature '{removed}' found in DEFAULT_FEATURE_VALUES_86"
-        )
+    def test_removed_features_default_to_neutral(self, removed: str):
+        """Present in the defaults dict (the slot needs a value) but neutral, so the
+        permanently-gapped slot contributes no directional signal."""
+        assert DEFAULT_FEATURE_VALUES_68.get(removed) == 0.0
+        assert DEFAULT_FEATURE_VALUES_86.get(removed) == 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -218,31 +218,33 @@ class TestFeatureRegistryNoRemovedFeatures:
 
 
 class TestFeatureCounts:
-    def test_phase7_confirmed_features_count(self):
-        """Phase 7 canonical set must be exactly 65 (58 base + 7 confirmed)."""
-        assert len(CANONICAL_FEATURES_65) == 65, (
-            f"Expected 65 Phase 7 features, got {len(CANONICAL_FEATURES_65)}"
+    def test_phase7_serving_feature_count_matches_the_artifacts(self):
+        """68 = 58 base + 10 phase7. This number is not a preference: it is the
+        `feature_columns` length of every v5_phase7 .pkl actually served, and a
+        mismatch makes PredictionEngine fall back on every single inference."""
+        assert len(CANONICAL_FEATURES_68) == 68, (
+            f"Expected 68 Phase 7 features, got {len(CANONICAL_FEATURES_68)}"
         )
 
-    def test_canonical_68_alias_equals_65(self):
-        """CANONICAL_FEATURES_68 alias must resolve to the same 65-feature list."""
-        assert len(CANONICAL_FEATURES_68) == 65
+    def test_canonical_65_alias_resolves_to_the_68_set(self):
+        assert CANONICAL_FEATURES_65 is CANONICAL_FEATURES_68
 
-    def test_phase7_features_7_count(self):
-        assert len(PHASE7_FEATURES_7) == 7
+    def test_phase7_features_10_count(self):
+        assert len(PHASE7_FEATURES_7) == 10
 
     def test_phase7_removed_count(self):
         """Exactly 3 features were removed in the pending-feature resolution."""
         assert len(PHASE7_FEATURES_REMOVED) == 3
 
     def test_phase8_total_count(self):
-        """Phase 8 canonical set must be 86 (65 confirmed + 21 phase8)."""
-        assert len(CANONICAL_FEATURES_83) == 86, (
-            f"Expected 86 Phase 8 features, got {len(CANONICAL_FEATURES_83)}"
+        """Phase 8 canonical set is 89 (68 phase7 + 21 phase8). Was 86 while the
+        Phase 7 base was 65; the deprecated _83/_86 names are aliases, not copies."""
+        assert len(CANONICAL_FEATURES_83) == 89, (
+            f"Expected 89 Phase 8 features, got {len(CANONICAL_FEATURES_83)}"
         )
 
     def test_canonical_86_alias_equals_83(self):
-        assert len(CANONICAL_FEATURES_86) == 86
+        assert CANONICAL_FEATURES_86 is CANONICAL_FEATURES_83
 
     def test_no_duplicate_features_in_phase8(self):
         dupes = [

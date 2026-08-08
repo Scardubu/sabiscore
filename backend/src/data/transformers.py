@@ -10,11 +10,16 @@ from ..core.exceptions import DataUnavailableError, OddsUnavailableError
 from ..models.feature_registry import (
     CANONICAL_FEATURES_68,
     DEFAULT_FEATURE_VALUES_68,
+    PHASE7_FEATURES_ALWAYS_DATA_GAP,
     derive_last5_form_features,
 )
 
 
 logger = logging.getLogger(__name__)
+
+# Slots that exist only for model-artifact dimensional compatibility and are never
+# computed from live data. Exempt from the fail-closed required-evidence check.
+_ALWAYS_DATA_GAP_FEATURES = frozenset(PHASE7_FEATURES_ALWAYS_DATA_GAP)
 
 
 # Legacy defaults below are retained for backward-compatible intermediate calculations.
@@ -877,12 +882,24 @@ class FeatureTransformer:
         if features.empty:
             return features
         if self._fail_closed_enabled() and features.isnull().any().any():
-            missing = [str(col) for col in features.columns if features[col].isnull().any()]
-            raise DataUnavailableError(
-                "Required feature values unavailable: " + ", ".join(missing),
-                provider="internal",
-                evidence_type="feature_values",
-            )
+            # PHASE7_FEATURES_ALWAYS_DATA_GAP occupy a vector slot purely for
+            # artifact dimensional compatibility and are *defined* never to carry a
+            # live value (feature_registry). Treating them as required evidence
+            # would make this fail-closed guard reject every request on features
+            # that can never, by design, be populated — turning a correct guard
+            # into a permanent outage. They fall through to the default fill below.
+            missing = [
+                str(col)
+                for col in features.columns
+                if features[col].isnull().any()
+                and str(col) not in _ALWAYS_DATA_GAP_FEATURES
+            ]
+            if missing:
+                raise DataUnavailableError(
+                    "Required feature values unavailable: " + ", ".join(missing),
+                    provider="internal",
+                    evidence_type="feature_values",
+                )
         # Fill NaN values with column means, but if mean is NaN, use 0
         for col in features.columns:
             if features[col].isnull().any():

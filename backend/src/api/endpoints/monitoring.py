@@ -15,7 +15,7 @@ from pathlib import Path
 from ...core.cache import cache
 from ...core.database import engine, get_db_status
 from ...core.config import settings
-from ...core.model_fetcher import DEFAULT_LEAGUES
+from ...core.model_fetcher import REQUIRED_LEAGUES
 from ...db.session import check_db_connection
 from ...db.session import _alembic_head_revision
 from ...db.session import get_async_session
@@ -44,12 +44,15 @@ _startup_time = time.time()
 
 
 def _resolve_required_leagues() -> list[str]:
-    raw = (os.environ.get("ACTIVE_LEAGUES") or "").strip()
-    if not raw:
-        return list(DEFAULT_LEAGUES)
+    """Leagues that must have a loaded artifact for readiness to be `ready`.
 
-    leagues = [part.strip().lower() for part in raw.split(",") if part.strip()]
-    return leagues or list(DEFAULT_LEAGUES)
+    Deliberately NOT derived from ACTIVE_LEAGUES. That variable is the *load* set,
+    and widening it (e.g. to add Eredivisie so its fixtures can be predicted) would
+    otherwise also widen what can fail readiness — making an uncalibrated,
+    best-effort league able to take the whole service out of rotation. The required
+    set is the five CALIBRATED leagues, fixed in code.
+    """
+    return list(REQUIRED_LEAGUES)
 
 
 def _discover_model_artifacts() -> Dict[str, Any]:

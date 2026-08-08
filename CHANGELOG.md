@@ -5,6 +5,100 @@ All notable changes to this skill suite are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## vΩ.44 — The prediction pipeline could never publish; three blockers removed (2026-08-08)
+
+Three independent defects each made publication impossible on their own, so fixing
+any one alone would have changed nothing observable. Measured live before the fix:
+`GET /api/v1/upcoming/matches` returned `predictions: null` for **5 of 5** fixtures
+with `historical_data_ratio: 0.0`, `feature_defaulted_ratio: 0.9077`,
+`is_synthetic: true`; `/full-analysis` on a real EPL fixture returned
+`prediction_status: REDUCED_EVIDENCE_BASELINE` with 4 critical gaps and 64 advisory
+gaps. No prediction was being published for any fixture in any league.
+
+### Fixed — the matches table held zero completed matches, so every fixture was synthetic
+
+`sync_upcoming_fixtures()` is forward-only (14-day window, 50-row cap) and
+`sync_settled_results()` never creates a row — its own docstring says so. Nothing in
+the running API could create a *historical* match. `_get_team_stats()` therefore
+returned `None` for both sides of every fixture, setting `is_synthetic`, which sets
+`publishable = False` (`upcoming_match_service.py`), which suppresses the prediction.
+59 of the 65 canonical features were registry defaults; only the 6 caller-resolved
+Elo/StatsBomb slots were ever populated.
+
+New `services/historical_backfill_service.py` reads the football-data.co.uk season
+files already committed under `backend/data/cache/`, plus the 2025/26 season added
+here for all six leagues (free, no API key, no provider quota) so form is current
+for the new season rather than 15 months stale — and so Eredivisie, the only league
+playing this week, has any history at all.
+
+**Team identity was the load-bearing part, and a naive backfill would have failed
+silently.** football-data.co.uk uses short names ("Man United", "Ath Bilbao",
+"Inter") while fixture sync reads football-data.org legal names ("Manchester United
+FC", "Athletic Club", "FC Internazionale Milano"). Measured against the live
+production team list, exact + affix-stripped matching — what `team_identity.
+resolve_team_id()` does — joined only **23%**. Resolution is now exact-normalised →
+unique token-prefix → curated alias, and **always fails closed on ambiguity**:
+"Milan" prefixes both "AC Milan" and "Internazionale Milano", so it is refused
+rather than guessed. An unresolved team simply gets no history and surfaces as
+honest reduced evidence; it is never bound to the wrong club's form.
+
+⚠️ A prefix matcher needs a minimum token length. Without it the 2-character token
+"Le" (Le Mans FC) prefix-swallowed "Leeds", making Leeds United ambiguous and
+silently costing it its entire history — caught by measurement, not by review.
+
+**Result: 12,765 real matches (2019-08-09 → 2026-05-24), 87% of live production
+teams resolved, and 38 of 49 upcoming fixtures with real history on both sides —
+up from 0.** The remaining 11 are genuinely absent (Championship, Segunda and
+Eerste Divisie clubs appearing in cup ties), which is correct fail-closed behaviour.
+
+Runs idempotently on the fixture-sync boot tick — before sync, so the richer
+historical vocabulary is established first and both datasets share Team ids — and
+via `python -m src.cli backfill history` / `backfill coverage`.
+
+### Fixed — STALE_REQUIRED_EVIDENCE fired on 100% of fixtures, forever
+
+`staleness_seconds` measures **only** the offline StatsBomb enrichment parquet, a
+frozen research artifact whose last row is 2024-06-02 and which supplies 2 of the 65
+live features. It was compared against the league policy's 3600s *live-feature* TTL,
+exceeding it by ~811 days on every request, and emitted as a **critical** gap —
+forcing PARTIAL / no-bet on every fixture regardless of evidence.
+
+An out-of-date optional enrichment source is real information but it is advisory: it
+may reduce confidence, it must never block a valid analysis. It now emits
+`STALE_ENRICHMENT_EVIDENCE` as an advisory gap. The critical gate is kept and moved
+onto what it claimed to measure — the age of the completed matches actually backing
+each side's form (`model_input_staleness_seconds`), against a season-scale threshold,
+with the older of the two sides governing since both must be usable.
+
+⚠️ `Match.match_date` is naive `TIMESTAMP WITHOUT TIME ZONE` holding UTC; a bare
+`.timestamp()` reads it as *local* time and skews the age by the host's UTC offset.
+Pinned to UTC explicitly, per the repo-wide convention.
+
+### Fixed — COHERENT_1X2_MARKET_UNAVAILABLE was also unconditional
+
+`live["odds"]` is set on **no** success path — only the failure fallback
+`_default_live_vector()` sets it, and sets it to `None`. `market_odds` was therefore
+structurally always `None`, `_odds_edge_from_features()` always returned `None`, and
+the critical gap fired regardless of provider state. Enabling `the_odds_api` in
+production changed nothing on this surface because nothing ever asked it for a price.
+
+`full_analysis` now fetches through the existing `OddsService` (cached 120s per
+league board, 300s per match) and fails soft on every axis — a market is optional
+evidence, and an odds outage must degrade the analysis to "no edge computed", never
+break it.
+
+Also fixed the team match inside `OddsService.get_match_odds()`: containment was
+tested one way, so `"arsenalfc" in "arsenal"` was `False` for exactly the common case
+of a provider legal name against a short odds-board name, and no market was ever
+matched even when one existed.
+
+### Verification
+
+Backend 1174 passed / 13 skipped (from 1141; +33 new), ruff 0 on `src/`, Gitleaks
+clean, web lint 0, typecheck 0, Vitest 109/109, `NODE_ENV=production` build exit 0.
+
+---
+
 ## vΩ.43 — Live incident: fixture ingestion recovered, capability probe made honest (2026-08-08)
 
 ### Fixed — fixture sync discarded all seven competitions on one rate limit
