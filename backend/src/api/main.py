@@ -99,15 +99,32 @@ _FIXTURE_SYNC_INTERVAL_SECONDS = 21600
 
 
 async def _background_fixture_sync() -> None:
-    """Seed upcoming fixtures, then re-seed periodically.
+    """Backfill match history once, then seed upcoming fixtures periodically.
 
-    Runs immediately (the dashboard needs data on first deploy, not in 6 hours),
-    then loops. run_fixture_sync() swallows its own errors, so a failed tick is
-    logged and recorded in metrics without breaking the loop.
+    The backfill runs first and only on the boot tick: it reads committed CSVs off
+    local disk (no provider quota) and establishes the richer team vocabulary that
+    fixture sync then resolves its provider names against, so the two datasets share
+    Team ids rather than minting parallel rows for the same club. It is idempotent,
+    so a redeploy re-checks cheaply and a partially-applied previous run completes.
+
+    Without it `matches` holds no finished rows at all, `_get_team_stats()` returns
+    None for both sides of every fixture, and every prediction is suppressed as
+    synthetic (measured in production 2026-08-08: 0 of 49 fixtures publishable).
+
+    Both calls swallow their own errors, so a failed tick is logged and recorded in
+    metrics without breaking the loop.
     """
     from ..services.fixture_sync_service import run_fixture_sync
+    from ..services.historical_backfill_service import run_historical_backfill
 
+    first_tick = True
     while True:
+        if first_tick:
+            try:
+                await run_historical_backfill()
+            except Exception:
+                logger.exception("Historical backfill failed")
+            first_tick = False
         try:
             await run_fixture_sync()
         except Exception:
