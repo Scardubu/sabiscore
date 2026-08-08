@@ -486,3 +486,60 @@ export function mapFullAnalysisPresentation(
     generatedAbsoluteLagos: formatLagosTimestamp(data.generated_at),
   } as const;
 }
+
+// ─── Evidence gap grouping ────────────────────────────────────────────────────
+
+/**
+ * Missing-evidence codes are canonical *feature names* — `away_attack_vs_home_defense`,
+ * `h2h_dominance`, `elo_momentum_cross`. A reduced-evidence fixture produces
+ * ~50 of them, and listing each one title-cased put raw model internals in front
+ * of ordinary users while telling them nothing they could act on.
+ *
+ * Each family below answers "what kind of evidence is missing", which is the
+ * only part a reader can do anything with (mostly: come back closer to kickoff).
+ * Order is deliberate — first match wins, so narrower patterns precede broader
+ * ones (the market-interaction fields must be claimed before the plain h2h/venue
+ * families would take them).
+ */
+const EVIDENCE_FAMILIES: ReadonlyArray<{ label: string; match: (code: string) => boolean }> = [
+  { label: "Market prices", match: (c) =>
+      c.startsWith("market_") || c.startsWith("log_odds") || c.startsWith("ev_") ||
+      c === "odds_ratio" || c === "draw_probability" ||
+      c.startsWith("form_market_") || c === "venue_market_combo" || c === "h2h_market_agreement" },
+  { label: "Market movement", match: (c) => c.startsWith("odds_drift") || c === "sharp_money_direction" || c === "max_abs_odds_drift" },
+  { label: "Head-to-head record", match: (c) => c.startsWith("h2h_") },
+  { label: "Team strength ratings", match: (c) => c.startsWith("elo_") },
+  { label: "Rating systems", match: (c) => c.includes("_pi_") || c.startsWith("pi_") || c.includes("berrar") },
+  { label: "Home venue record", match: (c) => c.startsWith("home_venue_") || c === "home_advantage_strength" },
+  { label: "Tactical metrics", match: (c) =>
+      c.includes("pressing") || c.includes("carry") || c.includes("shot_quality") ||
+      c.includes("key_passes") || c.includes("set_piece") },
+  { label: "Weighted form", match: (c) => c.includes("weighted_") },
+  { label: "Match context", match: (c) => c === "match_importance_score" },
+  { label: "League baselines", match: (c) => c.startsWith("league_") },
+  { label: "Combined strength", match: (c) =>
+      c.startsWith("combined_") || c === "total_goals_expected" || c.includes("_vs_") },
+  { label: "Recent form", match: (c) => c.includes("form_last5") || c.includes("last5") || c.includes("gd_recent") || c.includes("goals_") },
+  { label: "Schedule", match: (c) => ["day_of_week", "is_weekend", "month", "season_phase"].includes(c) },
+];
+
+export interface EvidenceGapGroup {
+  label: string;
+  count: number;
+  /** Raw codes, retained so the audit trail stays reachable. */
+  codes: string[];
+}
+
+/** Group raw gap codes into reader-facing families, largest first. */
+export function groupEvidenceGaps(gaps: readonly string[]): EvidenceGapGroup[] {
+  const buckets = new Map<string, string[]>();
+  for (const code of gaps) {
+    const family = EVIDENCE_FAMILIES.find((f) => f.match(code))?.label ?? "Other inputs";
+    const existing = buckets.get(family);
+    if (existing) existing.push(code);
+    else buckets.set(family, [code]);
+  }
+  return [...buckets.entries()]
+    .map(([label, codes]) => ({ label, count: codes.length, codes }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+}

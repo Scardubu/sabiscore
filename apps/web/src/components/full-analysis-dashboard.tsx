@@ -10,6 +10,7 @@ import {
 import {
   mapFullAnalysisPresentation,
   describeEvidenceCode,
+  groupEvidenceGaps,
   type FullMatchAnalysisResponse,
   type FullMatchEloContext,
   type FullMatchUncertainty,
@@ -1000,6 +1001,18 @@ function DataGapBanner({ gaps }: { gaps: string[] }) {
               Live evidence is missing for these inputs, so the model fell back to a reduced-evidence
               baseline and the verdict stays cautious.
             </p>
+            {/* Grouped by kind rather than listed raw: ~50 canonical feature
+                names ("away_attack_vs_home_defense") are model internals, and
+                title-casing them told a reader nothing they could act on. The
+                exact codes stay one disclosure away for auditability. */}
+            <ul className="flex flex-wrap gap-x-3 gap-y-1 pt-0.5">
+              {groupEvidenceGaps(gaps).map((group) => (
+                <li key={group.label} className="text-xs text-amber-200/70">
+                  {group.label}
+                  <span className="ml-1 tabular-nums text-amber-200/40">{group.count}</span>
+                </li>
+              ))}
+            </ul>
             <details>
               <summary className="cursor-pointer list-none text-xs font-semibold text-amber-300/80 hover:text-amber-200">
                 Show all {gaps.length} missing fields ▸

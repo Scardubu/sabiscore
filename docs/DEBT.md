@@ -7,87 +7,70 @@ disguise — say so honestly.
 
 ---
 
-## 12. Certified artifacts are trained on synthetic data and respond to only 4 of 68 features
+## 12. Certified artifacts were trained on synthetic data — RESOLVED, with a residual
 
-**Tier:** `FIX-NOW` — the model runs, but its output is effectively constant across
-fixtures. Needs a retrain on the real backfilled history; not fixable in code.
+**Tier:** `ACCEPTED` — root cause fixed 2026-08-08 (retrain). Kept as the incident
+record; the residual feature-coverage gap is tracked as item 13 below.
+**Found:** 2026-08-08. **Resolved:** 2026-08-08, same day.
+
+**Cause.** `backend/data/processed/*_training.csv` — the corpus behind every
+committed `*_ensemble_v5_phase7.pkl` — is 500 rows of `np.random.randn()` noise
+under 236 columns (`form_0`, `xg_7`, `fatigue_3`) that appear nowhere in the
+canonical feature registry. The models therefore responded to only 4 of 68 inputs,
+and the two enrichment parquets feeding those 4 are keyed by synthetic placeholder
+team ids that never join to a real fixture — so every live fixture received a
+byte-identical prediction (`0.4162 / 0.4155 / 0.1683`). Scored on real held-out
+fixtures the incumbents landed at 0.20–0.41 accuracy, at or below always
+predicting the home side. The "51% accuracy" in the artifact metadata was measured
+against noise.
+
+**Fix.** Retrained on the 12,765 real matches committed under
+`backend/data/cache/fd_*.csv` via `backend/scripts/train_on_real_matches.py`,
+computing only the features serving actually resolves (through the same shared
+helpers, replicating `_get_team_stats`'s window semantics), with strictly forward
+history accumulation and a most-recent-season temporal holdout. Candidate beat
+incumbent on RPS in **5 of 5** leagues (mean +0.0453); responsive inputs
+4/68 → 21–22/68. Eredivisie, which has one season and no holdout, uses a pooled
+all-league model annotated as such. Reproducible via
+`scripts/compare_candidate_vs_incumbent.py`. Pinned by
+`tests/unit/test_model_differentiates_fixtures.py`.
+
+**What this does NOT fix** — see item 13. The model is now sound, but it is
+trained on 31 of 68 features because that is all serving resolves. Market, h2h,
+venue and Elo evidence remain unavailable at prediction time, and the artifact
+holds those slots at registry defaults by design so it cannot lean on them.
+
+---
+
+## 13. Serving resolves 31 of 68 canonical features — market, h2h, venue and Elo are absent
+
+**Tier:** `NEXT` — trigger: whichever of the four below is wanted first; each is
+independently shippable and each would be followed by a retrain to let the model
+use it.
 **Owner:** unassigned.
-**Found:** 2026-08-08. **Supersedes and corrects this item's previous write-up**
-(same date, earlier session), which claimed "committed `_v5_phase7.pkl` artifacts
-don't match the current feature registry" and "`PredictionEngine` still falls back
-in production." Both claims were **wrong**, and the correction matters:
+**Found:** 2026-08-08, while establishing the retrain's feature set.
 
-- The six committed artifacts in `backend/models/` are **correct**: 68
-  `feature_columns` in the exact `CANONICAL_FEATURES_68` order and naming
-  (`home_form_last5_home` … `set_piece_xg_diff`), every base learner
-  `n_features_in_=68`. Verified by loading each file directly, not inferred.
-- The 9 test failures were a **local-only configuration bug**, since fixed (see
-  below). `render.yaml` sets `PHASE7_MODELS_PATH`, `MODELS_PATH`,
-  `ELO_PARQUET_PATH` and `STATSBOMB_CACHE_PATH` to absolute
-  `/opt/render/project/src/...` values, so **production was never affected** and
-  never served the legacy artifacts.
+After the 2026-08-08 derivation fix (schedule, league one-hots, league rates and
+combination features are now computed rather than defaulted), serving resolves
+**31 of 68**. The model is trained on exactly that set, so there is no train/serve
+skew — but four families of genuine football evidence are still missing:
 
-**The local bug (fixed).** `backend/.env` supplies those same four paths as
-*relative* strings. `Settings._ensure_path` coerced them to `Path` but never
-anchored them, so they resolved against the process CWD (`backend/` under
-pytest) instead of the project root. Consequences, all silent:
-`phase7_models_path` → `backend/backend/models` (absent) → `_load_from_disk`
-skipped it and fell through to `<root>/models`, which holds the *legacy*
-86-feature artifacts under the pre-WP-18 naming scheme → `SCHEMA_MISMATCH — 68
-supplied, 86 expected` → `model_version="fallback"` on all five leagues that
-have a legacy file, and `bundle=None` for eredivisie (which has none).
-`elo_parquet_path` / `statsbomb_cache_path` → absent → `EloEngine._load_table()`
-and `StatsBombAggregator._load_cache()` both return empty DataFrames without
-raising. Fixed by anchoring relative path settings to `_PROJECT_ROOT` in the
-`_ensure_path` validator (now covering all 8 Path fields). Pinned by
-`backend/tests/unit/test_settings_path_anchoring.py`; the 9 failures in
-`tests/unit/test_model_artifact_loading.py` went to 14/14 passing.
+| Family | Count | Why it is absent |
+|---|---|---|
+| Market prices / odds | 14 | `OddsService` fetches a board, but the canonical `market_prob_*` / `log_odds_*` / `ev_*` block is never projected onto the feature vector. Highest value of the four: it is the market consensus the edge calculation exists to beat. |
+| Head-to-head | 5 | One DB query over prior meetings; nothing computes it. |
+| Home venue record | 4 | Derivable from the same team history already queried, filtered to home fixtures. |
+| Elo / tactical | 8 | Blocked on item 10 — the parquets are synthetically keyed. |
 
-**The real, still-open problem — measured this session.** With the artifacts
-loading correctly, a per-feature sensitivity sweep (perturb one feature at a
-time, measure max |Δp| on the EPL artifact) shows the model responds to
-**4 of 68 features**, all Phase 7:
-
-```text
-progressive_carry_diff   Δmax=0.268
-elo_momentum_cross       Δmax=0.254
-elo_away_trend_5         Δmax=0.209
-elo_home_trend_5         Δmax=0.138
-```
-
-All **58 base features move it by < 1e-6** — including every real-history
-feature the WP-18 remap and the vΩ.44 backfill exist to populate (form, goals,
-h2h). Even `elo_difference`, the highest-ATE feature in the registry (0.335),
-moves nothing. The artifacts were evidently trained when those features were
-near-constant, so the learners never split on them.
-
-Compounding it, the two parquets feeding the only 4 features that *do* matter
-are themselves synthetic: `elo_ratings.parquet` (4,116 rows, 240 teams) and
-`statsbomb_features_cache.parquet` (2,058 rows, 120 teams) are keyed by
-**placeholder slot ids** — `bundesliga_home_0`, `bundesliga_team_3` — not real
-`Team.id` values, and span 2021-08-13 → 2024-06-02. No live fixture can ever
-join to them.
-
-**Net effect:** every one of the 4 responsive features is pinned at its registry
-default for every real fixture, so every fixture receives the identical
-prediction. Measured on a neutral vector: `0.4162 / 0.4155 / 0.1683` — which is
-exactly the `41.6% / 41.5% / 16.8%` shown for Arsenal vs Brentford on the live
-site. This is the true cause of "predictions are not meaningfully
-differentiated," and it is **pre-existing and live**, independent of the local
-path bug above.
-
-**Blast radius:** every prediction surface. Output is well-formed and passes the
-zero-fabrication gates (`model_version != "fallback"`, probabilities valid), which
-is precisely why it is dangerous: a constant is being presented per-fixture.
-**Cost:** a retrain of all six league artifacts against the 12,765 real matches
-backfilled in vΩ.44, plus a real Elo replay keyed by `Team.id`
-(`scripts/populate_elo_ratings.py` exists and is cheap now that history does).
-StatsBomb needs its open-data corpus re-derived against real team ids, or those
-2 features dropped.
-**Impact:** high — the platform currently cannot differentiate fixtures.
-**Priority:** highest open item in this ledger. Until it lands, treat published
-probabilities as **not fixture-specific**. Worth an explicit product decision on
-whether to publish at all in the meantime.
+**Blast radius:** prediction quality. The model is honest and directionally sane
+on 31 features, but it is pricing without ever seeing the market, the fixture's
+own history, or venue effects.
+**Cost:** market and h2h are each a contained piece of work (compute at serving,
+add to the training builder's feature set, retrain, re-run the comparison).
+Venue is smaller still. Elo depends on item 10.
+**Impact:** moderate-to-high — this is the difference between a working model and
+a competitive one.
+**Priority:** highest open item. Take market prices first.
 
 ---
 

@@ -24,12 +24,14 @@ import { FeatureFlag, useFeatureFlag } from "@/lib/feature-flags";
 
 const HERO_STATS = [
   { label: "Live Performance", value: "Pending", detail: "Awaiting sufficient labelled production results" },
-  // Authoritative source is each artifact's own model_metadata.training_samples
-  // (306–380 per league, one full season each). Do not restate a larger figure
-  // than the artifacts were actually fitted on.
-  { label: "Training Data", value: "1,752", detail: "Labelled matches across five leagues — no synthetic injection" },
+  // Corpus size, not a sum of per-model training sets — those overlap, because
+  // Eredivisie is served by a model pooled across all six leagues. Authoritative
+  // sources: the committed backend/data/cache/fd_*.csv row count for this figure,
+  // and each artifact's own model_metadata.training_samples (1,756–10,528) for
+  // the per-model sets. Re-derive both; never copy either forward.
+  { label: "Training Data", value: "12,765", detail: "Real completed matches, six leagues, 2019–2026" },
   { label: "Model Precision Gate", value: "≤0.21", detail: "Ranked probability score — lower is better" },
-  { label: "Current Model", value: "Phase 7", detail: "Five-league certified artifact set" },
+  { label: "Current Model", value: "Phase 7", detail: "Six-league certified artifact set" },
 ];
 
 const TRUST_BADGES = [
@@ -287,7 +289,7 @@ function PremiumHome() {
             </div>
             <div className="rounded-xl border border-white/10 bg-slate-900/70 p-3">
               <p className="text-[9px] uppercase tracking-wider text-slate-500">Training</p>
-              <p className="mt-1 text-sm font-semibold text-white">1,752</p>
+              <p className="mt-1 text-sm font-semibold text-white">12,765</p>
             </div>
             <div className="rounded-xl border border-white/10 bg-slate-900/70 p-3">
               <p className="text-[9px] uppercase tracking-wider text-slate-500">Live score</p>

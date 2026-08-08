@@ -5,6 +5,102 @@ All notable changes to this skill suite are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## vΩ.46 — The model was trained on random noise; retrained on 12,765 real matches (2026-08-08)
+
+vΩ.45 established that the certified artifacts responded to only 4 of 68 inputs
+and that every fixture received a byte-identical prediction. This entry closes
+that, and names the cause.
+
+### The artifacts were trained on `np.random.randn()`
+
+`backend/data/processed/*_training.csv` — the corpus behind every committed
+`*_ensemble_v5_phase7.pkl` — is 500 rows of pure noise under 236 columns named
+`form_0`, `xg_7`, `fatigue_3`. Not one of those names appears in the canonical
+feature registry. The "51% accuracy" recorded in the artifact metadata was
+measured against noise and means nothing; scored on real held-out fixtures the
+incumbents land at **0.20–0.41 accuracy**, i.e. at or below simply always
+predicting the home team.
+
+### Retrained on the real corpus
+
+New `backend/scripts/train_on_real_matches.py` trains on the 12,765 real matches
+already committed under `backend/data/cache/fd_*.csv` (six leagues, 2019→2026).
+
+The governing constraint is **train/serve consistency**: a model must only be
+trained on features that are genuinely resolved in production. Training on a
+feature that is a registry default at serving teaches the model to lean on a
+signal that will be constant when it matters — confident, undifferentiated
+output, which is the failure being fixed. So the builder computes exactly the
+set `UpcomingMatchFeatureProjector` resolves, through the *same* shared helpers,
+replicating `_get_team_stats`'s window semantics verbatim (newest 20 finished
+matches, all venues, last-5 window). Every other canonical slot is written as its
+registry default, identical to serving.
+
+Leakage is prevented structurally: history accumulates strictly forward in date
+order and a match's features are computed from the state *before* that match is
+appended. The holdout is the most recent complete season, never a random split.
+
+**Measured on that holdout, candidate vs incumbent — same fixtures, same vectors:**
+
+| League | Incumbent RPS | Candidate RPS | Incumbent acc | Candidate acc |
+|---|---|---|---|---|
+| EPL | 0.2511 | **0.2304** | 0.4107 | **0.4640** |
+| La Liga | 0.3273 | **0.2194** | 0.3000 | **0.4500** |
+| Serie A | 0.2646 | **0.2161** | 0.2827 | **0.4533** |
+| Ligue 1 | 0.2725 | **0.2290** | 0.2026 | **0.4771** |
+| Bundesliga | 0.2392 | **0.2335** | 0.2534 | **0.4155** |
+
+Candidate wins on RPS in **5 of 5** leagues, mean improvement **+0.0453**, and
+beats the class-prior baseline in every league. Responsive inputs went from
+**4/68 to 21–22/68** per league. Promoted per CLAUDE.md's "measurable temporal
+out-of-sample improvement" bar — not automatically; the comparison is reproducible
+via `scripts/compare_candidate_vs_incumbent.py`.
+
+Eredivisie has a single committed season (306 matches, none in the holdout) —
+too little to fit or validate alone, and it is the league with live fixtures
+right now. It gets a **pooled** model trained across all six leagues (10,528
+rows, RPS 0.2191, accuracy 0.4798, 29/68 responsive), annotated as such in its
+metadata rather than silently presented as league-specific.
+
+The model now reasons about football: a dominant home side prices at 62.7% home
+win, the mirrored fixture at 70.5% away win, an even matchup at 51.5% home.
+Pinned by `tests/unit/test_model_differentiates_fixtures.py`, which asserts
+behaviour (strength changes the price, direction is sane, ≥15/68 inputs
+responsive) rather than shape — the class of guard whose absence let a
+noise-trained artifact pass every existing contract test.
+
+### Fixed — 16 canonical features were defaulted at serving despite being free
+
+Serving resolved only 15 of 68 features. Four schedule features, five league
+one-hots, three league-prior rates and four combination features need nothing
+beyond the kickoff, the competition, and the four per-side goal averages already
+in hand — yet all sixteen were sent to the model as registry defaults.
+
+They are now derived through shared helpers in `feature_registry.py`
+(`derive_temporal_features`, `derive_league_features`,
+`derive_combination_features`), used by both the serving projector and the
+training builder so the two cannot drift. Serving coverage: **15 → 31 of 68**.
+Combination features resolve only when *both* sides supplied real goal averages —
+mixing a real average with a default would present a half-fabricated difference
+as a measurement.
+
+### UX — evidence gaps are grouped, not dumped as model internals
+
+A reduced-evidence fixture produces ~50 gap codes, and the banner title-cased
+every one, putting raw canonical feature names ("Away Attack Vs Home Defense")
+in front of ordinary readers. `groupEvidenceGaps()` collapses them into families
+— Market prices, Head-to-head record, Team strength ratings, Home venue record —
+with counts, answering "what kind of evidence is missing" instead. The exact
+codes remain one disclosure away for auditability.
+
+### Verification
+
+Backend **1205 passed / 0 failed** / 13 skipped, ruff 0 on `src/`, web lint 0,
+typecheck 0, Vitest **118/118**, `NODE_ENV=production` build clean. Neither
+`betting_intelligence.py` nor `core_engine.py` touched — dual-engine rule N/A.
+
+---
+
 ## vΩ.45 — Homepage showed one identical badge for every fixture; vΩ.44's own model-loading fixes turned out incomplete (2026-08-08)
 
 vΩ.44's honest caveat — "predictions are not yet meaningfully differentiated" —

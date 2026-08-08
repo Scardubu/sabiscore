@@ -41,9 +41,16 @@ from ..models.feature_registry import (
     PHASE8_FEATURES_FORM,
     PHASE8_FEATURES_MARKET,
     PHASE8_FEATURES_PI,
+    COMBINATION_FEATURES,
+    LEAGUE_ONEHOT_FEATURES,
+    LEAGUE_RATE_FEATURES,
+    TEMPORAL_FEATURES,
     active_canonical_features,
     active_default_feature_values,
+    derive_combination_features,
     derive_last5_form_features,
+    derive_league_features,
+    derive_temporal_features,
 )
 from ..utils.season import canonical_season
 from .odds_service import OddsService
@@ -264,6 +271,31 @@ class UpcomingMatchFeatureProjector:
             features_dict.update(away_stats)
             defaults_count -= sum(1 for k in away_stats if k in self.defaults)
 
+        # Schedule + league features are always derivable — they need only the
+        # kickoff and the competition, both of which are inputs to this call, so
+        # they are never a gap. Same definitions as
+        # FeatureTransformer._project_to_canonical_features(), via one shared
+        # helper each, so the two pipelines cannot drift apart.
+        derived_resolved: set = set()
+        features_dict.update(derive_temporal_features(match_date))
+        derived_resolved.update(TEMPORAL_FEATURES)
+        features_dict.update(derive_league_features(match_dict.get("league") or ""))
+        derived_resolved.update(LEAGUE_ONEHOT_FEATURES)
+        derived_resolved.update(LEAGUE_RATE_FEATURES)
+
+        # Combination features are pure arithmetic over the four per-side goal
+        # averages — resolvable only when BOTH sides supplied real ones, since
+        # mixing a real average with a registry default would present a
+        # half-fabricated difference as a measurement.
+        if home_stats and away_stats:
+            features_dict.update(derive_combination_features(
+                home_goals_for_avg=features_dict["home_goals_for_avg"],
+                home_goals_against_avg=features_dict["home_goals_against_avg"],
+                away_goals_for_avg=features_dict["away_goals_for_avg"],
+                away_goals_against_avg=features_dict["away_goals_against_avg"],
+            ))
+            derived_resolved.update(COMBINATION_FEATURES)
+
         features_array = np.array(
             [features_dict.get(f, self.defaults.get(f, 0.0)) for f in self.canonical_features],
             dtype=np.float32,
@@ -288,7 +320,9 @@ class UpcomingMatchFeatureProjector:
 
         data_gaps = [
             feature for feature in self.canonical_features
-            if feature not in _CALLER_RESOLVED_FEATURES and feature not in _remap_resolved
+            if feature not in _CALLER_RESOLVED_FEATURES
+            and feature not in _remap_resolved
+            and feature not in derived_resolved
         ]
 
         for always_gap in PHASE7_FEATURES_ALWAYS_DATA_GAP:

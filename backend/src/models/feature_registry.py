@@ -1,6 +1,7 @@
 """Canonical feature registry for inference-safe SabiScore models."""
 
-from typing import Dict, List, Optional
+from datetime import datetime
+from typing import Dict, List, Optional, Tuple
 
 # Canonical production feature schema (58) from sabiscore_production_v2 metadata.
 CANONICAL_FEATURES_58: List[str] = [
@@ -419,4 +420,95 @@ def derive_last5_form_features(
         f"{side}_wins_last5_{side}": wins,
         f"{side}_draws_last5_{side}": draws,
         f"{side}_losses_last5_{side}": losses,
+    }
+
+
+# Per-league priors: (home_win_rate, avg_total_goals, draw_rate). Constants, not
+# measurements — identical at training and serving time, which is the only
+# property that matters for train/serve consistency. Mirrors the table in
+# FeatureTransformer._project_to_canonical_features().
+LEAGUE_RATE_PRIORS: Dict[str, Tuple[float, float, float]] = {
+    "epl": (0.42, 2.85, 0.246),
+    "la_liga": (0.44, 2.60, 0.255),
+    "bundesliga": (0.45, 3.05, 0.228),
+    "serie_a": (0.43, 2.58, 0.272),
+    "ligue_1": (0.41, 2.66, 0.259),
+}
+_LEAGUE_RATE_FALLBACK = (0.42, 2.75, 0.246)
+
+# Canonical league key -> the one-hot column that must be 1.0 for it. The
+# 58-feature schema carries no Eredivisie/UCL column, so those leagues
+# legitimately produce an all-zero one-hot block rather than a fabricated flag.
+_LEAGUE_ONEHOT_ALIASES: Dict[str, str] = {
+    "epl": "league_EPL",
+    "premier_league": "league_EPL",
+    "la_liga": "league_La_Liga",
+    "laliga": "league_La_Liga",
+    "bundesliga": "league_Bundesliga",
+    "serie_a": "league_Serie_A",
+    "seriea": "league_Serie_A",
+    "ligue_1": "league_Ligue_1",
+    "ligue1": "league_Ligue_1",
+}
+LEAGUE_ONEHOT_FEATURES = (
+    "league_Bundesliga", "league_EPL", "league_La_Liga",
+    "league_Ligue_1", "league_Serie_A",
+)
+TEMPORAL_FEATURES = ("day_of_week", "is_weekend", "month", "season_phase")
+LEAGUE_RATE_FEATURES = ("league_home_rate", "league_avg_goals", "league_draw_rate")
+COMBINATION_FEATURES = (
+    "combined_attack", "combined_defense_weakness",
+    "home_attack_vs_away_defense", "away_attack_vs_home_defense",
+)
+
+
+def _league_key(league: str) -> str:
+    return str(league or "").strip().lower().replace(" ", "_")
+
+
+def derive_temporal_features(match_date: datetime) -> Dict[str, float]:
+    """Kickoff-derived schedule features. Pure — no I/O, no clock read.
+
+    Same definitions as FeatureTransformer._project_to_canonical_features() so
+    both pipelines feed the artifact identical semantics.
+    """
+    return {
+        "day_of_week": float(match_date.weekday()),
+        "is_weekend": 1.0 if match_date.weekday() >= 5 else 0.0,
+        "month": float(match_date.month),
+        "season_phase": float(min(max((match_date.month - 1) / 11.0, 0.0), 1.0)),
+    }
+
+
+def derive_league_features(league: str) -> Dict[str, float]:
+    """League one-hots plus the three league-prior rates."""
+    key = _league_key(league)
+    home_rate, avg_goals, draw_rate = LEAGUE_RATE_PRIORS.get(key, _LEAGUE_RATE_FALLBACK)
+    out: Dict[str, float] = {name: 0.0 for name in LEAGUE_ONEHOT_FEATURES}
+    onehot = _LEAGUE_ONEHOT_ALIASES.get(key)
+    if onehot is not None:
+        out[onehot] = 1.0
+    out["league_home_rate"] = home_rate
+    out["league_avg_goals"] = avg_goals
+    out["league_draw_rate"] = draw_rate
+    return out
+
+
+def derive_combination_features(
+    home_goals_for_avg: float,
+    home_goals_against_avg: float,
+    away_goals_for_avg: float,
+    away_goals_against_avg: float,
+) -> Dict[str, float]:
+    """Pure arithmetic over the four per-side goal averages.
+
+    Adds no new information — but the artifact has a slot for each, and leaving
+    them at a registry default while their four inputs are genuinely resolved
+    discards signal the model can use.
+    """
+    return {
+        "combined_attack": home_goals_for_avg + away_goals_for_avg,
+        "combined_defense_weakness": home_goals_against_avg + away_goals_against_avg,
+        "home_attack_vs_away_defense": home_goals_for_avg - away_goals_against_avg,
+        "away_attack_vs_home_defense": away_goals_for_avg - home_goals_against_avg,
     }

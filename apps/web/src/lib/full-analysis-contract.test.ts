@@ -3,6 +3,7 @@ import {
   classifyAnalysisError,
   describeEvidenceCode,
   fullMatchAnalysisSchema,
+  groupEvidenceGaps,
   isRetryableInfrastructureError,
   mapFullAnalysisPresentation,
 } from "./full-analysis-contract";
@@ -343,5 +344,51 @@ describe("describeEvidenceCode", () => {
     expect(view.reason).toContain("could not be tied to a scheduled fixture");
     expect(view.reason).not.toContain("FIXTURE_IDENTITY_UNVERIFIED");
     expect(view.reason).not.toContain("FIXTURE IDENTITY UNVERIFIED");
+  });
+});
+
+describe("groupEvidenceGaps", () => {
+  it("collapses raw canonical feature names into reader-facing families", () => {
+    const groups = groupEvidenceGaps([
+      "market_prob_home", "market_prob_draw", "log_odds_home", "ev_home",
+      "h2h_home_wins", "h2h_draws",
+      "elo_difference", "elo_momentum_cross",
+      "home_venue_win_rate",
+    ]);
+    const byLabel = Object.fromEntries(groups.map((g) => [g.label, g.count]));
+    expect(byLabel["Market prices"]).toBe(4);
+    expect(byLabel["Head-to-head record"]).toBe(2);
+    expect(byLabel["Team strength ratings"]).toBe(2);
+    expect(byLabel["Home venue record"]).toBe(1);
+  });
+
+  it("never surfaces a raw feature name as a family label", () => {
+    for (const group of groupEvidenceGaps([
+      "away_attack_vs_home_defense", "combined_defense_weakness",
+      "shot_quality_diff", "home_weighted_ppg", "match_importance_score",
+    ])) {
+      expect(group.label).not.toMatch(/_/);
+      expect(group.label).not.toMatch(/\b(diff|avg|pct)\b/i);
+    }
+  });
+
+  it("claims market-interaction fields for Market prices, not h2h/venue", () => {
+    const groups = groupEvidenceGaps(["h2h_market_agreement", "venue_market_combo", "form_market_disagreement"]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].label).toBe("Market prices");
+    expect(groups[0].count).toBe(3);
+  });
+
+  it("orders by size and retains every raw code for auditability", () => {
+    const gaps = ["h2h_draws", "market_prob_home", "market_prob_away", "elo_difference"];
+    const groups = groupEvidenceGaps(gaps);
+    expect(groups[0].label).toBe("Market prices");
+    expect(groups.flatMap((g) => g.codes).sort()).toEqual([...gaps].sort());
+  });
+
+  it("buckets an unrecognised code rather than dropping it", () => {
+    const groups = groupEvidenceGaps(["some_brand_new_signal"]);
+    expect(groups[0].label).toBe("Other inputs");
+    expect(groups[0].codes).toEqual(["some_brand_new_signal"]);
   });
 });

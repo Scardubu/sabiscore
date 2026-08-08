@@ -125,7 +125,7 @@ export default function DocsPage() {
             <ul className="space-y-3 text-slate-300">
               <li>• <strong>Models</strong>: certified Phase 7 artifacts for five calibrated leagues</li>
               <li>• <strong>Phase 8</strong>: candidate feature intelligence remains shadow-only</li>
-              <li>• <strong>Data</strong>: 1,752 labelled historical matches across five leagues, no synthetic injection</li>
+              <li>• <strong>Data</strong>: 12,765 real completed matches across six leagues (2019–2026), temporally held out by season</li>
               <li>• <strong>Update</strong>: Evidence is fetched fresh per request; off-season notice when no fixtures</li>
             </ul>
           </div>

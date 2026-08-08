@@ -1,0 +1,68 @@
+{
+  "BUNDESLIGA": {
+    "accuracy": 0.4155405405405405,
+    "rps": 0.23346907377864365,
+    "brier": 0.6584537535948725,
+    "log_loss": 1.0918396716765646,
+    "n": 296,
+    "train_n": 1756,
+    "responsive_features": 22,
+    "baseline_accuracy_home": 0.3885135135135135,
+    "baseline_rps_trainprior": 0.23595031281742251
+  },
+  "EPL": {
+    "accuracy": 0.464,
+    "rps": 0.23036328683498208,
+    "brier": 0.6492693428679353,
+    "log_loss": 1.0731167344781576,
+    "n": 375,
+    "train_n": 2196,
+    "responsive_features": 22,
+    "baseline_accuracy_home": 0.4106666666666667,
+    "baseline_rps_trainprior": 0.2353037357208503
+  },
+  "LA_LIGA": {
+    "accuracy": 0.45,
+    "rps": 0.21937399002758193,
+    "brier": 0.6366859978259133,
+    "log_loss": 1.0537808965208264,
+    "n": 380,
+    "train_n": 2192,
+    "responsive_features": 21,
+    "baseline_accuracy_home": 0.44473684210526315,
+    "baseline_rps_trainprior": 0.22876527114804365
+  },
+  "LIGUE_1": {
+    "accuracy": 0.477124183006536,
+    "rps": 0.22904999788391422,
+    "brier": 0.6322608414689032,
+    "log_loss": 1.0545579827931915,
+    "n": 306,
+    "train_n": 1943,
+    "responsive_features": 22,
+    "baseline_accuracy_home": 0.4673202614379085,
+    "baseline_rps_trainprior": 0.23608777001121217
+  },
+  "SERIE_A": {
+    "accuracy": 0.4533333333333333,
+    "rps": 0.21610897410130936,
+    "brier": 0.6361875203202312,
+    "log_loss": 1.0595317375101623,
+    "n": 375,
+    "train_n": 2181,
+    "responsive_features": 21,
+    "baseline_accuracy_home": 0.3973333333333333,
+    "baseline_rps_trainprior": 0.22862086112798186
+  },
+  "POOLED": {
+    "accuracy": 0.4797921478060046,
+    "rps": 0.21908373887056182,
+    "brier": 0.6259752514931776,
+    "log_loss": 1.0405477383720372,
+    "n": 1732,
+    "train_n": 10528,
+    "responsive_features": 29,
+    "baseline_accuracy_home": 0.4214780600461894,
+    "baseline_rps_trainprior": 0.2327081633568691
+  }
+}
