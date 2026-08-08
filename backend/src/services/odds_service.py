@@ -117,7 +117,17 @@ class OddsService:
             event_home = event.get("home_team", "").lower().replace(" ", "")
             event_away = event.get("away_team", "").lower().replace(" ", "")
 
-            if home_normalized in event_home and away_normalized in event_away:
+            # Containment must be checked both ways. The fixture side supplies
+            # provider legal names ("Arsenal FC" -> "arsenalfc") while the odds
+            # board uses short names ("Arsenal" -> "arsenal"), so the one-way test
+            # `home_normalized in event_home` was False for exactly the common
+            # case and no match was ever found.
+            if (
+                (home_normalized in event_home or event_home in home_normalized)
+                and (away_normalized in event_away or event_away in away_normalized)
+                and event_home
+                and event_away
+            ):
                 odds = self._extract_h2h_odds(event)
                 if odds:
                     # Cache for 5 minutes

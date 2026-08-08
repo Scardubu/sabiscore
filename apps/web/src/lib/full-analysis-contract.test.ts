@@ -295,6 +295,10 @@ describe("describeEvidenceCode", () => {
       "MODEL_PREDICTION_UNAVAILABLE",
       "MODEL_PREDICTION_REDUCED_EVIDENCE",
       "STALE_REQUIRED_EVIDENCE",
+      // Advisory, not critical — an out-of-date optional enrichment source must
+      // never read like a blocking failure, so it needs its own plain-language
+      // copy rather than the Title-Case enum fallback.
+      "STALE_ENRICHMENT_EVIDENCE",
       "LEAGUE_POLICY_UNAVAILABLE",
     ];
     for (const code of codes) {

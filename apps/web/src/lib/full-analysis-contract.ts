@@ -384,6 +384,8 @@ const EVIDENCE_CODE_COPY: Record<string, string> = {
   MODEL_PREDICTION_REDUCED_EVIDENCE:
     "only a diagnostic baseline was produced, not a certified prediction",
   STALE_REQUIRED_EVIDENCE: "the required evidence is too old to rely on",
+  STALE_ENRICHMENT_EVIDENCE:
+    "an optional enrichment source is out of date, so a little supporting detail is missing",
   LEAGUE_POLICY_UNAVAILABLE: "this competition has no calibrated staking policy yet",
   COHERENT_1X2_MARKET_UNAVAILABLE:
     "no consistent home/draw/away price is available yet to compare the model against",

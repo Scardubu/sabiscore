@@ -57,6 +57,13 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/matches", tags=["intelligence"])
 
+# Age past which the completed matches backing a side's form stop describing the
+# current team and become a different squad — one full season plus a close-season
+# break. Deliberately season-scale, not the league policy's
+# model_feature_freshness_ttl_seconds (3600s): that TTL governs live market and
+# lineup features, which are hours-fresh by nature. Recent form never can be.
+_MODEL_INPUT_STALENESS_LIMIT_SECONDS = 400 * 24 * 3600
+
 _CACHE_TTL_SECONDS = 60
 _GLOBAL_KELLY_CAP = 0.05
 _QUARTER_KELLY = 0.25
@@ -261,6 +268,40 @@ def _elo_from_features(features: Dict[str, Any]) -> EloContext:
         away_elo_trend_5=float(features.get("elo_away_trend_5", 0.0)),
         elo_momentum_cross=float(features.get("elo_momentum_cross", 0.0)),
     )
+
+
+async def _fetch_market_odds(
+    *,
+    home_team: Optional[str],
+    away_team: Optional[str],
+    league: str,
+) -> Optional[Dict[str, float]]:
+    """Look up a coherent 1X2 price for this fixture, or ``None``.
+
+    Fails soft on every axis — a market is optional evidence, and an odds outage
+    must degrade the analysis to "no edge computed", never break it. The service
+    caches (120s per league board, 300s per match) so a page refresh does not
+    spend provider quota, and returns its own ``source: "unavailable"`` shape when
+    no coherent market exists, which `_odds_edge_from_features` already rejects.
+    """
+    if not home_team or not away_team:
+        return None
+    try:
+        from ...services.odds_service import OddsService
+
+        odds = await OddsService().get_match_odds(
+            home_team=home_team, away_team=away_team, league=league
+        )
+    except Exception as exc:
+        logger.warning(
+            "Live odds lookup failed for %s vs %s (%s): %s: %s",
+            home_team, away_team, league, type(exc).__name__, exc,
+        )
+        return None
+
+    if not isinstance(odds, dict) or odds.get("source") == "unavailable":
+        return None
+    return odds
 
 
 def _odds_edge_from_features(
@@ -540,10 +581,34 @@ async def get_full_analysis(
         live.get("staleness_available", "staleness_seconds" in live)
     )
     staleness_seconds = int(live.get("staleness_seconds", 0))
+
+    # Two different things used to share one gate, and the wrong one was critical.
+    #
+    # `staleness_seconds` measures ONLY the offline StatsBomb enrichment parquet,
+    # which supplies 2 of the 65 live features and is a frozen research artifact
+    # (last row 2024-06-02). Comparing it against the league's 3600s feature TTL
+    # made it exceed the limit by ~811 days on every request, so
+    # STALE_REQUIRED_EVIDENCE — a *critical* gap — fired on 100% of fixtures
+    # forever, forcing PARTIAL/no-bet no matter how much genuine history existed.
+    # An optional enrichment source being old is real information, but it is
+    # advisory: it may reduce confidence, it must never block a valid analysis
+    # (CLAUDE.md — only critical_gaps force PARTIAL).
+    #
+    # The required model inputs are the completed matches behind each side's form.
+    # Their age is measured separately and keeps the critical gate, against a
+    # season-scale threshold rather than the live-feature TTL, because form is
+    # inherently days-to-weeks old and can never satisfy a 1-hour limit.
     if (
         staleness_available
         and model_freshness_limit > 0
         and staleness_seconds > model_freshness_limit
+    ):
+        advisory_gaps.append("STALE_ENRICHMENT_EVIDENCE")
+
+    model_input_staleness = live.get("model_input_staleness_seconds")
+    if (
+        model_input_staleness is not None
+        and float(model_input_staleness) > _MODEL_INPUT_STALENESS_LIMIT_SECONDS
     ):
         critical_gaps.append("STALE_REQUIRED_EVIDENCE")
 
@@ -589,7 +654,20 @@ async def get_full_analysis(
         data_gaps.append("causal_analysis")
 
     # Layer 4: RL recommendation
+    #
+    # `live` carries no "odds" key on any success path — only the failure fallback
+    # `_default_live_vector()` sets it, and it sets it to None. So market_odds was
+    # structurally always None here, `_odds_edge_from_features` always returned
+    # None, and COHERENT_1X2_MARKET_UNAVAILABLE fired as a critical gap on 100% of
+    # requests regardless of provider state. Enabling the_odds_api in production
+    # changed nothing on this surface because nothing ever asked it for a price.
     market_odds: Optional[Dict[str, float]] = live.get("odds") or None
+    if market_odds is None:
+        market_odds = await _fetch_market_odds(
+            home_team=live.get("home_team"),
+            away_team=live.get("away_team"),
+            league=league,
+        )
     rl_rec = _rl_from_ensemble(
         ensemble,
         odds=market_odds,

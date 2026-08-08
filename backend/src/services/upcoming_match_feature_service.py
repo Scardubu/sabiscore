@@ -52,6 +52,35 @@ from .team_identity import resolve_team_id
 
 logger = logging.getLogger(__name__)
 
+
+def _model_input_staleness_seconds(
+    home_stats: Optional[Dict[str, float]],
+    away_stats: Optional[Dict[str, float]],
+) -> Optional[float]:
+    """Age of the newest completed match backing either side's form, in seconds.
+
+    Distinct from the ``staleness_seconds`` reported alongside it, which measures
+    the offline StatsBomb enrichment artifact and nothing else. Conflating the two
+    made an enrichment file frozen in 2024 look like an absence of the model's
+    *required* inputs, which forced a critical gap — and therefore PARTIAL / no
+    bet — on every fixture regardless of how much real history existed.
+
+    ``None`` when neither side resolved any history: that is the *missing* inputs
+    case, already reported as ``is_synthetic`` / REQUIRED_MODEL_INPUTS_UNAVAILABLE,
+    not a staleness case.
+    """
+    timestamps = [
+        stats["last_finished_match_ts"]
+        for stats in (home_stats, away_stats)
+        if stats and stats.get("last_finished_match_ts") is not None
+    ]
+    if not timestamps:
+        return None
+    # Both sides must be usable, so the *oldest* of the two newest matches governs.
+    newest_per_side = min(timestamps)
+    now = datetime.now(timezone.utc).timestamp()
+    return max(0.0, now - newest_per_side)
+
 # Canonical features resolved entirely by the CALLER (build_live_feature_vector /
 # build_live_feature_vector_from_matchup), not by project_match_features() itself:
 # elo/statsbomb (PHASE7_FEATURES_7 minus the always-gap shot_quality_diff — elo_engine
@@ -304,6 +333,9 @@ class UpcomingMatchFeatureProjector:
             "features_dict": {f: float(features_array[i]) for i, f in enumerate(self.canonical_features)},
             "data_gaps": sorted(set(data_gaps)),
             "data_quality": data_quality,
+            "model_input_staleness_seconds": _model_input_staleness_seconds(
+                home_stats, away_stats
+            ),
         }
 
     async def build_live_feature_vector(
@@ -399,10 +431,19 @@ class UpcomingMatchFeatureProjector:
             "features": features,
             "features_58": features[: len(CANONICAL_FEATURES_58)],
             "data_gaps": data_gaps,
+            # StatsBomb enrichment artifact age only — NOT the age of the model's
+            # required inputs. Kept under this name for the frontend freshness
+            # pill; the gate in full_analysis.py reads the two keys below.
             "staleness_seconds": staleness_seconds,
+            "enrichment_staleness_seconds": staleness_seconds,
+            "model_input_staleness_seconds": projected.get("model_input_staleness_seconds"),
             "elo_pre_match": float(elo.elo_difference),
             "features_dict": features_dict,
             "league": league,
+            # Propagated so callers can look up a live market without re-querying
+            # the fixture — full_analysis.py needs them for the odds fetch.
+            "home_team": projected.get("home_team"),
+            "away_team": projected.get("away_team"),
             "feature_freshness_seconds": phase8_freshness,
             "feature_source": phase8_sources,
             "data_quality": dict(projected.get("data_quality") or {}),
@@ -514,10 +555,19 @@ class UpcomingMatchFeatureProjector:
             "features": features,
             "features_58": features[: len(CANONICAL_FEATURES_58)],
             "data_gaps": data_gaps,
+            # StatsBomb enrichment artifact age only — NOT the age of the model's
+            # required inputs. Kept under this name for the frontend freshness
+            # pill; the gate in full_analysis.py reads the two keys below.
             "staleness_seconds": staleness_seconds,
+            "enrichment_staleness_seconds": staleness_seconds,
+            "model_input_staleness_seconds": projected.get("model_input_staleness_seconds"),
             "elo_pre_match": float(elo.elo_difference),
             "features_dict": features_dict,
             "league": league,
+            # Propagated so callers can look up a live market without re-querying
+            # the fixture — full_analysis.py needs them for the odds fetch.
+            "home_team": projected.get("home_team"),
+            "away_team": projected.get("away_team"),
             "feature_freshness_seconds": phase8_freshness,
             "feature_source": phase8_sources,
             "data_quality": dict(projected.get("data_quality") or {}),
@@ -893,6 +943,18 @@ class UpcomingMatchFeatureProjector:
             rest_days = (match_date - last_match_date).days
             stats[f"{prefix}_days_rest"] = min(rest_days, 10.0)
             stats[f"{prefix}_fatigue_index"] = max(0.0, 1.0 - (rest_days / 7.0))
+            # How recent the newest match backing this side's form actually is.
+            # Deliberately unprefixed, matching the wins_5/draws_5/losses_5
+            # convention above: read off the per-side dict in
+            # project_match_features() before the merge, never out of the merged
+            # dict. Consumed to distinguish "form is genuinely old" from "an
+            # offline enrichment artifact is old" — see _staleness_from_stats().
+            # Match.match_date is naive TIMESTAMP WITHOUT TIME ZONE holding UTC;
+            # bare .timestamp() would read it as *local* time and skew the age by
+            # the host's UTC offset. Attach UTC explicitly (repo-wide convention).
+            stats["last_finished_match_ts"] = float(
+                last_match_date.replace(tzinfo=timezone.utc).timestamp()
+            )
         else:
             stats[f"{prefix}_days_rest"] = 7.0
             stats[f"{prefix}_fatigue_index"] = 0.3
