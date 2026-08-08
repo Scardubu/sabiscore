@@ -36,6 +36,7 @@ const MatchLoadingExperience = dynamic(
 import { FeatureFlag, useFeatureFlag } from "@/lib/feature-flags";
 import { hashMatchup } from "@/lib/interstitial-storage";
 import { canonicalLeagueId } from "@/lib/league";
+import { describeEdgeQualityPill, describeValueBadge } from "@/lib/edge-quality";
 import { cn } from "@/lib/utils";
 import { CountryFlag } from "@/components/ui/cached-logo";
 
@@ -143,10 +144,8 @@ function BigMatchesCarousel({ onSelectFixture }: BigMatchesCarouselProps) {
               const selectorLeague = selectorLeagueId(match.league);
               const isTopEdge = match.match_id === topEdgeId;
               const prediction = match.predictions;
-              const edgePct =
-                prediction && match.edge_quality_score != null && match.edge_quality_score > 0
-                  ? Math.round(match.edge_quality_score * 100)
-                  : null;
+              const qualityPill = describeEdgeQualityPill(match.edge_quality_score);
+              const valueBadge = describeValueBadge(match.has_value, match.best_value_bet?.edge_pct);
               const clvPositive = match.clv_pct != null && match.clv_pct > 0;
               const topOutcome = prediction
                 ? (
@@ -197,18 +196,24 @@ function BigMatchesCarousel({ onSelectFixture }: BigMatchesCarouselProps) {
                     </p>
                   )}
                   <div className="mt-2 flex flex-wrap items-center gap-1">
-                    {edgePct != null && (
+                    {/* edge_quality_score is a confidence/freshness/completeness
+                        blend, not a market edge — never render it as "% edge"
+                        (see @/lib/edge-quality). Real market edge, when one
+                        exists, is the separate Value pill below. */}
+                    {qualityPill && (
                       <span
                         className={cn(
                           "rounded-full border px-1.5 py-0.5 text-[9px] font-semibold",
-                          edgePct >= 60
-                            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                            : edgePct >= 35
-                            ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
-                            : "border-slate-700/40 text-slate-500",
+                          qualityPill.className,
                         )}
+                        title={qualityPill.title}
                       >
-                        {edgePct}% edge
+                        {qualityPill.label}
+                      </span>
+                    )}
+                    {valueBadge && (
+                      <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-300">
+                        {valueBadge}
                       </span>
                     )}
                     {clvPositive && (

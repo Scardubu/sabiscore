@@ -98,6 +98,21 @@ _CALLER_RESOLVED_FEATURES = (
     | frozenset(PHASE8_FEATURES_CONTEXT)
 )
 
+# The four Elo features build_live_feature_vector* overlays from EloContext.
+# They are excluded from project_match_features()'s own gap tracking via
+# _CALLER_RESOLVED_FEATURES, on the assumption the caller always resolves them —
+# but EloEngine falls back to a neutral 1500/1500 baseline for a team it has no
+# rating for, which yields elo_difference == 0.0 and zero trends, numerically
+# indistinguishable from two genuinely equal teams. The caller must therefore
+# report these as gaps when the context is unresolved, or a neutral default is
+# published as an observation (INV-01, the vΩ.24 defect class).
+_ELO_OVERLAY_FEATURES = frozenset({
+    "elo_difference",
+    "elo_home_trend_5",
+    "elo_away_trend_5",
+    "elo_momentum_cross",
+})
+
 # WP-18/WP-10.3: the last5-form + goals/gd canonical fields rescued from
 # unconditional-gap status once _get_team_stats()/to_projection_stats() data
 # is available for that side and the remap in project_match_features() has
@@ -419,6 +434,7 @@ class UpcomingMatchFeatureProjector:
             | set(sb_away.data_gaps)
             | set(PHASE7_FEATURES_ALWAYS_DATA_GAP)
             | set(phase8_gaps)
+            | (set() if elo.resolved else set(_ELO_OVERLAY_FEATURES))
         )
         staleness_seconds = max(sb_home.staleness_seconds, sb_away.staleness_seconds)
 
@@ -543,6 +559,7 @@ class UpcomingMatchFeatureProjector:
             | set(sb_away.data_gaps)
             | set(PHASE7_FEATURES_ALWAYS_DATA_GAP)
             | set(phase8_gaps)
+            | (set() if elo.resolved else set(_ELO_OVERLAY_FEATURES))
         )
         staleness_seconds = max(sb_home.staleness_seconds, sb_away.staleness_seconds)
 

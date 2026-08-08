@@ -7,6 +7,90 @@ disguise — say so honestly.
 
 ---
 
+## 12. Certified artifacts are trained on synthetic data and respond to only 4 of 68 features
+
+**Tier:** `FIX-NOW` — the model runs, but its output is effectively constant across
+fixtures. Needs a retrain on the real backfilled history; not fixable in code.
+**Owner:** unassigned.
+**Found:** 2026-08-08. **Supersedes and corrects this item's previous write-up**
+(same date, earlier session), which claimed "committed `_v5_phase7.pkl` artifacts
+don't match the current feature registry" and "`PredictionEngine` still falls back
+in production." Both claims were **wrong**, and the correction matters:
+
+- The six committed artifacts in `backend/models/` are **correct**: 68
+  `feature_columns` in the exact `CANONICAL_FEATURES_68` order and naming
+  (`home_form_last5_home` … `set_piece_xg_diff`), every base learner
+  `n_features_in_=68`. Verified by loading each file directly, not inferred.
+- The 9 test failures were a **local-only configuration bug**, since fixed (see
+  below). `render.yaml` sets `PHASE7_MODELS_PATH`, `MODELS_PATH`,
+  `ELO_PARQUET_PATH` and `STATSBOMB_CACHE_PATH` to absolute
+  `/opt/render/project/src/...` values, so **production was never affected** and
+  never served the legacy artifacts.
+
+**The local bug (fixed).** `backend/.env` supplies those same four paths as
+*relative* strings. `Settings._ensure_path` coerced them to `Path` but never
+anchored them, so they resolved against the process CWD (`backend/` under
+pytest) instead of the project root. Consequences, all silent:
+`phase7_models_path` → `backend/backend/models` (absent) → `_load_from_disk`
+skipped it and fell through to `<root>/models`, which holds the *legacy*
+86-feature artifacts under the pre-WP-18 naming scheme → `SCHEMA_MISMATCH — 68
+supplied, 86 expected` → `model_version="fallback"` on all five leagues that
+have a legacy file, and `bundle=None` for eredivisie (which has none).
+`elo_parquet_path` / `statsbomb_cache_path` → absent → `EloEngine._load_table()`
+and `StatsBombAggregator._load_cache()` both return empty DataFrames without
+raising. Fixed by anchoring relative path settings to `_PROJECT_ROOT` in the
+`_ensure_path` validator (now covering all 8 Path fields). Pinned by
+`backend/tests/unit/test_settings_path_anchoring.py`; the 9 failures in
+`tests/unit/test_model_artifact_loading.py` went to 14/14 passing.
+
+**The real, still-open problem — measured this session.** With the artifacts
+loading correctly, a per-feature sensitivity sweep (perturb one feature at a
+time, measure max |Δp| on the EPL artifact) shows the model responds to
+**4 of 68 features**, all Phase 7:
+
+```text
+progressive_carry_diff   Δmax=0.268
+elo_momentum_cross       Δmax=0.254
+elo_away_trend_5         Δmax=0.209
+elo_home_trend_5         Δmax=0.138
+```
+
+All **58 base features move it by < 1e-6** — including every real-history
+feature the WP-18 remap and the vΩ.44 backfill exist to populate (form, goals,
+h2h). Even `elo_difference`, the highest-ATE feature in the registry (0.335),
+moves nothing. The artifacts were evidently trained when those features were
+near-constant, so the learners never split on them.
+
+Compounding it, the two parquets feeding the only 4 features that *do* matter
+are themselves synthetic: `elo_ratings.parquet` (4,116 rows, 240 teams) and
+`statsbomb_features_cache.parquet` (2,058 rows, 120 teams) are keyed by
+**placeholder slot ids** — `bundesliga_home_0`, `bundesliga_team_3` — not real
+`Team.id` values, and span 2021-08-13 → 2024-06-02. No live fixture can ever
+join to them.
+
+**Net effect:** every one of the 4 responsive features is pinned at its registry
+default for every real fixture, so every fixture receives the identical
+prediction. Measured on a neutral vector: `0.4162 / 0.4155 / 0.1683` — which is
+exactly the `41.6% / 41.5% / 16.8%` shown for Arsenal vs Brentford on the live
+site. This is the true cause of "predictions are not meaningfully
+differentiated," and it is **pre-existing and live**, independent of the local
+path bug above.
+
+**Blast radius:** every prediction surface. Output is well-formed and passes the
+zero-fabrication gates (`model_version != "fallback"`, probabilities valid), which
+is precisely why it is dangerous: a constant is being presented per-fixture.
+**Cost:** a retrain of all six league artifacts against the 12,765 real matches
+backfilled in vΩ.44, plus a real Elo replay keyed by `Team.id`
+(`scripts/populate_elo_ratings.py` exists and is cheap now that history does).
+StatsBomb needs its open-data corpus re-derived against real team ids, or those
+2 features dropped.
+**Impact:** high — the platform currently cannot differentiate fixtures.
+**Priority:** highest open item in this ledger. Until it lands, treat published
+probabilities as **not fixture-specific**. Worth an explicit product decision on
+whether to publish at all in the meantime.
+
+---
+
 ## 0. Canonical league_id storage — `_LEAGUE_META` stored fd.org codes
 
 **Tier:** `ACCEPTED` — fixed 2026-08-08 (WP-A). Kept as incident record per convention.
@@ -25,12 +109,28 @@ sync windows open. Blast radius was every prediction path via `get_league_policy
 
 ---
 
-## 10. Offline Elo / StatsBomb artifacts are frozen at 2024-06-02
+## 10. Offline Elo / StatsBomb artifacts are frozen at 2024-06-02 — and synthetically keyed
 
-**Tier:** `NEXT` — trigger: a real matchday's worth of settled results exists
-(Eredivisie opens 2026-08-08), making a regeneration run meaningful.
+**Tier:** `FIX-NOW` (raised from `NEXT` on 2026-08-08) — the trigger this item was
+waiting for is moot: the artifacts cannot join to real fixtures at all, so no amount
+of elapsed season time makes them useful. Folded into item 12, which is the same
+root problem seen from the model side.
 **Owner:** unassigned.
 **Found:** 2026-08-08, tracing why STALE_REQUIRED_EVIDENCE fired on 100% of fixtures.
+
+**⚠️ Correction (2026-08-08, later same day): staleness was never the main defect.**
+Both parquets are keyed by **synthetic placeholder team ids** — `bundesliga_home_0`,
+`bundesliga_team_3` — not real `Team.id` values. `EloEngine.get_context()` and
+`StatsBombAggregator.get_team_features()` therefore find zero rows for every real
+fixture and silently return the neutral 1500/1500 baseline. The 2024-06-02 end date
+is real but secondary: even a perfectly fresh artifact with these ids would join to
+nothing. A regeneration run must re-key by `Team.id`, not merely extend the dates.
+
+Two related fixes landed the same day: `elo_parquet_path`/`statsbomb_cache_path` were
+resolving relative to the CWD and so weren't loading **at all** locally (item 12), and
+`EloContext` now carries `home_resolved`/`away_resolved` so an unresolved rating is
+reported as a `data_gap` instead of publishing 1500/1500 as an observation
+(`backend/tests/unit/test_elo_context_resolution.py`).
 
 `data/processed/statsbomb_features_cache.parquet` (2,058 rows) and
 `data/processed/elo_ratings.parquet` (4,116 rows) both end **2024-06-02** — the whole
@@ -53,8 +153,23 @@ as of vΩ.44 there are 12,765 real completed matches in the database to replay �
 regenerating Elo is now a scripted replay rather than a data-sourcing problem.
 Regenerating StatsBomb needs the open-data corpus re-cloned (offline, large).
 
+**2026-08-08 correction — blast radius was wider than "6 of 65 degraded" for one
+path.** `GET /api/v1/upcoming/matches` (the endpoint behind the homepage fixture
+list) built its feature vector via the bare `project_match_features()`, which by
+design never calls `EloEngine`/`StatsBombAggregator` at all — so on that specific
+path these 6 features (plus the whole Phase-8 block) weren't just stale, they were
+completely absent *and* invisibly excluded from `data_gaps` (the bare method's own
+`_CALLER_RESOLVED_FEATURES` exclusion assumes a caller-side merge that never ran).
+Same-valued near-default feature vectors across different fixtures were the direct,
+visible symptom (every homepage fixture card showing an identical edge figure).
+Fixed by switching that call site to `build_live_feature_vector()`, the wrapper
+every other prediction surface already used — the upcoming-fixtures path now
+surfaces and honestly gaps Elo/StatsBomb exactly like `full_analysis.py` does. This
+does not close this item: the underlying parquets are still frozen at 2024-06-02.
+
 **Blast radius:** 6 of 65 features degraded; no fabrication — every affected feature
-is honestly reported as a gap.
+is honestly reported as a gap (previously true only off the upcoming-fixtures path;
+now true everywhere, see correction above).
 **Cost:** Elo replay is small now that history exists. StatsBomb is a separate,
 larger offline job.
 **Impact:** moderate — reduces evidence quality, does not block predictions.

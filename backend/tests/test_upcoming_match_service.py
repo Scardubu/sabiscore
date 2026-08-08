@@ -13,12 +13,15 @@ from __future__ import annotations
 
 import sys
 import os
+from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from src.services.upcoming_match_service import (
+    UpcomingMatchService,
     _is_fallback_prediction,
     _select_feature_vector,
 )
@@ -123,3 +126,69 @@ def test_calculate_value_bets_falls_back_to_max_kelly_cap_for_unknown_league():
     home_bet = next(b for b in bets if b["outcome"] == "home_win")
     assert home_bet["kelly_stake_pct"] <= 5.0
     assert home_bet["kelly_stake_pct"] > 2.5
+
+
+async def test_get_upcoming_matches_with_predictions_uses_build_live_feature_vector():
+    """WP-B regression: the enrichment loop must call the enrichment wrapper
+    (build_live_feature_vector — Elo/StatsBomb/Phase8 included), never the bare
+    project_match_features() it wraps. Calling the bare projector silently
+    dropped 27 of 68 canonical features (never counted as gaps either, since
+    project_match_features()'s own _CALLER_RESOLVED_FEATURES assumes the caller
+    tracks them) and left staleness_seconds permanently at 0 — a key the bare
+    projector's return dict never carries at all — which is what produced
+    near-identical edge_quality_score values across different fixtures on the
+    live homepage (freshness = 1 - staleness/threshold, pinned at its max)."""
+    future_date = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+    fake_api_client = MagicMock()
+    fake_api_client.get_upcoming_matches = AsyncMock(return_value=[{
+        "id": "test-match-1",
+        "home_team": "Home FC",
+        "away_team": "Away FC",
+        "league": "EPL",
+        "match_date": future_date,
+        "status": "scheduled",
+    }])
+
+    mocked_features_result = {
+        "features": np.zeros(68, dtype=np.float32),
+        "data_gaps": ["elo_difference", "home_pressing_intensity"],
+        "data_quality": {"is_synthetic": False},
+        "staleness_seconds": 54321,
+    }
+    mocked_prediction = MagicMock()
+    mocked_prediction.to_dict.return_value = {
+        "home_win": 0.4, "draw": 0.3, "away_win": 0.3,
+        "model_version": "v6_test", "confidence": 0.5,
+    }
+    fake_db = MagicMock(name="db")
+
+    with patch(
+        "src.services.upcoming_match_service.UpcomingMatchFeatureProjector"
+    ) as MockProjector, patch(
+        "src.services.upcoming_match_service.PredictionEngine"
+    ) as MockPredictionEngine, patch(
+        "src.services.upcoming_match_service.OddsService"
+    ) as MockOddsService:
+        MockProjector.return_value.build_live_feature_vector = AsyncMock(
+            return_value=mocked_features_result
+        )
+        MockProjector.return_value.project_match_features = AsyncMock(
+            side_effect=AssertionError("bare project_match_features must not be called")
+        )
+        MockPredictionEngine.return_value.predict = AsyncMock(return_value=mocked_prediction)
+        MockOddsService.return_value.get_match_odds = AsyncMock(return_value={})
+
+        service = UpcomingMatchService(api_client=fake_api_client)
+        response = await service.get_upcoming_matches_with_predictions(
+            db=fake_db, league="EPL", days_ahead=3, limit=5,
+        )
+
+    MockProjector.return_value.build_live_feature_vector.assert_awaited_once_with(
+        match_id="test-match-1", league="EPL", db=fake_db
+    )
+    MockProjector.return_value.project_match_features.assert_not_awaited()
+
+    enriched = response["upcoming_matches"][0]
+    assert enriched["staleness_seconds"] == 54321  # not silently defaulted to 0
+    assert "elo_difference" in enriched["data_gaps"]
+    assert "home_pressing_intensity" in enriched["data_gaps"]

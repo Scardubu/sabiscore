@@ -229,13 +229,17 @@ class UpcomingMatchService:
             try:
                 match_id = str(match.get("match_id") or match.get("id") or "")
                 match["match_id"] = match_id
-                match_date = datetime.fromisoformat(
-                    match.get("match_date", datetime.now(timezone.utc).isoformat())
-                )
 
-                # 1. Project features via canonical path (68 or 86 features)
-                features_result = await feature_projector.project_match_features(
-                    match, db, match_date
+                # 1. Project features via the same enrichment wrapper every other
+                # prediction surface uses (full_analysis.py, monitoring/baseline.py,
+                # phase8_features.py). The bare project_match_features() deliberately
+                # excludes Elo/StatsBomb/Phase8 (27 of 68 features — see its own
+                # _CALLER_RESOLVED_FEATURES comment) and defers them to this wrapper;
+                # calling the bare projector directly here produced near-identical
+                # feature vectors across fixtures and left staleness_seconds pinned
+                # at 0 (a key absent from the bare projector's return shape).
+                features_result = await feature_projector.build_live_feature_vector(
+                    match_id=match_id, league=match.get("league", ""), db=db
                 )
                 full_features = _select_feature_vector(features_result)
 

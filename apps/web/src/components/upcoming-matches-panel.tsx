@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { LEAGUE_COLORS } from "@/lib/league-colors";
 import { LeagueOffseasonNotice } from "@/components/LeagueOffseasonNotice";
 import { UCLStageBadge } from "@/components/UCLStageBadge";
+import { EdgeQualityBar } from "@/components/edge-quality-bar";
 
 // ─── League types (from /api/v1/leagues) ─────────────────────────────────────
 
@@ -164,41 +165,9 @@ interface UpcomingMatchesResponse {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-// ─── EdgeQualityBar ───────────────────────────────────────────────────────────
-
-function edgeQualityColor(score: number): string {
-  if (score >= 0.67) return "bg-emerald-500";
-  if (score >= 0.33) return "bg-amber-400";
-  return "bg-rose-500";
-}
-
-function edgeQualityLabel(score: number): string {
-  if (score >= 0.67) return "High";
-  if (score >= 0.33) return "Medium";
-  return "Low";
-}
-
-function EdgeQualityBar({ score }: { score: number }) {
-  const pct = Math.round(Math.min(1, Math.max(0, score)) * 100);
-  const label = edgeQualityLabel(score);
-  const color = edgeQualityColor(score);
-  return (
-    <div
-      className="flex flex-col gap-0.5"
-      title={`Edge quality: ${label} (${pct}%)`}
-      aria-label={`Edge quality ${label}, ${pct} percent`}
-    >
-      <div className="h-1 w-12 rounded-full bg-slate-800 overflow-hidden">
-        <div
-          className={cn("h-full rounded-full transition-all", color)}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <p className="text-[9px] uppercase tracking-wider text-slate-600">{label}</p>
-    </div>
-  );
-}
+// EdgeQualityBar (+ edgeQualityLabel/edgeQualityColor) now live in
+// @/components/edge-quality-bar and @/lib/edge-quality — shared with
+// match-selector.tsx's BigMatchesCarousel, same precedent as LEAGUE_COLORS.
 
 // ─── CLVBadge ─────────────────────────────────────────────────────────────────
 

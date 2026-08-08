@@ -7,6 +7,7 @@ import {
   selectorLeagueId,
   type SelectedFixture,
 } from "@/lib/match-selection";
+import { describeEdgeQualityPill, describeValueBadge } from "@/lib/edge-quality";
 
 describe("excludeSelectedTeam", () => {
   const teams = ["Arsenal", "Aston Villa", "Brighton"];
@@ -122,5 +123,42 @@ describe("top-edge labelling", () => {
       { ...base, match_id: "b", predictions: prediction, edge_quality_score: 0.6 },
     ];
     expect(getTopEdgeFixtureId(fixtures)).toBe("b");
+  });
+});
+
+describe("edge-quality pill (BigMatchesCarousel homepage badge)", () => {
+  // Regression: edge_quality_score is a 0.40*confidence + 0.30*market_edge +
+  // 0.20*freshness + 0.10*completeness composite (backend
+  // upcoming_matches.py:_compute_edge_quality_score) — a quality signal, not a
+  // market edge. It was previously rendered as "{score*100}% edge" on the live
+  // homepage, and — compounded by a separate backend bug (staleness_seconds
+  // silently defaulting to 0, pinning the freshness term at its max) — produced
+  // an identical badge across every fixture. The pill must never claim to be an
+  // edge percentage; the real market edge is the separate Value badge.
+  it("never renders anything containing the substring '% edge'", () => {
+    for (const score of [0, 0.1, 0.32, 0.33, 0.5, 0.66, 0.67, 0.9, 1]) {
+      const pill = describeEdgeQualityPill(score);
+      expect(pill?.label).not.toMatch(/%\s*edge/i);
+      expect(pill?.title).not.toMatch(/%\s*edge/i);
+    }
+  });
+
+  it("returns null instead of a placeholder pill when no score exists", () => {
+    expect(describeEdgeQualityPill(null)).toBeNull();
+    expect(describeEdgeQualityPill(undefined)).toBeNull();
+  });
+
+  it("labels High/Medium/Low at the same 0.67/0.33 thresholds as EdgeQualityBar", () => {
+    expect(describeEdgeQualityPill(0.67)?.label).toBe("High quality");
+    expect(describeEdgeQualityPill(0.66)?.label).toBe("Medium quality");
+    expect(describeEdgeQualityPill(0.33)?.label).toBe("Medium quality");
+    expect(describeEdgeQualityPill(0.32)?.label).toBe("Low quality");
+  });
+
+  it("shows the real market edge only when a value bet genuinely exists", () => {
+    expect(describeValueBadge(true, 6.2)).toBe("Value 6.2%");
+    expect(describeValueBadge(false, 6.2)).toBeNull(); // has_value=false must win
+    expect(describeValueBadge(true, null)).toBeNull(); // no edge to show
+    expect(describeValueBadge(true, undefined)).toBeNull();
   });
 });

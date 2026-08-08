@@ -594,11 +594,37 @@ class Settings(BaseSettings):
             return "postgresql://sabi@localhost:5432/sabiscore"
         return v
 
-    @field_validator("models_path", "data_path", mode="before")
+    @field_validator(
+        "models_path",
+        "data_path",
+        "phase7_models_path",
+        "elo_parquet_path",
+        "statsbomb_cache_path",
+        "causal_report_path",
+        "pi_ratings_parquet_path",
+        "berrar_ratings_parquet_path",
+        mode="before",
+    )
     @classmethod
     def _ensure_path(cls, value):
+        """Coerce to Path and anchor relative values to the project root.
+
+        Every default above is already `_PROJECT_ROOT`-anchored, but a value
+        supplied via .env/env-var arrives as a bare relative string and was
+        previously resolved against the process CWD — which differs between
+        pytest (backend/), uvicorn, Docker and Render. A CWD-relative artifact
+        path therefore pointed at a directory that does not exist, and the
+        consumers all fail *silently*: `_load_from_disk` skipped the missing
+        directory and fell through to the legacy 86-feature artifacts in
+        `<root>/models` (SCHEMA_MISMATCH → model_version="fallback" on every
+        league, and no artifact at all for eredivisie), while EloEngine and
+        StatsBombAggregator returned empty tables, pinning their features —
+        including elo_difference, the highest-ATE feature in the registry — at
+        registry defaults on every prediction.
+        """
         if isinstance(value, (str, Path)):
-            return Path(value)
+            path = Path(value)
+            return path if path.is_absolute() else _PROJECT_ROOT / path
         raise ValueError("Path fields must be str or Path instances")
 
     @field_validator("debug", mode="before")

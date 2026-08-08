@@ -5,6 +5,117 @@ All notable changes to this skill suite are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## vΩ.45 — Homepage showed one identical badge for every fixture; vΩ.44's own model-loading fixes turned out incomplete (2026-08-08)
+
+vΩ.44's honest caveat — "predictions are not yet meaningfully differentiated" —
+had a concrete, visible symptom: every fixture card on the live homepage (six
+different Eredivisie matchups) showed an identical "40% edge · Away Win" badge.
+Tracing it found two bugs of its own, plus — caught only because the fix's own
+regression test was finally run end to end — vΩ.44's two model-loading fixes
+(`a772c80`, `a353fcb`) turned out not to be fully resolved either.
+
+### Fixed — the upcoming-fixtures endpoint silently skipped 27 of 68 features
+
+`GET /api/v1/upcoming/matches` (the endpoint behind the homepage) built its
+feature vector via the bare `UpcomingMatchFeatureProjector.project_match_features()`,
+which by its own documented design excludes Elo (4 features), StatsBomb (2
+features), and the whole Phase-8 block (21 features) and defers them to a
+wrapper, `build_live_feature_vector()`, that this one call site never invoked —
+every other prediction surface (`full_analysis.py`, `monitoring/baseline.py`,
+`phase8_features.py`) already called the correct wrapper. Two knock-on effects
+of the same bug: those 27 features are excluded from the bare method's own gap
+tracking (invisibly missing, not honestly reported), and its return dict has no
+`staleness_seconds` key at all, so it silently defaulted to `0` — pinning the
+"freshness" term of the homepage's quality score at its maximum for every
+fixture regardless of real data age. `upcoming_match_service.py` now calls
+`build_live_feature_vector()`, matching every other caller.
+
+### Fixed — the homepage badge displayed a quality score as if it were a market edge
+
+The badge didn't show a market edge at all — it showed `edge_quality_score`, a
+deliberately-documented 0–1 composite (`api/endpoints/upcoming_matches.py:
+_compute_edge_quality_score` — 40% model confidence + 30% market edge + 20%
+freshness + 10% completeness), rendered as `"{score×100}% edge"`. A sibling
+panel two files over already handled the same field correctly — a quality bar
++ High/Medium/Low label, with the real market edge shown separately only when
+one exists. `BigMatchesCarousel` now follows that pattern; the label/threshold
+logic is extracted to `@/lib/edge-quality.ts` + `@/components/edge-quality-bar.tsx`
+so both components share one definition (same precedent as `lib/league-colors.ts`).
+
+### Fixed — relative path settings resolved against the CWD, so the certified artifacts never loaded locally
+
+Running `test_model_artifact_loading.py` (added by `a353fcb`, never executed
+end-to-end until now) surfaced 9 failures. Root cause: `backend/.env` supplies
+`PHASE7_MODELS_PATH`, `ELO_PARQUET_PATH` and `STATSBOMB_CACHE_PATH` as *relative*
+strings, and `Settings._ensure_path` coerced them to `Path` without anchoring, so
+they resolved against the process CWD (`backend/` under pytest) rather than the
+project root. Every consumer then failed **silently**:
+
+- `_load_from_disk` skipped the absent `backend/backend/models` and fell through
+  to `<root>/models`, which holds the *legacy* 86-feature artifacts in the
+  pre-WP-18 naming scheme (`home_form_5`) → `SCHEMA_MISMATCH — 68 supplied, 86
+  expected` → `model_version="fallback"` on every league with a legacy file, and
+  `bundle=None` for eredivisie, which has none.
+- `EloEngine._load_table()` and `StatsBombAggregator._load_cache()` return empty
+  DataFrames for a missing parquet — no exception, no signal.
+
+`_ensure_path` now anchors any relative value to `_PROJECT_ROOT` and covers all 8
+Path fields. Local Elo went from **0 rows to 4,116**; the artifact tests went
+9-failed → **14/14 passing**, with the engine returning `v6_phase8`/dim 68
+instead of `fallback`.
+
+⚠️ **Production was never affected** — `render.yaml` already sets all four paths
+to absolute `/opt/render/project/src/...` values. This restores local/CI parity
+with production, and removes a whole class of CWD-dependent silent failure.
+
+### Fixed — an unresolved Elo rating was published as an observation
+
+`EloEngine` falls back to a neutral 1500.0 for a team it has no rating for, giving
+`elo_difference == 0.0` and zero trends — indistinguishable from two genuinely
+equal teams. `EloContext` carried no signal to tell them apart, and because
+`_CALLER_RESOLVED_FEATURES` deliberately excludes the Elo features from
+`project_match_features()`'s gap tracking (the caller "always resolves them"), an
+absent rating was reported *nowhere*: not as a gap, not in
+`feature_defaulted_ratio`, not in the completeness term of the homepage quality
+score. `EloContext` now carries `home_resolved`/`away_resolved`, and both
+`build_live_feature_vector*` call sites add the four Elo features to `data_gaps`
+when unresolved. Same defect class as vΩ.24, on the highest-ATE feature in the
+registry.
+
+### Found, not fixed — the certified artifacts respond to only 4 of 68 features
+
+With the artifacts finally loading, a per-feature sensitivity sweep on the EPL
+artifact (perturb one feature, measure max |Δp|) shows only **4 of 68** features
+move the output — `progressive_carry_diff` (0.268), `elo_momentum_cross` (0.254),
+`elo_away_trend_5` (0.209), `elo_home_trend_5` (0.138). All 58 base features move
+it by < 1e-6, including every real-history feature the WP-18 remap and the vΩ.44
+backfill exist to populate, and including `elo_difference` (registry ATE 0.335).
+
+Worse, the two parquets feeding those 4 features are keyed by **synthetic
+placeholder ids** (`bundesliga_home_0`, `bundesliga_team_3`), not real `Team.id`
+values, so no live fixture can join to them. Every responsive feature is therefore
+pinned at its registry default for every fixture, and every fixture receives the
+identical prediction: `0.4162 / 0.4155 / 0.1683` — exactly the `41.6 / 41.5 / 16.8`
+shown for Arsenal vs Brentford on the live site.
+
+**This is the real cause of "predictions are not meaningfully differentiated," it
+is pre-existing and live, and it is not fixable in code** — it needs a retrain
+against the 12,765 real matches backfilled in vΩ.44 plus a real Elo replay keyed
+by `Team.id`. Full evidence in `docs/DEBT.md` item 12 (rewritten this session;
+its previous version wrongly blamed the artifacts' feature schema and wrongly
+claimed production fell back — both corrected). Until it lands, published
+probabilities should be treated as **not fixture-specific**.
+
+### Verification
+
+Backend **1187 passed / 0 failed** / 13 skipped (from 1171 passed + 9 failed at the
+start of this session; +16 tests), ruff 0 on `src/`, web lint 0, typecheck 0,
+Vitest 113/113 (+4 new), `NODE_ENV=production` build clean. Neither
+`betting_intelligence.py` nor `core_engine.py` was touched, so the dual-engine
+rule does not apply.
+
+---
+
 ## vΩ.44 — The prediction pipeline could never publish; three blockers removed (2026-08-08)
 
 Three independent defects each made publication impossible on their own, so fixing

@@ -26,6 +26,18 @@ class EloContext:
     home_elo_trend_5: float
     away_elo_trend_5: float
     elo_momentum_cross: float
+    # Whether a rating was actually found for each side. A team with no history
+    # falls back to _DEFAULT_BASE_ELO, which yields elo_difference == 0.0 and
+    # zero trends — numerically indistinguishable from two genuinely equal
+    # teams. Callers must use these flags to report a DATA_GAP rather than
+    # letting a neutral default be read as an observation (INV-01).
+    home_resolved: bool = False
+    away_resolved: bool = False
+
+    @property
+    def resolved(self) -> bool:
+        """True only when both sides have real ratings backing the context."""
+        return self.home_resolved and self.away_resolved
 
 
 class EloEngine:
@@ -63,8 +75,12 @@ class EloEngine:
         match_date: datetime,
     ) -> EloContext:
         """Return pre-match Elo context without mutating state."""
-        home_pre, home_trend = self._get_pre_and_trend(home_team_id, league, season, match_date)
-        away_pre, away_trend = self._get_pre_and_trend(away_team_id, league, season, match_date)
+        home_pre, home_trend, home_found = self._get_pre_and_trend(
+            home_team_id, league, season, match_date
+        )
+        away_pre, away_trend, away_found = self._get_pre_and_trend(
+            away_team_id, league, season, match_date
+        )
         elo_diff = home_pre - away_pre
         return EloContext(
             home_elo=home_pre,
@@ -73,6 +89,8 @@ class EloEngine:
             home_elo_trend_5=home_trend,
             away_elo_trend_5=away_trend,
             elo_momentum_cross=home_trend - away_trend,
+            home_resolved=home_found,
+            away_resolved=away_found,
         )
 
     def update_after_match(
@@ -101,8 +119,8 @@ class EloEngine:
                 "away_post": float(existing[existing["team_id"] == away_team_id]["post_match_elo"].iloc[0]) if (existing["team_id"] == away_team_id).any() else _DEFAULT_BASE_ELO,
             }
 
-        home_pre, _ = self._get_pre_and_trend(home_team_id, league, season, match_date)
-        away_pre, _ = self._get_pre_and_trend(away_team_id, league, season, match_date)
+        home_pre, _, _ = self._get_pre_and_trend(home_team_id, league, season, match_date)
+        away_pre, _, _ = self._get_pre_and_trend(away_team_id, league, season, match_date)
 
         home_exp, away_exp = self._expected_scores(home_pre, away_pre)
         if home_goals > away_goals:
@@ -158,7 +176,13 @@ class EloEngine:
         league: str,
         season: str,
         match_date: datetime,
-    ) -> Tuple[float, float]:
+    ) -> Tuple[float, float, bool]:
+        """Return (pre_match_elo, trend, found).
+
+        ``found`` is False when no prior rating exists for this team — the
+        returned values are then the neutral baseline, not a measurement, and
+        the caller must surface a DATA_GAP instead of publishing them.
+        """
         table = self._load_table()
         team_rows = table[
             (table["team_id"].astype(str) == str(team_id))
@@ -167,7 +191,7 @@ class EloEngine:
         ].sort_values("match_date")
 
         if team_rows.empty:
-            return _DEFAULT_BASE_ELO, 0.0
+            return _DEFAULT_BASE_ELO, 0.0, False
 
         last_post = float(team_rows["post_match_elo"].iloc[-1])
         trend = self._rolling_trend(team_rows)
@@ -183,7 +207,7 @@ class EloEngine:
             # Season carry-over decay toward league mean.
             last_post = league_mean + 0.5 * (last_post - league_mean)
 
-        return last_post, trend
+        return last_post, trend, True
 
     def _rolling_trend(self, team_rows: pd.DataFrame) -> float:
         post = team_rows["post_match_elo"].astype(float)
