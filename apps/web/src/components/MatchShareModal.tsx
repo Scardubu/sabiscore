@@ -7,6 +7,8 @@ import { analytics } from "@/lib/analytics";
 import { VERDICT_TOKENS, type Verdict } from "@/lib/verdict-tokens";
 import { certificationLabel } from "@/lib/model-identity";
 
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://sabiscore.com").replace(/\/$/, "");
+
 interface MatchShareModalBaseProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -48,8 +50,7 @@ export function MatchShareModal(props: MatchShareModalProps) {
   const { open, onOpenChange, matchId, homeTeam, awayTeam, league } = props;
   const [copied, setCopied] = useState(false);
 
-  const siteUrl = typeof window !== "undefined" ? window.location.origin : "https://sabiscore.com";
-  const matchUrl = `${siteUrl}/match/${encodeURIComponent(matchId)}?league=${encodeURIComponent(league)}`;
+  const matchUrl = `${SITE_URL}/match/${encodeURIComponent(matchId)}?league=${encodeURIComponent(league)}`;
   const analysis = hasValidProbabilities(props) ? props : null;
   const verdictTokens = analysis ? VERDICT_TOKENS[analysis.verdict] : null;
   const maturityLabel = analysis ? certificationLabel(analysis.certificationState) : null;

@@ -153,6 +153,25 @@ function formatCi(ci: BootstrapCI | undefined, fmt: (v: number) => string): stri
   return `[${fmt(ci.ci_lower)}, ${fmt(ci.ci_upper)}]`;
 }
 
+function isCalibrationBin(value: unknown): value is CalibrationBin {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const candidate = value as Partial<CalibrationBin>;
+  return Number.isInteger(candidate.bin_index)
+    && Number.isFinite(candidate.count)
+    && (candidate.count ?? -1) >= 0
+    && (candidate.predicted_mean === null || Number.isFinite(candidate.predicted_mean))
+    && (candidate.empirical_frequency === null || Number.isFinite(candidate.empirical_frequency));
+}
+
+function isOutcomeCurves(value: unknown): value is OutcomeCurves {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const candidate = value as Partial<Record<OutcomeKey, unknown>>;
+  return (["home_win", "draw", "away_win"] as const).every((key) =>
+    candidate[key] === undefined
+      || (Array.isArray(candidate[key]) && candidate[key].every(isCalibrationBin)),
+  );
+}
+
 function isCalibrationData(value: unknown): value is CalibrationData {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const candidate = value as Partial<CalibrationData>;
@@ -163,6 +182,7 @@ function isCalibrationData(value: unknown): value is CalibrationData {
   ) {
     return false;
   }
+  if (candidate.curves !== undefined && !isOutcomeCurves(candidate.curves)) return false;
   return true;
 }
 
