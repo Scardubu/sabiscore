@@ -251,7 +251,7 @@ mission calls for, built on the honest premise §2 establishes: the value is
 transparency and calibration, not an accuracy claim the evidence does not
 support.
 
-**Implementation checkpoint — PR #157 (2026-09-06).** The first bounded
+**Implementation checkpoint (2026-09-06).** The first bounded
 frontend increment of Phase C is complete. It changed presentation and
 consumer-copy enforcement only: no backend response contract, calibration
 calculation, certification state, promotion rule, verdict gate, Kelly rule, or
@@ -271,7 +271,7 @@ historical ledger) before shipping a new one — the recurring failure mode
 this platform has hit five times is rendering a registry default as if it
 were a measurement.
 
-PR #157 now distinguishes a legitimate sample-floor state from malformed
+The calibration surface now distinguishes a legitimate sample-floor state from malformed
 contracts and infrastructure failures, carries the selected evaluation window
 through the request, states the serving-generation and settled-record scope,
 and exposes plotted observations in a keyboard-readable table. It retries only
@@ -286,7 +286,7 @@ family renders as gapped, styled with the same care as a resolved one —
 this is the concrete expression of "transparency over accuracy" as a design
 principle, not a slogan.
 
-PR #157 completes this contract for the two audited fixture-specific verdict
+This increment completes the contract for the two audited fixture-specific verdict
 surfaces: full analysis and betting intelligence. Both use the shared human
 evidence vocabulary and age labels without merging their distinct wire
 contracts. Result-backed analytical sharing now derives probabilities,

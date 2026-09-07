@@ -42,7 +42,8 @@ describe("MatchShareModal", () => {
     await waitFor(() => expect(clipboardWrite).toHaveBeenCalledTimes(1));
     const sharedText = clipboardWrite.mock.calls[0]?.[0] ?? "";
     expect(sharedText).toContain("SabiScore match intelligence: Arsenal vs Chelsea");
-    expect(sharedText).toContain("/match/fd-123?league=EPL");
+    expect(sharedText).toContain("https://sabiscore.com/match/fd-123?league=EPL");
+    expect(sharedText).not.toContain(window.location.origin);
     expect(sharedText).not.toMatch(/Forecast:|Verdict:|Verified quantitative evidence/);
   });
 

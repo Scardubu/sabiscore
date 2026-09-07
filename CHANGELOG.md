@@ -7,7 +7,7 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 
 ## Unreleased - Evidence-transparency frontend completion (2026-09-06)
 
-PR #157 implements the first bounded product increment from
+This follow-up implements the first bounded product increment from
 `docs/PRODUCTION_EXECUTIVE_DIRECTIVE.md` Phase C. This is a frontend and CI
 copy-contract change only: no backend analytical contract, model artifact,
 certification or promotion rule, verdict gate, Kelly rule, or staking
