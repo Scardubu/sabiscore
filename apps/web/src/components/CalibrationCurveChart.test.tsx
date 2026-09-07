@@ -154,6 +154,18 @@ describe("CalibrationCurveChart", () => {
     expect(await screen.findByText(/response could not be verified/i)).toBeInTheDocument();
   });
 
+  it("fails closed when calibration curves are not arrays of valid bins", async () => {
+    mockCalibration({
+      status: "OK",
+      sample_size: 12,
+      curves: { home_win: { bin_index: 0 }, draw: [], away_win: [] },
+    });
+
+    renderWithClient();
+
+    expect(await screen.findByText(/response could not be verified/i)).toBeInTheDocument();
+  });
+
   it("labels an unavailable calibration service as infrastructure failure", async () => {
     mockCalibration({ detail: "bad gateway" }, 502);
     renderWithClient();
