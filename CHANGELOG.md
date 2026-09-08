@@ -5,6 +5,43 @@ All notable changes to this skill suite are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased - Baseline-vs-market edge fabrication removed (2026-09-08)
+
+Zero-fabrication fix on the live match surface. No model artifact,
+certification or promotion rule, verdict gate, Kelly rule, or staking
+permission changed. The active generation remains `UNVERIFIED` /
+`ACTIVE_FAIL_CLOSED`, and `stake_permitted` remains `false` on every fixture.
+
+### Fixed
+
+- `_odds_edge_from_features` (`backend/src/api/endpoints/full_analysis.py`) no
+  longer builds a model-vs-market edge from the flat ~1/3 diagnostic prior that
+  `ensemble` carries on the `REDUCED_EVIDENCE_BASELINE` / `UNAVAILABLE` paths.
+  `prediction_status` is now a required keyword-only argument and gates the
+  whole comparison. Live, this had been publishing `Model 33.4% / Fair market
+  3.6% / +29.8pp · Model above fair market` on a UCL fixture two cards below
+  "Diagnostic baseline values are not displayed". Because the selection loop
+  maximises `model_prob - fair_market`, a flat prior always selected the longest
+  shot on the board and reported the book's own margin on it as model skill.
+  One root cause fed three surfaces: `EdgeDeltaBar`, `OddsEdgeCard`, and the
+  `top_evidence` narrative line in `_build_actionability`. See `docs/DEBT.md`
+  item 63.
+- `COHERENT_1X2_MARKET_UNAVAILABLE` is no longer appended when the edge is
+  suppressed for model reasons — on that path the market was resolved, and
+  `MODEL_PREDICTION_REDUCED_EVIDENCE` / `MODEL_PREDICTION_UNAVAILABLE` is
+  already recorded and already forces `partial`. Behaviour on the `AVAILABLE`
+  path is unchanged.
+- The `full-analysis-dashboard` no-edge fallback no longer claims "Live market
+  odds unavailable" when odds were in fact available and only a diagnostic
+  baseline was produced.
+
+### Added
+
+- `test_full_analysis_contract.py` regression guards, parametrized over both
+  non-`AVAILABLE` statuses and using the observed board, pinning the suppressed
+  comparison's magnitude and longest-shot selection, plus an assertion that a
+  real forecast still produces a market comparison.
+
 ## Unreleased - Evidence-transparency frontend completion (2026-09-06)
 
 This follow-up implements the first bounded product increment from

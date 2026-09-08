@@ -1,5 +1,106 @@
 # SabiScore Debt Ledger
 
+## 63. A flat diagnostic prior was differenced against real market prices and published as a "+29.8pp" edge — RESOLVED 2026-09-08
+
+**Tier:** `RESOLVED` — root cause fixed at the backend, guard watched failing,
+full unit suite green.
+
+**Found from a live production screenshot, not a test.** On
+`/match/fd-575329?league=UCL` (FC Barcelona vs Feyenoord Rotterdam), the
+Ensemble card read *"Official outcome probabilities are unavailable. Diagnostic
+baseline values are not displayed."* with *"Top outcome probability:
+Unavailable"* — and two cards below it, **Edge Delta rendered `Model 33.4%` vs
+`Fair market 3.6%` = `+29.8pp`, in emerald, captioned "Model above fair
+market."** The same page carried `RL BET RECOMMENDATION: No bet`, `BNN
+UNCERTAINTY: Unavailable`, `ELO CONTEXT: —`, and `5 critical gaps`.
+
+33.4% is the flat 1/3 diagnostic prior. `_odds_edge_from_features`
+(`full_analysis.py`) took `ensemble.home_win_prob` / `draw_prob` /
+`away_win_prob` with **no check on `prediction_status`**, so on the
+`REDUCED_EVIDENCE_BASELINE` path it differenced that prior against a real
+de-vigged price.
+
+⚠️ **This is not a weak signal, it is a systematically flattering fabrication.**
+The selection loop maximises `model_prob - fair_market`. With a flat prior every
+term of the first half is identical, so the maximum is always attained at the
+*smallest* fair-market probability — i.e. **the longest shot on the board,
+every time**, with the bookmaker's own margin on that leg reported as model
+skill. The 27.00 away price is what produced 29.8pp. A shorter board would have
+produced a smaller but equally fabricated number.
+
+**Three surfaces leaked from the one root cause**, which is why the fix belongs
+in the backend and not in the components: `EdgeDeltaBar`, `OddsEdgeCard`, and
+`_build_actionability`'s `top_evidence` list, which formats
+`f"Market edge +{...}pp on {market}"` into the narrative.
+
+⚠️ **It was latent for as long as the code existed and was activated by a
+*different* fix.** The Layer 4 comment in `get_full_analysis` records that
+`market_odds` was structurally always `None` — nothing ever asked a provider
+for a price — so `_odds_edge_from_features` always returned `None` and no
+comparison ever rendered. Wiring live odds up (the `_team_key` normalizer fix,
+14/59 → 59/59 matched) supplied the missing second term and switched this on.
+**A dormant fabrication has no symptom until the input it was waiting for
+arrives; fixing a data-plumbing bug can commission one.**
+
+**The `UNAVAILABLE` path was already safe by accident, not by design** —
+`_empty_ensemble` carries `0.0` probabilities, so `edge = 0 - fair < 0` and the
+`best[3] <= 0` guard rejected it. Only `REDUCED_EVIDENCE_BASELINE` leaked. The
+fix covers both, so the safety no longer depends on that coincidence.
+
+**Fix.** `prediction_status` is now a required keyword-only argument of
+`_odds_edge_from_features`, which returns `None` for any status other than
+`AVAILABLE`. The guard lives in the function rather than at the call site so no
+future caller can reintroduce the comparison by forgetting it.
+
+⚠️ **`COHERENT_1X2_MARKET_UNAVAILABLE` must NOT be appended on the suppressed
+path** — the market was *resolved* there (the live Evidence Passport read
+`Market Price — RESOLVED · 4` on the same screenshot). The call site now only
+claims that gap when `prediction_status == AVAILABLE`. This cannot loosen a
+staking gate: `MODEL_PREDICTION_REDUCED_EVIDENCE` / `MODEL_PREDICTION_UNAVAILABLE`
+is already appended on those paths, already forces `partial`, and already zeroes
+every public stake.
+
+**Deliberately NOT fixed — a pre-existing mislabel of the same family.** When
+the model *is* available and no market carries a positive edge,
+`_odds_edge_from_features` returns `None` via `best[3] <= 0` and the call site
+still appends `COHERENT_1X2_MARKET_UNAVAILABLE` → "no stable market price to
+compare against yet", when the real reason is "no positive edge found". Correct
+label, wrong cause. It is left alone because removing that gap would drop a
+critical gap on the `AVAILABLE` path and could open a staking gate — a Class C
+gate-loosening change requiring explicit authorization under APEX §23. Behaviour
+on the `AVAILABLE` path is byte-identical to before this fix.
+
+**Frontend.** The `!data.odds_edge` fallback previously read *"Live market odds
+unavailable — edge calculation skipped."* — which the backend fix would have
+made **false** on exactly the new path (odds were available; the model was not).
+It is now conditional on `presentation.predictionAvailable`.
+
+**Regression guard** (`test_full_analysis_contract.py`), parametrized over both
+non-`AVAILABLE` statuses, using the screenshot's own board
+(`{home 1.12, draw 9.5, away 27.0}`) against a flat 1/3 prior. **Watched
+failing** with the guard reverted, and it reproduced the live number exactly:
+`OddsEdge(market='away_win', market_odds=27.0, model_prob=0.3333,
+edge=0.29755)` → **+29.8pp**. A companion test pins that magnitude and the
+longest-shot selection so the guard's value stays visible, and a third asserts a
+real forecast still produces a comparison — the gate is on the model term only,
+not an odds kill switch.
+
+**Verification.** Backend unit suite 1281 passed / 4 skipped / 2 xfailed (the
+xfails are item 50's `error_association`); `test_full_analysis_contract.py`
+24/24; ruff `E4,E7,E9,F` clean on `src`; mypy 769 ≤ 784 (unchanged); web
+typecheck clean; ESLint clean; web Vitest 347/348 (the one failure is an
+unrelated pre-existing load-flake, see below).
+
+**Unrelated finding, not fixed.**
+`src/components/performance/performance-page-client.test.tsx > distinguishes a
+real outage from having no settled data` times out at the 5000 ms default under
+full-suite parallel load, and passes in isolation at **4202 ms** — an 0.8 s
+margin. It shares no import path with anything changed here
+(`performance-page-client.tsx` never imports `full-analysis-dashboard.tsx`).
+This is a latent CI flake that will fail intermittently on a loaded runner;
+raising its timeout is a judgment call left to whoever owns that surface.
+
+
 ## 62. A league-stratified staking carve-out was proposed and rejected on a paired bootstrap CI — the "EPL edge" was 0.078σ of an unpaired SE, and 0/6 leagues clear it either way (2026-09-06, PR #156)
 
 **Tier:** `ACCEPTED` — measured, documented, not revisited without new evidence.

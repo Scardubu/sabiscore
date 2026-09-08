@@ -12,7 +12,10 @@ from fastapi.encoders import jsonable_encoder
 from src.api.endpoints import full_analysis as endpoint
 from src.data.elo_engine import EloContext
 from src.models.causal_selector import CausalFeatureResult
-from src.schemas.full_analysis import FullMatchAnalysisResponseSchema
+from src.schemas.full_analysis import (
+    FullMatchAnalysisResponseSchema,
+    PredictionStatus,
+)
 from src.services.intelligence_synthesizer import (
     EnsemblePrediction,
     IntelligenceSynthesizer,
@@ -148,6 +151,7 @@ def test_quarter_kelly_edge_respects_effective_cap() -> None:
         _ensemble(),
         {"home_win": 3.0, "draw": 4.0, "away_win": 5.0},
         effective_kelly_cap=0.02,
+        prediction_status=PredictionStatus.AVAILABLE,
     )
     assert edge is not None
     assert 0 < edge.kelly_stake <= 0.02
@@ -367,3 +371,76 @@ def test_openapi_exposes_typed_full_analysis_response() -> None:
         "effective_kelly_cap",
         "stake_permitted",
     } <= required
+
+
+# ── Baseline-vs-market fabrication guard ─────────────────────────────────────
+# Regression for the live defect on fd-575329 (UCL): a flat ~1/3 diagnostic
+# prior was differenced against a real de-vigged 27.00 away price and rendered
+# as "+29.8pp · Model above fair market", two cards below "Diagnostic baseline
+# values are not displayed".
+
+
+def _flat_baseline_ensemble(league: str = "UCL") -> EnsemblePrediction:
+    """The diagnostic prior the reduced-evidence path actually carries."""
+    return EnsemblePrediction(
+        home_win_prob=1 / 3,
+        draw_prob=1 / 3,
+        away_win_prob=1 / 3,
+        prediction="home_win",
+        confidence=1 / 3,
+        league=league,
+        model_version="fallback",
+        calibration_method="unavailable",
+        calibration_applied=False,
+    )
+
+
+# The board that produced the screenshot: a heavy home favourite and a 27.00
+# away long shot. Against a flat prior the away leg is the maximum-edge pick.
+_LONGSHOT_BOARD = {"home_win": 1.12, "draw": 9.5, "away_win": 27.0}
+
+
+@pytest.mark.parametrize(
+    "status",
+    [PredictionStatus.REDUCED_EVIDENCE_BASELINE, PredictionStatus.UNAVAILABLE],
+)
+def test_no_odds_edge_is_built_from_a_diagnostic_baseline(status) -> None:
+    assert (
+        endpoint._odds_edge_from_features(
+            _flat_baseline_ensemble(),
+            _LONGSHOT_BOARD,
+            effective_kelly_cap=0.04,
+            prediction_status=status,
+        )
+        is None
+    )
+
+
+def test_the_suppressed_comparison_would_have_been_a_huge_fake_edge() -> None:
+    """Pin the magnitude, so the guard's value is visible if it is ever removed.
+
+    Without the status gate the identical inputs yield the screenshot's number:
+    a flat prior maximises ``model_prob - fair_market``, so it always selects
+    the longest shot and reports the book's own margin as model skill.
+    """
+    leaked = endpoint._odds_edge_from_features(
+        _flat_baseline_ensemble(),
+        _LONGSHOT_BOARD,
+        effective_kelly_cap=0.04,
+        prediction_status=PredictionStatus.AVAILABLE,
+    )
+    assert leaked is not None
+    assert leaked.market == "away_win", "a flat prior always picks the longest shot"
+    assert leaked.edge * 100 > 25, "the fabricated edge is large, not marginal"
+
+
+def test_a_real_forecast_still_produces_a_market_comparison() -> None:
+    """The guard must gate on the model term only — it is not an odds kill switch."""
+    edge = endpoint._odds_edge_from_features(
+        _ensemble(),
+        {"home_win": 3.0, "draw": 4.0, "away_win": 5.0},
+        effective_kelly_cap=0.04,
+        prediction_status=PredictionStatus.AVAILABLE,
+    )
+    assert edge is not None
+    assert edge.edge > 0
