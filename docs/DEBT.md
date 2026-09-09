@@ -1,5 +1,132 @@
 # SabiScore Debt Ledger
 
+## 69. Portfolio F (contextual state) — `REJECT` on a tight null; two real defects found by reading descriptives first
+
+**Tier:** `REJECT` — `PRODUCTION_EXECUTIVE_DIRECTIVE.md` §51 decision.
+Full study: `reports/research/portfolio-f-contextual-state.md`.
+**Found:** 2026-09-09, directive §10 / Phase 4. Zero acquisition cost — rest,
+congestion and referee all derive from `backend/data/cache/fd_*.csv`.
+
+**Result: every test is a tight null.** Rest + congestion beyond the market:
+-0.0001, CI [-0.0005,+0.0003] (n=1,752). Referee beyond the market (EPL only):
++0.0001, CI [-0.0003,+0.0006]. All three combined: +0.0001, CI
+[-0.0017,+0.0018]. No CI excludes zero and point estimates flip sign between
+studies. **`REJECT` not `HOLD`** — unlike item 65's *wide* null (small effect,
+consistent sign, underpowered), these are *narrow* CIs centred on zero, which
+is positive evidence of absence. Confirms §10's own stated prior that
+contextual state is weaker than the other portfolios.
+
+⚠️ **Two real defects, both caught by reading the Stage 1 descriptive output
+before the headline, neither caught by a test:**
+
+1. **Rest days leaked across the summer break.** State keyed `(league, team)`
+   with no season component, so every season opener recorded its team's last
+   match of the *prior* season as "previous fixture" — `rest_diff` spanned
+   ±357 days. Fixed by keying `(league, season, team)`. **This changed the
+   answer**: rest+congestion moved from +0.0007 (worse) to -0.0001 (null).
+2. **Referee data exists for one league and was diluted across five.** Only
+   **7 of 36 corpus files carry a `Referee` column, all `E0` (EPL)**. Pooling
+   meant four leagues contributed constant zeros, turning a genuine
+   single-league signal into a fake null. Scoped to EPL (98.9% coverage), with
+   per-league coverage now reported explicitly.
+
+**Leakage guard, watched failing.** A whole-corpus referee home-win rate would
+include the fixture being predicted. `enrich_contextual()` makes one
+chronological pass computing every statistic from strictly-earlier fixtures,
+with empirical-Bayes shrinkage toward the contemporaneous league base rate.
+Deliberately moving the state update before the feature computation makes
+exactly the two leakage tests go red; restoring makes them green.
+
+⚠️ **Honest caveat on the rejection:** congestion is measured against
+**domestic fixtures only** — this corpus has no cup or European matches, so a
+club playing Thursday Europa League registers as fully rested. The rejection
+is sound for domestic-schedule congestion and understated for true fixture
+load. Reopening (§42) needs genuinely different information — travel distance
+(blocked behind Portfolio C's venue-location `HOLD`), referee data for the
+other four leagues, or a cup-inclusive fixture list.
+
+**No production code, feature schema, or model artifact changed.**
+
+---
+
+## 68. Portfolio E (market microstructure) — drift beyond the closing quote `REJECT`ed on a tight null; the open/close gap is the actionable finding
+
+**Tier:** `REJECT` (Q2) / `HOLD` (Q3, Q4) — §51 decisions.
+Full study: `reports/research/portfolio-e-market-microstructure.md`.
+**Found:** 2026-09-09, directive §9 / Phase 4. Zero acquisition cost — the
+corpus already carries both an opening and a closing quote per fixture, and
+the information-arrival question had simply never been asked.
+
+**Q2 — does open→close drift add information beyond the closing quote? No.**
+Pooled 0.0000, CI [-0.0001,+0.0002]; all five leagues within ±0.0002 with CIs
+spanning zero. **`REJECT`, not `HOLD`** — a *tight* null is positive evidence
+of absence, exactly as market efficiency predicts (the movement's information
+is by construction already inside the price it moved to).
+
+**⭐ Q1 is the operationally useful finding: the closing quote beats the
+opening quote by 0.00085 RPS pooled** (4 of 5 leagues; Serie A inverted in
+this one test season). **That is the same order of magnitude as the candidate
+effects the promotion gates evaluate** — item 65's best candidate moved RPS by
+-0.0004. So the repeatedly-recorded "0 of 6 leagues beat the market" (items
+62, 64) **is incomplete without naming which quote it was measured against**.
+Recommended follow-up, not done here: audit which quote `market_baseline`
+uses in `compare_candidate_vs_incumbent.py` / `promotion_evidence.py` and
+state it in the gate's own output. If it is an earlier quote, every
+"did not beat the market" conclusion is measured against a weaker reference
+than a bettor faces at kickoff.
+
+**Q3 — cross-book dispersion: `HOLD`, explicitly flagged as probable
+multiple-testing noise.** Pooled -0.0002 with a CI touching zero at the
+rounding boundary, and only 1 of 5 leagues individually significant. This
+study ran **18 uncorrected comparisons** (3 hypotheses × 6 slices); at α=0.05
+roughly one false positive is expected by chance, and §18's required
+pre-declared correction protocol was **not** declared before the run.
+Retrofitting one now would itself be post-hoc. Needs pre-registered
+replication to be worth anything.
+
+**Q4 — drift beyond the *opening* quote: `HOLD`, non-deployable.**
+Directionally positive in 4/5 leagues but the pooled CI includes zero, and
+more importantly drift is unknowable until kickoff.
+
+⚠️ **Serving-window constraint governs the whole portfolio.** A closing quote
+exists only at kickoff; SabiScore's primary surface serves fixtures
+hours-to-days ahead. Any model consuming closing odds or drift is not
+deployable there — structurally identical to the confirmed-lineup constraint
+item 65 found (§2b of that study).
+
+**No production code, feature schema, or model artifact changed.**
+
+---
+
+## 67. Stage-3 evaluation harness extracted — one implementation, three studies
+
+**Tier:** `RESOLVED 2026-09-09` (refactor, behaviour-preserving).
+**Found:** 2026-09-09, when Portfolios E and F became the second and third
+consumers of the temporal-split / fit / RPS / paired-block-bootstrap pipeline
+written for item 65's Stage 3.
+
+`backend/scripts/_incremental_value_harness.py` now owns
+`run_incremental_value_study()`, `devig()`, `mean_rps()`,
+`paired_rps_diff_bootstrap()` and `fit_multinomial_logistic()`. Portfolio B's
+Stage 3 script, Portfolio E and Portfolio F all call it. Writing this a third
+time is exactly the duplication this ledger has repeatedly paid for elsewhere
+(the three team-name normalizers of item 40, the four goals/gd remaps of item
+36).
+
+**Verified behaviour-preserving by re-running Portfolio B's Stage 3 on the
+refactored harness and confirming byte-identical output** — pooled
+raw_market=0.19463 / baseline=0.19488 / candidate=0.19445, diff -0.0004 CI
+[-0.0010,+0.0001], and all five per-league rows unchanged to the fifth
+decimal. Not assumed; compared.
+
+Unit tests moved with the logic
+(`tests/unit/test_incremental_value_harness.py`, 7 tests). The harness is
+deliberately NOT generalized further: it does not choose features, pick the
+split, or interpret the result — burying those would make three different
+research questions look like one.
+
+---
+
 ## 66. Tactical matchup intelligence (Portfolio D) is blocked by a coverage ceiling this codebase already measured for a different feature — `HOLD`, no new audit run
 
 **Tier:** `HOLD` — `PRODUCTION_EXECUTIVE_DIRECTIVE.md` §51 decision, not a

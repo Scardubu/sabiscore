@@ -61,7 +61,6 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import httpx  # noqa: E402
-import numpy as np  # noqa: E402
 
 from qualify_player_availability_coverage import (  # noqa: E402
     _LEAGUE_TO_DIVISION,
@@ -69,26 +68,20 @@ from qualify_player_availability_coverage import (  # noqa: E402
     _CACHE_DIR,
     resolve_against_roster,
 )
+from _incremental_value_harness import (  # noqa: E402
+    devig,
+    run_incremental_value_study,
+)
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_BACKEND_ROOT))
 from src.core.config import settings  # noqa: E402
 from src.providers.api_football import APIFootballProvider  # noqa: E402
-from src.models.evaluation.metrics import (  # noqa: E402
-    ranked_probability_score,
-    block_bootstrap_ci,
-)
 
 _REPORT_DIR = _BACKEND_ROOT.parent / "reports" / "research"
 _OUTCOME_CODE = {"H": 0, "D": 1, "A": 2}  # matches ranked_probability_score's own convention
 _TRAIN_SEASONS = (2022, 2023)
 _TEST_SEASON = 2024
-
-
-def devig(odds_home: float, odds_draw: float, odds_away: float) -> list[float]:
-    """Normalize 1/odds implied probabilities to sum to 1 (remove overround)."""
-    raw = np.array([1.0 / odds_home, 1.0 / odds_draw, 1.0 / odds_away])
-    return (raw / raw.sum()).tolist()
 
 
 def load_fixtures_with_odds(division: str, suffix: str) -> list[dict[str, Any]]:
@@ -157,48 +150,6 @@ async def collect_unavailable_counts(
     return counts
 
 
-def _fit_multinomial_logistic(X: np.ndarray, y: np.ndarray):
-    from sklearn.linear_model import LogisticRegression
-
-    # `multi_class` was removed in this sklearn version -- the default
-    # ('lbfgs' solver, 3+ classes) already fits genuine multinomial (softmax)
-    # probabilities without it; passing the old kwarg raises TypeError here.
-    model = LogisticRegression(max_iter=2000)
-    model.fit(X, y)
-    return model
-
-
-def _mean_rps(y_true: np.ndarray, y_proba: np.ndarray) -> float:
-    return float(
-        np.mean([ranked_probability_score(int(yt), list(yp)) for yt, yp in zip(y_true, y_proba)])
-    )
-
-
-def _paired_rps_diff_bootstrap(
-    y_true: np.ndarray, proba_candidate: np.ndarray, proba_baseline: np.ndarray
-) -> dict[str, Any]:
-    """Block-bootstrap CI on the per-fixture RPS difference (candidate - baseline)."""
-    per_fixture_diff = np.array(
-        [
-            ranked_probability_score(int(yt), list(pc)) - ranked_probability_score(int(yt), list(pb))
-            for yt, pc, pb in zip(y_true, proba_candidate, proba_baseline)
-        ]
-    )
-    # block_bootstrap_ci expects (y_true, y_proba, metric_fn); repurpose it to
-    # bootstrap a plain 1-D series by passing the diffs as "y_proba" rows of
-    # width 1 and a metric_fn that just takes the mean -- reuses the existing,
-    # already-tested block-resampling machinery (including its own
-    # point_estimate, computed the same way) rather than reimplementing it.
-    dummy_y_true = np.zeros(len(per_fixture_diff), dtype=int)
-
-    def _mean_metric(_yt: np.ndarray, diffs: np.ndarray) -> float:
-        return float(np.mean(diffs))
-
-    return block_bootstrap_ci(
-        dummy_y_true, per_fixture_diff.reshape(-1, 1), _mean_metric, block_size=10
-    )
-
-
 async def build_dataset() -> list[dict[str, Any]]:
     joined: list[dict[str, Any]] = []
     async with httpx.AsyncClient(timeout=30.0) as client:
@@ -234,60 +185,23 @@ async def build_dataset() -> list[dict[str, Any]]:
 
 
 def evaluate(joined: list[dict[str, Any]]) -> dict[str, Any]:
-    train = [r for r in joined if r["season"] in _TRAIN_SEASONS]
-    test = [r for r in joined if r["season"] == _TEST_SEASON]
-    if len(train) < 50 or len(test) < 50:
-        return {"error": "insufficient_train_or_test_rows", "train_n": len(train), "test_n": len(test)}
+    """Baseline = de-vigged market alone; candidate adds availability_diff.
 
-    X_train_baseline = np.array([r["market_probs"] for r in train])
-    X_train_candidate = np.array(
-        [r["market_probs"] + [r["availability_diff"]] for r in train]
+    Rule 7's bar: a signal that cannot beat a model already seeing the
+    market is not independent information. `raw_reference` scores the
+    unmodeled de-vigged market itself, the more fundamental Rule 6
+    comparison.
+    """
+    return run_incremental_value_study(
+        joined,
+        baseline_features=lambda r: list(r["market_probs"]),
+        candidate_features=lambda r: list(r["market_probs"]) + [r["availability_diff"]],
+        train_seasons=_TRAIN_SEASONS,
+        test_season=_TEST_SEASON,
+        group_key="league",
+        raw_reference=lambda r: list(r["market_probs"]),
+        raw_reference_label="rps_raw_market",
     )
-    y_train = np.array([r["outcome"] for r in train])
-
-    baseline_model = _fit_multinomial_logistic(X_train_baseline, y_train)
-    candidate_model = _fit_multinomial_logistic(X_train_candidate, y_train)
-
-    def _score_slice(rows: list[dict[str, Any]]) -> dict[str, Any] | None:
-        if len(rows) < 30:
-            return None
-        X_baseline = np.array([r["market_probs"] for r in rows])
-        X_candidate = np.array([r["market_probs"] + [r["availability_diff"]] for r in rows])
-        y_true = np.array([r["outcome"] for r in rows])
-        raw_market = X_baseline  # unmodeled de-vigged probabilities themselves
-
-        # Align each model's own class ordering to [home, draw, away] --
-        # LogisticRegression's classes_ is sorted ascending, which already
-        # matches 0/1/2, but asserted rather than assumed.
-        assert list(baseline_model.classes_) == [0, 1, 2]
-        assert list(candidate_model.classes_) == [0, 1, 2]
-
-        proba_baseline = baseline_model.predict_proba(X_baseline)
-        proba_candidate = candidate_model.predict_proba(X_candidate)
-
-        return {
-            "n": len(rows),
-            "rps_raw_market": round(_mean_rps(y_true, raw_market), 5),
-            "rps_baseline_model": round(_mean_rps(y_true, proba_baseline), 5),
-            "rps_candidate_model": round(_mean_rps(y_true, proba_candidate), 5),
-            "candidate_minus_baseline_bootstrap": _paired_rps_diff_bootstrap(
-                y_true, proba_candidate, proba_baseline
-            ),
-        }
-
-    result: dict[str, Any] = {
-        "train_seasons": list(_TRAIN_SEASONS),
-        "test_season": _TEST_SEASON,
-        "train_n": len(train),
-        "test_n": len(test),
-        "pooled": _score_slice(test),
-        "per_league": {},
-    }
-    for league in _LEAGUE_TO_DIVISION:
-        league_test = [r for r in test if r["league"] == league]
-        scored = _score_slice(league_test)
-        result["per_league"][league] = scored if scored is not None else {"n": len(league_test), "note": "insufficient_test_sample"}
-    return result
 
 
 async def main() -> int:

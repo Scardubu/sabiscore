@@ -1,0 +1,175 @@
+{
+  "portfolio": "F \u2014 contextual state (rest, congestion, referee)",
+  "directive": "\u00a710, \u00a716 Stage 1-3, Rule 6, Rule 7",
+  "leakage_guard": "Referee statistics are computed in a single chronological pass from fixtures strictly earlier than the one being scored, then shrunk toward the contemporaneous league base rate. A whole-corpus referee rate would leak the target and manufacture a fake result.",
+  "stage1_descriptive": {
+    "n_test": 1752,
+    "rest_diff": {
+      "mean": -0.021,
+      "stdev": 1.907,
+      "min": -23.0,
+      "max": 17.0
+    },
+    "congestion_diff_nonzero_share": 0.248,
+    "fixtures_with_referee_history": 376,
+    "referee_history_coverage_pct": 21.46,
+    "referee_coverage_by_league": {
+      "BUNDESLIGA": 0.0,
+      "EPL": 98.9,
+      "LA_LIGA": 0.0,
+      "LIGUE_1": 0.0,
+      "SERIE_A": 0.0
+    },
+    "referee_coverage_note": "Only 7 of 36 corpus files carry a Referee column and all are E0 (EPL). Referee studies below are therefore EPL-scoped; pooling them across leagues without the data produced a spurious null."
+  },
+  "f1_rest_and_congestion_beyond_market": {
+    "train_seasons": [
+      2022,
+      2023
+    ],
+    "test_season": 2024,
+    "train_n": 3578,
+    "test_n": 1752,
+    "pooled": {
+      "n": 1752,
+      "rps_baseline_model": 0.19488,
+      "rps_candidate_model": 0.19481,
+      "candidate_minus_baseline_bootstrap": {
+        "point_estimate": -0.0001,
+        "ci_lower": -0.0005,
+        "ci_upper": 0.0003,
+        "ci_level": 0.95,
+        "n_bootstrap": 1000,
+        "block_size": 10,
+        "n_samples": 1752
+      },
+      "rps_raw_market": 0.19463
+    },
+    "per_group": {
+      "BUNDESLIGA": {
+        "n": 306,
+        "rps_baseline_model": 0.20378,
+        "rps_candidate_model": 0.20392,
+        "candidate_minus_baseline_bootstrap": {
+          "point_estimate": 0.0001,
+          "ci_lower": -0.0008,
+          "ci_upper": 0.0011,
+          "ci_level": 0.95,
+          "n_bootstrap": 1000,
+          "block_size": 10,
+          "n_samples": 306
+        },
+        "rps_raw_market": 0.20198
+      },
+      "EPL": {
+        "n": 380,
+        "rps_baseline_model": 0.19802,
+        "rps_candidate_model": 0.19822,
+        "candidate_minus_baseline_bootstrap": {
+          "point_estimate": 0.0002,
+          "ci_lower": -0.0008,
+          "ci_upper": 0.0012,
+          "ci_level": 0.95,
+          "n_bootstrap": 1000,
+          "block_size": 10,
+          "n_samples": 380
+        },
+        "rps_raw_market": 0.19724
+      },
+      "LA_LIGA": {
+        "n": 380,
+        "rps_baseline_model": 0.18949,
+        "rps_candidate_model": 0.18899,
+        "candidate_minus_baseline_bootstrap": {
+          "point_estimate": -0.0005,
+          "ci_lower": -0.0015,
+          "ci_upper": 0.0006,
+          "ci_level": 0.95,
+          "n_bootstrap": 1000,
+          "block_size": 10,
+          "n_samples": 380
+        },
+        "rps_raw_market": 0.18996
+      },
+      "LIGUE_1": {
+        "n": 306,
+        "rps_baseline_model": 0.20285,
+        "rps_candidate_model": 0.20297,
+        "candidate_minus_baseline_bootstrap": {
+          "point_estimate": 0.0001,
+          "ci_lower": -0.0009,
+          "ci_upper": 0.0011,
+          "ci_level": 0.95,
+          "n_bootstrap": 1000,
+          "block_size": 10,
+          "n_samples": 306
+        },
+        "rps_raw_market": 0.20281
+      },
+      "SERIE_A": {
+        "n": 380,
+        "rps_baseline_model": 0.18354,
+        "rps_candidate_model": 0.1833,
+        "candidate_minus_baseline_bootstrap": {
+          "point_estimate": -0.0002,
+          "ci_lower": -0.0012,
+          "ci_upper": 0.0007,
+          "ci_level": 0.95,
+          "n_bootstrap": 1000,
+          "block_size": 10,
+          "n_samples": 380
+        },
+        "rps_raw_market": 0.1842
+      }
+    }
+  },
+  "f2_referee_beyond_market_EPL_ONLY": {
+    "train_seasons": [
+      2022,
+      2023
+    ],
+    "test_season": 2024,
+    "train_n": 760,
+    "test_n": 380,
+    "pooled": {
+      "n": 380,
+      "rps_baseline_model": 0.19988,
+      "rps_candidate_model": 0.20002,
+      "candidate_minus_baseline_bootstrap": {
+        "point_estimate": 0.0001,
+        "ci_lower": -0.0003,
+        "ci_upper": 0.0006,
+        "ci_level": 0.95,
+        "n_bootstrap": 1000,
+        "block_size": 10,
+        "n_samples": 380
+      },
+      "rps_raw_market": 0.19724
+    }
+  },
+  "f3_rest_congestion_and_referee_EPL_ONLY": {
+    "train_seasons": [
+      2022,
+      2023
+    ],
+    "test_season": 2024,
+    "train_n": 760,
+    "test_n": 380,
+    "pooled": {
+      "n": 380,
+      "rps_baseline_model": 0.19988,
+      "rps_candidate_model": 0.19998,
+      "candidate_minus_baseline_bootstrap": {
+        "point_estimate": 0.0001,
+        "ci_lower": -0.0017,
+        "ci_upper": 0.0018,
+        "ci_level": 0.95,
+        "n_bootstrap": 1000,
+        "block_size": 10,
+        "n_samples": 380
+      },
+      "rps_raw_market": 0.19724
+    }
+  },
+  "not_a_promotion": "Stage 3 evidence for a directive \u00a751 decision. Does not change the feature schema, retrain an artifact, or authorize serving."
+}
