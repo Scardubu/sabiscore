@@ -1,0 +1,344 @@
+{
+  "portfolio": "E \u2014 market microstructure / information arrival",
+  "directive": "\u00a79, \u00a716 Stage 1-3, Rule 6, Rule 7",
+  "serving_window_caveat": "A closing quote is knowable only at kickoff. SabiScore's primary surface serves fixtures hours-to-days ahead, so any model consuming closing odds or open->close drift is not deployable there \u2014 the same structural constraint Portfolio B found for confirmed lineups (\u00a72b of that study). Q2/Q4 findings are evidence about market behaviour first, and a product input only inside a near-kickoff window that does not currently exist.",
+  "n_fixtures": 5330,
+  "q1_efficiency_opening_vs_closing": {
+    "n": 1752,
+    "rps_opening_quote": 0.19463,
+    "rps_closing_quote": 0.19378,
+    "closing_minus_opening": -0.00085,
+    "interpretation": "Negative means the closing quote is the better forecast (lower RPS is better). A materially negative value is the classic market-efficiency result and also means any 'did SabiScore beat the market' claim must state WHICH quote it was measured against.",
+    "per_league": {
+      "BUNDESLIGA": {
+        "n": 306,
+        "rps_opening_quote": 0.20198,
+        "rps_closing_quote": 0.20175
+      },
+      "EPL": {
+        "n": 380,
+        "rps_opening_quote": 0.19724,
+        "rps_closing_quote": 0.19629
+      },
+      "LA_LIGA": {
+        "n": 380,
+        "rps_opening_quote": 0.18996,
+        "rps_closing_quote": 0.18778
+      },
+      "LIGUE_1": {
+        "n": 306,
+        "rps_opening_quote": 0.20281,
+        "rps_closing_quote": 0.20148
+      },
+      "SERIE_A": {
+        "n": 380,
+        "rps_opening_quote": 0.1842,
+        "rps_closing_quote": 0.18466
+      }
+    }
+  },
+  "q2_drift_beyond_closing": {
+    "train_seasons": [
+      2022,
+      2023
+    ],
+    "test_season": 2024,
+    "train_n": 3578,
+    "test_n": 1752,
+    "pooled": {
+      "n": 1752,
+      "rps_baseline_model": 0.1939,
+      "rps_candidate_model": 0.19395,
+      "candidate_minus_baseline_bootstrap": {
+        "point_estimate": 0.0,
+        "ci_lower": -0.0001,
+        "ci_upper": 0.0002,
+        "ci_level": 0.95,
+        "n_bootstrap": 1000,
+        "block_size": 10,
+        "n_samples": 1752
+      },
+      "rps_raw_closing_quote": 0.19378
+    },
+    "per_group": {
+      "BUNDESLIGA": {
+        "n": 306,
+        "rps_baseline_model": 0.20348,
+        "rps_candidate_model": 0.20355,
+        "candidate_minus_baseline_bootstrap": {
+          "point_estimate": 0.0001,
+          "ci_lower": -0.0002,
+          "ci_upper": 0.0004,
+          "ci_level": 0.95,
+          "n_bootstrap": 1000,
+          "block_size": 10,
+          "n_samples": 306
+        },
+        "rps_raw_closing_quote": 0.20175
+      },
+      "EPL": {
+        "n": 380,
+        "rps_baseline_model": 0.19688,
+        "rps_candidate_model": 0.19677,
+        "candidate_minus_baseline_bootstrap": {
+          "point_estimate": -0.0001,
+          "ci_lower": -0.0003,
+          "ci_upper": 0.0001,
+          "ci_level": 0.95,
+          "n_bootstrap": 1000,
+          "block_size": 10,
+          "n_samples": 380
+        },
+        "rps_raw_closing_quote": 0.19629
+      },
+      "LA_LIGA": {
+        "n": 380,
+        "rps_baseline_model": 0.18692,
+        "rps_candidate_model": 0.18715,
+        "candidate_minus_baseline_bootstrap": {
+          "point_estimate": 0.0002,
+          "ci_lower": -0.0001,
+          "ci_upper": 0.0006,
+          "ci_level": 0.95,
+          "n_bootstrap": 1000,
+          "block_size": 10,
+          "n_samples": 380
+        },
+        "rps_raw_closing_quote": 0.18778
+      },
+      "LIGUE_1": {
+        "n": 306,
+        "rps_baseline_model": 0.20153,
+        "rps_candidate_model": 0.20142,
+        "candidate_minus_baseline_bootstrap": {
+          "point_estimate": -0.0001,
+          "ci_lower": -0.0004,
+          "ci_upper": 0.0001,
+          "ci_level": 0.95,
+          "n_bootstrap": 1000,
+          "block_size": 10,
+          "n_samples": 306
+        },
+        "rps_raw_closing_quote": 0.20148
+      },
+      "SERIE_A": {
+        "n": 380,
+        "rps_baseline_model": 0.18406,
+        "rps_candidate_model": 0.18419,
+        "candidate_minus_baseline_bootstrap": {
+          "point_estimate": 0.0001,
+          "ci_lower": -0.0001,
+          "ci_upper": 0.0004,
+          "ci_level": 0.95,
+          "n_bootstrap": 1000,
+          "block_size": 10,
+          "n_samples": 380
+        },
+        "rps_raw_closing_quote": 0.18466
+      }
+    }
+  },
+  "q3_dispersion_beyond_closing": {
+    "train_seasons": [
+      2022,
+      2023
+    ],
+    "test_season": 2024,
+    "train_n": 3578,
+    "test_n": 1752,
+    "pooled": {
+      "n": 1752,
+      "rps_baseline_model": 0.1939,
+      "rps_candidate_model": 0.1937,
+      "candidate_minus_baseline_bootstrap": {
+        "point_estimate": -0.0002,
+        "ci_lower": -0.0004,
+        "ci_upper": -0.0,
+        "ci_level": 0.95,
+        "n_bootstrap": 1000,
+        "block_size": 10,
+        "n_samples": 1752
+      },
+      "rps_raw_closing_quote": 0.19378
+    },
+    "per_group": {
+      "BUNDESLIGA": {
+        "n": 306,
+        "rps_baseline_model": 0.20348,
+        "rps_candidate_model": 0.2028,
+        "candidate_minus_baseline_bootstrap": {
+          "point_estimate": -0.0007,
+          "ci_lower": -0.0009,
+          "ci_upper": -0.0002,
+          "ci_level": 0.95,
+          "n_bootstrap": 1000,
+          "block_size": 10,
+          "n_samples": 306
+        },
+        "rps_raw_closing_quote": 0.20175
+      },
+      "EPL": {
+        "n": 380,
+        "rps_baseline_model": 0.19688,
+        "rps_candidate_model": 0.19657,
+        "candidate_minus_baseline_bootstrap": {
+          "point_estimate": -0.0003,
+          "ci_lower": -0.0007,
+          "ci_upper": 0.0001,
+          "ci_level": 0.95,
+          "n_bootstrap": 1000,
+          "block_size": 10,
+          "n_samples": 380
+        },
+        "rps_raw_closing_quote": 0.19629
+      },
+      "LA_LIGA": {
+        "n": 380,
+        "rps_baseline_model": 0.18692,
+        "rps_candidate_model": 0.18691,
+        "candidate_minus_baseline_bootstrap": {
+          "point_estimate": -0.0,
+          "ci_lower": -0.0003,
+          "ci_upper": 0.0003,
+          "ci_level": 0.95,
+          "n_bootstrap": 1000,
+          "block_size": 10,
+          "n_samples": 380
+        },
+        "rps_raw_closing_quote": 0.18778
+      },
+      "LIGUE_1": {
+        "n": 306,
+        "rps_baseline_model": 0.20153,
+        "rps_candidate_model": 0.20131,
+        "candidate_minus_baseline_bootstrap": {
+          "point_estimate": -0.0002,
+          "ci_lower": -0.0007,
+          "ci_upper": 0.0001,
+          "ci_level": 0.95,
+          "n_bootstrap": 1000,
+          "block_size": 10,
+          "n_samples": 306
+        },
+        "rps_raw_closing_quote": 0.20148
+      },
+      "SERIE_A": {
+        "n": 380,
+        "rps_baseline_model": 0.18406,
+        "rps_candidate_model": 0.18417,
+        "candidate_minus_baseline_bootstrap": {
+          "point_estimate": 0.0001,
+          "ci_lower": -0.0002,
+          "ci_upper": 0.0004,
+          "ci_level": 0.95,
+          "n_bootstrap": 1000,
+          "block_size": 10,
+          "n_samples": 380
+        },
+        "rps_raw_closing_quote": 0.18466
+      }
+    }
+  },
+  "q4_drift_beyond_opening": {
+    "train_seasons": [
+      2022,
+      2023
+    ],
+    "test_season": 2024,
+    "train_n": 3578,
+    "test_n": 1752,
+    "pooled": {
+      "n": 1752,
+      "rps_baseline_model": 0.19488,
+      "rps_candidate_model": 0.1941,
+      "candidate_minus_baseline_bootstrap": {
+        "point_estimate": -0.0008,
+        "ci_lower": -0.0015,
+        "ci_upper": 0.0001,
+        "ci_level": 0.95,
+        "n_bootstrap": 1000,
+        "block_size": 10,
+        "n_samples": 1752
+      },
+      "rps_raw_opening_quote": 0.19463
+    },
+    "per_group": {
+      "BUNDESLIGA": {
+        "n": 306,
+        "rps_baseline_model": 0.20378,
+        "rps_candidate_model": 0.20346,
+        "candidate_minus_baseline_bootstrap": {
+          "point_estimate": -0.0003,
+          "ci_lower": -0.0022,
+          "ci_upper": 0.0018,
+          "ci_level": 0.95,
+          "n_bootstrap": 1000,
+          "block_size": 10,
+          "n_samples": 306
+        },
+        "rps_raw_opening_quote": 0.20198
+      },
+      "EPL": {
+        "n": 380,
+        "rps_baseline_model": 0.19802,
+        "rps_candidate_model": 0.19707,
+        "candidate_minus_baseline_bootstrap": {
+          "point_estimate": -0.001,
+          "ci_lower": -0.0029,
+          "ci_upper": 0.0009,
+          "ci_level": 0.95,
+          "n_bootstrap": 1000,
+          "block_size": 10,
+          "n_samples": 380
+        },
+        "rps_raw_opening_quote": 0.19724
+      },
+      "LA_LIGA": {
+        "n": 380,
+        "rps_baseline_model": 0.18949,
+        "rps_candidate_model": 0.18788,
+        "candidate_minus_baseline_bootstrap": {
+          "point_estimate": -0.0016,
+          "ci_lower": -0.0031,
+          "ci_upper": -0.0003,
+          "ci_level": 0.95,
+          "n_bootstrap": 1000,
+          "block_size": 10,
+          "n_samples": 380
+        },
+        "rps_raw_opening_quote": 0.18996
+      },
+      "LIGUE_1": {
+        "n": 306,
+        "rps_baseline_model": 0.20285,
+        "rps_candidate_model": 0.20161,
+        "candidate_minus_baseline_bootstrap": {
+          "point_estimate": -0.0012,
+          "ci_lower": -0.0031,
+          "ci_upper": 0.0012,
+          "ci_level": 0.95,
+          "n_bootstrap": 1000,
+          "block_size": 10,
+          "n_samples": 306
+        },
+        "rps_raw_opening_quote": 0.20281
+      },
+      "SERIE_A": {
+        "n": 380,
+        "rps_baseline_model": 0.18354,
+        "rps_candidate_model": 0.18376,
+        "candidate_minus_baseline_bootstrap": {
+          "point_estimate": 0.0002,
+          "ci_lower": -0.0011,
+          "ci_upper": 0.0017,
+          "ci_level": 0.95,
+          "n_bootstrap": 1000,
+          "block_size": 10,
+          "n_samples": 380
+        },
+        "rps_raw_opening_quote": 0.1842
+      }
+    }
+  },
+  "not_a_promotion": "Stage 3 evidence for a directive \u00a751 decision. Does not change the feature schema, retrain an artifact, or authorize serving."
+}

@@ -1,4 +1,4 @@
-"""Tests for scripts/test_player_availability_incremental_value.py's pure logic.
+"""Tests for scripts/_incremental_value_harness.py's pure logic.
 
 Covers the de-vig math and the RPS/block-bootstrap wrapper only -- not the
 live network fetch, CSV loading, or sklearn model fit, matching the
@@ -13,10 +13,10 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 
-from test_player_availability_incremental_value import (  # noqa: E402
+from _incremental_value_harness import (  # noqa: E402
     devig,
-    _mean_rps,
-    _paired_rps_diff_bootstrap,
+    mean_rps,
+    paired_rps_diff_bootstrap,
 )
 
 
@@ -46,14 +46,14 @@ def test_devig_removes_the_overround():
 def test_mean_rps_zero_for_perfect_certain_predictions():
     y_true = np.array([0, 1, 2])
     y_proba = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
-    assert _mean_rps(y_true, y_proba) == 0.0
+    assert mean_rps(y_true, y_proba) == 0.0
 
 
 def test_mean_rps_penalizes_confident_wrong_predictions_more_than_uncertain_ones():
     y_true = np.array([0, 0])
     confident_wrong = np.array([[0.0, 0.0, 1.0], [0.0, 0.0, 1.0]])
     uncertain = np.array([[0.34, 0.33, 0.33], [0.34, 0.33, 0.33]])
-    assert _mean_rps(y_true, confident_wrong) > _mean_rps(y_true, uncertain)
+    assert mean_rps(y_true, confident_wrong) > mean_rps(y_true, uncertain)
 
 
 def test_paired_bootstrap_ci_excludes_zero_for_a_consistent_improvement():
@@ -69,7 +69,7 @@ def test_paired_bootstrap_ci_excludes_zero_for_a_consistent_improvement():
     candidate[np.arange(n), y_true] += 0.2
     candidate = candidate / candidate.sum(axis=1, keepdims=True)
 
-    result = _paired_rps_diff_bootstrap(y_true, candidate, baseline)
+    result = paired_rps_diff_bootstrap(y_true, candidate, baseline)
     assert result["point_estimate"] < 0
     assert result["ci_upper"] < 0
 
@@ -81,6 +81,6 @@ def test_paired_bootstrap_ci_includes_zero_for_no_real_difference():
     baseline = np.full((n, 3), 1 / 3)
     candidate = baseline.copy()  # identical -> zero difference everywhere
 
-    result = _paired_rps_diff_bootstrap(y_true, candidate, baseline)
+    result = paired_rps_diff_bootstrap(y_true, candidate, baseline)
     assert result["point_estimate"] == 0.0
     assert result["ci_lower"] <= 0.0 <= result["ci_upper"]
