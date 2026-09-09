@@ -5,13 +5,12 @@ All notable changes to this skill suite are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased - Portfolio B (player availability) source qualification, plus a tested (not live-verified) adapter extension (2026-09-09)
+## Unreleased - Portfolio B (player availability) source qualification, live-probed to a `HOLD` verdict; one tested adapter extension (2026-09-09)
 
 `PRODUCTION_EXECUTIVE_DIRECTIVE.md` Phase 2 (Missing Information Discovery),
 Gate R1 (Source Qualification) — the directive's own highest-priority new
 information branch. No feature schema, model artifact, or live orchestrator
-behaviour changed; one provider adapter gained a new, unit-tested but
-not-yet-wired-in capability (see "Added" below).
+behaviour changed.
 
 ### Found
 
@@ -30,36 +29,42 @@ not-yet-wired-in capability (see "Added" below).
   surface. Injury/suspension state has no such timing problem.
 - A `Player` table exists in `core/database.py` with zero writers anywhere
   in `backend/src` — no local player-identity backbone exists yet.
+- **A live probe (real credentials, 2 read-only GET requests) settled the
+  question documentation alone couldn't**: `api_football.injuries()`
+  returns `"Free plans do not have access to this season, try from 2022 to
+  2024"` — this subscription is the free plan, which cannot query the
+  current season's injuries at all, a hard tier wall rather than a coverage
+  gap. `sportmonks.injuries()` (`/sidelined`) 404s, live-reconfirmed today
+  after a prior session had only suspected it from an older note. Verdict
+  for the availability signal revised `RESEARCH` → `HOLD`: not
+  uninformative, but blocked on a subscription-tier decision (a paid
+  api_football plan), not on more engineering.
 
 ### Added
 
 - `reports/research/portfolio-b-player-availability-source-qualification.md`
-  — full qualification study against directive §11 (source dimensions),
-  §12 (legal/access tiers — both providers L0, already under contract),
-  §13 (information opportunity matrix), and §15 (six coverage gates, none
-  measurable from documentation alone — a live probe is Phase 3 work).
-- `docs/DEBT.md` item 65 — verdict `RESEARCH` for availability
-  (injury/suspension), `HOLD` for confirmed lineup, with concrete next
-  steps (a fixture-scoped live probe, confirming the actual subscribed
-  api-football.com tier, re-verifying a prior session's stale Sportmonks
-  `/sidelined` note, extending the injury normalizer to capture a
-  currently-discarded date field).
+  — full qualification study against directive §11/§12/§13/§15, updated
+  same-day with the live-probe result and revised verdict.
+- `docs/DEBT.md` item 65 — full narrative including a self-correction: the
+  first pass concluded no credentials existed, checking two attribute names
+  (`api_football_api_key`, `sportmonks_api_token`) that do not exist on the
+  settings object. The real names are `api_football_key` and
+  `sportmonks_api_key`; credentials were present the whole time.
+- `backend/scripts/probe_player_availability_sources.py` — the reusable,
+  read-only live probe, redacts both provider keys defensively (though
+  `ProviderResult`/`ProviderQuota` never carry auth material by
+  construction, checked before writing it).
 - `APIFootballProvider.injuries()` (`backend/src/providers/api_football.py`)
   gained an optional `fixture_id` keyword parameter using the API's own
   `fixture` query parameter. Two tests pin the request shape: fixture-scoped
   calls send `fixture` and nothing else; omitting `fixture_id` is
   byte-identical to the pre-existing league+season query — the regression
   guard that matters, since `orchestrator.py` is a live, already-running
-  caller. **Deliberately not wired into `orchestrator.py`** — the fixture-
-  scoped response has never been observed against a real credential (this
-  environment holds none for either provider), and wiring an unverified
-  query shape into a live evidence-collection path is exactly the risk this
-  repository's "ship capture before computation" precedent (CLV capture,
-  Open-Meteo weather) exists to avoid. Also sharpened, not just re-asked:
-  `SportmonksProvider.injuries()` calls the exact bare `/sidelined` shape
-  its own `probe()` docstring already records 404s under the subscribed
-  API shape — strong code-level evidence (not proof) that it has likely
-  never returned real data.
+  caller. **Deliberately not wired into `orchestrator.py`** — doing so would
+  still fail for the same free-tier reason the broad query does, and wiring
+  an unverified query shape into a live evidence-collection path is exactly
+  the risk this repository's "ship capture before computation" precedent
+  (CLV capture, Open-Meteo weather) exists to avoid.
 
 ## Unreleased - Calibration selection fixed to require held-out persistence; isotonic rejected 4/4; production hygiene sweep (2026-09-09, PR #161)
 

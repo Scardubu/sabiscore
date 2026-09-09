@@ -63,66 +63,78 @@ or provider call site touched.** This is a Gate R1 (source qualification)
 deliverable only, per directive §45's explicit rule: "No production
 integration yet."
 
-### Follow-up, same day: the live probe is credential-blocked; the adapter capability was built and tested instead (2026-09-09)
+### Follow-up, same day: verdict revised to `HOLD` — the live probe ran for real, and both integrated sources fail on this subscription (2026-09-09)
 
-Attempted to execute this item's own recommended next step (a live,
-`PROVIDER_LIVE_TESTS`-gated probe). **Hard blocker, verified through the
-application's own config layer, not a raw file read:** `settings.api_football_api_key`
-and `settings.sportmonks_api_token` both read `UNSET` in every environment
-this session can reach, despite both `ENABLE_*_PROVIDER` flags and
-`PROVIDER_LIVE_TESTS` reading `True`. No credential exists locally to
-probe with — this is the same class of blocker as the production-database
-and GitHub-billing walls hit elsewhere this session, not a new kind of
-gap. **Executing the live probe itself remains operator-only**, from an
-environment holding the real key (e.g. the Render production shell).
+⚠️ **Correction to this item's own first follow-up pass, made the same
+day.** That pass concluded credentials were absent, checking
+`settings.api_football_api_key` / `settings.sportmonks_api_token`. **Those
+attributes do not exist** — the real fields, confirmed by reading
+`core/config.py` directly, are `api_football_key` (`AliasChoices("API_FOOTBALL_API_KEY", "API_FOOTBALL_KEY")`)
+and `sportmonks_api_key` (`AliasChoices("SPORTMONKS_API_TOKEN", "SPORTMONKS_API_KEY")`).
+`getattr(settings, wrong_name, None)` silently returns `None` for a
+nonexistent attribute — the exact shape of bug this ledger has already
+named elsewhere (a check that cannot fail loudly is not a check). Checked
+again with the correct names: all four provider keys configured in this
+environment are present (length-only check, values never printed). No
+credential was ever missing; the earlier conclusion was a bug in the check
+itself, not a finding about the environment.
 
-**Sharpened, not just re-asked, one open question from the earlier pass.**
-`SportmonksProvider.injuries()` calls `GET /sidelined` with **no query
-parameters at all** — and `probe()`'s own docstring, in the same file,
-already records: *"Live-verified 2026-07-04: bare `/sidelined` 404s in the
-subscribed API shape, so probing it could never verify a valid token."*
-`injuries()` uses that exact same bare call shape. This is strong
-code-level evidence (not proof — the subscription could have changed since
-July) that Sportmonks' `injuries()` has likely never returned real data in
-production. A live probe should check this specifically, not just "is
-Sportmonks reachable."
+**With that fixed, the live probe ran for real** — 2 GET requests, via a
+new `backend/scripts/probe_player_availability_sources.py` (read-only,
+redacts both keys defensively even though `ProviderResult`/`ProviderQuota`
+never carry auth material by construction, checked before writing it).
+Decisive result, both integrated sources:
 
-**Built and tested the one piece of Phase 3 that doesn't need live
-credentials:** `APIFootballProvider.injuries()` (`backend/src/providers/api_football.py`)
-gained an optional `fixture_id` keyword parameter using the API's own
-`fixture` query parameter (per third-party documentation of the endpoint —
-this repository's own docs site 403'd a direct fetch). ⚠️ **Revised
-understanding from the earlier pass**: this is not unlocking previously
-invisible data — the existing `VALID_INJURY` test fixture already shows
-each record in the broader league+season response carries its own
-per-record `fixture.id` (`_normalize_injury` already reads it). The value
-of the fixture-scoped call is quota economy (one call per fixture instead
-of one call returning many fixtures' worth of reports) and possibly
-reaching fixtures outside the broader query's own lookahead window, not new
-information. Two tests pin the request shape: fixture-scoped calls send
-`fixture` and nothing else; omitting `fixture_id` is **byte-identical** to
-the pre-existing query (`league`+`season`, no `fixture` key) — the
-regression guard that matters, since `orchestrator.py`'s
-`_collect_prematch_enriched()` is a live, already-running caller.
+- **`api_football.injuries(competition="EPL")`**: `UNAVAILABLE`,
+  `api_logical_error`, plan message verbatim: *"Free plans do not have
+  access to this season, try from 2022 to 2024."* This answers, live,
+  the tier question this item's earlier pass could only ask an operator to
+  confirm: **this subscription is the free plan**, and the free plan
+  cannot query injuries for the current season **at all** — not a coverage
+  gap, a hard subscription-tier wall. Since the current implementation
+  always queries `_current_season()`, this endpoint is unconditionally
+  unusable for live/upcoming fixtures as configured today, independent of
+  the fixture-scoped vs. league-scoped question the earlier pass focused
+  on. (Untested, cheap follow-up for whoever picks this up: querying an
+  explicit `season=2024` would confirm whether the endpoint otherwise works
+  and only the current season is blocked, vs. something else being wrong —
+  the current `injuries()` has no season override to test this with yet.)
+- **`sportmonks.injuries(competition="EPL")`**: `TRANSPORT_CLIENT_ERROR`,
+  HTTP 404. This is the exact `/sidelined` 404 `probe()`'s own docstring
+  named from a 2026-07-04 check — **re-confirmed live today**, not carried
+  forward as a stale note. Sportmonks' `injuries()` has, as far as this
+  ledger can now show with evidence rather than suspicion, never returned
+  real data on this subscription.
 
-⚠️ **Deliberately NOT wired into `orchestrator.py`.**
-`_collect_prematch_enriched()` is confirmed (by reading its one call site)
-to run once per fixture already, so switching its `injuries()` call to pass
-`fixture_id=fixture.get("provider_event_id")` would be the natural next
-step — but the fixture-scoped query's actual response has never been
-observed against a real credential. Wiring an unverified query shape into
-a live, production evidence-collection path is precisely the risk this
-repository's own established discipline exists to avoid (ADR-0004 shipped
-CLV *capture* before *computation*; the Open-Meteo weather work is
-"acquisition complete... integration deliberately gated" per item 44).
-The capability is ready; flipping the call site is the next operator-gated
-step, once a live probe confirms the fixture-scoped response actually
-looks like what the documentation describes.
+**Verdict revised: `RESEARCH` → `HOLD`.** Not `REJECT` — nothing here says
+player-availability information is unhelpful; both failures are
+subscription/endpoint problems, not information-value problems, and
+api_football's own pricing tiers (verified via WebSearch in the original
+pass) explicitly gate "volume and historical range" by plan, meaning a paid
+tier plausibly resolves the api_football half outright. But the bounded,
+engineering-only next step this item named earlier (build the adapter,
+test it, run a live probe) is now **done and answered negatively as
+configured** — the unblock from here is a business/operator decision (pay
+for a higher api_football tier — $19/mo Pro, 7,500 req/day, per
+api-football.com's public pricing — and separately re-investigate whether
+Sportmonks' subscription needs a different endpoint or plan for sidelined
+data), not more code from this session. `HOLD` matches the directive's
+own definition exactly: "plausible but insufficiently powered... by the
+current setup," pending that decision.
+
+**Still deliberately NOT wiring `fixture_id` into `orchestrator.py`** — if
+anything this is now more clearly correct than when first decided: the
+broad query it would be narrowing already fails outright on this
+subscription for the current season, so wiring the narrower form in first
+would still fail, for the same underlying reason.
 
 **No feature schema, model artifact, or live orchestrator behaviour
 changed.** Backend suite green; `ruff check src --select E4,E7,E9,F`
-clean; provider gateway suite (74 tests, `tests/test_providers_gateway.py`
-+ `tests/providers/`) green including the 2 new tests.
+clean; the provider gateway suite (74 tests across
+`tests/test_providers_gateway.py` and `tests/providers/`) is green
+including the 2 new tests; the live probe itself is a manual, read-only
+diagnostic run, not part of any test suite (matches `PROVIDER_LIVE_TESTS`
+staying out of default CI).
 
 ## 64. Calibration selection scored isotonic regression against the data it was fit to — corrected to require held-out persistence per directive §20 B3, and isotonic loses in 4 of 4 opportunities — RESOLVED 2026-09-09
 

@@ -211,32 +211,52 @@ Phase 3 work, not Phase 2.
 
 ## 7. Decision (§51)
 
-**Signal 2a (roster injury/suspension availability): `RESEARCH`.**
+**Signal 2a (roster injury/suspension availability): `RESEARCH` → revised to
+`HOLD` the same day, after the live probe named below actually ran.**
 
-Not `PROMOTE` — none of the six coverage gates (§5) have been measured, and
-directive §44 explicitly prohibits building a feature before that evidence
-exists. Not `HOLD` or `REJECT` — this is not a weak or implausible
-hypothesis; it is a plausible, low-marginal-cost-to-test candidate sitting
-on infrastructure that already exists (two authenticated providers, an
-orchestrator call site, a `ProviderResult` provenance contract), where the
-correct next action is bounded and cheap relative to standing up a new
-vendor from scratch. Concretely, before any feature-schema or model work:
+The original verdict (below, struck through in spirit not in fact — kept for
+the record) reasoned from documentation alone, correctly per Phase 2's own
+rules, and named the live probe as the bounded next step:
 
-1. Run a live probe (`PROVIDER_LIVE_TESTS=true`, deliberately outside default
-   CI) against `api_football.injuries()` scoped by `fixture` (not the current
-   league+season query) across a sample of upcoming fixtures in all 7
-   competitions, to answer G1 and G5.
-2. Confirm this repository's actual subscribed api-football.com tier
-   (operator-only — not visible in code) to bound what historical range
-   `/sidelined` can actually answer, before assuming any backfill is
-   feasible.
-3. Re-verify Sportmonks' `/sidelined` endpoint against the live subscription
-   rather than trusting the prior session's note that it 404s under this
-   plan's shape — that note is now stale relative to today's live probe
-   opportunity and should be re-confirmed, not carried forward.
-4. Extend `_normalize_injury` to capture whatever date/duration field the
-   raw payload actually carries (currently discarded, §3) — needed before
-   any severity- or recency-weighted representation is possible.
+> Not `PROMOTE` — none of the six coverage gates (§5) have been measured, and
+> directive §44 explicitly prohibits building a feature before that evidence
+> exists. Not `HOLD` or `REJECT` — this is not a weak or implausible
+> hypothesis; it is a plausible, low-marginal-cost-to-test candidate.
+
+**That probe ran the same day** (real credentials, previously misdiagnosed
+as absent — see `docs/DEBT.md` item 65's follow-up section for the exact
+attribute-name bug), via `backend/scripts/probe_player_availability_sources.py`
+(2 GET requests, read-only). Result, decisive:
+
+- `api_football.injuries(competition="EPL")` → `UNAVAILABLE`,
+  `api_logical_error`, plan message verbatim: *"Free plans do not have
+  access to this season, try from 2022 to 2024."* This subscription is the
+  free plan, and the free plan cannot query the current season's injuries
+  at all — a hard tier wall, not a coverage gap G1/G5 could have measured
+  differently.
+- `sportmonks.injuries(competition="EPL")` → `TRANSPORT_CLIENT_ERROR`, HTTP
+  404 on `/sidelined`, live-reconfirmed today (not a stale note carried
+  forward).
+
+**Revised verdict: `HOLD`, not `REJECT`.** Nothing here says player
+availability is uninformative — both failures are subscription/endpoint
+problems. api-football.com's own pricing tiers (§3) explicitly gate "volume
+and historical range" by plan; a $19/mo Pro subscription plausibly resolves
+the api_football half outright. The engineering-only next steps this
+document could responsibly recommend (build the adapter, test it, run the
+probe) are now **done and answered negatively as currently configured**.
+What remains is a business/operator decision (pay for a higher tier;
+separately investigate whether Sportmonks needs a different endpoint or
+plan), not more code from this document's own scope. Remaining
+non-blocked next step, cheap and still open: query api_football with an
+explicit `season=2024` (within the free plan's allowed range) to confirm
+the endpoint otherwise works and only the current season is blocked — the
+shipped `injuries()` has no season override yet to test this with.
+
+`_normalize_injury`'s discarded date field (§3) remains unaddressed —
+correctly deferred, since there is no live response to extend the
+normalizer against until a paid tier or a different query actually returns
+current-season records.
 
 **Signal 2b (confirmed starting lineup): `HOLD`.** The information is real
 and already collected, but it structurally cannot serve the platform's
