@@ -5,6 +5,61 @@ All notable changes to this skill suite are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased - Portfolio-exposure calibration repaired and measured; not applied (2026-09-09)
+
+`docs/DEBT.md` item 9. Production PostgreSQL became reachable from this
+environment (`sabiscore-db-v3`'s allowlist now carries `0.0.0.0/0`; it was
+single-IP), so the item was checked directly instead of deferred. No staking
+constant, verdict gate, Kelly rule, model artifact, or serving path changed.
+
+### Fixed
+
+- `backend/scripts/calibrate_portfolio_exposure.py` carried **four defects** and
+  had never been executed against a real database:
+  1. `mpl.league` — `match_prediction_logs` has no league column (it is on
+     `matches.league_id`). Hard error.
+  2. `mpl.predicted_outcome` — also absent; the outcome is the argmax of the
+     three stored probability columns. Hard error.
+  3. `m.status IN ('FINISHED','SETTLED')` — production writes lower-case
+     `'finished'`, so the filter matched **zero rows**, silently.
+  4. No dedup and no `model_version` filter — 95 raw rows covered only 64
+     matches, and 6 belonged to a foreign generation.
+- Defect (4) is statistical, not hygiene: duplicate rows of one match always
+  agree with themselves, inflating the pairwise-agreement statistic the script
+  exists to measure. Measured live: **110 naive pairs at 0.6818 agreement, 43 of
+  them same-match self-pairs at exactly 1.0000**, versus **30 pairs at 0.4333**
+  deduplicated — a **3.5× overstatement** of excess correlation.
+- Repaired query verified against production: 59 rows, 59 distinct matches, 0
+  malformed outcomes — matching the 59 settled predictions the ledger records.
+- `n_pairs_measured` previously reported the number of *groups*; groups and pairs
+  are now reported separately.
+
+### Measured
+
+- 17 same-league/same-matchday groups of n≥2 (target ≥10 — **met**), 30 pairs.
+- Mean pairwise agreement 0.3824 vs 0.3333 chance — excess correlation **0.049**.
+- Script proposes haircut 0.10 → 0.05, floor 0.50 → 0.75, aggregate cap 3.0 →
+  2.75, and self-reports `recommendation: APPLY`.
+
+### Decision — not applied
+
+- Deliberate override of the script's own recommendation. The direction is
+  **loosening** a risk control; n=30 pairs is below the script's own "n<50 is
+  noisy" threshold; and `--apply` would stamp `PORTFOLIO_POLICY_SOURCE =
+  CALIBRATED_*`, a standing evidence claim 30 pairs does not support.
+- Constants stay `DEFAULT_PENDING_CALIBRATION` — now **known-conservative**
+  rather than unverified.
+
+### Added
+
+- `backend/tests/unit/test_calibrate_portfolio_exposure_query.py` — 15 tests
+  pinning all four fixes plus the bias mechanism. Each guard watched failing on
+  its reverted defect first.
+
+### Verified
+
+- `tests/unit` 1328 passed / 4 skipped / 2 xfailed; ruff clean.
+
 ## Unreleased - Portfolio C (weather) Gate G1 measured — HOLD at 68.9% (2026-09-09)
 
 Directive v5 Phase 2 / Gate R1 qualification for the next candidate portfolio.

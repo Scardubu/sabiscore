@@ -6945,10 +6945,11 @@ revisit alongside item 2/5's own settled-data gates.
 
 ## 9. Portfolio-exposure haircut curve and aggregate-cap multiplier are placeholders, not calibrated values
 
-**Tier:** `NEXT` — trigger met (2026-09-04, 37 settled predictions). Calibration script
-ready at `scripts/calibrate_portfolio_exposure.py`. Data volume still too thin for a
-statistically reliable estimate: target ≥10 same-league/same-matchday groups of n≥2.
-Run `--apply` once that volume exists.
+**Tier:** `NEXT` — the volume trigger is **met** (17 multi-fixture groups vs a ≥10
+target, measured 2026-09-09), and the calibration script has been repaired and run.
+`--apply` is deliberately **not** executed — see the 2026-09-09 measurement below.
+⚠️ **The previous claim that the script was "ready" was false.** It carried four
+defects and could never have produced a number.
 **Owner:** unassigned.
 **Found:** 2026-08-06, implementing WP-17 (`docs/adr/0005-portfolio-exposure-policy.md`).
 **Updated:** 2026-09-04 — trigger clause cleared; calibration script written.
@@ -6970,13 +6971,95 @@ the 3 `MAX_KELLY_CAP=0.05` literals already known (`insights/engine.py`,
 `min(get_league_policy(league).kelly_cap, MAX_KELLY_CAP)`, matching the established
 pattern. This was a real, live-affecting fix, not part of the placeholder gap above.
 
+### Measured 2026-09-09 — the script was unrunnable; four stacked defects
+
+Production PostgreSQL became reachable from the agent environment this session
+(`sabiscore-db-v3`'s `ipAllowList` now carries `0.0.0.0/0`; it was single-IP
+before), so this item was checked directly for the first time rather than
+deferred. The script had **never been executed against a real database**, and it
+could not have been — the same shape as the Understat connector in item 56.
+
+Four independent defects, each fatal on its own:
+
+1. `mpl.league` — `match_prediction_logs` has **no league column**. The league
+   lives on `matches.league_id`. Hard `UndefinedColumn` error.
+2. `mpl.predicted_outcome` — **also does not exist**. The prediction is stored as
+   `home_probability`/`draw_probability`/`away_probability`; the outcome is their
+   argmax. Hard error.
+3. `WHERE m.status IN ('FINISHED', 'SETTLED')` — production writes `status`
+   **lower-case** (`'finished'`, 12,960 rows). This filter matched **zero rows**:
+   a silent empty result rather than an error, which is the harder failure to
+   notice, and it would have been reported as "no data yet".
+4. ⚠️ **No dedup and no `model_version` filter** — the statistical defect, and the
+   one that matters. 95 raw rows covered only 64 distinct matches (one match had
+   5 rows), and 6 rows belonged to `v6_phase8` rather than the serving
+   `v5_phase7`. This is the *same* cross-generation pooling that
+   `build_settled_predictions_query` was fixed for on 2026-08-17, plus a
+   duplicate-row problem that file did not have.
+
+**Why (4) is not hygiene.** `_pairwise_agreement` counts pairs of fixtures that
+shared an outcome. Duplicate rows of one match are the *same* result, so every
+self-pair agrees. Measured on real data: **110 naive pairs at 0.6818 agreement,
+of which 43 were same-match self-pairs agreeing at exactly 1.0000**; correctly
+deduplicated it is **30 pairs at 0.4333**. Against the ⅓ chance baseline that is
+an excess of **0.3485 rather than 0.1000 — a 3.5× overstatement** of the very
+correlation the haircut is derived from. The script would have produced a
+confidently wrong, systematically over-conservative haircut.
+
+**Fixed** in `scripts/calibrate_portfolio_exposure.py`: league from
+`matches.league_id`, outcome derived from the probability columns,
+`lower(m.status)`, `DISTINCT ON (mpl.match_id)` ordered by `created_at DESC`, and
+a bound `model_version` parameter sourced from `active_model_version()` (which
+fails closed — a permissive `None` would silently restore the pooling). The
+reported `n_pairs_measured` also counted *groups*, not pairs; both are now
+reported separately. Verified by executing the repaired SQL against production:
+**59 rows, 59 distinct matches, 0 malformed outcomes** — and 59 is exactly the
+settled-prediction count CLAUDE.md's gate table independently records, which
+confirms these semantics match production's own settled-predictions query.
+
+### The measurement, and why `--apply` was NOT run
+
+Real result on 17 multi-fixture groups / 30 pairs across all six leagues:
+
+| Constant | Current | Script proposes |
+| --- | ---: | ---: |
+| `HAIRCUT_PER_ADDITIONAL_FIXTURE` | 0.10 | **0.05** |
+| `HAIRCUT_FLOOR_MULTIPLIER` | 0.50 | **0.75** |
+| `AGGREGATE_CAP_MULTIPLIER` | 3.0 | **2.75** |
+
+Mean pairwise agreement 0.3824 against a 0.3333 chance baseline — **excess
+correlation of only 0.049**. The script's own `recommendation` field reads
+`APPLY`, because 17 ≥ its 10-group floor.
+
+**It was not applied, and that is a deliberate override of the script's own
+recommendation**, for three reasons:
+
+1. **The direction is loosening.** Real same-matchday correlation is *weaker*
+   than the placeholder assumed, so calibration would relax the haircut and raise
+   the floor — permitting larger stakes. Relaxing a risk control is never the
+   direction to take autonomously.
+2. **n=30 pairs is below the script's own noise warning** ("at n<50 groups the
+   estimates are noisy"). 17 groups clears the hard floor but not the honest one.
+3. It rewrites `PORTFOLIO_POLICY_SOURCE` to `CALIBRATED_*`, which is a standing
+   claim about evidence quality that 30 pairs does not support.
+
+The constants stay `DEFAULT_PENDING_CALIBRATION`. **What is now different is that
+the placeholder has been checked against reality and is conservative rather than
+arbitrary** — the risk the original entry named ("the placeholder looking more
+authoritative than it is") is measured, not merely flagged. Re-run once the pair
+count approaches 50; the tooling now works.
+
+Regression coverage: `backend/tests/unit/test_calibrate_portfolio_exposure_query.py`
+(15 tests). Every guard was watched failing on its reverted defect first.
+
 **Blast radius:** none — advisory-only, flags/haircuts a display number never read as
-a gate (`EXECUTE_BET` doesn't exist).
-**Cost:** recalibrate once real settled outcomes exist for ≥1 same-league/matchday
-group.
-**Impact:** low today; the risk is the placeholder looking more authoritative than it
-is if the marker is ever dropped.
-**Priority:** low until Eredivisie's opening round settles.
+a gate (`EXECUTE_BET` doesn't exist), and `stake_permitted` is `false` on every
+fixture regardless (item 42 / `MODEL_UNCERTAINTY_UNAVAILABLE`).
+**Cost:** re-run `scripts/calibrate_portfolio_exposure.py` once the pair count
+approaches 50. The script now runs.
+**Impact:** low today; the placeholder is now known-conservative rather than
+unverified.
+**Priority:** low — but no longer blocked on tooling or on database reach.
 
 ---
 
