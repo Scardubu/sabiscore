@@ -5,6 +5,36 @@ All notable changes to this skill suite are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased - Production telemetry audit: Sentry is not instrumented (2026-09-09)
+
+Documentation only. No code, dependency, config, or serving path changed.
+
+### Found
+
+- A Sentry project exists and reports **zero unresolved issues**, which is a
+  false negative: `apps/web` has **no `@sentry/*` dependency, no sentry config
+  file, and no sentry import** — the project cannot receive an event. Zero
+  issues means zero reporters.
+- The backend ships `sentry-sdk[fastapi]==1.39.1` and initialises it behind
+  `if settings.sentry_dsn:`, but `SENTRY_DSN` is not declared in `render.yaml`,
+  so it is inert unless an operator set it by hand.
+- Same false-negative class the ledger already records twice (`/health/ready`
+  reporting `cache: "Connected"` with Redis absent; the keep-alive workflow
+  failing at its env-var check). Recorded as `docs/DEBT.md` item 66 so an empty
+  Sentry project is never again cited as health evidence.
+
+### Verified (genuine negatives, query-checked)
+
+- Render backend logs, 24 hours, `error` and `warning`: **zero entries**. The
+  query was validated against `info` first, so the empty result is real rather
+  than a filter that matches nothing.
+- Deploy parity three ways at `7be5bc3`: local HEAD, Render `/health`
+  (`healthy`), Vercel `/api/health` (`backendStatus: ok`).
+- 37 Playwright console errors on the production homepage were **investigated
+  and dismissed** — all `net::ERR_INTERNET_DISCONNECTED`, mostly local Kaspersky
+  injection. Every asset re-fetched over `curl` returned HTTP 200 with real byte
+  counts. Not a production defect.
+
 ## Unreleased - Portfolio-exposure calibration repaired and measured; not applied (2026-09-09)
 
 `docs/DEBT.md` item 9. Production PostgreSQL became reachable from this
