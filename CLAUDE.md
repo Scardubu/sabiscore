@@ -711,32 +711,37 @@ overrides all prior status docs — verify with a grep/read before acting.
 
 ## Confirmed incomplete / next gates
 
-**Refreshed 2026-08-28.** Every row below was re-verified live this session
-(production `/health`, `/health/ready`, `/api/v1/providers/health`,
-`/api/v1/model-performance*`, `/api/v1/release/fixture-identity-review` —
-not carried forward from an earlier report). Fully-resolved rows from
-earlier snapshots (Vercel env var, Render provider ENABLE flags, C-24
-Vercel deployment) are dropped from this table — their resolution is
-already recorded in the dated ground-truth entries above; keeping a closed
-row here would just be duplicate history in the one section whose job is
-"what's still open." As of this refresh, `master`/Render/Vercel all agree
-at `sha: aaf0da9` (PR #103), and **there is remarkably little open code
-work** — the DEBT ledger (`docs/DEBT.md`) is systematically re-verified and
-almost every item is `RESOLVED`/`CLOSED`/`ACCEPTED`. What remains splits
-cleanly into two kinds: things only an operator with external console/
-registrar/build access can do, and things only elapsed real-world match
-volume can unlock. Neither yields to more code.
+**Refreshed 2026-09-09.** Every row below was re-verified live this session
+(production `/health`, `/api/v1/model-performance`, a git-history Gitleaks
+scan distinct from the filesystem-mode scan, and a public-resolver DNS
+lookup) — not carried forward from the 2026-08-28 snapshot. `master`/Render/
+Vercel all agree at `sha: eadccb7` (PR #161, which also shipped `docs/DEBT.md`
+items 63–64: the flat-diagnostic-prior market-edge fabrication fix, and a
+two-stage calibration-selection gate that rejected isotonic regression in all
+4 of 4 leagues where it won the naive in-sample comparison). Settled
+predictions have grown 11 → **59** since the last refresh, but that growth
+has not flipped any promotion or certification conclusion — see the
+certification row below, now corrected against item 62's rigorous finding
+rather than the superseded point-estimate it replaces. **There is still
+remarkably little open code work** — almost every `docs/DEBT.md` item is
+`RESOLVED`/`CLOSED`/`ACCEPTED`, and what remains splits cleanly into three
+kinds: things only an operator with external console/registrar/build access
+can do, things only elapsed real-world match volume can unlock, and one item
+(portfolio-exposure calibration) that needs direct production database
+access this environment does not have. None of the three yield to more code
+from here.
 
 | Gap | Files | Action |
 |---|---|---|
-| Old Redis credential revocation (`docs/DEBT.md` item 15, step 6) | Redis Cloud console (not code) | Migration to the new `rediss://` credential has been live and verified since 2026-08-25. The operator stated 2026-08-27/28 that the old credential has now been rotated/revoked — recorded as **operator-reported, not independently verified**: this environment has no Redis/Upstash console access, and a live `tier1_redis_available: true` at `/health` only proves *a* credential works, the same thing it already proved before the rotation claim. Close this row only against dated revocation evidence from the `sabiscore-database` (ID `13753214`) console. |
-| Historical Gitleaks credential fingerprints (`docs/DEBT.md` item 16) | Git history (not code) | Exactly 2 leaked values, unchanged across every re-scan: `backend/.env.example` `generic-api-key` at commits `d604c13` and `67ed0ab`. Current tree is clean. Cannot be waived without the credential owner's dated revocation evidence for those exact values — operator-only, not code-checkable. |
-| Fresh Docker image build proof (`docs/DEBT.md` item 16) | `Makefile`, Docker daemon | No current `sabiscore-backend:verify` / `sabiscore-web:verify` tag exists. Every prior attempt exceeded ~15 minutes under the available Docker VM memory and was abandoned rather than left to finish. Needs a real build run with more VM memory allotted (6–8 GB), or accept the current substitute: canonical Linux CI (`.github/workflows/ci.yml`) as the source of truth for merge/release gates, which already runs green on every PR. |
-| `sabiscore.com` custom domain | Registrar DNS (not code) | Operator explicitly deprioritized this 2026-08-27 ("let the vercel domain be used for now"). `web-lac-theta-42.vercel.app` remains the canonical production URL. Revisit only when the operator asks for the custom domain — do not treat this as an open blocker until then. |
-| Certification/staking evidence volume (`docs/DEBT.md` item 25) | `models/model_registry.py`, `certification_policy.py` | **Walk-forward's ≥10-settled floor crossed 2026-08-28** — `total_settled: 11`, `rps_overall: 0.331` (still above the `0.21` promotion gate, i.e. not yet passing it), real 3-fold series. `compare_candidate_vs_incumbent` — re-run 2026-08-30 with real Elo now wired into training (`docs/DEBT.md` item 48 follow-up) — moved `no_league_regression` 3/6 → **4/6** and `market_baseline` 0/6 → **1/6**; the promotion-gate accounting bug that blocked *any* candidate is already fixed (item 38, authorized 2026-08-22), and this session's genuinely-better candidate closed part of the gap without a threshold change (APEX §23 forbids lowering a gate after seeing results) — `promotion_permitted` is still correctly `false` (needs 6/6 on both axes, and `serving_feature_availability` fails independently on item 37's schema deadlock). CLV (floor 10 joined predictions, currently ~1) and portfolio-exposure calibration (floor ≥1 same-league/matchday settled round — worth a direct re-check now that 11 predictions across ≥3 dates exist) remain below their own floors; re-verify both directly rather than assuming either has crossed. |
-| Tactical / StatsBomb feature family (`docs/DEBT.md` item 13) | `data/`, feature registry | The one remaining genuinely-open feature-family gap (4 of 68 canonical slots) — Elo, head-to-head, and home-venue families are all resolved and DATA_FED in production. Needs a separate corpus regeneration and point-in-time parity review; medium/low priority, no urgency. |
-| Drift monitor + reference baseline (`docs/DEBT.md` item 8) | `monitoring/drift.py` | Correctly deferred, not neglected — trigger is ≥1,000 score-verified settled fixtures (currently 11). No action until volume is far closer to that floor; do not wire a periodic caller before then. |
-| ⚠️ Production alias promotion (Vercel) | Vercel dashboard (not code) | **Standing mechanism, not a one-time fix — re-check after every push.** Currently in sync: both `web-lac-theta-42.vercel.app/api/health` and the Render backend agree at `sha: aaf0da9`. Vercel builds every master commit but the production alias can remain pinned to an older deployment; compare `/api/health` SHAs after each push and promote the latest READY deployment when they differ. |
+| Old Redis credential revocation (`docs/DEBT.md` item 15, step 6) | Redis Cloud console (not code) | Unchanged since 2026-08-28 — still operator-reported, not independently verifiable from this environment (no Redis/Upstash console access; a live `tier1_redis_available: true` at `/health` only proves *a* credential works). Close this row only against dated revocation evidence from the `sabiscore-database` (ID `13753214`) console. |
+| Historical Gitleaks credential fingerprints (`docs/DEBT.md` item 16) | Git history (not code) | Re-ran `gitleaks detect` (git-history mode, 563 commits, 32.44 MB) this session — **identical to every prior scan**: exactly the same 2 leaked values, `backend/.env.example` `generic-api-key` at commits `d604c13` and `67ed0ab`, nothing new introduced by PRs #157–161. Current tree is clean. Cannot be waived without the credential owner's dated revocation evidence for those exact values — operator-only, not code-checkable. |
+| Fresh Docker image build proof (`docs/DEBT.md` item 16) | `Makefile`, Docker daemon | Unchanged — no reachable Docker daemon in this environment (not re-attempted this session; prior attempts already documented exceeding ~15 minutes under available VM memory). Canonical Linux CI (`.github/workflows/ci.yml`) remains the source of truth for merge/release gates. |
+| `sabiscore.com` custom domain | Registrar DNS (not code) | **Re-checked, unchanged and now more precisely characterised.** A lookup against Google's public resolver (`8.8.8.8`) returns `SERVER FAILED` (`SERVFAIL`), not a timeout — this points at a broken delegation or DNSSEC problem at the registrar, not a transient network issue, and is a stronger signal than the plain timeout previously recorded. Still operator-deprioritized (2026-08-27, "let the vercel domain be used for now"); `web-lac-theta-42.vercel.app` remains canonical. Revisit only when the operator asks for the custom domain. |
+| Certification/staking evidence volume (`docs/DEBT.md` item 25) | `models/model_registry.py`, `certification_policy.py` | **Settled predictions now 59** (walk-forward `rps_overall: 0.2356`, 5 real chronological folds), well past the ≥10-settled floor. ⚠️ **The "market_baseline 0/6 → 1/6" framing in the 2026-08-28 snapshot is superseded, not merely stale.** `docs/DEBT.md` item 62 (2026-09-06) ran a **paired block-bootstrap** (10,000 replicates) on that exact EPL point estimate and found its 95% CI `[-0.0029, +0.0028]` — indistinguishable from zero, not a real edge; **0 of 6 leagues** had a CI excluding zero in the candidate's favour, and the same instrument scored the serving incumbent at 0/6 too. Item 64 (2026-09-09, this repo's own calibration-selection fix) independently re-confirmed **0/6** market-beating on the resulting methodologically-corrected candidate. `promotion_permitted`/`stake_permitted` remain correctly `false` — `no_league_regression` and `market_baseline` both fail, and `serving_feature_availability` fails independently on item 37/49's schema deadlock. CLV (floor 10 joined predictions) is well past its floor at **n=33**, `mean_clv: +0.0252`, `positive_rate: 0.667` — informational, not a promotion gate. Portfolio-exposure calibration is a separate, still-open item — see below. |
+| Portfolio-exposure calibration (`docs/DEBT.md` item 9) | `backend/scripts/calibrate_portfolio_exposure.py`, `backend/src/core/portfolio_exposure.py` | **Cannot be checked or run from this environment.** The script's own docstring requires a `DATABASE_URL` with direct read access to `match_prediction_logs`/`matches` (raw `psycopg2`, not an API call) — this environment has no reachable production Postgres. Its own trigger cleared 2026-09-04 (37 settled predictions; now 59), but the statistically-reliable target is ≥10 same-league/same-matchday groups of n≥2, which cannot be counted without that DB access. Needs to be run from an environment with production DB reach (Render shell, or an operator machine) — `--review` first (dry-run), `--apply` only once the group-count target is confirmed met. |
+| Tactical / StatsBomb feature family (`docs/DEBT.md` item 13) | `data/`, feature registry | Unchanged — the one remaining genuinely-open feature-family gap (4 of 68 canonical slots). Elo, head-to-head, and home-venue families are all resolved and DATA_FED in production. Needs a separate corpus regeneration and point-in-time parity review; medium/low priority, no urgency. |
+| Drift monitor + reference baseline (`docs/DEBT.md` item 8) | `monitoring/drift.py` | Correctly deferred, not neglected — trigger is ≥1,000 score-verified settled fixtures (currently 59, growing but still far off). No action until volume is far closer to that floor; do not wire a periodic caller before then. |
+| ⚠️ Production alias promotion (Vercel) | Vercel dashboard (not code) | **Standing mechanism, not a one-time fix — re-check after every push.** Currently in sync: both `web-lac-theta-42.vercel.app/api/health` and the Render backend agree at `sha: eadccb7`. Vercel builds every master commit but the production alias can remain pinned to an older deployment; compare `/api/health` SHAs after each push and promote the latest READY deployment when they differ. |
 
 ## Provider enable flag alignment (2026-07-04)
 

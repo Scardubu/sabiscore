@@ -5,6 +5,75 @@ All notable changes to this skill suite are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased - Calibration selection fixed to require held-out persistence; isotonic rejected 4/4; production hygiene sweep (2026-09-09, PR #161)
+
+`docs/PRODUCTION_EXECUTIVE_DIRECTIVE.md` Phase 1 (Calibration Repair, E0).
+Executing the calibrator-selection machinery (written in a prior session,
+never run end-to-end) surfaced two measurement bugs before any result could
+be trusted, then produced a decisive negative finding once fixed. No model
+artifact, certification or promotion rule, verdict gate, Kelly rule, or
+staking permission changed — the active generation remains `UNVERIFIED` /
+`ACTIVE_FAIL_CLOSED`.
+
+### Fixed
+
+- `_calibration_reliability` (`backend/scripts/train_on_real_matches.py`)
+  special-cased its first bin as `[0.0, 0.1]` inclusive while the production
+  functions it claimed to match (`expected_calibration_error`,
+  `brier_score_decomposition`) use `(lo, hi]` uniformly — isotonic
+  regression's `y_min=0.0` clip makes exact-zero outputs a real occurrence,
+  not a theoretical edge case. Fixed by deleting the duplicate and
+  delegating to `brier_score_decomposition` directly.
+- `_select_calibrator` chose between temperature scaling and isotonic
+  regression by measuring reliability on the exact split each candidate was
+  fit to — a circular, in-sample comparison that always favours isotonic's
+  flexibility regardless of generalisation. Now also scores both candidates
+  on the genuinely disjoint holdout season and requires isotonic to win
+  **both** comparisons before it ships (directive §20 B3: a candidate
+  "succeeds only if... persists on untouched data"). Retraining on the real
+  12,765-match corpus measured the effect directly: isotonic won the
+  in-sample comparison in 4 of 6 leagues and failed the held-out persistence
+  check in **all 4** — temperature scaling now ships in all 6 leagues. See
+  `docs/DEBT.md` item 64 for full per-league numbers.
+- `IsotonicMetaModel.predict_proba` (`backend/src/core/meta_model.py`)
+  computed `0/0` on a degenerate all-zero row and discarded the NaN via
+  `np.where` (which evaluates both branches), emitting a `RuntimeWarning` on
+  every such row. Fixed by making the divisor safe before the select.
+- The phantom absolute RPS promotion threshold (`0.21`, cited on the
+  homepage, docs page, and `/api/health` as if certified) removed from
+  public copy — the frozen certification policy's gate is relative
+  (`min_mean_rps_improvement > 0.0`), not absolute.
+- The performance dashboard's aggregate stat
+  (`model_probs[argmax] - closing_probs[argmax]`) relabelled from "Closing
+  line value" — a term of art requiring a taken price and subsequent market
+  movement, neither of which this diagnostic has — to "Market belief
+  differential". Backend field/module name (`clv_service.py`) intentionally
+  left unrenamed this PR.
+- `<150ms` latency claims (`predictions.py`, `schemas/prediction.py`,
+  `services/data_processing.py`) corrected to name model inference
+  specifically; a new end-to-end alert threshold (2500ms p95, `/metrics`,
+  not a CI gate) and CI-enforced inference-only budget test
+  (`tests/unit/test_latency_budgets.py`) added alongside it.
+
+### Changed
+
+- `polars`/`pyarrow` moved out of `backend/requirements.runtime.txt` (zero
+  importers in `backend/src`) — shortens every Render redeploy window.
+
+### Added
+
+- `backend/tests/unit/test_calibration_selection.py` (5 tests) and 5 new
+  `IsotonicMetaModel` correctness tests in `test_meta_model.py`.
+- `backend/models/calibration_baselines.json` +
+  `scripts/snapshot_calibration_baseline.py` — a fixed per-generation
+  calibration prior for future recalibration work to measure against.
+- `reports/ground_truth/GROUND_TRUTH_SNAPSHOT_2026-09-08.json` — Gate R0
+  immutable snapshot per directive §3/§40, every field measured live and
+  source-cited.
+- `docs/PRODUCTION_EXECUTIVE_DIRECTIVE.md` v5 (supersedes v4) — research
+  doctrine for the next phase (player availability, event data, tactical
+  interaction, market microstructure).
+
 ## Unreleased - Baseline-vs-market edge fabrication removed (2026-09-08)
 
 Zero-fabrication fix on the live match surface. No model artifact,
