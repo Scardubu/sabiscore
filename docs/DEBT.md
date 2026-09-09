@@ -1,5 +1,123 @@
 # SabiScore Debt Ledger
 
+## 70. Experiment E0 continued: vector scaling and beta calibration complete the §20 B2 candidate set — vector ships in Ligue 1, a genuine improvement the isotonic-only cascade could not have found — RESOLVED 2026-09-09
+
+**Tier:** `RESOLVED` (§20 B2 checklist completed — candidates 2 and 4 were the
+only two of four not yet evaluated) with a per-candidate §51 verdict: vector
+scaling **ships** in Ligue 1 (genuine calibration-set + held-out win), `HOLD`
+elsewhere (5/6 leagues — sometimes wins the calibration set, never persists on
+holdout); beta calibration `REJECT` (never wins the cascade in any league at
+this data volume). Full backend suite green; new unit coverage watched against
+both the refactored selection logic and item 64's four pre-existing tests,
+which pass completely unmodified.
+
+**Found while continuing `PRODUCTION_EXECUTIVE_DIRECTIVE.md`'s Phase 1 / E0
+("Calibration Repair") workstream past item 64.** Item 64 fixed the
+temperature-vs-isotonic selection gate but left §20 B2's other two named
+candidates — vector scaling and beta calibration — unbuilt.
+`_select_calibrator` (`scripts/train_on_real_matches.py`) generalised from a
+pairwise temperature-vs-isotonic comparison into a single-elimination
+cascade, simplest candidate first (vector scaling → beta calibration →
+isotonic regression), each challenger required to beat whichever calibrator
+CURRENTLY leads on both the calibration-set (§20 B2) and held-out (§20 B3)
+stages — not always temperature. This is not just completing a checklist: a
+more complex candidate could otherwise win merely by beating the original
+baseline while a simpler candidate had already beaten that same baseline by
+more, which the corpus turned out to actually exercise (see Ligue 1, below).
+
+**New wrapper classes**, `src/core/meta_model.py`: `VectorScaledMetaModel`
+(per-class scale + bias, jointly optimised, operating on the same
+log-probability proxy `TemperatureScaledMetaModel` already uses) and
+`BetaCalibratedMetaModel` (per-class `sigmoid(a*ln(p) + b*ln(1-p) + c)`, the
+same one-vs-rest decomposition `IsotonicMetaModel` already uses). Both fit via
+`scipy.optimize.minimize` directly, deliberately NOT via
+`sklearn.linear_model.LogisticRegression` — beta calibration's textbook
+fitting method — because this module's own docstring documents a real
+cross-version `AttributeError` from exactly that class (production's
+scikit-learn 1.3.2 cannot unpickle a `LogisticRegression` fitted under local
+1.8, whose `predict_proba` needs an attribute 1.8 no longer sets). Only plain
+floats are stored, the same safety profile as `TemperatureScaledMetaModel`.
+
+**Retrained on the real 12,765-match corpus and measured directly** (not
+simulated): temperature scaling still ships in 5 of 6 leagues (BUNDESLIGA,
+EPL, LA_LIGA, SERIE_A, and the pooled EREDIVISIE model) — vector and beta both
+improve calibration-set reliability in most leagues but fail the held-out
+persistence check there, the same overfitting shape item 64 measured for
+isotonic, just smaller in magnitude (both are smoother, lower-capacity
+candidates than isotonic's per-class step function).
+
+**LIGUE_1 is the one league where a challenger genuinely wins**: vector
+scaling beats temperature on BOTH stages (calibration-set reliability
+0.0021 < 0.0038, resolution 0.0235 ≥ 0.0217; held-out reliability
+0.0056 < 0.0059, resolution 0.0229 ≥ 0.0206) and ships. ⚠️ **This is invisible
+to the pre-this-session, temperature-vs-isotonic-only cascade**: isotonic
+alone also beats temperature on the calibration set in Ligue 1 (reliability
+0.0020, resolution 0.0243) but fails the held-out persistence check there
+(holdout reliability 0.0069, worse than temperature's 0.0059) — exactly item
+64's overfitting shape — so the OLD two-candidate logic would have concluded
+"isotonic won the calibration set but did not persist" and shipped
+temperature, never discovering that a SIMPLER candidate the old cascade did
+not know about would have actually worked. The cascade's own
+champion-comparison property was confirmed live in the same league: isotonic
+beats VECTOR on the calibration set (0.0020 < 0.0021) but fails vector's
+holdout bar (0.0069 is not < vector's 0.0056), so vector correctly stays
+champion rather than being displaced by a candidate that only ever beat the
+OLD baseline.
+
+**Responsiveness confirmed healthy, not suppressed**: item 64 found isotonic's
+per-class step function can artificially suppress the `responsive_features`
+promotion-gate diagnostic (2/68, 8/68, 6/68 on that buggy pre-fix run). Vector
+and beta are smooth, differentiable maps — Ligue 1's shipped vector-scaled
+generation reads `responsive_features: 47/68`, in line with every
+temperature-shipping league (43–55/68) and nowhere near that suppressed range.
+
+**Full candidate evaluation** (`scripts/compare_candidate_vs_incumbent.py`,
+`apex_v1_68` schema, holdout season 2526, output
+`backend/models/candidate/comparison_report_v5_phase7_vector_beta.json`):
+`promotion_permitted: false` (unchanged). `no_league_regression` FAIL but
+**improved 3/6 → 4/6** (EREDIVISIE, LA_LIGA, LIGUE_1, SERIE_A win) purely as a
+side effect of Ligue 1's genuinely better-calibrated candidate. `market_baseline`
+FAIL, 0/6 — unchanged, and directive §20 explicitly states calibration is not
+a market-edge claim, so this is the expected, non-alarming result.
+`serving_feature_availability` FAIL is the pre-existing item 37/49 schema
+deadlock, untouched by this session. **Not promoted** — the same structural
+blockers as every prior candidate remain, independent of calibration quality.
+
+**Fix location:** `backend/src/core/meta_model.py` (`VectorScaledMetaModel`,
+`BetaCalibratedMetaModel`), `backend/scripts/train_on_real_matches.py`
+(`_fit_vector_scaling`, `_fit_beta_calibration`, `_select_calibrator`
+refactored to the cascade). `_select_calibrator`'s diagnostics dict keeps the
+exact shape and reason strings item 64 shipped for the temperature/isotonic
+case (verified: all 4 of item 64's original tests pass completely
+unmodified) and adds `vector` / `beta` entries alongside; `calibration_method`
+/ `calibration_selection_reason` (read into the served artifact's
+`model_metadata`) are generic passthroughs of `chosen`/`reason`, so no
+downstream consumer needed updating for the two new possible values.
+
+**Regression guard:** `backend/tests/unit/test_calibration_selection.py` gains
+5 tests — vector wins over temperature, beta wins over temperature, the
+cascade's core new property (a challenger must beat the CURRENT champion, not
+always temperature — constructed so isotonic would win under the old pairwise
+logic but correctly loses to an already-installed vector champion), and two
+real (non-stubbed) `scipy.optimize` smoke fits, because item 64's own root
+cause was code "written in a prior session but never executed end-to-end" —
+these exercise the actual fitting functions, not just the selection logic
+around them. `backend/tests/unit/test_meta_model.py` gains 10 tests for the
+two new wrapper classes (simplex preservation, predict/predict_proba
+agreement, shape/finiteness validation, degenerate-row fallback for beta, and
+one exact-equivalence pin: vector scaling with a shared scale = 1/temperature
+and zero bias must reproduce `TemperatureScaledMetaModel` bit-for-bit).
+
+**Verification:** `ruff check` clean on all 4 touched files; full
+`backend/tests/unit` suite: 1367 passed, 4 skipped, 2 xfailed, 0 failed
+(unchanged skip/xfail set — the xfails are the pre-existing, unrelated
+`error_association` reversal finding, not a regression). No artifact under
+`backend/models/` (the served, certified root) was touched — only
+`backend/models/candidate/` (gitignored `.pkl`s; the tracked
+`training_report_real.json` and new
+`comparison_report_v5_phase7_vector_beta.json` carry the evidence trail, same
+convention as item 64). Nothing promoted this session.
+
 ## 69. Portfolio F (contextual state) — `REJECT` on a tight null; two real defects found by reading descriptives first
 
 **Tier:** `REJECT` — `PRODUCTION_EXECUTIVE_DIRECTIVE.md` §51 decision.

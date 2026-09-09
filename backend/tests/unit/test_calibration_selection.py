@@ -1,18 +1,25 @@
 """scripts/train_on_real_matches.py::_select_calibrator (Portfolio A / E0 / B2-B3).
 
-PRODUCTION_EXECUTIVE_DIRECTIVE.md §20 B2/B3, a two-stage gate: stage 1 chooses
-between temperature scaling and isotonic regression on the calibration holdout
-("reliability improves AND resolution holds" — reliability improving alone is
-not sufficient, since a flat prediction that always emits the base rate is
+PRODUCTION_EXECUTIVE_DIRECTIVE.md §20 B2/B3, a two-stage gate applied as a
+simplest-first single-elimination cascade across all four §20 B2 candidates
+(temperature, vector, beta, isotonic): stage 1 requires a challenger to beat
+whichever calibrator currently leads on the calibration holdout ("reliability
+improves AND resolution holds" — reliability improving alone is not
+sufficient, since a flat prediction that always emits the base rate is
 trivially "reliable" while being completely uninformative); stage 2 requires
-the stage-1 conclusion to "persist on untouched data" using a genuinely
-disjoint holdout season before isotonic ships, because isotonic regression is
-flexible enough to fit a small calibration slice almost exactly -- an in-sample
-reliability number near zero is expected of an overfitting calibrator, not
-evidence it generalises. This is not a theoretical concern: retraining on the
-real per-league corpus, isotonic won stage 1 in 4 of 6 leagues (EPL, LA_LIGA,
+that SAME conclusion to "persist on untouched data" using a genuinely disjoint
+holdout season before the challenger ships, because a flexible calibrator can
+fit a small calibration slice almost exactly -- an in-sample reliability
+number near zero is expected of an overfitting calibrator, not evidence it
+generalises. This is not a theoretical concern: retraining on the real
+per-league corpus, isotonic won stage 1 in 4 of 6 leagues (EPL, LA_LIGA,
 LIGUE_1, the pooled EREDIVISIE model) and failed stage 2 in all 4 -- a complete
-reversal every time. Temperature scaling ships in every league as a result.
+reversal every time. Temperature scaling shipped in every league as a result
+(item 64, docs/DEBT.md) before vector scaling and beta calibration existed as
+candidates; the tests below pin that the temperature/isotonic-only case is
+byte-identical to that finding, plus the cascade's new property: a later,
+more-flexible candidate must beat the CURRENT champion, not always
+temperature.
 
 This file also pins the delegation to ``brier_score_decomposition`` -- the
 SAME function production's ``/model-performance/calibration`` endpoint uses --
@@ -208,3 +215,162 @@ def test_select_calibrator_falls_back_to_temperature_when_isotonic_fit_fails(
     assert diagnostics["held_out_persistence"]["isotonic"] is None
     assert diagnostics["held_out_persistence"]["conclusion_persists"] is True
     assert model.predict_proba(None) is temp_probs
+
+
+# ── Cascade: vector scaling and beta calibration as additional candidates ────
+#
+# These stub `_calibration_reliability` directly rather than hand-crafting
+# probability arrays that must satisfy brier_score_decomposition's exact
+# arithmetic -- that arithmetic is already pinned by
+# test_calibration_reliability_matches_production_brier_decomposition above.
+# What these tests exercise is the SELECTION logic: which candidate becomes
+# champion, and specifically (the property this refactor adds) that a later
+# candidate must beat the CURRENT champion, not always temperature.
+
+
+def test_select_calibrator_can_choose_vector_scaling_over_temperature(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    y = np.array([0, 1, 2] * 5)
+    temp_model = _FakeCalibrator(np.zeros((len(y), 3)))
+    vector_model = _FakeCalibrator(np.ones((len(y), 3)))
+    metrics = {
+        id(temp_model): {"reliability": 0.10, "resolution": 0.05},
+        id(vector_model): {"reliability": 0.02, "resolution": 0.08},
+    }
+
+    monkeypatch.setattr(train_on_real_matches, "_fit_temperature", lambda *a, **k: temp_model)
+    monkeypatch.setattr(train_on_real_matches, "_fit_vector_scaling", lambda *a, **k: vector_model)
+    monkeypatch.setattr(
+        train_on_real_matches, "_calibration_reliability",
+        lambda model, *a, **k: dict(metrics[id(model)]),
+    )
+
+    model, diagnostics = train_on_real_matches._select_calibrator(
+        object(), None, y, meta_features_holdout=None, y_holdout=y,
+    )
+
+    assert diagnostics["chosen"] == "vector"
+    assert diagnostics["reason"] == "reliability_improved_resolution_held_and_persisted_on_holdout"
+    # Real fits on `object()` raise AttributeError -- graceful degradation.
+    assert diagnostics["isotonic"] is None
+    assert diagnostics["beta"] is None
+    assert model is vector_model
+
+
+def test_select_calibrator_can_choose_beta_calibration_over_temperature(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    y = np.array([0, 1, 2] * 5)
+    temp_model = _FakeCalibrator(np.zeros((len(y), 3)))
+    beta_model = _FakeCalibrator(np.ones((len(y), 3)))
+    metrics = {
+        id(temp_model): {"reliability": 0.10, "resolution": 0.05},
+        id(beta_model): {"reliability": 0.02, "resolution": 0.08},
+    }
+
+    monkeypatch.setattr(train_on_real_matches, "_fit_temperature", lambda *a, **k: temp_model)
+    monkeypatch.setattr(train_on_real_matches, "_fit_beta_calibration", lambda *a, **k: beta_model)
+    monkeypatch.setattr(
+        train_on_real_matches, "_calibration_reliability",
+        lambda model, *a, **k: dict(metrics[id(model)]),
+    )
+
+    model, diagnostics = train_on_real_matches._select_calibrator(
+        object(), None, y, meta_features_holdout=None, y_holdout=y,
+    )
+
+    assert diagnostics["chosen"] == "beta"
+    assert diagnostics["vector"] is None
+    assert diagnostics["isotonic"] is None
+    assert model is beta_model
+
+
+def test_select_calibrator_only_lets_a_challenger_win_by_beating_the_current_champion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The cascade's whole point: a later, more-flexible candidate must beat
+    whichever calibrator currently leads, not always temperature.
+
+    Isotonic is given metrics that would clearly beat temperature on their
+    own (the pre-cascade, two-way logic would have shipped it) but that lose
+    to vector scaling, which is checked first (simplest-first ordering, see
+    _select_calibrator's docstring) and becomes champion. Isotonic must then
+    be compared against vector -- and lose.
+    """
+    y = np.array([0, 1, 2] * 5)
+    temp_model = _FakeCalibrator(np.zeros((len(y), 3)))
+    vector_model = _FakeCalibrator(np.ones((len(y), 3)))
+    iso_model = _FakeCalibrator(np.full((len(y), 3), 2.0))
+    metrics = {
+        id(temp_model): {"reliability": 0.10, "resolution": 0.05},
+        id(vector_model): {"reliability": 0.02, "resolution": 0.08},
+        id(iso_model): {"reliability": 0.05, "resolution": 0.09},
+    }
+
+    monkeypatch.setattr(train_on_real_matches, "_fit_temperature", lambda *a, **k: temp_model)
+    monkeypatch.setattr(train_on_real_matches, "_fit_vector_scaling", lambda *a, **k: vector_model)
+    monkeypatch.setattr(train_on_real_matches, "_fit_isotonic", lambda *a, **k: iso_model)
+    monkeypatch.setattr(
+        train_on_real_matches, "_calibration_reliability",
+        lambda model, *a, **k: dict(metrics[id(model)]),
+    )
+
+    model, diagnostics = train_on_real_matches._select_calibrator(
+        object(), None, y, meta_features_holdout=None, y_holdout=y,
+    )
+
+    assert diagnostics["chosen"] == "vector"
+    # Isotonic legitimately beats temperature on its own...
+    assert diagnostics["isotonic"]["reliability"] < diagnostics["temperature"]["reliability"]
+    assert diagnostics["isotonic"]["resolution"] >= diagnostics["temperature"]["resolution"]
+    # ...but the champion it actually had to beat was vector, and lost.
+    assert diagnostics["isotonic"]["reliability"] > diagnostics["vector"]["reliability"]
+    assert model is vector_model
+
+
+# ── Real fits, not stubs: item 64's root cause was code that had been written
+# but never executed end-to-end. These smoke-test the actual scipy.optimize
+# fits on real (small, synthetic) data. ─────────────────────────────────────
+
+
+def test_fit_vector_scaling_produces_a_valid_simplex_on_real_data() -> None:
+    from src.core.meta_model import SoftmaxMetaModel, VectorScaledMetaModel
+
+    rng = np.random.default_rng(11)
+    base = SoftmaxMetaModel(
+        coef=np.asarray([[1.5, 0.0], [0.0, 0.0], [-1.5, 0.0]]),
+        intercept=np.zeros(3),
+        classes=np.asarray([0, 1, 2]),
+    )
+    X = rng.normal(size=(200, 2))
+    y = np.argmax(base.predict_proba(X), axis=1)
+
+    model = train_on_real_matches._fit_vector_scaling(base, X, y)
+
+    assert isinstance(model, VectorScaledMetaModel)
+    probabilities = model.predict_proba(X)
+    assert probabilities.shape == (200, 3)
+    assert np.allclose(probabilities.sum(axis=1), 1.0)
+    assert np.all(np.isfinite(probabilities))
+
+
+def test_fit_beta_calibration_produces_a_valid_simplex_on_real_data() -> None:
+    from src.core.meta_model import BetaCalibratedMetaModel, SoftmaxMetaModel
+
+    rng = np.random.default_rng(13)
+    base = SoftmaxMetaModel(
+        coef=np.asarray([[1.5, 0.0], [0.0, 0.0], [-1.5, 0.0]]),
+        intercept=np.zeros(3),
+        classes=np.asarray([0, 1, 2]),
+    )
+    X = rng.normal(size=(200, 2))
+    y = np.argmax(base.predict_proba(X), axis=1)
+
+    model = train_on_real_matches._fit_beta_calibration(base, X, y)
+
+    assert isinstance(model, BetaCalibratedMetaModel)
+    probabilities = model.predict_proba(X)
+    assert probabilities.shape == (200, 3)
+    assert np.allclose(probabilities.sum(axis=1), 1.0)
+    assert np.all(np.isfinite(probabilities))

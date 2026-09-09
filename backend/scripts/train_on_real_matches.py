@@ -875,6 +875,90 @@ def _fit_isotonic(meta_model: Any, meta_features: Any, y_calibration: np.ndarray
     return IsotonicMetaModel(meta_model, calibrators)
 
 
+def _fit_vector_scaling(meta_model: Any, meta_features: Any, y_calibration: np.ndarray):
+    """Fit a per-class scale and bias on the calibration split (§20 B2 candidate #2).
+
+    Generalises ``_fit_temperature``: one shared scalar becomes one scale and
+    one bias per class, jointly optimised (not one-vs-rest) so the softmax
+    constraint across classes is respected during fitting, not only at
+    prediction time. Bounded to the same scale range as temperature scaling
+    (0.25-4.0 per class) plus a modest per-class bias (-2.0 to 2.0) so the
+    optimiser cannot buy a lower calibration-set loss purely by memorising it
+    with extreme parameters -- the exact overfitting shape item 64 measured
+    for isotonic regression, at a smaller scale here since vector scaling has
+    far fewer free parameters.
+    """
+    from scipy.optimize import minimize
+    from src.core.meta_model import VectorScaledMetaModel
+
+    raw = meta_model.predict_proba(meta_features)
+    n_classes = raw.shape[1]
+    log_p = np.log(np.clip(raw, 1e-12, 1.0))
+
+    def objective(params: np.ndarray) -> float:
+        scale, bias = params[:n_classes], params[n_classes:]
+        logits = log_p * scale + bias
+        logits -= logits.max(axis=1, keepdims=True)
+        exp = np.exp(logits)
+        probabilities = exp / exp.sum(axis=1, keepdims=True)
+        return float(
+            -np.mean(
+                np.log(np.maximum(probabilities[np.arange(len(y_calibration)), y_calibration], 1e-12))
+            )
+        )
+
+    bounds = [(0.25, 4.0)] * n_classes + [(-2.0, 2.0)] * n_classes
+    x0 = np.concatenate([np.ones(n_classes), np.zeros(n_classes)])
+    result = minimize(objective, x0, method="L-BFGS-B", bounds=bounds)
+    if not result.success or not np.all(np.isfinite(result.x)):
+        raise ValueError("vector scaling calibration failed")
+    scale, bias = result.x[:n_classes], result.x[n_classes:]
+    return VectorScaledMetaModel(meta_model, scale, bias)
+
+
+def _fit_beta_calibration(meta_model: Any, meta_features: Any, y_calibration: np.ndarray):
+    """Fit one 3-parameter beta calibration map per class (§20 B2 candidate #4,
+    "beta calibration where justified" -- justified here because it reuses
+    the isotonic per-class one-vs-rest decomposition already in this file and
+    needs no new dependency).
+
+    Beta calibration (Kull, Silva Filho & Flach 2017) is a binary method:
+    ``sigmoid(a*ln(p) + b*ln(1-p) + c)``. Its textbook fitting procedure is a
+    2-feature logistic regression, but fitting it that way would store a
+    ``sklearn.linear_model.LogisticRegression`` in the pickle -- exactly the
+    class ``src/core/meta_model.py``'s module docstring documents as
+    incompatible across the local/production scikit-learn versions. Fit by
+    direct negative-log-likelihood minimisation instead; only plain floats
+    are stored.
+    """
+    from scipy.optimize import minimize
+    from src.core.meta_model import BetaCalibratedMetaModel
+
+    raw = meta_model.predict_proba(meta_features)
+    n_classes = raw.shape[1]
+    params_per_class: list = []
+    for cls_idx in range(n_classes):
+        p = np.clip(raw[:, cls_idx], 1e-12, 1.0 - 1e-12)
+        binary = (y_calibration == cls_idx).astype(float)
+        log_p = np.log(p)
+        log_1mp = np.log(1.0 - p)
+
+        def objective(params: np.ndarray, log_p: np.ndarray = log_p, log_1mp: np.ndarray = log_1mp, binary: np.ndarray = binary) -> float:
+            a, b, c = params
+            z = np.clip(a * log_p + b * log_1mp + c, -30.0, 30.0)
+            pred = np.clip(1.0 / (1.0 + np.exp(-z)), 1e-12, 1.0 - 1e-12)
+            return float(-np.mean(binary * np.log(pred) + (1.0 - binary) * np.log(1.0 - pred)))
+
+        result = minimize(
+            objective, x0=np.array([1.0, -1.0, 0.0]), method="L-BFGS-B",
+            bounds=[(-10.0, 10.0), (-10.0, 10.0), (-5.0, 5.0)],
+        )
+        if not result.success or not np.all(np.isfinite(result.x)):
+            raise ValueError(f"beta calibration failed for class {cls_idx}")
+        params_per_class.append(tuple(float(v) for v in result.x))
+    return BetaCalibratedMetaModel(meta_model, params_per_class)
+
+
 def _calibration_reliability(calibrated_model: Any, meta_features: Any, y: np.ndarray, n_bins: int = 10) -> Dict[str, float]:
     """Murphy reliability and resolution on the calibration holdout.
 
@@ -929,126 +1013,136 @@ def _select_calibrator(
     meta_features_holdout: Any,
     y_holdout: np.ndarray,
 ) -> Tuple[Any, Dict[str, Any]]:
-    """Compare temperature scaling and isotonic regression; return the better one.
+    """Choose among temperature, vector, beta, and isotonic calibration (§20 B2).
 
-    Two-stage gate. Stage 1 (§20 B2 — "use the existing independent
-    calibration holdout"): isotonic must both lower reliability AND not lower
-    resolution versus temperature scaling on the calibration split, measured
-    on THAT split. Stage 2 (§20 B3 — "calibration behavior persists on
-    untouched data"): isotonic must win the SAME comparison again on the
-    genuinely disjoint holdout season before it ships.
+    Single-elimination cascade, simplest candidate first: vector scaling,
+    then beta calibration, then isotonic regression, each challenging
+    whichever calibrator currently leads (starting from temperature scaling,
+    the baseline every challenger must ultimately beat). A challenger unseats
+    the champion only if it wins BOTH the calibration-set comparison (§20 B2)
+    AND the held-out persistence check (§20 B3) against the CURRENT champion
+    — not always against temperature — so a more complex candidate cannot win
+    merely by beating the original baseline while a simpler candidate already
+    beats that same baseline. Checking simplest-first also means isotonic
+    (the most flexible candidate, and the one item 64 measured overfitting a
+    few hundred calibration rows in 4 of 6 leagues) only ships if it beats a
+    candidate that has ALREADY cleared the same two-stage bar, never a weaker
+    undefeated baseline.
 
-    Stage 1 alone is not trustworthy on its own: isotonic regression is
-    flexible enough to fit a few hundred calibration rows almost exactly, so
-    an in-sample reliability number close to zero is expected of an
-    overfitting calibrator, not evidence it generalises. This is not
-    theoretical — on the real per-league corpus (backend/data/cache), isotonic
-    won stage 1 in 4 of 6 leagues (EPL, LA_LIGA, LIGUE_1, the pooled
-    EREDIVISIE model) and failed stage 2 in all 4, a complete reversal
-    every time (see
-    docs/DEBT.md for the retrain that measured this). Directive §20 B3 states
-    persistence as a SUCCESS CRITERION ("succeeds only if... persists"), not
-    an optional diagnostic, so stage 2 is a hard requirement here, not a
-    footnote: isotonic that wins stage 1 but loses stage 2 ships temperature.
+    Stage 1 alone is never trustworthy: a flexible calibrator can fit a small
+    calibration slice almost exactly, so a near-zero in-sample reliability
+    number is what overfitting looks like, not evidence it generalises. This
+    is not theoretical — on the real per-league corpus (backend/data/cache),
+    isotonic won stage 1 in 4 of 6 leagues (EPL, LA_LIGA, LIGUE_1, the pooled
+    EREDIVISIE model) and failed stage 2 in all 4, a complete reversal every
+    time (see docs/DEBT.md for the retrain that measured this). Directive
+    §20 B3 states persistence as a SUCCESS CRITERION ("succeeds only if...
+    persists"), not an optional diagnostic, so stage 2 is a hard requirement
+    for every challenger, not only isotonic.
 
-    This is a coarse two-way choice between two fixed-recipe calibrators, not
-    a hyperparameter search — using the holdout season to decide between them
-    is the scale of test-set-informed selection the directive's B3 language
+    Each challenger fits independently inside its own try/except and degrades
+    gracefully — "not evaluated", champion unchanged — on any fitting
+    exception, so one candidate's numerical failure never blocks the others
+    or the overall selection.
+
+    This is a coarse selection among fixed-recipe calibrators, not a
+    hyperparameter search — using the holdout season to decide among them is
+    the scale of test-set-informed selection the directive's B3 language
     anticipates, not the many-free-parameter leakage `tune_hyperparameters`
     already avoids by searching only the training slice.
 
-    Falls back to temperature scaling if isotonic fitting fails.
-
-    Returns ``(model, diagnostics)`` — diagnostics carries both candidates'
-    calibration-set AND held-out reliability/resolution, which was chosen,
-    and whether the calibration-set decision would have persisted on
-    held-out data (informative even when it decided the outcome).
+    Returns ``(model, diagnostics)``. ``diagnostics`` keeps the exact shape
+    and reason strings item 64 shipped for the temperature/isotonic case
+    (`temperature`, `isotonic`, `held_out_persistence` with its
+    isotonic-specific `conclusion_persists` flag — kept for backward
+    compatibility with existing consumers of `calibration_method` /
+    `calibration_selection_reason`) and adds `vector` / `beta` entries
+    alongside.
     """
     temp_model = _fit_temperature(meta_model, meta_features_calibration, y_calibration)
     temp_metrics = _calibration_reliability(temp_model, meta_features_calibration, y_calibration)
     temp_holdout = _calibration_reliability(temp_model, meta_features_holdout, y_holdout)
 
-    try:
-        iso_model = _fit_isotonic(meta_model, meta_features_calibration, y_calibration)
-    except Exception as exc:  # pragma: no cover
-        logger.warning("Isotonic calibration failed (%s); using temperature scaling.", exc)
-        return temp_model, {
-            "chosen": "temperature",
-            "reason": f"isotonic_fit_failed: {exc}",
-            "temperature": temp_metrics,
-            "isotonic": None,
-            "held_out_persistence": {
-                "temperature": temp_holdout,
-                "isotonic": None,
-                "conclusion_persists": True,  # nothing to contradict
-            },
-        }
-
-    iso_metrics = _calibration_reliability(iso_model, meta_features_calibration, y_calibration)
-    iso_holdout = _calibration_reliability(iso_model, meta_features_holdout, y_holdout)
-
-    calibration_set_iso_wins = _calibration_wins(iso_metrics, temp_metrics)
-    holdout_iso_wins = _calibration_wins(iso_holdout, temp_holdout)
-
     diagnostics: Dict[str, Any] = {
         "temperature": temp_metrics,
-        "isotonic": iso_metrics,
+        "isotonic": None,
+        "vector": None,
+        "beta": None,
         "held_out_persistence": {
             "temperature": temp_holdout,
-            "isotonic": iso_holdout,
-            "conclusion_persists": calibration_set_iso_wins == holdout_iso_wins,
+            "isotonic": None,
+            "vector": None,
+            "beta": None,
+            # Isotonic-specific, kept for backward compatibility with
+            # pre-cascade consumers; "nothing to contradict" until isotonic
+            # is actually fit below.
+            "conclusion_persists": True,
         },
     }
 
-    if calibration_set_iso_wins and holdout_iso_wins:
-        logger.info(
-            "Calibration: isotonic wins on the calibration set (reliability %.4f < %.4f, "
-            "resolution %.4f >= %.4f) AND persists on the held-out season "
-            "(reliability %.4f < %.4f, resolution %.4f >= %.4f).",
-            iso_metrics["reliability"], temp_metrics["reliability"],
-            iso_metrics["resolution"], temp_metrics["resolution"],
-            iso_holdout["reliability"], temp_holdout["reliability"],
-            iso_holdout["resolution"], temp_holdout["resolution"],
-        )
-        diagnostics["chosen"] = "isotonic"
-        diagnostics["reason"] = "reliability_improved_resolution_held_and_persisted_on_holdout"
-        return iso_model, diagnostics
+    champion_name = "temperature"
+    champion_model = temp_model
+    champion_cal = temp_metrics
+    champion_hold = temp_holdout
+    chosen_reason = "no_candidate_beat_temperature_on_both_stages"
 
-    if calibration_set_iso_wins and not holdout_iso_wins:
-        # §20 B3: "calibration behavior persists on untouched data" is a
-        # SUCCESS CRITERION, not a diagnostic footnote — isotonic regression
-        # is flexible enough to fit a few hundred calibration rows almost
-        # exactly, so winning only on the set it was fit to is not evidence it
-        # generalises. Ship temperature instead of an overfit calibrator.
-        logger.info(
-            "Calibration: isotonic won the calibration set (reliability %.4f < %.4f, "
-            "resolution %.4f >= %.4f) but did NOT persist on the held-out season "
-            "(reliability %.4f vs temperature %.4f, resolution %.4f vs %.4f) — "
-            "shipping temperature scaling instead.",
-            iso_metrics["reliability"], temp_metrics["reliability"],
-            iso_metrics["resolution"], temp_metrics["resolution"],
-            iso_holdout["reliability"], temp_holdout["reliability"],
-            iso_holdout["resolution"], temp_holdout["resolution"],
-        )
-        diagnostics["chosen"] = "temperature"
-        diagnostics["reason"] = "isotonic_won_calibration_set_but_did_not_persist_on_holdout"
-        return temp_model, diagnostics
+    # Simplest-to-most-flexible: vector scaling (jointly-optimised, smooth),
+    # beta calibration (one-vs-rest, smooth), isotonic regression (one-vs-rest,
+    # unconstrained step function — checked last on purpose, see docstring).
+    for name, fit_fn in (
+        ("vector", _fit_vector_scaling),
+        ("beta", _fit_beta_calibration),
+        ("isotonic", _fit_isotonic),
+    ):
+        try:
+            candidate_model = fit_fn(meta_model, meta_features_calibration, y_calibration)
+        except Exception as exc:  # pragma: no cover — numerical fit failure, not a logic branch
+            logger.warning("%s calibration failed (%s); skipping.", name, exc)
+            if name == "isotonic" and champion_name == "temperature":
+                chosen_reason = f"isotonic_fit_failed: {exc}"
+            continue
 
-    logger.info(
-        "Calibration: temperature scaling wins on the calibration set (reliability "
-        "temp=%.4f iso=%.4f, resolution temp=%.4f iso=%.4f)%s.",
-        temp_metrics["reliability"], iso_metrics["reliability"],
-        temp_metrics["resolution"], iso_metrics["resolution"],
-        " -- isotonic improved reliability but degraded resolution"
-        if iso_metrics["reliability"] < temp_metrics["reliability"] else "",
-    )
-    diagnostics["chosen"] = "temperature"
-    diagnostics["reason"] = (
-        "isotonic_degraded_resolution"
-        if iso_metrics["reliability"] < temp_metrics["reliability"]
-        else "isotonic_did_not_improve_reliability"
-    )
-    return temp_model, diagnostics
+        candidate_cal = _calibration_reliability(candidate_model, meta_features_calibration, y_calibration)
+        candidate_hold = _calibration_reliability(candidate_model, meta_features_holdout, y_holdout)
+        diagnostics[name] = candidate_cal
+        diagnostics["held_out_persistence"][name] = candidate_hold
+
+        calibration_set_wins = _calibration_wins(candidate_cal, champion_cal)
+        holdout_wins = _calibration_wins(candidate_hold, champion_hold)
+        if name == "isotonic":
+            diagnostics["held_out_persistence"]["conclusion_persists"] = calibration_set_wins == holdout_wins
+
+        if calibration_set_wins and holdout_wins:
+            logger.info(
+                "Calibration: %s unseats %s (reliability %.4f < %.4f, resolution %.4f >= %.4f) "
+                "AND persists on the held-out season (reliability %.4f < %.4f, resolution %.4f >= %.4f).",
+                name, champion_name,
+                candidate_cal["reliability"], champion_cal["reliability"],
+                candidate_cal["resolution"], champion_cal["resolution"],
+                candidate_hold["reliability"], champion_hold["reliability"],
+                candidate_hold["resolution"], champion_hold["resolution"],
+            )
+            champion_name, champion_model = name, candidate_model
+            champion_cal, champion_hold = candidate_cal, candidate_hold
+            chosen_reason = "reliability_improved_resolution_held_and_persisted_on_holdout"
+        elif calibration_set_wins and not holdout_wins:
+            logger.info(
+                "Calibration: %s won the calibration set against %s but did NOT persist on the "
+                "held-out season — staying with %s.",
+                name, champion_name, champion_name,
+            )
+            if champion_name == "temperature":
+                chosen_reason = f"{name}_won_calibration_set_but_did_not_persist_on_holdout"
+        elif candidate_cal["reliability"] < champion_cal["reliability"]:
+            if champion_name == "temperature":
+                chosen_reason = f"{name}_degraded_resolution"
+        else:
+            if champion_name == "temperature":
+                chosen_reason = f"{name}_did_not_improve_reliability"
+
+    diagnostics["chosen"] = champion_name
+    diagnostics["reason"] = chosen_reason
+    return champion_model, diagnostics
 
 
 # ---------------------------------------------------------------------------
