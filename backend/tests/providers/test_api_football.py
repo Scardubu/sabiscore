@@ -94,6 +94,26 @@ async def test_injuries_without_fixture_id_is_unchanged_from_before(mock_client_
 
 
 @pytest.mark.asyncio
+async def test_injuries_explicit_season_overrides_current_season(mock_client_factory):
+    """docs/DEBT.md item 65 follow-up: Portfolio B's Gate R1 study needs a
+    plan-permitted historical season (this repo's free tier rejects the
+    current season outright), so `season` must reach the query string
+    verbatim instead of always resolving to `_current_season()`.
+    """
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        return httpx.Response(200, json={"response": [VALID_INJURY], "errors": {}, "results": 1})
+
+    provider = APIFootballProvider(api_key="test-key", enabled=True, http_client=mock_client_factory(handler))
+    result = await provider.injuries(competition="EPL", season=2024)
+
+    assert result.status == ProviderStatus.VERIFIED
+    assert calls[0].url.params["season"] == "2024"
+
+
+@pytest.mark.asyncio
 async def test_injuries_logical_error_in_200_response(mock_client_factory):
     def handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"response": [], "errors": {"league": "Invalid league"}, "results": 0})

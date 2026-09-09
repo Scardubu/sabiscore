@@ -272,3 +272,73 @@ larger qualification question this document does not attempt.
 No production code, feature schema, or model artifact is affected by this
 document. No `feature_schema_version` was created. This is a Gate R1
 deliverable only.
+
+---
+
+## 8. Follow-up — the "remaining non-blocked next step" ran; it changes the verdict shape
+
+**Date:** 2026-09-09 (same day). §7 named one open, cheap, non-blocked next
+step: query `api_football` with an explicit `season=2024`. `injuries()` had
+no season override to do this with, so one was added — a single optional
+`season: int | None = None` keyword, defaulting to the existing
+`_current_season()` behaviour for every caller that omits it (orchestrator's
+`_collect_prematch_enriched` is unaffected; regression-pinned by
+`test_injuries_explicit_season_overrides_current_season` in
+`backend/tests/providers/test_api_football.py`). The probe script gained a
+matching `1b)` step. Both ran live against the real subscribed credential.
+
+**Result, decisive and new:**
+
+```text
+1) injuries(competition=EPL)              -> UNAVAILABLE, api_logical_error
+   "Free plans do not have access to this season, try from 2022 to 2024."
+1b) injuries(competition=EPL, season=2024) -> VERIFIED, 3,168 records
+   quota: limit=100/day, remaining=99 (one request spent)
+   sample: {player: "W. Fish", team: "Manchester United",
+            fixture_id: 1208021, reason: "Ankle Injury"}
+2) injuries(fixture_id=1208021)            -> VERIFIED, 6 records
+   distinct_fixture_ids_returned: {1208021}
+   scoped_query_actually_scoped: True
+```
+
+This is materially different from "the free tier is blocked," which was the
+correct reading of the evidence available at the time §7 was written. It
+splits signal 2a into two questions with two different answers:
+
+| Question | Answer | Basis |
+|---|---|---|
+| Can this subscription serve **live**, current-season availability to today's upcoming-fixture surface? | **No — still `HOLD`.** | The API's own error message is unambiguous; this is a plan tier, not a code, limitation. Unblocking it is an operator subscription decision (§3's $19/mo Pro estimate), not more engineering. |
+| Can this subscription supply a **historical, point-in-time-correct** injury corpus for a Phase 3/Stage 3 "does availability move out-of-sample RPS" experiment? | **Yes — Gate G1 now measured, not assumed, and passes for at least EPL/2024.** | 3,168 coherent records in one call is a rich per-competition-per-season dataset, not a thin one. |
+
+The fixture-scoped result is the second load-bearing finding: `docs/DEBT.md`
+item 65 and this report's own §3 had flagged the `fixture` query-param
+behaviour as "unit tested, response semantics not [live-verified]." It is
+now live-verified: querying `fixture_id=1208021` returns exactly the 6
+records belonging to that match (`distinct_fixture_ids_returned == {1208021}`),
+which is precisely the join key Rule 3 requires for "exactly when did this
+information become knowable" reconstruction — an injury record carries a
+`fixture_id`, and a fixture carries a `kickoff_utc`, so a per-fixture
+availability snapshot is a real, joinable, historically reconstructable
+object, not a hypothesis about one.
+
+**What this does and does not authorize.** This is still Phase 2 evidence,
+gathered to close out Phase 2's own open item — it does not, by itself,
+clear Gate R2 (information qualification) or Gate R3 (forecast improvement).
+Per §45/Phase 3, the legitimate next increment is bounded and specific:
+acquire the 2022–2024 seasons across the 5 leagues with a real
+`league_policy`-calibrated model (21 requests at most against a 100/day
+quota — cheap), build the point-in-time join to historical fixtures, run the
+missingness/entity-resolution audit Phase 3 requires, and only then attempt
+Stage 3's incremental-information test (`incumbent` vs `incumbent + signal`,
+paired, walk-forward, against the same holdout this repo already uses for
+every other candidate). That is real, non-trivial research work — not
+executed in this pass, so as not to spend further quota or commit to a
+larger scope without a checkpoint. Sportmonks' `/sidelined` 404 is
+reconfirmed unchanged; that half of the source pairing stays `HOLD` pending
+a different endpoint or plan, independent of anything above.
+
+**Revised decision:** Signal 2a is `HOLD` for live serving, **`RESEARCH`
+(cleared to proceed)** for Phase 3 historical data qualification — no longer
+blocked on any operator or business decision. Signals 2b (confirmed lineup)
+and squad-quality-adjusted availability are unchanged at `HOLD` for the
+reasons already given in §7.

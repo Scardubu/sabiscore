@@ -128,7 +128,9 @@ class APIFootballProvider(BaseProvider):
             for competition in ESPN_LEAGUE_SLUGS
         ]
 
-    async def injuries(self, *, competition: str, fixture_id: Any = None) -> ProviderResult:
+    async def injuries(
+        self, *, competition: str, fixture_id: Any = None, season: int | None = None
+    ) -> ProviderResult:
         """Injury/suspension reports.
 
         Default (``fixture_id`` omitted): every currently-reported injury
@@ -148,10 +150,15 @@ class APIFootballProvider(BaseProvider):
         per-fixture evidence-collection call site (``_collect_prematch_enriched``
         is called once per fixture already) actually wants, and may reach
         fixtures outside the broader query's own lookahead window.
-        Unverified against a live response — this repository holds no
-        api_football credential in any environment this session can reach
-        (docs/DEBT.md item 65); the request-shape guarantee below is unit
-        tested, the response semantics are not.
+
+        With ``season`` (only meaningful when ``fixture_id`` is omitted):
+        overrides the default current-season query. Added for
+        reports/research/portfolio-b-player-availability-source-qualification.md's
+        remaining open thread — this repo's subscribed api_football plan
+        rejects the current season outright ("Free plans do not have access
+        to this season, try from 2022 to 2024"), so a bounded historical
+        Phase-3 study needs a way to query a plan-permitted season. Does not
+        change behaviour for any existing caller, all of which omit it.
         """
         guard = self._guard("injuries")
         if guard is not None:
@@ -163,7 +170,7 @@ class APIFootballProvider(BaseProvider):
             league_id = _LEAGUE_IDS.get(competition.upper())
             if league_id is None:
                 return self._unsupported_competition("injuries", competition)
-            params = {"league": league_id, "season": _current_season()}
+            params = {"league": league_id, "season": season if season is not None else _current_season()}
 
         try:
             payload, headers = await self._get_json(

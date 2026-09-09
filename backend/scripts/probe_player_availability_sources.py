@@ -106,6 +106,29 @@ async def main() -> int:
         if harvested_fixture_id is None:
             print("No coherent record with a fixture_id found — cannot test fixture-scoped mode.")
 
+        print()
+        print("=" * 70)
+        print("1b) api_football.injuries(competition=%r, season=2024) — plan-permitted season" % args.competition)
+        print("=" * 70)
+        historical = await api_football.injuries(competition=args.competition, season=2024)
+        _print("status", historical.status)
+        _print("error_code", historical.error_code)
+        _print("record_count", len(historical.records))
+        _print("quota", historical.quota)
+        _print("warnings (first 3)", historical.warnings[:3])
+        if harvested_fixture_id is None:
+            for record in historical.records:
+                if record.get("coherent") and record.get("fixture_id"):
+                    harvested_fixture_id = record["fixture_id"]
+                    _print("sample_record", {
+                        "player_name": record.get("player_name"),
+                        "team_name": record.get("team_name"),
+                        "fixture_id": record.get("fixture_id"),
+                        "injury_type": record.get("injury_type"),
+                        "reason": record.get("reason"),
+                    })
+                    break
+
         if harvested_fixture_id is not None:
             print()
             print("=" * 70)

@@ -1,6 +1,73 @@
 # SabiScore Debt Ledger
 
-## 65. Player availability is already acquired and already discarded before the feature vector — Portfolio B source qualification (Gate R1), verdict RESEARCH
+## 66. Tactical matchup intelligence (Portfolio D) is blocked by a coverage ceiling this codebase already measured for a different feature — `HOLD`, no new audit run
+
+**Tier:** `HOLD` — `PRODUCTION_EXECUTIVE_DIRECTIVE.md` §51 decision, not a
+code change. Full study: `reports/research/portfolio-d-tactical-matchup-source-qualification.md`.
+**Found:** 2026-09-09, directive Phase 2 (Missing Information Discovery),
+Portfolio D (tactical matchup intelligence) — §8's "team behaviour ×
+opponent susceptibility" interaction-term hypothesis. First entry in this
+ledger under the name "Portfolio D" or "tactical matchup"; zero prior
+qualification work of any kind existed for it before this item.
+
+**Every named §8 interaction (pressing × build-up, transition × concession,
+set-piece × set-piece, carry × containment, line-height × runner-threat)
+needs StatsBomb-grade event/spatial data as its raw ingredient — and that
+exact source, against this exact corpus, was already measured on
+2026-09-04** (Finding 9 below, `scripts/audit_statsbomb_coverage.py`):
+**23.58% coverage against an 85% threshold this codebase itself set.** That
+audit already forced the two closest things this platform has to a
+Portfolio-D-shaped signal (`home_pressing_intensity`, `progressive_carry_diff`
+— team-level, one step short of the pairwise interactions §8 wants) into
+`PHASE7_FEATURES_ALWAYS_DATA_GAP`. Per Rule 2 ("look before you write") and
+§42 (no re-running a closed question without new information), this item
+reuses that measurement rather than re-running a second audit against the
+identical source and identical corpus — there is nothing new to measure.
+
+**One narrower, unqualified thread checked and set aside, not folded in
+silently:** Understat's shot-level "situation" tag (open-play/set-piece/
+penalty) could in principle proxy set-piece threat without StatsBomb, but
+`connectors/understat_source.py`'s `UnderstatTeamXGSource` only ever calls
+`soccerdata`'s match-level `read_schedule()` — no shot-level reader is wired
+anywhere in this codebase. Building one is new acquisition engineering
+requiring its own full Rule 2 chain (coverage, legality, temporal fidelity,
+redundancy), not attempted this session. Recorded as a separate, smaller,
+still-open Tier 2 thread, distinct from the `HOLD` verdict below.
+
+**A second reason to expect low marginal value even setting coverage
+aside:** `home_pressing_intensity`/`progressive_carry_diff` are already 2 of
+the 68 canonical features (registry-defaulted today). A hand-crafted
+interaction between two features already visible to a gradient-boosted
+stacking ensemble has low expected marginal value — the trees already
+discover conditional structure between existing inputs. Portfolio D's real
+value is strictly in *new* granularity no existing feature encodes at all,
+which is exactly the coverage-blocked ingredient.
+
+**Gate assessment (§15):** G1 fixture coverage **FAIL** (23.58% < 85%); G3
+cross-season stability **FAIL by construction** (StatsBomb's free tier is a
+fixed curated selection, not a growing feed); G4 cross-league portability
+**FAIL** (uneven, generally low per-league coverage in the same 2026-09-04
+audit); G5 not reached (blocked upstream by G1); G6 default rate **FAIL**
+(the ~76% default rate that already relegated the raw team-level features
+would be at least as high for a pairwise interaction, and Rule 5 forbids
+default-filling the gap).
+
+**Verdict: `HOLD`, not `REJECT`.** Nothing here says tactical-interaction
+information lacks predictive value — the question cannot yet be asked at
+adequate coverage. Not `RESEARCH` either: the next step is not more
+analysis of the current source, it is the same external precondition
+already on record for the two relegated StatsBomb features — **StatsBomb
+Open Data publishing event coverage ≥85% of the Understat corpus date
+range.** Re-run `scripts/audit_statsbomb_coverage.py` if StatsBomb's
+published competition list changes; if coverage clears 85%, revise this
+item and the linked study rather than filing a new one (§42).
+
+**No production code, feature schema, or model artifact changed.** This is
+a Gate R1 (source qualification) deliverable only, per directive §45.
+
+---
+
+## 65. Player availability is already acquired and already discarded before the feature vector — Portfolio B source qualification (Gate R1): `HOLD` for live serving, Phase 3 historical qualification cleared to proceed (2026-09-09)
 
 **Tier:** `RESEARCH` — `PRODUCTION_EXECUTIVE_DIRECTIVE.md` §51 decision, not a
 code change. Full study: `reports/research/portfolio-b-player-availability-source-qualification.md`.
@@ -135,6 +202,44 @@ clean; the provider gateway suite (74 tests across
 including the 2 new tests; the live probe itself is a manual, read-only
 diagnostic run, not part of any test suite (matches `PROVIDER_LIVE_TESTS`
 staying out of default CI).
+
+### Follow-up, same day: the "untested, cheap follow-up" line above got tested — `season=2024` works, 3,168 records, and the fixture-scoped join is now live-verified (2026-09-09)
+
+The prior follow-up literally named its own next step: "querying an explicit
+`season=2024` would confirm whether the endpoint otherwise works... the
+current `injuries()` has no season override to test this with yet." A
+`season: int | None = None` keyword was added to `APIFootballProvider.injuries()`
+(default preserves `_current_season()` for every existing caller —
+`orchestrator.py` is unaffected; regression-pinned by
+`test_injuries_explicit_season_overrides_current_season`), and the probe
+script gained a matching step. Ran live:
+
+- `injuries(competition="EPL", season=2024)` → **`VERIFIED`, 3,168 records**,
+  quota `remaining=99` (one request spent of the 100/day free-tier budget).
+  Sample: `{player: "W. Fish", team: "Manchester United",
+  fixture_id: 1208021, reason: "Ankle Injury"}`.
+- `injuries(fixture_id=1208021)` (harvested from the row above) → `VERIFIED`,
+  6 records, `distinct_fixture_ids_returned == {1208021}` — the `fixture`
+  query param is now **live-verified** to scope correctly, not merely unit
+  tested against a mocked shape.
+- `sportmonks.injuries()` → unchanged, `TRANSPORT_CLIENT_ERROR` 404.
+
+This splits the verdict rather than simply upgrading it. **Live serving of
+current-season availability stays `HOLD`** — the API's own error message
+is unambiguous and is a subscription-tier fact, not a code defect. **Phase 3
+historical data qualification is newly `RESEARCH` (cleared to proceed,
+no longer blocked on any operator decision)** — Gate G1 (fixture coverage)
+is now measured, not assumed, and passes for at least EPL/2024 at a rich
+3,168-record depth; the fixture→injury join needed for point-in-time
+temporal reconstruction (Rule 3) is confirmed real. Full detail, including
+the honest scope of what Phase 3 would still require (multi-league
+acquisition, entity-resolution and missingness audits, then the Stage 3
+incremental-information test against incumbent+market — not attempted in
+this pass so as not to commit further quota or scope without a checkpoint):
+`reports/research/portfolio-b-player-availability-source-qualification.md` §8.
+
+Full test suite for the touched files green (`tests/providers/test_api_football.py`,
+18/18); `ruff check` clean on all three touched files.
 
 ## 64. Calibration selection scored isotonic regression against the data it was fit to — corrected to require held-out persistence per directive §20 B3, and isotonic loses in 4 of 4 opportunities — RESOLVED 2026-09-09
 
