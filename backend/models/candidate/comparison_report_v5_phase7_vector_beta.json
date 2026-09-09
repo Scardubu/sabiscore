@@ -1,0 +1,280 @@
+{
+  "holdout_season": "2526",
+  "candidate_schema": "apex_v1_68",
+  "candidate_feature_count": 68,
+  "served_head": true,
+  "leagues": {
+    "BUNDESLIGA": {
+      "incumbent": {
+        "accuracy": 0.5548172757475083,
+        "rps": 0.18996153546415553,
+        "brier": 0.5509931942078587,
+        "log_loss": 0.935537763248518,
+        "calibration_error": 0.12018424450970304,
+        "n": 301
+      },
+      "candidate": {
+        "accuracy": 0.521594684385382,
+        "rps": 0.19937717060191007,
+        "brier": 0.5833243698852321,
+        "log_loss": 0.9816868193903708,
+        "calibration_error": 0.06323534335597092,
+        "n": 301
+      },
+      "candidate_rps_improvement": -0.009415635137754536,
+      "candidate_wins": false,
+      "market_baseline_rps": 0.19083929061889648,
+      "market_baseline_quote": "opening_1x2_bet365_then_pinnacle",
+      "candidate_beats_market_baseline": false,
+      "responsive_features": 43,
+      "coherent_price_perturbation": {
+        "home_favourite_probabilities": [
+          0.6066366069299056,
+          0.249597717487404,
+          0.1437656755826903
+        ],
+        "away_favourite_probabilities": [
+          0.3709970852185867,
+          0.2769015365319825,
+          0.35210137824943083
+        ],
+        "max_probability_change": 0.2356395217113189,
+        "directionally_coherent": true
+      }
+    },
+    "EPL": {
+      "incumbent": {
+        "accuracy": 0.5173333333333333,
+        "rps": 0.20361049040572635,
+        "brier": 0.6189210804795098,
+        "log_loss": 1.0403177968047923,
+        "calibration_error": 0.04352599133099666,
+        "n": 375
+      },
+      "candidate": {
+        "accuracy": 0.49333333333333335,
+        "rps": 0.20537497930122106,
+        "brier": 0.6097897483532073,
+        "log_loss": 1.0159994215095278,
+        "calibration_error": 0.07479077799373811,
+        "n": 375
+      },
+      "candidate_rps_improvement": -0.0017644888954947147,
+      "candidate_wins": false,
+      "market_baseline_rps": 0.2053660899400711,
+      "market_baseline_quote": "opening_1x2_bet365_then_pinnacle",
+      "candidate_beats_market_baseline": false,
+      "responsive_features": 50,
+      "coherent_price_perturbation": {
+        "home_favourite_probabilities": [
+          0.6729639790581738,
+          0.1859496595941191,
+          0.14108636134770702
+        ],
+        "away_favourite_probabilities": [
+          0.20513904201359034,
+          0.2606215249888988,
+          0.5342394329975109
+        ],
+        "max_probability_change": 0.4678249370445835,
+        "directionally_coherent": true
+      }
+    },
+    "EREDIVISIE": {
+      "incumbent": {
+        "accuracy": 0.49615384615384617,
+        "rps": 0.20477104658886605,
+        "brier": 0.6059831670334077,
+        "log_loss": 1.012883633981648,
+        "calibration_error": 0.06523864435644547,
+        "n": 260
+      },
+      "candidate": {
+        "accuracy": 0.5230769230769231,
+        "rps": 0.19934586472923166,
+        "brier": 0.5946020278610742,
+        "log_loss": 0.9967134988885267,
+        "calibration_error": 0.04609771189269482,
+        "n": 260
+      },
+      "candidate_rps_improvement": 0.005425181859634393,
+      "candidate_wins": true,
+      "market_baseline_rps": 0.19784937798976898,
+      "market_baseline_quote": "opening_1x2_bet365_then_pinnacle",
+      "candidate_beats_market_baseline": false,
+      "responsive_features": 55,
+      "coherent_price_perturbation": {
+        "home_favourite_probabilities": [
+          0.6679631010742119,
+          0.21704671086080227,
+          0.11499018806498587
+        ],
+        "away_favourite_probabilities": [
+          0.17179809177447136,
+          0.23154602791880483,
+          0.5966558803067238
+        ],
+        "max_probability_change": 0.4961650092997405,
+        "directionally_coherent": true
+      }
+    },
+    "LA_LIGA": {
+      "incumbent": {
+        "accuracy": 0.5333333333333333,
+        "rps": 0.20180306145637406,
+        "brier": 0.5797135386097911,
+        "log_loss": 0.9729834916921433,
+        "calibration_error": 0.06370306659050441,
+        "n": 375
+      },
+      "candidate": {
+        "accuracy": 0.544,
+        "rps": 0.19755302444356262,
+        "brier": 0.5775595577759742,
+        "log_loss": 0.9770878848301636,
+        "calibration_error": 0.03453392836580839,
+        "n": 375
+      },
+      "candidate_rps_improvement": 0.004250037012811431,
+      "candidate_wins": true,
+      "market_baseline_rps": 0.19628490507602692,
+      "market_baseline_quote": "opening_1x2_bet365_then_pinnacle",
+      "candidate_beats_market_baseline": false,
+      "responsive_features": 51,
+      "coherent_price_perturbation": {
+        "home_favourite_probabilities": [
+          0.6647225854417883,
+          0.2249220383059565,
+          0.11035537625225526
+        ],
+        "away_favourite_probabilities": [
+          0.12000392416618262,
+          0.22235778816299523,
+          0.6576382876708221
+        ],
+        "max_probability_change": 0.5472829114185669,
+        "directionally_coherent": true
+      }
+    },
+    "LIGUE_1": {
+      "incumbent": {
+        "accuracy": 0.5249169435215947,
+        "rps": 0.2031800993492359,
+        "brier": 0.5949139008475054,
+        "log_loss": 0.9973810558042933,
+        "calibration_error": 0.08950196374084139,
+        "n": 301
+      },
+      "candidate": {
+        "accuracy": 0.5249169435215947,
+        "rps": 0.20061411553643288,
+        "brier": 0.5893641739258793,
+        "log_loss": 0.9901089743505379,
+        "calibration_error": 0.047700965211168685,
+        "n": 301
+      },
+      "candidate_rps_improvement": 0.0025659838128030132,
+      "candidate_wins": true,
+      "market_baseline_rps": 0.19912628829479218,
+      "market_baseline_quote": "opening_1x2_bet365_then_pinnacle",
+      "candidate_beats_market_baseline": false,
+      "responsive_features": 47,
+      "coherent_price_perturbation": {
+        "home_favourite_probabilities": [
+          0.6274304946314019,
+          0.1968710256254139,
+          0.17569847974318417
+        ],
+        "away_favourite_probabilities": [
+          0.15694189706984485,
+          0.15564952267444973,
+          0.6874085802557055
+        ],
+        "max_probability_change": 0.5117101005125213,
+        "directionally_coherent": true
+      }
+    },
+    "SERIE_A": {
+      "incumbent": {
+        "accuracy": 0.528,
+        "rps": 0.20514916053355833,
+        "brier": 0.6020618968743299,
+        "log_loss": 1.0063097831400944,
+        "calibration_error": 0.05516312508908698,
+        "n": 375
+      },
+      "candidate": {
+        "accuracy": 0.5306666666666666,
+        "rps": 0.20083607924724975,
+        "brier": 0.5919517442373642,
+        "log_loss": 0.994920530608998,
+        "calibration_error": 0.028175288960230728,
+        "n": 375
+      },
+      "candidate_rps_improvement": 0.004313081286308584,
+      "candidate_wins": true,
+      "market_baseline_rps": 0.19714131951332092,
+      "market_baseline_quote": "opening_1x2_bet365_then_pinnacle",
+      "candidate_beats_market_baseline": false,
+      "responsive_features": 50,
+      "coherent_price_perturbation": {
+        "home_favourite_probabilities": [
+          0.6129428754760334,
+          0.24195393527449094,
+          0.14510318924947568
+        ],
+        "away_favourite_probabilities": [
+          0.12855199586479615,
+          0.2536288357791502,
+          0.6178191683560537
+        ],
+        "max_probability_change": 0.4843908796112373,
+        "directionally_coherent": true
+      }
+    }
+  },
+  "gates": {
+    "valid_probability_simplex": {
+      "status": "PASS",
+      "evidence": "evaluate() rejected no candidate holdout probability row"
+    },
+    "input_responsiveness": {
+      "status": "PASS",
+      "minimum_responsive_features": 43
+    },
+    "coherent_price_perturbation": {
+      "status": "PASS"
+    },
+    "serving_feature_availability": {
+      "status": "FAIL",
+      "summary": {
+        "features": 68,
+        "training_defaulted_slots": 1,
+        "non_variable_training_slots": 7,
+        "serving_schema_misaligned_slots": 11,
+        "always_data_gap_slots": 6
+      }
+    },
+    "primary_metric_improvement": {
+      "status": "PASS",
+      "mean_rps_improvement": 0.0008956933230513617
+    },
+    "no_league_regression": {
+      "status": "FAIL",
+      "league_wins": 4,
+      "leagues_compared": 6
+    },
+    "market_baseline": {
+      "status": "FAIL",
+      "leagues_beating_market": 0,
+      "quote": [
+        "opening_1x2_bet365_then_pinnacle"
+      ]
+    }
+  },
+  "candidate_league_wins": 4,
+  "leagues_compared": 6,
+  "mean_rps_improvement": 0.0008956933230513617,
+  "no_league_regression": false,
+  "promotion_permitted": false
+}

@@ -4,9 +4,11 @@ import numpy as np
 import pytest
 
 from src.core.meta_model import (
+    BetaCalibratedMetaModel,
     IsotonicMetaModel,
     SoftmaxMetaModel,
     TemperatureScaledMetaModel,
+    VectorScaledMetaModel,
 )
 
 
@@ -98,3 +100,88 @@ def test_isotonic_degenerate_row_falls_back_to_uniform() -> None:
 def test_isotonic_rejects_calibrator_count_mismatch() -> None:
     with pytest.raises(ValueError):
         IsotonicMetaModel(_base(), _isotonic_calibrators(n_classes=2))
+
+
+# ── VectorScaledMetaModel (Portfolio A / B2 recalibration candidate #2) ───────
+
+
+def test_vector_scaling_preserves_probability_simplex() -> None:
+    model = VectorScaledMetaModel(_base(), scale=np.array([1.5, 1.0, 0.5]), bias=np.array([0.1, 0.0, -0.1]))
+    probabilities = model.predict_proba([[1.0], [-1.0]])
+    assert probabilities.shape == (2, 3)
+    assert np.allclose(probabilities.sum(axis=1), 1.0)
+    assert np.all(np.isfinite(probabilities))
+
+
+def test_vector_scaling_reduces_to_temperature_when_scale_and_bias_are_shared() -> None:
+    """A degenerate vector-scaled model (equal scale = 1/T, zero bias, every
+    class) is exactly temperature scaling -- the two must agree bit-for-bit,
+    since vector scaling is meant to strictly generalise it (§20 B2)."""
+    base = _base()
+    temperature_value = 2.0
+    vector = VectorScaledMetaModel(base, scale=np.full(3, 1.0 / temperature_value), bias=np.zeros(3))
+    temperature = TemperatureScaledMetaModel(base, temperature=temperature_value)
+    x = [[1.0], [-1.0], [0.0]]
+    assert np.allclose(vector.predict_proba(x), temperature.predict_proba(x))
+
+
+def test_vector_scaling_predict_matches_argmax_of_predict_proba() -> None:
+    model = VectorScaledMetaModel(_base(), scale=np.array([2.0, 1.0, 0.5]), bias=np.zeros(3))
+    x = [[1.0], [-1.0], [0.0]]
+    expected = model.classes_[np.argmax(model.predict_proba(x), axis=1)]
+    assert np.array_equal(model.predict(x), expected)
+
+
+def test_vector_scaling_rejects_shape_mismatch() -> None:
+    with pytest.raises(ValueError):
+        VectorScaledMetaModel(_base(), scale=np.array([1.0, 1.0]), bias=np.zeros(3))
+
+
+@pytest.mark.parametrize(
+    "scale,bias",
+    [
+        (np.array([np.nan, 1.0, 1.0]), np.zeros(3)),
+        (np.ones(3), np.array([np.inf, 0.0, 0.0])),
+    ],
+)
+def test_vector_scaling_rejects_non_finite_parameters(scale: np.ndarray, bias: np.ndarray) -> None:
+    with pytest.raises(ValueError):
+        VectorScaledMetaModel(_base(), scale=scale, bias=bias)
+
+
+# ── BetaCalibratedMetaModel (Portfolio A / B2 recalibration candidate #4) ─────
+
+
+def _beta_params(n_classes: int = 3) -> list[tuple[float, float, float]]:
+    """One (a, b, c) triple per class: a mild, well-behaved calibration map."""
+    return [(1.2, -0.8, 0.0) for _ in range(n_classes)]
+
+
+def test_beta_calibration_preserves_probability_simplex() -> None:
+    model = BetaCalibratedMetaModel(_base(), _beta_params())
+    probabilities = model.predict_proba([[1.0], [-1.0], [0.0]])
+    assert probabilities.shape == (3, 3)
+    assert np.allclose(probabilities.sum(axis=1), 1.0)
+    assert np.all(probabilities >= 0.0)
+    assert np.all(np.isfinite(probabilities))
+
+
+def test_beta_calibration_predict_matches_argmax_of_predict_proba() -> None:
+    model = BetaCalibratedMetaModel(_base(), _beta_params())
+    x = [[1.0], [-1.0], [0.0]]
+    expected = model.classes_[np.argmax(model.predict_proba(x), axis=1)]
+    assert np.array_equal(model.predict(x), expected)
+
+
+def test_beta_calibration_degenerate_row_falls_back_to_uniform() -> None:
+    """(a, b, c) = (0, 0, -30) drives sigmoid(z) -> 0 for every class -- the
+    same all-zero-row case IsotonicMetaModel guards against."""
+    zeros = [(0.0, 0.0, -30.0) for _ in range(3)]
+    probabilities = BetaCalibratedMetaModel(_base(), zeros).predict_proba([[1.0]])
+    assert np.allclose(probabilities, 1.0 / 3.0)
+    assert np.all(np.isfinite(probabilities))
+
+
+def test_beta_calibration_rejects_calibrator_count_mismatch() -> None:
+    with pytest.raises(ValueError):
+        BetaCalibratedMetaModel(_base(), _beta_params(n_classes=2))

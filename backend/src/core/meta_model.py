@@ -44,7 +44,13 @@ from typing import Any
 
 import numpy as np
 
-__all__ = ["SoftmaxMetaModel", "TemperatureScaledMetaModel", "IsotonicMetaModel"]
+__all__ = [
+    "SoftmaxMetaModel",
+    "TemperatureScaledMetaModel",
+    "VectorScaledMetaModel",
+    "BetaCalibratedMetaModel",
+    "IsotonicMetaModel",
+]
 
 
 class SoftmaxMetaModel:
@@ -133,6 +139,107 @@ class TemperatureScaledMetaModel:
         calibrated = exp / exp.sum(axis=1, keepdims=True)
         if not np.all(np.isfinite(calibrated)):
             raise ValueError("calibration produced non-finite probabilities")
+        return calibrated
+
+    def predict(self, X: Any) -> np.ndarray:
+        return self.classes_[np.argmax(self.predict_proba(X), axis=1)]
+
+
+class VectorScaledMetaModel:
+    """Vector scaling calibration wrapper (Guo et al. 2017; directive §20 B2
+    candidate #2 -- "vector scaling").
+
+    Generalises ``TemperatureScaledMetaModel``: instead of one scalar shared
+    across classes, each class gets its own scale and bias applied to the
+    same log-probability proxy temperature scaling uses (the base model's own
+    output softmax, not a separate pre-softmax logit -- this repository has
+    no access to the base learners' pre-softmax scores, only their averaged
+    ``predict_proba``). More flexible than temperature scaling, still far
+    less flexible than isotonic regression's per-class step function --
+    ``docs/DEBT.md`` item 64 measured isotonic overfitting a few hundred
+    calibration rows in 4 of 6 leagues, so this sits deliberately between the
+    two on the same complexity spectrum.
+
+    Plain floats only, no fitted scikit-learn object -- same reasoning as
+    ``TemperatureScaledMetaModel``, avoiding the cross-version pickle hazard
+    this module's docstring documents.
+    """
+
+    def __init__(self, base_model: SoftmaxMetaModel, scale: np.ndarray, bias: np.ndarray) -> None:
+        self.base_model = base_model
+        self.scale = np.asarray(scale, dtype=np.float64)
+        self.bias = np.asarray(bias, dtype=np.float64)
+        n_classes = len(base_model.classes_)
+        if self.scale.shape != (n_classes,) or self.bias.shape != (n_classes,):
+            raise ValueError(
+                f"scale/bias must each be a length-{n_classes} vector; "
+                f"got shapes {self.scale.shape} and {self.bias.shape}"
+            )
+        if not np.all(np.isfinite(self.scale)) or not np.all(np.isfinite(self.bias)):
+            raise ValueError("scale/bias must be finite")
+        self.classes_ = base_model.classes_
+        self.feature_names_in_ = base_model.feature_names_in_
+
+    def predict_proba(self, X: Any) -> np.ndarray:
+        probabilities = self.base_model.predict_proba(X)
+        logits = np.log(np.clip(probabilities, 1e-12, 1.0)) * self.scale + self.bias
+        logits -= logits.max(axis=1, keepdims=True)
+        exp = np.exp(logits)
+        calibrated = exp / exp.sum(axis=1, keepdims=True)
+        if not np.all(np.isfinite(calibrated)):
+            raise ValueError("calibration produced non-finite probabilities")
+        return calibrated
+
+    def predict(self, X: Any) -> np.ndarray:
+        return self.classes_[np.argmax(self.predict_proba(X), axis=1)]
+
+
+class BetaCalibratedMetaModel:
+    """Beta calibration wrapper (Kull, Silva Filho & Flach 2017; directive
+    §20 B2 candidate #4 -- "beta calibration where justified").
+
+    Beta calibration is defined for binary problems; extended here via the
+    same per-class one-vs-rest decomposition ``IsotonicMetaModel`` already
+    uses. Each class's fitted map is ``sigmoid(a*ln(p) + b*ln(1-p) + c)`` --
+    three plain floats per class, fit by direct likelihood minimisation
+    (``scipy.optimize``) rather than ``sklearn.linear_model.LogisticRegression``
+    (the textbook training method for this exact map) specifically to avoid
+    storing a fitted scikit-learn estimator in the pickle -- this module's
+    docstring documents a real cross-version ``AttributeError`` from exactly
+    that class. Renormalised across classes after prediction, identically to
+    ``IsotonicMetaModel``.
+    """
+
+    def __init__(self, base_model: SoftmaxMetaModel, params: list[tuple[float, float, float]]) -> None:
+        if len(params) != len(base_model.classes_):
+            raise ValueError(
+                f"Need one (a, b, c) triple per class; got {len(params)} for "
+                f"{len(base_model.classes_)} classes."
+            )
+        self.base_model = base_model
+        self.params = [tuple(float(v) for v in p) for p in params]
+        self.classes_ = base_model.classes_
+        self.feature_names_in_ = base_model.feature_names_in_
+
+    def predict_proba(self, X: Any) -> np.ndarray:
+        raw = self.base_model.predict_proba(X)
+        n_classes = raw.shape[1]
+        clipped = np.clip(raw, 1e-12, 1.0 - 1e-12)
+        calibrated = np.empty_like(raw)
+        for cls_idx, (a, b, c) in enumerate(self.params):
+            log_p = np.log(clipped[:, cls_idx])
+            log_1mp = np.log(1.0 - clipped[:, cls_idx])
+            z = np.clip(a * log_p + b * log_1mp + c, -30.0, 30.0)
+            calibrated[:, cls_idx] = 1.0 / (1.0 + np.exp(-z))
+        # Renormalise -- per-class outputs are not jointly constrained, same
+        # degenerate-row guard as IsotonicMetaModel (np.where evaluates both
+        # branches, so the divisor must be made safe first).
+        row_sums = calibrated.sum(axis=1, keepdims=True)
+        positive = row_sums > 0
+        safe_sums = np.where(positive, row_sums, 1.0)
+        calibrated = np.where(positive, calibrated / safe_sums, 1.0 / n_classes)
+        if not np.all(np.isfinite(calibrated)):
+            raise ValueError("beta calibration produced non-finite probabilities")
         return calibrated
 
     def predict(self, X: Any) -> np.ndarray:

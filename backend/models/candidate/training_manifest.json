@@ -209,9 +209,9 @@
     "feature_schema_version": "apex_v1_68",
     "order_sha256": "60d9de2f7d837990bb8a603e64cfe2275db4cb542feb400f9710fad0de5f3338"
   },
-  "generated_at": "2026-09-09T08:47:19.581868+00:00",
+  "generated_at": "2026-09-09T20:46:04.031837+00:00",
   "git": {
-    "commit": "9f6628d5b56bed6cb36182fac09de7096e017e65",
+    "commit": "86dca4cd6a204a005e91e4c884e10460229c66d5",
     "dirty": true
   },
   "labels": {
@@ -234,14 +234,23 @@
       "accuracy": 0.521594684385382,
       "baseline_accuracy_home": 0.43853820598006643,
       "baseline_rps_market": 0.19083929061889648,
+      "baseline_rps_market_quote": "opening_1x2_bet365_then_pinnacle",
       "baseline_rps_trainprior": 0.2317386552251736,
       "brier": 0.5945051826410722,
       "calibration_error": 0.04500568309039879,
       "calibration_n": 296,
       "calibration_season": "2425",
       "calibration_selection": {
+        "beta": {
+          "reliability": 0.0035,
+          "resolution": 0.0241
+        },
         "chosen": "temperature",
         "held_out_persistence": {
+          "beta": {
+            "reliability": 0.0071,
+            "resolution": 0.0308
+          },
           "conclusion_persists": true,
           "isotonic": {
             "reliability": 0.0086,
@@ -250,6 +259,10 @@
           "temperature": {
             "reliability": 0.0064,
             "resolution": 0.0261
+          },
+          "vector": {
+            "reliability": 0.006,
+            "resolution": 0.0309
           }
         },
         "isotonic": {
@@ -260,6 +273,10 @@
         "temperature": {
           "reliability": 0.0092,
           "resolution": 0.0251
+        },
+        "vector": {
+          "reliability": 0.0024,
+          "resolution": 0.024
         }
       },
       "calibration_window": {
@@ -302,11 +319,11 @@
       "rps": 0.19982636981453486,
       "stacked": {
         "accuracy": 0.521594684385382,
-        "brier": 0.5833243698852316,
-        "calibration_error": 0.06323534335597046,
-        "log_loss": 0.9816868193903701,
+        "brier": 0.583324369885232,
+        "calibration_error": 0.06323534335597092,
+        "log_loss": 0.9816868193903708,
         "n": 301,
-        "rps": 0.19937717060190993
+        "rps": 0.1993771706019101
       },
       "train_n": 1455,
       "training_window": {
@@ -318,14 +335,23 @@
       "accuracy": 0.5093333333333333,
       "baseline_accuracy_home": 0.424,
       "baseline_rps_market": 0.2053660899400711,
+      "baseline_rps_market_quote": "opening_1x2_bet365_then_pinnacle",
       "baseline_rps_trainprior": 0.22849150417621494,
       "brier": 0.6211832408284326,
       "calibration_error": 0.07217782878810916,
       "calibration_n": 375,
       "calibration_season": "2425",
       "calibration_selection": {
+        "beta": {
+          "reliability": 0.0026,
+          "resolution": 0.029
+        },
         "chosen": "temperature",
         "held_out_persistence": {
+          "beta": {
+            "reliability": 0.0047,
+            "resolution": 0.0185
+          },
           "conclusion_persists": false,
           "isotonic": {
             "reliability": 0.0041,
@@ -334,6 +360,10 @@
           "temperature": {
             "reliability": 0.0033,
             "resolution": 0.0168
+          },
+          "vector": {
+            "reliability": 0.0043,
+            "resolution": 0.0175
           }
         },
         "isotonic": {
@@ -344,6 +374,10 @@
         "temperature": {
           "reliability": 0.0035,
           "resolution": 0.028
+        },
+        "vector": {
+          "reliability": 0.0027,
+          "resolution": 0.029
         }
       },
       "calibration_window": {
@@ -386,11 +420,11 @@
       "rps": 0.20602679613172206,
       "stacked": {
         "accuracy": 0.49333333333333335,
-        "brier": 0.609789748352525,
-        "calibration_error": 0.07479077799018992,
-        "log_loss": 1.015999421508684,
+        "brier": 0.6097897483532073,
+        "calibration_error": 0.07479077799373811,
+        "log_loss": 1.0159994215095278,
         "n": 375,
-        "rps": 0.20537497930100973
+        "rps": 0.20537497930122103
       },
       "train_n": 1821,
       "training_window": {
@@ -402,14 +436,23 @@
       "accuracy": 0.5093333333333333,
       "baseline_accuracy_home": 0.48533333333333334,
       "baseline_rps_market": 0.19628490507602692,
+      "baseline_rps_market_quote": "opening_1x2_bet365_then_pinnacle",
       "baseline_rps_trainprior": 0.22345809865387004,
       "brier": 0.5810614560857974,
       "calibration_error": 0.059038062599902394,
       "calibration_n": 380,
       "calibration_season": "2425",
       "calibration_selection": {
+        "beta": {
+          "reliability": 0.002,
+          "resolution": 0.0287
+        },
         "chosen": "temperature",
         "held_out_persistence": {
+          "beta": {
+            "reliability": 0.0053,
+            "resolution": 0.0212
+          },
           "conclusion_persists": false,
           "isotonic": {
             "reliability": 0.0054,
@@ -418,6 +461,10 @@
           "temperature": {
             "reliability": 0.0033,
             "resolution": 0.0206
+          },
+          "vector": {
+            "reliability": 0.0046,
+            "resolution": 0.0227
           }
         },
         "isotonic": {
@@ -428,6 +475,10 @@
         "temperature": {
           "reliability": 0.0039,
           "resolution": 0.0282
+        },
+        "vector": {
+          "reliability": 0.0038,
+          "resolution": 0.0286
         }
       },
       "calibration_window": {
@@ -467,14 +518,14 @@
       "log_loss": 0.9867386674588154,
       "n": 375,
       "responsive_features": 51,
-      "rps": 0.1991582956242943,
+      "rps": 0.19915829562429432,
       "stacked": {
         "accuracy": 0.544,
-        "brier": 0.5775595577758317,
-        "calibration_error": 0.03453392836559158,
-        "log_loss": 0.9770878848301966,
+        "brier": 0.5775595577759742,
+        "calibration_error": 0.03453392836580839,
+        "log_loss": 0.9770878848301636,
         "n": 375,
-        "rps": 0.19755302444355954
+        "rps": 0.19755302444356265
       },
       "train_n": 1817,
       "training_window": {
@@ -486,14 +537,23 @@
       "accuracy": 0.5149501661129569,
       "baseline_accuracy_home": 0.4584717607973422,
       "baseline_rps_market": 0.19912628829479218,
+      "baseline_rps_market_quote": "opening_1x2_bet365_then_pinnacle",
       "baseline_rps_trainprior": 0.22926811378159884,
       "brier": 0.5903327374042928,
-      "calibration_error": 0.05349692508504045,
+      "calibration_error": 0.05349692508504043,
       "calibration_n": 306,
       "calibration_season": "2425",
       "calibration_selection": {
-        "chosen": "temperature",
+        "beta": {
+          "reliability": 0.0027,
+          "resolution": 0.0229
+        },
+        "chosen": "vector",
         "held_out_persistence": {
+          "beta": {
+            "reliability": 0.0058,
+            "resolution": 0.0217
+          },
           "conclusion_persists": false,
           "isotonic": {
             "reliability": 0.0069,
@@ -502,16 +562,24 @@
           "temperature": {
             "reliability": 0.0059,
             "resolution": 0.0206
+          },
+          "vector": {
+            "reliability": 0.0056,
+            "resolution": 0.0229
           }
         },
         "isotonic": {
           "reliability": 0.002,
           "resolution": 0.0243
         },
-        "reason": "isotonic_won_calibration_set_but_did_not_persist_on_holdout",
+        "reason": "reliability_improved_resolution_held_and_persisted_on_holdout",
         "temperature": {
           "reliability": 0.0038,
           "resolution": 0.0217
+        },
+        "vector": {
+          "reliability": 0.0021,
+          "resolution": 0.0235
         }
       },
       "calibration_window": {
@@ -553,12 +621,12 @@
       "responsive_features": 47,
       "rps": 0.19910235117996755,
       "stacked": {
-        "accuracy": 0.5116279069767442,
-        "brier": 0.5946545623292598,
-        "calibration_error": 0.03352885694370612,
-        "log_loss": 0.9982658329679336,
+        "accuracy": 0.5249169435215947,
+        "brier": 0.5893641739258793,
+        "calibration_error": 0.047700965211168685,
+        "log_loss": 0.9901089743505379,
         "n": 301,
-        "rps": 0.20428484197867286
+        "rps": 0.20061411553643288
       },
       "train_n": 1641,
       "training_window": {
@@ -570,14 +638,23 @@
       "accuracy": 0.5259184700553599,
       "baseline_accuracy_home": 0.4393558127830901,
       "baseline_rps_market": 0.19784937798976898,
+      "baseline_rps_market_quote": "opening_1x2_bet365_then_pinnacle",
       "baseline_rps_trainprior": 0.22896537429419572,
       "brier": 0.5921006187914959,
-      "calibration_error": 0.01683649267754965,
+      "calibration_error": 0.01683649267754962,
       "calibration_n": 1732,
       "calibration_season": "2425",
       "calibration_selection": {
+        "beta": {
+          "reliability": 0.0004,
+          "resolution": 0.025
+        },
         "chosen": "temperature",
         "held_out_persistence": {
+          "beta": {
+            "reliability": 0.0018,
+            "resolution": 0.0219
+          },
           "conclusion_persists": false,
           "isotonic": {
             "reliability": 0.0017,
@@ -586,6 +663,10 @@
           "temperature": {
             "reliability": 0.0005,
             "resolution": 0.0211
+          },
+          "vector": {
+            "reliability": 0.0014,
+            "resolution": 0.0214
           }
         },
         "isotonic": {
@@ -596,6 +677,10 @@
         "temperature": {
           "reliability": 0.0015,
           "resolution": 0.0259
+        },
+        "vector": {
+          "reliability": 0.0006,
+          "resolution": 0.025
         }
       },
       "calibration_window": {
@@ -632,17 +717,17 @@
           "subsample": 0.85
         }
       },
-      "log_loss": 0.9951508311339315,
+      "log_loss": 0.9951508311339314,
       "n": 1987,
       "responsive_features": 55,
       "rps": 0.2002131951853337,
       "stacked": {
         "accuracy": 0.5319577252138903,
-        "brier": 0.5847840971214157,
-        "calibration_error": 0.021275901331534324,
-        "log_loss": 0.9824772924992982,
+        "brier": 0.5847840971214233,
+        "calibration_error": 0.021275901331534744,
+        "log_loss": 0.9824772924993097,
         "n": 1987,
-        "rps": 0.19806913289208694
+        "rps": 0.19806913289209252
       },
       "train_n": 8537,
       "training_window": {
@@ -654,14 +739,23 @@
       "accuracy": 0.49333333333333335,
       "baseline_accuracy_home": 0.392,
       "baseline_rps_market": 0.19714131951332092,
+      "baseline_rps_market_quote": "opening_1x2_bet365_then_pinnacle",
       "baseline_rps_trainprior": 0.2332832744095393,
       "brier": 0.6135502581775767,
       "calibration_error": 0.06145648325332853,
       "calibration_n": 375,
       "calibration_season": "2425",
       "calibration_selection": {
+        "beta": {
+          "reliability": 0.0016,
+          "resolution": 0.0306
+        },
         "chosen": "temperature",
         "held_out_persistence": {
+          "beta": {
+            "reliability": 0.0032,
+            "resolution": 0.0257
+          },
           "conclusion_persists": true,
           "isotonic": {
             "reliability": 0.0096,
@@ -670,6 +764,10 @@
           "temperature": {
             "reliability": 0.0031,
             "resolution": 0.024
+          },
+          "vector": {
+            "reliability": 0.0035,
+            "resolution": 0.0256
           }
         },
         "isotonic": {
@@ -680,6 +778,10 @@
         "temperature": {
           "reliability": 0.0031,
           "resolution": 0.0315
+        },
+        "vector": {
+          "reliability": 0.0029,
+          "resolution": 0.0317
         }
       },
       "calibration_window": {
@@ -722,11 +824,11 @@
       "rps": 0.2058914192638688,
       "stacked": {
         "accuracy": 0.5306666666666666,
-        "brier": 0.5919517442373858,
-        "calibration_error": 0.028175288960419705,
-        "log_loss": 0.994920530609047,
+        "brier": 0.5919517442373642,
+        "calibration_error": 0.028175288960230728,
+        "log_loss": 0.9949205306089979,
         "n": 375,
-        "rps": 0.20083607924726096
+        "rps": 0.20083607924724975
       },
       "train_n": 1803,
       "training_window": {
