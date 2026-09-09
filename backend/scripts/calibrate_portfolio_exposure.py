@@ -18,31 +18,75 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 from collections import defaultdict
 from itertools import combinations
 from typing import Dict, List, Optional, Tuple
+
+_BACKEND_ROOT = Path(__file__).resolve().parents[1]
+if str(_BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(_BACKEND_ROOT))
 
 # ---------------------------------------------------------------------------
 # DB query (raw SQL via psycopg2 — avoid importing the full FastAPI app)
 # ---------------------------------------------------------------------------
 
+# Four things here are load-bearing and were each wrong in the first version of
+# this script, which had never been executed against a real database:
+#
+#   1. `league` lives on `matches.league_id`; `match_prediction_logs` has no
+#      league column at all.
+#   2. There is no `predicted_outcome` column either — the prediction is stored
+#      as three probabilities and the outcome is their argmax.
+#   3. Production writes `status` lower-case ('finished'). Matching
+#      IN ('FINISHED','SETTLED') selected zero rows.
+#   4. DISTINCT ON + the model_version filter are the correctness half, not
+#      hygiene. Without them the same match contributes several rows to one
+#      group, and a match always agrees with itself, so the pairwise-agreement
+#      statistic this script exists to measure is biased toward 1.0 — measured
+#      on real data as 0.6818 against a true 0.4333. It is the same
+#      cross-generation pooling `build_settled_predictions_query` was fixed for
+#      on 2026-08-17, and the same latest-per-match rule.
 _QUERY = """
-SELECT
+SELECT DISTINCT ON (mpl.match_id)
     mpl.id,
     mpl.match_id,
-    mpl.league,
+    m.league_id AS league,
     m.match_date::date AS match_day,
-    mpl.predicted_outcome,           -- 'home_win' | 'draw' | 'away_win'
+    CASE
+        WHEN mpl.home_probability >= mpl.draw_probability
+         AND mpl.home_probability >= mpl.away_probability THEN 'home_win'
+        WHEN mpl.away_probability >= mpl.draw_probability THEN 'away_win'
+        ELSE 'draw'
+    END AS predicted_outcome,
     m.home_score,
     m.away_score,
     m.status
 FROM match_prediction_logs mpl
 JOIN matches m ON m.id = mpl.match_id
-WHERE m.status IN ('FINISHED', 'SETTLED')
+WHERE lower(m.status) IN ('finished', 'settled')
   AND m.home_score IS NOT NULL
   AND m.away_score IS NOT NULL
-ORDER BY m.match_date, mpl.league
+  AND mpl.model_version = %(model_version)s
+ORDER BY mpl.match_id, mpl.created_at DESC, mpl.id DESC
 """
+
+
+def _serving_model_version() -> str:
+    """The generation whose predictions may be pooled into one estimate.
+
+    Fails closed rather than returning None: a permissive value would silently
+    restore the cross-generation pooling this filter exists to prevent, and the
+    resulting constants would look calibrated while describing two different
+    models at once.
+    """
+    from src.models.active_generation import active_model_version
+
+    version = active_model_version()
+    if not version:
+        print("ERROR: no active serving generation resolved", file=sys.stderr)
+        sys.exit(1)
+    return str(version)
 
 
 def _actual_outcome(home_score: int, away_score: int) -> str:
@@ -69,7 +113,7 @@ def _fetch_settled_groups() -> Dict[Tuple[str, str], List[Dict]]:
     conn = psycopg2.connect(url)
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute(_QUERY)
+        cur.execute(_QUERY, {"model_version": _serving_model_version()})
         rows = cur.fetchall()
     finally:
         conn.close()
@@ -144,7 +188,10 @@ def _calibrate(groups: Dict[Tuple[str, str], List[Dict]]) -> Dict:
     return {
         "status": "OK" if n_groups >= 10 else "LOW_VOLUME",
         "n_multi_groups": n_groups,
-        "n_pairs_measured": len(all_agreements),
+        "n_groups_measured": len(all_agreements),
+        "n_pairs_measured": sum(
+            len(v) * (len(v) - 1) // 2 for v in multi_groups.values()
+        ),
         "mean_pairwise_agreement": round(mean_agreement, 4),
         "baseline_chance_agreement": round(baseline, 4),
         "excess_agreement": round(excess, 4),

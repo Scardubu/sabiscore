@@ -2781,8 +2781,11 @@ and must be stated as such — it verifies the new revision's DDL, not the chain
 
 ## 44. Weather acquisition is shipped; weather as a model feature is not
 
-**Tier:** `NEXT` — acquisition is complete and live-verified. Feature
-integration is deliberately gated. Filed 2026-08-30.
+**Tier:** `HOLD` (was `NEXT`) — acquisition is complete and live-verified;
+prerequisite (1) is now **measured and fails Gate G1 at 68.9%**, so feature
+integration is blocked on a bounded operator review rather than on more
+engineering. Filed 2026-08-30. Measured 2026-09-09 — see the Gate G1 result at
+the end of this item.
 
 `backend/src/providers/open_meteo.py` resolves match weather from Open-Meteo.
 Live-verified end to end: `probe` returns `VERIFIED` (the first keyless
@@ -2842,6 +2845,64 @@ Before that work starts, three things must hold:
 Until all three hold, a missing reading is an **advisory** gap. Weather can
 never be critical evidence: the trust tier is `OPEN_DATA` and the provider is
 not a football source.
+
+### Gate G1 measured, 2026-09-09 — prerequisite (1) fails at 68.9%
+
+Prerequisite (1) was an estimate ("~130 stadiums"). It is now a measurement.
+`backend/scripts/qualify_venue_locations.py` resolves every one of the **160
+distinct clubs** in `data/cache/fd_*.csv` using only text the clubs call
+themselves — the folded full name, then each of its own tokens of four
+characters or more — geocoded through Open-Meteo's keyless endpoint constrained
+to the league's own country, then classified onto the same
+`VERIFIED`/`REQUIRES_REVIEW`/`UNKNOWN` taxonomy `providers/reconciliation.py`
+uses for team identity. Nothing is recalled from memory, so a wrong answer is a
+wrong *derivation* an operator can audit rather than an invented coordinate.
+
+Per match — the number that governs a backfill, since a match needs only its
+home venue — across the 12,765-match corpus: **`VERIFIED` 8,799 (68.9%)**,
+`REQUIRES_REVIEW` 1,718 (13.5%), `UNKNOWN` 2,248 (17.6%).
+
+The per-league spread is what actually blocks the work: Ligue 1 89.5%, EPL
+76.4%, Bundesliga 73.8%, Eredivisie 61.1%, Serie A 55.7%, **La Liga 53.6%**.
+Directive Gates G4 (cross-league portability) and G6 (default rate) fail
+together and for the same reason — the missing 31% is concentrated in two
+leagues, so a model trained on it would learn a feature systematically present
+for French fixtures and systematically absent for Spanish ones. A league
+artifact wearing a weather label, which is the vΩ.46 train/serve skew shape
+arriving from a new direction. Rule 5 forbids closing the gap by default-filling.
+
+⚠️ **The predicted failure mode fired on the first attempt.** `Wolves` resolved
+to **"Wolvesnewton"** — a hamlet in Monmouthshire, Wales, ~150 km from
+Wolverhampton, inside the correct country, as the top hit. It was caught only
+because the classifier requires the resolved place's name to appear verbatim in
+the club's own name. A top-hit geocoder would have stored it and produced
+confidently wrong weather for every Wolves home fixture. Two more of the same
+class: `Napoli` → "Napoli-Nola" (a different town ~25 km from Naples), and
+`Monaco` → nothing, because AS Monaco plays in Ligue 1 but sits in `MC`, so the
+country filter correctly refused to place it somewhere in France sharing the
+name. The `UNKNOWN` bulk is clubs whose names contain no place at all — `Inter`,
+`Juventus`, `Ajax`, `Chelsea`, `Atalanta`, `Arsenal`.
+
+**Verdict: `HOLD`, not `REJECT`.** Nothing here says weather lacks predictive
+information; the question was never asked, because the corpus cannot yet be
+located well enough to ask it. The unblock is bounded and enumerated: **44 clubs**
+(17 `REQUIRES_REVIEW` + 27 `UNKNOWN`) need a reviewed **place name** — never a
+coordinate, so the geocoder still derives the position and every stored value
+stays reproducible from an auditable input, exactly as
+`team_identity._AUDITED_ALIASES` does for corpus spellings. Each of the 44 is
+listed in `reports/research/portfolio-c-venue-location-manifest.json` with the
+queries attempted and candidates returned, so the review is a confirmation task
+against real evidence rather than a recall exercise.
+
+No alias table was created. An empty table nothing populates is scaffolding, and
+whether these 44 reviews are worth doing depends on a question still unanswered
+— whether weather carries incremental information at all, which is Stage 3 and
+cannot run until G1 passes.
+
+Full study: `reports/research/portfolio-c-weather-venue-location-qualification.md`.
+Classifier pinned by `backend/tests/unit/test_venue_location_qualification.py`
+(19 tests); every guard was watched failing on a reverted rule before being
+trusted.
 
 
 ## 43. The BNN Brier gate is below the bookmaker market's own score — unattainable by construction
@@ -6884,10 +6945,11 @@ revisit alongside item 2/5's own settled-data gates.
 
 ## 9. Portfolio-exposure haircut curve and aggregate-cap multiplier are placeholders, not calibrated values
 
-**Tier:** `NEXT` — trigger met (2026-09-04, 37 settled predictions). Calibration script
-ready at `scripts/calibrate_portfolio_exposure.py`. Data volume still too thin for a
-statistically reliable estimate: target ≥10 same-league/same-matchday groups of n≥2.
-Run `--apply` once that volume exists.
+**Tier:** `NEXT` — the volume trigger is **met** (17 multi-fixture groups vs a ≥10
+target, measured 2026-09-09), and the calibration script has been repaired and run.
+`--apply` is deliberately **not** executed — see the 2026-09-09 measurement below.
+⚠️ **The previous claim that the script was "ready" was false.** It carried four
+defects and could never have produced a number.
 **Owner:** unassigned.
 **Found:** 2026-08-06, implementing WP-17 (`docs/adr/0005-portfolio-exposure-policy.md`).
 **Updated:** 2026-09-04 — trigger clause cleared; calibration script written.
@@ -6909,13 +6971,95 @@ the 3 `MAX_KELLY_CAP=0.05` literals already known (`insights/engine.py`,
 `min(get_league_policy(league).kelly_cap, MAX_KELLY_CAP)`, matching the established
 pattern. This was a real, live-affecting fix, not part of the placeholder gap above.
 
+### Measured 2026-09-09 — the script was unrunnable; four stacked defects
+
+Production PostgreSQL became reachable from the agent environment this session
+(`sabiscore-db-v3`'s `ipAllowList` now carries `0.0.0.0/0`; it was single-IP
+before), so this item was checked directly for the first time rather than
+deferred. The script had **never been executed against a real database**, and it
+could not have been — the same shape as the Understat connector in item 56.
+
+Four independent defects, each fatal on its own:
+
+1. `mpl.league` — `match_prediction_logs` has **no league column**. The league
+   lives on `matches.league_id`. Hard `UndefinedColumn` error.
+2. `mpl.predicted_outcome` — **also does not exist**. The prediction is stored as
+   `home_probability`/`draw_probability`/`away_probability`; the outcome is their
+   argmax. Hard error.
+3. `WHERE m.status IN ('FINISHED', 'SETTLED')` — production writes `status`
+   **lower-case** (`'finished'`, 12,960 rows). This filter matched **zero rows**:
+   a silent empty result rather than an error, which is the harder failure to
+   notice, and it would have been reported as "no data yet".
+4. ⚠️ **No dedup and no `model_version` filter** — the statistical defect, and the
+   one that matters. 95 raw rows covered only 64 distinct matches (one match had
+   5 rows), and 6 rows belonged to `v6_phase8` rather than the serving
+   `v5_phase7`. This is the *same* cross-generation pooling that
+   `build_settled_predictions_query` was fixed for on 2026-08-17, plus a
+   duplicate-row problem that file did not have.
+
+**Why (4) is not hygiene.** `_pairwise_agreement` counts pairs of fixtures that
+shared an outcome. Duplicate rows of one match are the *same* result, so every
+self-pair agrees. Measured on real data: **110 naive pairs at 0.6818 agreement,
+of which 43 were same-match self-pairs agreeing at exactly 1.0000**; correctly
+deduplicated it is **30 pairs at 0.4333**. Against the ⅓ chance baseline that is
+an excess of **0.3485 rather than 0.1000 — a 3.5× overstatement** of the very
+correlation the haircut is derived from. The script would have produced a
+confidently wrong, systematically over-conservative haircut.
+
+**Fixed** in `scripts/calibrate_portfolio_exposure.py`: league from
+`matches.league_id`, outcome derived from the probability columns,
+`lower(m.status)`, `DISTINCT ON (mpl.match_id)` ordered by `created_at DESC`, and
+a bound `model_version` parameter sourced from `active_model_version()` (which
+fails closed — a permissive `None` would silently restore the pooling). The
+reported `n_pairs_measured` also counted *groups*, not pairs; both are now
+reported separately. Verified by executing the repaired SQL against production:
+**59 rows, 59 distinct matches, 0 malformed outcomes** — and 59 is exactly the
+settled-prediction count CLAUDE.md's gate table independently records, which
+confirms these semantics match production's own settled-predictions query.
+
+### The measurement, and why `--apply` was NOT run
+
+Real result on 17 multi-fixture groups / 30 pairs across all six leagues:
+
+| Constant | Current | Script proposes |
+| --- | ---: | ---: |
+| `HAIRCUT_PER_ADDITIONAL_FIXTURE` | 0.10 | **0.05** |
+| `HAIRCUT_FLOOR_MULTIPLIER` | 0.50 | **0.75** |
+| `AGGREGATE_CAP_MULTIPLIER` | 3.0 | **2.75** |
+
+Mean pairwise agreement 0.3824 against a 0.3333 chance baseline — **excess
+correlation of only 0.049**. The script's own `recommendation` field reads
+`APPLY`, because 17 ≥ its 10-group floor.
+
+**It was not applied, and that is a deliberate override of the script's own
+recommendation**, for three reasons:
+
+1. **The direction is loosening.** Real same-matchday correlation is *weaker*
+   than the placeholder assumed, so calibration would relax the haircut and raise
+   the floor — permitting larger stakes. Relaxing a risk control is never the
+   direction to take autonomously.
+2. **n=30 pairs is below the script's own noise warning** ("at n<50 groups the
+   estimates are noisy"). 17 groups clears the hard floor but not the honest one.
+3. It rewrites `PORTFOLIO_POLICY_SOURCE` to `CALIBRATED_*`, which is a standing
+   claim about evidence quality that 30 pairs does not support.
+
+The constants stay `DEFAULT_PENDING_CALIBRATION`. **What is now different is that
+the placeholder has been checked against reality and is conservative rather than
+arbitrary** — the risk the original entry named ("the placeholder looking more
+authoritative than it is") is measured, not merely flagged. Re-run once the pair
+count approaches 50; the tooling now works.
+
+Regression coverage: `backend/tests/unit/test_calibrate_portfolio_exposure_query.py`
+(15 tests). Every guard was watched failing on its reverted defect first.
+
 **Blast radius:** none — advisory-only, flags/haircuts a display number never read as
-a gate (`EXECUTE_BET` doesn't exist).
-**Cost:** recalibrate once real settled outcomes exist for ≥1 same-league/matchday
-group.
-**Impact:** low today; the risk is the placeholder looking more authoritative than it
-is if the marker is ever dropped.
-**Priority:** low until Eredivisie's opening round settles.
+a gate (`EXECUTE_BET` doesn't exist), and `stake_permitted` is `false` on every
+fixture regardless (item 42 / `MODEL_UNCERTAINTY_UNAVAILABLE`).
+**Cost:** re-run `scripts/calibrate_portfolio_exposure.py` once the pair count
+approaches 50. The script now runs.
+**Impact:** low today; the placeholder is now known-conservative rather than
+unverified.
+**Priority:** low — but no longer blocked on tooling or on database reach.
 
 ---
 
