@@ -5,6 +5,45 @@ All notable changes to this skill suite are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased - Portfolio B (player availability) source qualification — RESEARCH verdict, no code changed (2026-09-09)
+
+`PRODUCTION_EXECUTIVE_DIRECTIVE.md` Phase 2 (Missing Information Discovery),
+Gate R1 (Source Qualification) — the directive's own highest-priority new
+information branch. Documentation only; no feature schema, provider call
+site, or model artifact touched.
+
+### Found
+
+- `FeatureTransformer._add_injury_features` (`backend/src/data/transformers.py:671`)
+  is a complete no-op, despite two already-integrated, already-authenticated
+  providers (`api_football.py`, `sportmonks.py`) already fetching injury and
+  lineup data via `orchestrator.py`. The adjacent `home_squad_value` /
+  `away_missing_value` / `squad_value_diff` columns are confirmed absent
+  from both `CANONICAL_FEATURES_68` and `APEX_FEATURES_68` by direct check —
+  acquisition exists, nothing downstream reads it.
+- Confirmed-lineup data and injury/suspension availability are not one
+  research question: per third-party technical documentation of
+  API-Football's own documented behaviour, confirmed lineups publish only
+  20-40 minutes before kickoff (sometimes only post-match), a structural
+  mismatch with this platform's primary "browse fixtures ahead of kickoff"
+  surface. Injury/suspension state has no such timing problem.
+- A `Player` table exists in `core/database.py` with zero writers anywhere
+  in `backend/src` — no local player-identity backbone exists yet.
+
+### Added
+
+- `reports/research/portfolio-b-player-availability-source-qualification.md`
+  — full qualification study against directive §11 (source dimensions),
+  §12 (legal/access tiers — both providers L0, already under contract),
+  §13 (information opportunity matrix), and §15 (six coverage gates, none
+  measurable from documentation alone — a live probe is Phase 3 work).
+- `docs/DEBT.md` item 65 — verdict `RESEARCH` for availability
+  (injury/suspension), `HOLD` for confirmed lineup, with concrete next
+  steps (a fixture-scoped live probe, confirming the actual subscribed
+  api-football.com tier, re-verifying a prior session's stale Sportmonks
+  `/sidelined` note, extending the injury normalizer to capture a
+  currently-discarded date field).
+
 ## Unreleased - Calibration selection fixed to require held-out persistence; isotonic rejected 4/4; production hygiene sweep (2026-09-09, PR #161)
 
 `docs/PRODUCTION_EXECUTIVE_DIRECTIVE.md` Phase 1 (Calibration Repair, E0).

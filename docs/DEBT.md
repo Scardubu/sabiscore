@@ -1,5 +1,67 @@
 # SabiScore Debt Ledger
 
+## 65. Player availability is already acquired and already discarded before the feature vector — Portfolio B source qualification (Gate R1), verdict RESEARCH
+
+**Tier:** `RESEARCH` — `PRODUCTION_EXECUTIVE_DIRECTIVE.md` §51 decision, not a
+code change. Full study: `reports/research/portfolio-b-player-availability-source-qualification.md`.
+**Found:** 2026-09-09, directive Phase 2 (Missing Information Discovery),
+Portfolio B (player availability) — the directive's own highest-priority new
+information branch. First entry in this ledger on injuries, lineups,
+sidelined players, or player availability of any kind.
+
+**Two already-integrated, already-authenticated providers
+(`api_football.py`, `sportmonks.py`) already fetch injury/lineup data via
+`orchestrator.py`'s `_collect_prematch_enriched()` and `_collect_lineup_refresh()`
+— and `FeatureTransformer._add_injury_features` (`data/transformers.py:671`)
+is a literal no-op** ("keep it simple and just return features as is for
+now"). The adjacent `home_squad_value`/`away_missing_value`/`squad_value_diff`
+columns it writes are confirmed absent from both `CANONICAL_FEATURES_68` and
+`APEX_FEATURES_68` by direct check. Acquisition exists; nothing downstream
+reads it. Same shape as item 56/58's "xG ingestion never executed" — a data
+pipe with a live source and zero consumer.
+
+**The confirmed-lineup and injury/suspension signals are NOT one research
+question, and treating them as one would have been the mistake.** Per
+third-party technical documentation of API-Football's own documented
+behaviour (their docs site 403'd a direct fetch this session — sourced via
+search, not first-hand, and flagged as such in the study), confirmed lineups
+publish 20-40 minutes before kickoff, sometimes only post-match depending on
+competition coverage. That is a hard structural mismatch with this
+platform's primary surface (browsing fixtures hours/days ahead) — not a
+caveat, a disqualifier for that specific signal today. Injury/suspension
+*availability* (a player is out for days/weeks) has no such problem.
+`orchestrator._collect_lineup_refresh()` already exists as a separate,
+late-firing evidence profile distinct from the enriched pre-match one — the
+codebase's own architecture already anticipated this timing split before
+this study named it.
+
+**Verdict: `RESEARCH` for availability (injury/suspension), `HOLD` for
+confirmed lineup.** Not `PROMOTE` — none of the six §15 coverage gates (G1
+fixture coverage, G2 historical depth, G3 cross-season stability, G4
+cross-league portability, G5 prediction-time availability, G6 default rate)
+have been measured; a live `PROVIDER_LIVE_TESTS`-gated probe is Phase 3 work,
+correctly not run in this document. Not `REJECT` — the hypothesis is
+plausible and the marginal cost to test it is low: no new vendor, no new
+contract, an existing orchestrator call site. Concrete next steps recorded
+in the study (§7): a live fixture-scoped probe (current code queries
+`/injuries` by league+season, not the `fixture` parameter the API also
+accepts per third-party docs); confirming this repo's actual subscribed
+api-football.com tier (not visible anywhere in code — rate limits are read
+dynamically from response headers, correctly tier-agnostic, but this means
+historical-range feasibility is unknown until an operator confirms the
+plan); re-verifying Sportmonks' `/sidelined` 404 note from a prior session
+against a fresh live probe rather than trusting it stale; and extending
+`_normalize_injury` to capture a date field it currently discards entirely.
+
+**A `Player` table exists in `core/database.py` with zero writers anywhere
+in `backend/src`** — no local player-identity backbone exists yet; any
+team-level availability aggregation needs one built, the same class of work
+team-identity reconciliation already did for teams.
+
+**No code changed. No feature schema, model artifact, or provider call
+site touched.** This is a Gate R1 (source qualification) deliverable only,
+per directive §45's explicit rule: "No production integration yet."
+
 ## 64. Calibration selection scored isotonic regression against the data it was fit to — corrected to require held-out persistence per directive §20 B3, and isotonic loses in 4 of 4 opportunities — RESOLVED 2026-09-09
 
 **Tier:** `RESOLVED` — measurement bug fixed, gate tightened on the resulting
