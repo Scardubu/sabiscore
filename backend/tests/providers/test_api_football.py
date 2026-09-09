@@ -14,11 +14,13 @@ from src.providers.api_football import APIFootballProvider
 from src.providers.base import ProviderStatus
 
 VALID_INJURY = {
-    "player": {"id": 1, "name": "Bukayo Saka"},
+    # Real shape, confirmed against a live api_football payload while
+    # scoping Portfolio B Phase 3 (docs/DEBT.md item 65) — `type`/`reason`
+    # live under `player`, not at the record's top level; `fixture.date` is
+    # present and needed for point-in-time reconstruction.
+    "player": {"id": 1, "name": "Bukayo Saka", "type": "Muscle Injury", "reason": "Hamstring"},
     "team": {"id": 57, "name": "Arsenal FC"},
-    "fixture": {"id": 12345},
-    "type": "Muscle Injury",
-    "reason": "Hamstring"  ,
+    "fixture": {"id": 12345, "date": "2024-08-16T19:00:00+00:00"},
 }
 
 VALID_LINEUP_TEAM = {
@@ -44,6 +46,12 @@ async def test_injuries_happy_path(mock_client_factory):
     assert result.records[0]["player_name"] == "Bukayo Saka"
     assert result.records[0]["coherent"] is True
     assert calls[0].headers["x-apisports-key"] == "test-key"
+    # Regression guard for the nested player.type/player.reason + fixture.date
+    # fix: a record with the real payload shape must not silently normalize
+    # injury_type/fixture_date to None.
+    assert result.records[0]["injury_type"] == "Muscle Injury"
+    assert result.records[0]["reason"] == "Hamstring"
+    assert result.records[0]["fixture_date"] == "2024-08-16T19:00:00+00:00"
 
 
 @pytest.mark.asyncio
@@ -91,6 +99,26 @@ async def test_injuries_without_fixture_id_is_unchanged_from_before(mock_client_
     assert "fixture" not in params
     assert "league" in params
     assert "season" in params
+
+
+@pytest.mark.asyncio
+async def test_injuries_explicit_season_overrides_current_season(mock_client_factory):
+    """docs/DEBT.md item 65 follow-up: Portfolio B's Gate R1 study needs a
+    plan-permitted historical season (this repo's free tier rejects the
+    current season outright), so `season` must reach the query string
+    verbatim instead of always resolving to `_current_season()`.
+    """
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        return httpx.Response(200, json={"response": [VALID_INJURY], "errors": {}, "results": 1})
+
+    provider = APIFootballProvider(api_key="test-key", enabled=True, http_client=mock_client_factory(handler))
+    result = await provider.injuries(competition="EPL", season=2024)
+
+    assert result.status == ProviderStatus.VERIFIED
+    assert calls[0].url.params["season"] == "2024"
 
 
 @pytest.mark.asyncio

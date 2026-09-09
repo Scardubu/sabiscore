@@ -1,0 +1,91 @@
+{
+  "stage": "1-2 (descriptive + dependence) -- diagnostic only, per directive \u00a716",
+  "not_authorized": "This result alone does not authorize a feature-schema change, model training, or promotion decision. Stage 3 (incremental forecasting against incumbent + market, walk-forward, paired) is separate.",
+  "stage1_descriptive": {
+    "total_fixtures": 5330,
+    "fixtures_with_any_signal": 5232,
+    "fixtures_with_zero_signal_both_sides": 98,
+    "fixture_level_coverage_pct": 98.16,
+    "availability_diff_distribution": {
+      "mean": -0.123,
+      "median": 0.0,
+      "stdev": 3.104,
+      "min": -11,
+      "max": 12
+    }
+  },
+  "stage2_pearson_availability_diff_vs_outcome_pooled": {
+    "n": 5232,
+    "r": -0.0788,
+    "ci95": [
+      -0.1057,
+      -0.0518
+    ]
+  },
+  "stage2_pearson_per_league": {
+    "EPL": {
+      "n": 1116,
+      "r": -0.0445,
+      "ci95": [
+        -0.1029,
+        0.0142
+      ]
+    },
+    "LA_LIGA": {
+      "n": 1106,
+      "r": 0.0129,
+      "ci95": [
+        -0.0461,
+        0.0718
+      ]
+    },
+    "SERIE_A": {
+      "n": 1131,
+      "r": -0.126,
+      "ci95": [
+        -0.1829,
+        -0.0682
+      ]
+    },
+    "BUNDESLIGA": {
+      "n": 909,
+      "r": -0.1054,
+      "ci95": [
+        -0.1693,
+        -0.0406
+      ]
+    },
+    "LIGUE_1": {
+      "n": 970,
+      "r": -0.1631,
+      "ci95": [
+        -0.2238,
+        -0.1012
+      ]
+    },
+    "EREDIVISIE": {
+      "n": 0,
+      "note": "insufficient_sample"
+    }
+  },
+  "stage2_tercile_group_means": {
+    "home_less_depleted (bottom tercile of diff)": {
+      "n": 1744,
+      "mean_availability_diff": -3.506,
+      "home_win_rate": 0.475,
+      "away_win_rate": 0.268
+    },
+    "middle_tercile": {
+      "n": 1744,
+      "mean_availability_diff": -0.092,
+      "home_win_rate": 0.431,
+      "away_win_rate": 0.312
+    },
+    "home_more_depleted (top tercile of diff)": {
+      "n": 1744,
+      "mean_availability_diff": 3.228,
+      "home_win_rate": 0.404,
+      "away_win_rate": 0.353
+    }
+  }
+}

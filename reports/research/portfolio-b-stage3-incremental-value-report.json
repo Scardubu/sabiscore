@@ -1,0 +1,106 @@
+{
+  "train_seasons": [
+    2022,
+    2023
+  ],
+  "test_season": 2024,
+  "train_n": 3578,
+  "test_n": 1752,
+  "pooled": {
+    "n": 1752,
+    "rps_raw_market": 0.19463,
+    "rps_baseline_model": 0.19488,
+    "rps_candidate_model": 0.19445,
+    "candidate_minus_baseline_bootstrap": {
+      "point_estimate": -0.0004,
+      "ci_lower": -0.001,
+      "ci_upper": 0.0001,
+      "ci_level": 0.95,
+      "n_bootstrap": 1000,
+      "block_size": 10,
+      "n_samples": 1752
+    }
+  },
+  "per_league": {
+    "EPL": {
+      "n": 380,
+      "rps_raw_market": 0.19724,
+      "rps_baseline_model": 0.19802,
+      "rps_candidate_model": 0.19751,
+      "candidate_minus_baseline_bootstrap": {
+        "point_estimate": -0.0005,
+        "ci_lower": -0.0022,
+        "ci_upper": 0.0011,
+        "ci_level": 0.95,
+        "n_bootstrap": 1000,
+        "block_size": 10,
+        "n_samples": 380
+      }
+    },
+    "LA_LIGA": {
+      "n": 380,
+      "rps_raw_market": 0.18996,
+      "rps_baseline_model": 0.18949,
+      "rps_candidate_model": 0.18912,
+      "candidate_minus_baseline_bootstrap": {
+        "point_estimate": -0.0004,
+        "ci_lower": -0.0012,
+        "ci_upper": 0.0005,
+        "ci_level": 0.95,
+        "n_bootstrap": 1000,
+        "block_size": 10,
+        "n_samples": 380
+      }
+    },
+    "SERIE_A": {
+      "n": 380,
+      "rps_raw_market": 0.1842,
+      "rps_baseline_model": 0.18354,
+      "rps_candidate_model": 0.18327,
+      "candidate_minus_baseline_bootstrap": {
+        "point_estimate": -0.0003,
+        "ci_lower": -0.0015,
+        "ci_upper": 0.001,
+        "ci_level": 0.95,
+        "n_bootstrap": 1000,
+        "block_size": 10,
+        "n_samples": 380
+      }
+    },
+    "BUNDESLIGA": {
+      "n": 306,
+      "rps_raw_market": 0.20198,
+      "rps_baseline_model": 0.20378,
+      "rps_candidate_model": 0.20323,
+      "candidate_minus_baseline_bootstrap": {
+        "point_estimate": -0.0006,
+        "ci_lower": -0.0018,
+        "ci_upper": 0.0007,
+        "ci_level": 0.95,
+        "n_bootstrap": 1000,
+        "block_size": 10,
+        "n_samples": 306
+      }
+    },
+    "LIGUE_1": {
+      "n": 306,
+      "rps_raw_market": 0.20281,
+      "rps_baseline_model": 0.20285,
+      "rps_candidate_model": 0.20236,
+      "candidate_minus_baseline_bootstrap": {
+        "point_estimate": -0.0005,
+        "ci_lower": -0.0018,
+        "ci_upper": 0.0007,
+        "ci_level": 0.95,
+        "n_bootstrap": 1000,
+        "block_size": 10,
+        "n_samples": 306
+      }
+    },
+    "EREDIVISIE": {
+      "n": 0,
+      "note": "insufficient_test_sample"
+    }
+  },
+  "not_a_promotion": "This is Stage 3 evidence for a directive \u00a751 decision (PROMOTE/RESEARCH/HOLD/REJECT). It does not itself change the feature schema, retrain a production artifact, or authorize serving."
+}

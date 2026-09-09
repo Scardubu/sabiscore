@@ -51,6 +51,7 @@ class InjuryRecord(BaseModel):
     team_id: int | None = None
     team_name: str
     fixture_id: int | None = None
+    fixture_date: str | None = None
     injury_type: str | None = None
     reason: str | None = None
     coherent: bool
@@ -128,7 +129,9 @@ class APIFootballProvider(BaseProvider):
             for competition in ESPN_LEAGUE_SLUGS
         ]
 
-    async def injuries(self, *, competition: str, fixture_id: Any = None) -> ProviderResult:
+    async def injuries(
+        self, *, competition: str, fixture_id: Any = None, season: int | None = None
+    ) -> ProviderResult:
         """Injury/suspension reports.
 
         Default (``fixture_id`` omitted): every currently-reported injury
@@ -148,10 +151,15 @@ class APIFootballProvider(BaseProvider):
         per-fixture evidence-collection call site (``_collect_prematch_enriched``
         is called once per fixture already) actually wants, and may reach
         fixtures outside the broader query's own lookahead window.
-        Unverified against a live response — this repository holds no
-        api_football credential in any environment this session can reach
-        (docs/DEBT.md item 65); the request-shape guarantee below is unit
-        tested, the response semantics are not.
+
+        With ``season`` (only meaningful when ``fixture_id`` is omitted):
+        overrides the default current-season query. Added for
+        reports/research/portfolio-b-player-availability-source-qualification.md's
+        remaining open thread — this repo's subscribed api_football plan
+        rejects the current season outright ("Free plans do not have access
+        to this season, try from 2022 to 2024"), so a bounded historical
+        Phase-3 study needs a way to query a plan-permitted season. Does not
+        change behaviour for any existing caller, all of which omit it.
         """
         guard = self._guard("injuries")
         if guard is not None:
@@ -163,7 +171,7 @@ class APIFootballProvider(BaseProvider):
             league_id = _LEAGUE_IDS.get(competition.upper())
             if league_id is None:
                 return self._unsupported_competition("injuries", competition)
-            params = {"league": league_id, "season": _current_season()}
+            params = {"league": league_id, "season": season if season is not None else _current_season()}
 
         try:
             payload, headers = await self._get_json(
@@ -393,14 +401,23 @@ class APIFootballProvider(BaseProvider):
             )
         raw_fixture = raw.get("fixture")
         fixture: dict[str, Any] = raw_fixture if isinstance(raw_fixture, dict) else {}
+        # `type` and `reason` live under the nested `player` object in the
+        # real response, not at the record's top level (confirmed against a
+        # live payload while scoping Portfolio B Phase 3 — the prior
+        # `raw.get("type")` read a key that does not exist there and always
+        # returned None; the earlier VALID_INJURY test fixture encoded the
+        # same wrong shape, which is how this stayed invisible). `reason`
+        # already had a fallback to player.get("reason") and so was
+        # unaffected in practice, but is normalized here for one code path.
         return InjuryRecord(
             player_id=player.get("id"),
             player_name=player_name,
             team_id=team.get("id"),
             team_name=team_name,
             fixture_id=fixture.get("id"),
-            injury_type=raw.get("type"),
-            reason=raw.get("reason") or (player.get("reason") if isinstance(player, dict) else None),
+            fixture_date=fixture.get("date"),
+            injury_type=player.get("type"),
+            reason=player.get("reason"),
             coherent=True,
         )
 
