@@ -79,6 +79,48 @@ honest and the 0/6 record stands as recorded. If it is an earlier quote,
 every "did not beat the market" conclusion is measured against a weaker
 reference than a bettor actually faces at kickoff.
 
+### ⚠️ CORRECTION (2026-09-09, same day) — the audit ran, and it overturns the framing above
+
+The follow-up was performed immediately after this study. **The framing above
+was wrong, and is retained only as the record of what was recommended before
+checking.**
+
+`train_on_real_matches.py` reads `_ODDS_COLUMNS` — Bet365 preferred, Pinnacle
+fallback, **opening 1X2 only** — and its `build_dataset` docstring already
+states the reasoning verbatim:
+
+> *"Opening, not closing: live serving fetches odds hours-to-days before
+> kickoff and can never see a closing line for a future fixture, so training
+> on closing prices would teach the model to lean on a systematically
+> more-informed signal than serving can ever supply."*
+
+That is **the same serving-window argument this study derived independently in
+§1**, already encoded in the training pipeline. So:
+
+- The `market_baseline` gate is **correctly specified, not too lenient.**
+  Scoring against the closing quote would be train/serve skew — the model
+  would be measured against information it can never have.
+- The "0 of 6 leagues beat the market" record therefore **stands as recorded**,
+  measured against the only quote SabiScore can actually serve.
+- The convergence is itself mild evidence the analysis is sound: two
+  independent routes reached the same constraint.
+
+**The 0.00085 gap is still a real and useful number — it just means something
+different from what §2 originally implied.** It is not evidence of a soft
+gate. It is a measurement of **the price of the serving constraint**: how much
+forecasting accuracy is structurally unavailable to a product that must
+predict before the market has finished learning. That is a quantified cost of
+the days-ahead product decision, which is arguably the more valuable framing.
+
+**What was actually actionable, and was done:** the emitted evidence never
+*named* the quote, so a reader of `comparison_report.json` could not tell
+which price a PASS/FAIL was measured against. `baseline_rps_market_quote` is
+now recorded next to the metric in `train_on_real_matches.py`, surfaced
+per-league and at gate level in `compare_candidate_vs_incumbent.py`, and older
+reports lacking the label degrade to an explicit
+`"unlabelled_pre_2026_09_report"` rather than being assigned a quote they
+never recorded.
+
 ---
 
 ## 3. Q2 — Does open→close drift add information beyond the closing quote?

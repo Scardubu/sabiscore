@@ -242,6 +242,12 @@ def main() -> int:
                 "candidate_rps_improvement": delta,
                 "candidate_wins": delta > 0,
                 "market_baseline_rps": candidate_evidence["baseline_rps_market"],
+                # Which market price this bar is. Older training reports predate
+                # the label, so fall back to stating that rather than asserting a
+                # quote the report never recorded.
+                "market_baseline_quote": candidate_evidence.get(
+                    "baseline_rps_market_quote", "unlabelled_pre_2026_09_report"
+                ),
                 "candidate_beats_market_baseline": (
                     row["candidate"]["rps"] < candidate_evidence["baseline_rps_market"]
                 ),
@@ -335,6 +341,9 @@ def main() -> int:
                 "leagues_beating_market": sum(
                     row["candidate_beats_market_baseline"] for row in league_rows
                 ),
+                # Surfaced at gate level so a PASS/FAIL can never be read
+                # without knowing which price it was measured against.
+                "quote": sorted({row["market_baseline_quote"] for row in league_rows}),
             },
         }
         report["promotion_permitted"] = all(
