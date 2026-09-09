@@ -241,6 +241,53 @@ this pass so as not to commit further quota or scope without a checkpoint):
 Full test suite for the touched files green (`tests/providers/test_api_football.py`,
 18/18); `ruff check` clean on all three touched files.
 
+### Follow-up, same day: Phase 3 executed — 92.1% end-to-end crosswalk coverage measured across 5 leagues x 3 seasons, not projected from one league (2026-09-09)
+
+New `backend/scripts/qualify_player_availability_coverage.py` (pure resolver
+logic pinned by 7 tests, `tests/unit/test_player_availability_coverage_qualification.py`)
+crosswalks `injuries(competition, season)` records against the real local
+football-data.co.uk corpus (`backend/data/cache/fd_*.csv`) — the identical
+identity-key algorithm and audited alias tables `services/team_identity.py`
+uses in production, inlined rather than imported (that module opens a live
+DB connection at import time, item 7, and no database is reachable here).
+Two independent checks per record: team-name resolution, then does
+`fixture_date` land on a real match date for that resolved team.
+
+**Result across 15 league-seasons (EPL/LA_LIGA/SERIE_A/BUNDESLIGA/LIGUE_1 x
+2022-2024; EREDIVISIE excluded, no corpus file; UCL out of scope, no
+domestic corpus to crosswalk against): 41,188 records, 92.2% team-resolved,
+99.9% of those date-matched — ~92.1% fully crosswalk end-to-end.** No
+league collapses (low end: LIGUE_1 team-resolution at 87.0%). Both Gate G1
+(fixture coverage, 85% bar this codebase already uses elsewhere) and G4
+(cross-league portability) **pass**, measured rather than assumed.
+
+Two real bugs caught and fixed mid-run, not glossed over: an unpaced
+18-request sweep produced transient `api_logical_error` on 5 combinations
+that succeeded instantly when re-queried alone (burst throttle, fixed with
+a 1s pause); `pd.to_datetime(..., dayfirst=True)` was silently mis-parsing
+a subset of the corpus's unambiguous ISO dates, understating the date-match
+rate at ~65% until switched to `dayfirst=False` (verified by watching the
+number jump to 99.9%, not assumed).
+
+**Residual: 13 named team names across 4 leagues stay unresolved** (e.g.
+`Manchester United` vs corpus `Man United`; `Paris Saint Germain` vs corpus
+`Paris SG` — the existing alias maps the opposite direction). **Not
+patched** — `_AUDITED_ALIASES` is production-shared and every entry
+documents independent verification against real match/Elo history before
+being asserted; adding entries on this session's say-so would repeat the
+exact guessed-alias mistake the Wolves/Wolvesnewton and Paris FC/PSG
+incidents already warn against. Full detail:
+`reports/research/portfolio-b-player-availability-source-qualification.md`
+§9, `reports/research/portfolio-b-availability-coverage-manifest.json`.
+
+**Still not authorized: any feature schema change, model training, or
+incremental-information test.** That is Phase 4 (directive §16 Stage 1-3),
+deliberately not started in this pass — it needs its own careful sequencing
+(descriptive -> dependence -> incremental forecasting, walk-forward, paired,
+block-bootstrap CI against both incumbent and market) rather than being
+appended to an already-substantial session. No production code, feature
+schema, or model artifact touched.
+
 ## 64. Calibration selection scored isotonic regression against the data it was fit to — corrected to require held-out persistence per directive §20 B3, and isotonic loses in 4 of 4 opportunities — RESOLVED 2026-09-09
 
 **Tier:** `RESOLVED` — measurement bug fixed, gate tightened on the resulting

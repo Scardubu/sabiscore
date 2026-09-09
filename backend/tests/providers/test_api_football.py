@@ -14,11 +14,13 @@ from src.providers.api_football import APIFootballProvider
 from src.providers.base import ProviderStatus
 
 VALID_INJURY = {
-    "player": {"id": 1, "name": "Bukayo Saka"},
+    # Real shape, confirmed against a live api_football payload while
+    # scoping Portfolio B Phase 3 (docs/DEBT.md item 65) — `type`/`reason`
+    # live under `player`, not at the record's top level; `fixture.date` is
+    # present and needed for point-in-time reconstruction.
+    "player": {"id": 1, "name": "Bukayo Saka", "type": "Muscle Injury", "reason": "Hamstring"},
     "team": {"id": 57, "name": "Arsenal FC"},
-    "fixture": {"id": 12345},
-    "type": "Muscle Injury",
-    "reason": "Hamstring"  ,
+    "fixture": {"id": 12345, "date": "2024-08-16T19:00:00+00:00"},
 }
 
 VALID_LINEUP_TEAM = {
@@ -44,6 +46,12 @@ async def test_injuries_happy_path(mock_client_factory):
     assert result.records[0]["player_name"] == "Bukayo Saka"
     assert result.records[0]["coherent"] is True
     assert calls[0].headers["x-apisports-key"] == "test-key"
+    # Regression guard for the nested player.type/player.reason + fixture.date
+    # fix: a record with the real payload shape must not silently normalize
+    # injury_type/fixture_date to None.
+    assert result.records[0]["injury_type"] == "Muscle Injury"
+    assert result.records[0]["reason"] == "Hamstring"
+    assert result.records[0]["fixture_date"] == "2024-08-16T19:00:00+00:00"
 
 
 @pytest.mark.asyncio

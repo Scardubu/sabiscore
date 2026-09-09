@@ -342,3 +342,97 @@ a different endpoint or plan, independent of anything above.
 blocked on any operator or business decision. Signals 2b (confirmed lineup)
 and squad-quality-adjusted availability are unchanged at `HOLD` for the
 reasons already given in §7.
+
+---
+
+## 9. Phase 3 executed — Gate G1/G4 measured across the real corpus, not projected from one league
+
+**Date:** 2026-09-09 (same day, continued). §8 scoped Phase 3 as "acquire the
+2022–2024 seasons across the 5 leagues... build the point-in-time join...
+run the missingness/entity-resolution audit." That ran. New script:
+`backend/scripts/qualify_player_availability_coverage.py`, pure resolver
+logic pinned by 7 tests in
+`backend/tests/unit/test_player_availability_coverage_qualification.py`.
+
+**Method.** For each of the 5 leagues with a local historical corpus file
+(`backend/data/cache/fd_*.csv` — the same 12,765-match archive the
+production models train on) × seasons {2022, 2023, 2024}: fetch
+`injuries(competition=league, season=year)` live, then run **two
+independent checks per coherent record** — (1) does `team_name` resolve to
+a real club in that league's corpus roster, using the identical
+identity-key algorithm and already-audited alias tables
+`services/team_identity.py` uses in production (inlined rather than
+imported, since that module opens a database connection at import time —
+`docs/DEBT.md` item 7 — and no database is reachable from this session);
+(2) for records whose team resolved, does `fixture_date`'s calendar date
+match a real match date for that team in the corpus that season. EREDIVISIE
+was excluded — no 2022–2024 corpus file exists locally for it (consistent
+with the already-documented single-season Eredivisie history); UCL was out
+of scope from the start (§0 — no domestic-league corpus to crosswalk a
+Champions League fixture against).
+
+**A methodological correction made mid-run, not glossed over.** The first
+full sweep (18 back-to-back requests, no pacing) returned `api_logical_error`
+for 5 of 18 league-seasons and a suspiciously low ~65% date-match rate.
+Re-querying two of the "failed" combinations in isolation immediately
+returned `VERIFIED` — a burst throttle, not a genuine per-league
+restriction, so the sweep was re-run with a 1-second pause between calls.
+Separately, `pd.to_datetime(..., dayfirst=True)` was silently mis-parsing a
+subset of rows even though the corpus's `date` column is unambiguous ISO
+`YYYY-MM-DD` — switching to `dayfirst=False` alone moved the aggregate
+date-match rate from ~65% to 99.9%. Both fixes were watched changing the
+result, not applied speculatively.
+
+**Result — the corrected, final sweep:**
+
+```text
+League       Seasons queried   Records   Team-resolved   Date-matched (of resolved)
+EPL          2022-2024         10,077    84.7-91.3%      100.0%
+LA_LIGA      2022-2024          7,913    85.6-89.8%      100.0%
+SERIE_A      2022-2024          8,232    100.0%          100.0%
+BUNDESLIGA   2022-2024          7,711    99.5-99.8%      99.6-99.9%
+LIGUE_1      2022-2024          7,255    87.0-90.1%      99.6-100.0%
+
+AGGREGATE (15 league-seasons, 41,188 records):
+  92.2% team-resolved
+  99.9% of those date-matched
+  => ~92.1% of ALL records fully crosswalk to a real, dated corpus fixture
+```
+
+Full per-league-season detail, including every unresolved team name, in
+`reports/research/portfolio-b-availability-coverage-manifest.json`.
+
+**Gate assessment, measured rather than assumed:**
+
+| Gate | Verdict | Basis |
+|---|---|---|
+| G1 — fixture coverage | **PASS** | 92.1% end-to-end crosswalk rate, well above the 85% bar this codebase already uses elsewhere (Portfolio D §1, the StatsBomb audit). |
+| G4 — cross-league portability | **PASS** | No league collapses — the low end is LIGUE_1 team-resolution at 87.0%, not a 30+ point spread like Portfolio C's weather study found. |
+| G6 — default rate | **PASS (implied)** | <8% of records would need to be treated as a genuine data gap. |
+
+**The residual 7.8% unresolved is small, closed, and named — not
+absorbed.** 13 distinct team names across 4 leagues, all real clubs the
+resolver's inherited alias tables simply don't cover in this direction:
+`Manchester United` (EPL corpus spells it `Man United`), `Paris Saint
+Germain` (corpus: `Paris SG` — the existing `_AUDITED_ALIASES` entry maps
+the *other* direction, `"paris sg" -> "paris saint germain"`, which does not
+help a caller that already has the long form), `Athletic Club`, `Atletico
+Madrid`, `Espanyol`, `Nottingham Forest`, `Sheffield Utd`, `Fortuna
+Dusseldorf`, `Hamburger SV`, `SV Elversberg`, `Metz`, `Saint Etienne`,
+`Stade Brestois 29`. **Not patched here** — `_AUDITED_ALIASES` is
+production-shared, and every existing entry documents having been verified
+against real match/Elo history before being asserted (per the module's own
+comments); adding entries on this session's say-so without that same
+verification would be exactly the kind of guessed alias this codebase's own
+Wolves/Wolvesnewton and Paris FC/PSG incidents warn against. Recorded as a
+precise, human-reviewable residual for whoever owns that table next.
+
+**What this does and does not authorize.** Phase 3's data-qualification
+bar is now cleared with real evidence, not merely "no longer blocked."
+Still not authorized: any feature schema change, model training, or
+incremental-information test — that is Phase 4 (§40 Gate R2/R3, directive
+§16 Stage 1-3), which needs its own careful sequencing (descriptive →
+dependence → incremental forecasting, walk-forward, paired, block-bootstrap
+CI against both the incumbent and the market) rather than being appended to
+an already-substantial session. No production code, feature schema, or
+model artifact touched by this section.

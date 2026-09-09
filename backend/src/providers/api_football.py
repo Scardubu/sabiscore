@@ -51,6 +51,7 @@ class InjuryRecord(BaseModel):
     team_id: int | None = None
     team_name: str
     fixture_id: int | None = None
+    fixture_date: str | None = None
     injury_type: str | None = None
     reason: str | None = None
     coherent: bool
@@ -400,14 +401,23 @@ class APIFootballProvider(BaseProvider):
             )
         raw_fixture = raw.get("fixture")
         fixture: dict[str, Any] = raw_fixture if isinstance(raw_fixture, dict) else {}
+        # `type` and `reason` live under the nested `player` object in the
+        # real response, not at the record's top level (confirmed against a
+        # live payload while scoping Portfolio B Phase 3 — the prior
+        # `raw.get("type")` read a key that does not exist there and always
+        # returned None; the earlier VALID_INJURY test fixture encoded the
+        # same wrong shape, which is how this stayed invisible). `reason`
+        # already had a fallback to player.get("reason") and so was
+        # unaffected in practice, but is normalized here for one code path.
         return InjuryRecord(
             player_id=player.get("id"),
             player_name=player_name,
             team_id=team.get("id"),
             team_name=team_name,
             fixture_id=fixture.get("id"),
-            injury_type=raw.get("type"),
-            reason=raw.get("reason") or (player.get("reason") if isinstance(player, dict) else None),
+            fixture_date=fixture.get("date"),
+            injury_type=player.get("type"),
+            reason=player.get("reason"),
             coherent=True,
         )
 

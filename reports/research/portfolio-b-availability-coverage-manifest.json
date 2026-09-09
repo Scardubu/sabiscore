@@ -1,0 +1,253 @@
+[
+  {
+    "league": "EPL",
+    "season": 2022,
+    "corpus_file_found": true,
+    "queried": true,
+    "api_status": "VERIFIED",
+    "record_count": 3056,
+    "team_resolved": 2589,
+    "team_resolved_pct": 84.72,
+    "date_matched": 2589,
+    "date_matched_pct_of_resolved": 100.0,
+    "unresolved_team_names": [
+      "Manchester United",
+      "Nottingham Forest"
+    ]
+  },
+  {
+    "league": "EPL",
+    "season": 2023,
+    "corpus_file_found": true,
+    "queried": true,
+    "api_status": "VERIFIED",
+    "record_count": 3853,
+    "team_resolved": 3140,
+    "team_resolved_pct": 81.49,
+    "date_matched": 3140,
+    "date_matched_pct_of_resolved": 100.0,
+    "unresolved_team_names": [
+      "Manchester United",
+      "Nottingham Forest",
+      "Sheffield Utd"
+    ]
+  },
+  {
+    "league": "EPL",
+    "season": 2024,
+    "corpus_file_found": true,
+    "queried": true,
+    "api_status": "VERIFIED",
+    "record_count": 3168,
+    "team_resolved": 2891,
+    "team_resolved_pct": 91.26,
+    "date_matched": 2891,
+    "date_matched_pct_of_resolved": 100.0,
+    "unresolved_team_names": [
+      "Manchester United",
+      "Nottingham Forest"
+    ]
+  },
+  {
+    "league": "LA_LIGA",
+    "season": 2022,
+    "corpus_file_found": true,
+    "queried": true,
+    "api_status": "VERIFIED",
+    "record_count": 2653,
+    "team_resolved": 2271,
+    "team_resolved_pct": 85.6,
+    "date_matched": 2271,
+    "date_matched_pct_of_resolved": 100.0,
+    "unresolved_team_names": [
+      "Athletic Club",
+      "Atletico Madrid",
+      "Espanyol"
+    ]
+  },
+  {
+    "league": "LA_LIGA",
+    "season": 2023,
+    "corpus_file_found": true,
+    "queried": true,
+    "api_status": "VERIFIED",
+    "record_count": 2836,
+    "team_resolved": 2548,
+    "team_resolved_pct": 89.84,
+    "date_matched": 2548,
+    "date_matched_pct_of_resolved": 100.0,
+    "unresolved_team_names": [
+      "Athletic Club",
+      "Atletico Madrid"
+    ]
+  },
+  {
+    "league": "LA_LIGA",
+    "season": 2024,
+    "corpus_file_found": true,
+    "queried": true,
+    "api_status": "VERIFIED",
+    "record_count": 2424,
+    "team_resolved": 2166,
+    "team_resolved_pct": 89.36,
+    "date_matched": 2166,
+    "date_matched_pct_of_resolved": 100.0,
+    "unresolved_team_names": [
+      "Athletic Club",
+      "Atletico Madrid",
+      "Espanyol"
+    ]
+  },
+  {
+    "league": "SERIE_A",
+    "season": 2022,
+    "corpus_file_found": true,
+    "queried": true,
+    "api_status": "VERIFIED",
+    "record_count": 2532,
+    "team_resolved": 2532,
+    "team_resolved_pct": 100.0,
+    "date_matched": 2532,
+    "date_matched_pct_of_resolved": 100.0,
+    "unresolved_team_names": []
+  },
+  {
+    "league": "SERIE_A",
+    "season": 2023,
+    "corpus_file_found": true,
+    "queried": true,
+    "api_status": "VERIFIED",
+    "record_count": 2664,
+    "team_resolved": 2664,
+    "team_resolved_pct": 100.0,
+    "date_matched": 2664,
+    "date_matched_pct_of_resolved": 100.0,
+    "unresolved_team_names": []
+  },
+  {
+    "league": "SERIE_A",
+    "season": 2024,
+    "corpus_file_found": true,
+    "queried": true,
+    "api_status": "VERIFIED",
+    "record_count": 3036,
+    "team_resolved": 3036,
+    "team_resolved_pct": 100.0,
+    "date_matched": 3036,
+    "date_matched_pct_of_resolved": 100.0,
+    "unresolved_team_names": []
+  },
+  {
+    "league": "BUNDESLIGA",
+    "season": 2022,
+    "corpus_file_found": true,
+    "queried": true,
+    "api_status": "VERIFIED",
+    "record_count": 2372,
+    "team_resolved": 2360,
+    "team_resolved_pct": 99.49,
+    "date_matched": 2356,
+    "date_matched_pct_of_resolved": 99.83,
+    "unresolved_team_names": [
+      "Hamburger SV"
+    ]
+  },
+  {
+    "league": "BUNDESLIGA",
+    "season": 2023,
+    "corpus_file_found": true,
+    "queried": true,
+    "api_status": "VERIFIED",
+    "record_count": 2701,
+    "team_resolved": 2697,
+    "team_resolved_pct": 99.85,
+    "date_matched": 2685,
+    "date_matched_pct_of_resolved": 99.56,
+    "unresolved_team_names": [
+      "Fortuna Dusseldorf"
+    ]
+  },
+  {
+    "league": "BUNDESLIGA",
+    "season": 2024,
+    "corpus_file_found": true,
+    "queried": true,
+    "api_status": "VERIFIED",
+    "record_count": 2638,
+    "team_resolved": 2633,
+    "team_resolved_pct": 99.81,
+    "date_matched": 2631,
+    "date_matched_pct_of_resolved": 99.92,
+    "unresolved_team_names": [
+      "SV Elversberg"
+    ]
+  },
+  {
+    "league": "LIGUE_1",
+    "season": 2022,
+    "corpus_file_found": true,
+    "queried": true,
+    "api_status": "VERIFIED",
+    "record_count": 2717,
+    "team_resolved": 2422,
+    "team_resolved_pct": 89.14,
+    "date_matched": 2422,
+    "date_matched_pct_of_resolved": 100.0,
+    "unresolved_team_names": [
+      "Paris Saint Germain",
+      "Stade Brestois 29"
+    ]
+  },
+  {
+    "league": "LIGUE_1",
+    "season": 2023,
+    "corpus_file_found": true,
+    "queried": true,
+    "api_status": "VERIFIED",
+    "record_count": 2078,
+    "team_resolved": 1807,
+    "team_resolved_pct": 86.96,
+    "date_matched": 1802,
+    "date_matched_pct_of_resolved": 99.72,
+    "unresolved_team_names": [
+      "Paris Saint Germain",
+      "Saint Etienne",
+      "Stade Brestois 29"
+    ]
+  },
+  {
+    "league": "LIGUE_1",
+    "season": 2024,
+    "corpus_file_found": true,
+    "queried": true,
+    "api_status": "VERIFIED",
+    "record_count": 2460,
+    "team_resolved": 2216,
+    "team_resolved_pct": 90.08,
+    "date_matched": 2207,
+    "date_matched_pct_of_resolved": 99.59,
+    "unresolved_team_names": [
+      "Metz",
+      "Paris Saint Germain",
+      "Stade Brestois 29"
+    ]
+  },
+  {
+    "league": "EREDIVISIE",
+    "season": 2022,
+    "corpus_file_found": false,
+    "queried": false
+  },
+  {
+    "league": "EREDIVISIE",
+    "season": 2023,
+    "corpus_file_found": false,
+    "queried": false
+  },
+  {
+    "league": "EREDIVISIE",
+    "season": 2024,
+    "corpus_file_found": false,
+    "queried": false
+  }
+]
