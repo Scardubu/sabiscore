@@ -1,5 +1,141 @@
 # SabiScore Debt Ledger
 
+## 65. Player availability is already acquired and already discarded before the feature vector — Portfolio B source qualification (Gate R1), verdict RESEARCH
+
+**Tier:** `RESEARCH` — `PRODUCTION_EXECUTIVE_DIRECTIVE.md` §51 decision, not a
+code change. Full study: `reports/research/portfolio-b-player-availability-source-qualification.md`.
+**Found:** 2026-09-09, directive Phase 2 (Missing Information Discovery),
+Portfolio B (player availability) — the directive's own highest-priority new
+information branch. First entry in this ledger on injuries, lineups,
+sidelined players, or player availability of any kind.
+
+**Two already-integrated, already-authenticated providers
+(`api_football.py`, `sportmonks.py`) already fetch injury/lineup data via
+`orchestrator.py`'s `_collect_prematch_enriched()` and `_collect_lineup_refresh()`
+— and `FeatureTransformer._add_injury_features` (`data/transformers.py:671`)
+is a literal no-op** ("keep it simple and just return features as is for
+now"). The adjacent `home_squad_value`/`away_missing_value`/`squad_value_diff`
+columns it writes are confirmed absent from both `CANONICAL_FEATURES_68` and
+`APEX_FEATURES_68` by direct check. Acquisition exists; nothing downstream
+reads it. Same shape as item 56/58's "xG ingestion never executed" — a data
+pipe with a live source and zero consumer.
+
+**The confirmed-lineup and injury/suspension signals are NOT one research
+question, and treating them as one would have been the mistake.** Per
+third-party technical documentation of API-Football's own documented
+behaviour (their docs site 403'd a direct fetch this session — sourced via
+search, not first-hand, and flagged as such in the study), confirmed lineups
+publish 20-40 minutes before kickoff, sometimes only post-match depending on
+competition coverage. That is a hard structural mismatch with this
+platform's primary surface (browsing fixtures hours/days ahead) — not a
+caveat, a disqualifier for that specific signal today. Injury/suspension
+*availability* (a player is out for days/weeks) has no such problem.
+`orchestrator._collect_lineup_refresh()` already exists as a separate,
+late-firing evidence profile distinct from the enriched pre-match one — the
+codebase's own architecture already anticipated this timing split before
+this study named it.
+
+**Verdict: `RESEARCH` for availability (injury/suspension), `HOLD` for
+confirmed lineup.** Not `PROMOTE` — none of the six §15 coverage gates (G1
+fixture coverage, G2 historical depth, G3 cross-season stability, G4
+cross-league portability, G5 prediction-time availability, G6 default rate)
+have been measured; a live `PROVIDER_LIVE_TESTS`-gated probe is Phase 3 work,
+correctly not run in this document. Not `REJECT` — the hypothesis is
+plausible and the marginal cost to test it is low: no new vendor, no new
+contract, an existing orchestrator call site. Concrete next steps recorded
+in the study (§7): a live fixture-scoped probe (current code queries
+`/injuries` by league+season, not the `fixture` parameter the API also
+accepts per third-party docs); confirming this repo's actual subscribed
+api-football.com tier (not visible anywhere in code — rate limits are read
+dynamically from response headers, correctly tier-agnostic, but this means
+historical-range feasibility is unknown until an operator confirms the
+plan); re-verifying Sportmonks' `/sidelined` 404 note from a prior session
+against a fresh live probe rather than trusting it stale; and extending
+`_normalize_injury` to capture a date field it currently discards entirely.
+
+**A `Player` table exists in `core/database.py` with zero writers anywhere
+in `backend/src`** — no local player-identity backbone exists yet; any
+team-level availability aggregation needs one built, the same class of work
+team-identity reconciliation already did for teams.
+
+**No code changed in this initial pass. No feature schema, model artifact,
+or provider call site touched.** This is a Gate R1 (source qualification)
+deliverable only, per directive §45's explicit rule: "No production
+integration yet."
+
+### Follow-up, same day: verdict revised to `HOLD` — the live probe ran for real, and both integrated sources fail on this subscription (2026-09-09)
+
+⚠️ **Correction to this item's own first follow-up pass, made the same
+day.** That pass concluded credentials were absent, checking
+`settings.api_football_api_key` / `settings.sportmonks_api_token`. **Those
+attributes do not exist** — the real fields, confirmed by reading
+`core/config.py` directly, are `api_football_key` (`AliasChoices("API_FOOTBALL_API_KEY", "API_FOOTBALL_KEY")`)
+and `sportmonks_api_key` (`AliasChoices("SPORTMONKS_API_TOKEN", "SPORTMONKS_API_KEY")`).
+`getattr(settings, wrong_name, None)` silently returns `None` for a
+nonexistent attribute — the exact shape of bug this ledger has already
+named elsewhere (a check that cannot fail loudly is not a check). Checked
+again with the correct names: all four provider keys configured in this
+environment are present (length-only check, values never printed). No
+credential was ever missing; the earlier conclusion was a bug in the check
+itself, not a finding about the environment.
+
+**With that fixed, the live probe ran for real** — 2 GET requests, via a
+new `backend/scripts/probe_player_availability_sources.py` (read-only,
+redacts both keys defensively even though `ProviderResult`/`ProviderQuota`
+never carry auth material by construction, checked before writing it).
+Decisive result, both integrated sources:
+
+- **`api_football.injuries(competition="EPL")`**: `UNAVAILABLE`,
+  `api_logical_error`, plan message verbatim: *"Free plans do not have
+  access to this season, try from 2022 to 2024."* This answers, live,
+  the tier question this item's earlier pass could only ask an operator to
+  confirm: **this subscription is the free plan**, and the free plan
+  cannot query injuries for the current season **at all** — not a coverage
+  gap, a hard subscription-tier wall. Since the current implementation
+  always queries `_current_season()`, this endpoint is unconditionally
+  unusable for live/upcoming fixtures as configured today, independent of
+  the fixture-scoped vs. league-scoped question the earlier pass focused
+  on. (Untested, cheap follow-up for whoever picks this up: querying an
+  explicit `season=2024` would confirm whether the endpoint otherwise works
+  and only the current season is blocked, vs. something else being wrong —
+  the current `injuries()` has no season override to test this with yet.)
+- **`sportmonks.injuries(competition="EPL")`**: `TRANSPORT_CLIENT_ERROR`,
+  HTTP 404. This is the exact `/sidelined` 404 `probe()`'s own docstring
+  named from a 2026-07-04 check — **re-confirmed live today**, not carried
+  forward as a stale note. Sportmonks' `injuries()` has, as far as this
+  ledger can now show with evidence rather than suspicion, never returned
+  real data on this subscription.
+
+**Verdict revised: `RESEARCH` → `HOLD`.** Not `REJECT` — nothing here says
+player-availability information is unhelpful; both failures are
+subscription/endpoint problems, not information-value problems, and
+api_football's own pricing tiers (verified via WebSearch in the original
+pass) explicitly gate "volume and historical range" by plan, meaning a paid
+tier plausibly resolves the api_football half outright. But the bounded,
+engineering-only next step this item named earlier (build the adapter,
+test it, run a live probe) is now **done and answered negatively as
+configured** — the unblock from here is a business/operator decision (pay
+for a higher api_football tier — $19/mo Pro, 7,500 req/day, per
+api-football.com's public pricing — and separately re-investigate whether
+Sportmonks' subscription needs a different endpoint or plan for sidelined
+data), not more code from this session. `HOLD` matches the directive's
+own definition exactly: "plausible but insufficiently powered... by the
+current setup," pending that decision.
+
+**Still deliberately NOT wiring `fixture_id` into `orchestrator.py`** — if
+anything this is now more clearly correct than when first decided: the
+broad query it would be narrowing already fails outright on this
+subscription for the current season, so wiring the narrower form in first
+would still fail, for the same underlying reason.
+
+**No feature schema, model artifact, or live orchestrator behaviour
+changed.** Backend suite green; `ruff check src --select E4,E7,E9,F`
+clean; the provider gateway suite (74 tests across
+`tests/test_providers_gateway.py` and `tests/providers/`) is green
+including the 2 new tests; the live probe itself is a manual, read-only
+diagnostic run, not part of any test suite (matches `PROVIDER_LIVE_TESTS`
+staying out of default CI).
+
 ## 64. Calibration selection scored isotonic regression against the data it was fit to — corrected to require held-out persistence per directive §20 B3, and isotonic loses in 4 of 4 opportunities — RESOLVED 2026-09-09
 
 **Tier:** `RESOLVED` — measurement bug fixed, gate tightened on the resulting

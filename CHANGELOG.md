@@ -5,6 +5,136 @@ All notable changes to this skill suite are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased - Portfolio B (player availability) source qualification, live-probed to a `HOLD` verdict; one tested adapter extension (2026-09-09)
+
+`PRODUCTION_EXECUTIVE_DIRECTIVE.md` Phase 2 (Missing Information Discovery),
+Gate R1 (Source Qualification) — the directive's own highest-priority new
+information branch. No feature schema, model artifact, or live orchestrator
+behaviour changed.
+
+### Found
+
+- `FeatureTransformer._add_injury_features` (`backend/src/data/transformers.py:671`)
+  is a complete no-op, despite two already-integrated, already-authenticated
+  providers (`api_football.py`, `sportmonks.py`) already fetching injury and
+  lineup data via `orchestrator.py`. The adjacent `home_squad_value` /
+  `away_missing_value` / `squad_value_diff` columns are confirmed absent
+  from both `CANONICAL_FEATURES_68` and `APEX_FEATURES_68` by direct check —
+  acquisition exists, nothing downstream reads it.
+- Confirmed-lineup data and injury/suspension availability are not one
+  research question: per third-party technical documentation of
+  API-Football's own documented behaviour, confirmed lineups publish only
+  20-40 minutes before kickoff (sometimes only post-match), a structural
+  mismatch with this platform's primary "browse fixtures ahead of kickoff"
+  surface. Injury/suspension state has no such timing problem.
+- A `Player` table exists in `core/database.py` with zero writers anywhere
+  in `backend/src` — no local player-identity backbone exists yet.
+- **A live probe (real credentials, 2 read-only GET requests) settled the
+  question documentation alone couldn't**: `api_football.injuries()`
+  returns `"Free plans do not have access to this season, try from 2022 to
+  2024"` — this subscription is the free plan, which cannot query the
+  current season's injuries at all, a hard tier wall rather than a coverage
+  gap. `sportmonks.injuries()` (`/sidelined`) 404s, live-reconfirmed today
+  after a prior session had only suspected it from an older note. Verdict
+  for the availability signal revised `RESEARCH` → `HOLD`: not
+  uninformative, but blocked on a subscription-tier decision (a paid
+  api_football plan), not on more engineering.
+
+### Added
+
+- `reports/research/portfolio-b-player-availability-source-qualification.md`
+  — full qualification study against directive §11/§12/§13/§15, updated
+  same-day with the live-probe result and revised verdict.
+- `docs/DEBT.md` item 65 — full narrative including a self-correction: the
+  first pass concluded no credentials existed, checking two attribute names
+  (`api_football_api_key`, `sportmonks_api_token`) that do not exist on the
+  settings object. The real names are `api_football_key` and
+  `sportmonks_api_key`; credentials were present the whole time.
+- `backend/scripts/probe_player_availability_sources.py` — the reusable,
+  read-only live probe, redacts both provider keys defensively (though
+  `ProviderResult`/`ProviderQuota` never carry auth material by
+  construction, checked before writing it).
+- `APIFootballProvider.injuries()` (`backend/src/providers/api_football.py`)
+  gained an optional `fixture_id` keyword parameter using the API's own
+  `fixture` query parameter. Two tests pin the request shape: fixture-scoped
+  calls send `fixture` and nothing else; omitting `fixture_id` is
+  byte-identical to the pre-existing league+season query — the regression
+  guard that matters, since `orchestrator.py` is a live, already-running
+  caller. **Deliberately not wired into `orchestrator.py`** — doing so would
+  still fail for the same free-tier reason the broad query does, and wiring
+  an unverified query shape into a live evidence-collection path is exactly
+  the risk this repository's "ship capture before computation" precedent
+  (CLV capture, Open-Meteo weather) exists to avoid.
+
+## Unreleased - Calibration selection fixed to require held-out persistence; isotonic rejected 4/4; production hygiene sweep (2026-09-09, PR #161)
+
+`docs/PRODUCTION_EXECUTIVE_DIRECTIVE.md` Phase 1 (Calibration Repair, E0).
+Executing the calibrator-selection machinery (written in a prior session,
+never run end-to-end) surfaced two measurement bugs before any result could
+be trusted, then produced a decisive negative finding once fixed. No model
+artifact, certification or promotion rule, verdict gate, Kelly rule, or
+staking permission changed — the active generation remains `UNVERIFIED` /
+`ACTIVE_FAIL_CLOSED`.
+
+### Fixed
+
+- `_calibration_reliability` (`backend/scripts/train_on_real_matches.py`)
+  special-cased its first bin as `[0.0, 0.1]` inclusive while the production
+  functions it claimed to match (`expected_calibration_error`,
+  `brier_score_decomposition`) use `(lo, hi]` uniformly — isotonic
+  regression's `y_min=0.0` clip makes exact-zero outputs a real occurrence,
+  not a theoretical edge case. Fixed by deleting the duplicate and
+  delegating to `brier_score_decomposition` directly.
+- `_select_calibrator` chose between temperature scaling and isotonic
+  regression by measuring reliability on the exact split each candidate was
+  fit to — a circular, in-sample comparison that always favours isotonic's
+  flexibility regardless of generalisation. Now also scores both candidates
+  on the genuinely disjoint holdout season and requires isotonic to win
+  **both** comparisons before it ships (directive §20 B3: a candidate
+  "succeeds only if... persists on untouched data"). Retraining on the real
+  12,765-match corpus measured the effect directly: isotonic won the
+  in-sample comparison in 4 of 6 leagues and failed the held-out persistence
+  check in **all 4** — temperature scaling now ships in all 6 leagues. See
+  `docs/DEBT.md` item 64 for full per-league numbers.
+- `IsotonicMetaModel.predict_proba` (`backend/src/core/meta_model.py`)
+  computed `0/0` on a degenerate all-zero row and discarded the NaN via
+  `np.where` (which evaluates both branches), emitting a `RuntimeWarning` on
+  every such row. Fixed by making the divisor safe before the select.
+- The phantom absolute RPS promotion threshold (`0.21`, cited on the
+  homepage, docs page, and `/api/health` as if certified) removed from
+  public copy — the frozen certification policy's gate is relative
+  (`min_mean_rps_improvement > 0.0`), not absolute.
+- The performance dashboard's aggregate stat
+  (`model_probs[argmax] - closing_probs[argmax]`) relabelled from "Closing
+  line value" — a term of art requiring a taken price and subsequent market
+  movement, neither of which this diagnostic has — to "Market belief
+  differential". Backend field/module name (`clv_service.py`) intentionally
+  left unrenamed this PR.
+- `<150ms` latency claims (`predictions.py`, `schemas/prediction.py`,
+  `services/data_processing.py`) corrected to name model inference
+  specifically; a new end-to-end alert threshold (2500ms p95, `/metrics`,
+  not a CI gate) and CI-enforced inference-only budget test
+  (`tests/unit/test_latency_budgets.py`) added alongside it.
+
+### Changed
+
+- `polars`/`pyarrow` moved out of `backend/requirements.runtime.txt` (zero
+  importers in `backend/src`) — shortens every Render redeploy window.
+
+### Added
+
+- `backend/tests/unit/test_calibration_selection.py` (5 tests) and 5 new
+  `IsotonicMetaModel` correctness tests in `test_meta_model.py`.
+- `backend/models/calibration_baselines.json` +
+  `scripts/snapshot_calibration_baseline.py` — a fixed per-generation
+  calibration prior for future recalibration work to measure against.
+- `reports/ground_truth/GROUND_TRUTH_SNAPSHOT_2026-09-08.json` — Gate R0
+  immutable snapshot per directive §3/§40, every field measured live and
+  source-cited.
+- `docs/PRODUCTION_EXECUTIVE_DIRECTIVE.md` v5 (supersedes v4) — research
+  doctrine for the next phase (player availability, event data, tactical
+  interaction, market microstructure).
+
 ## Unreleased - Baseline-vs-market edge fabrication removed (2026-09-08)
 
 Zero-fabrication fix on the live match surface. No model artifact,

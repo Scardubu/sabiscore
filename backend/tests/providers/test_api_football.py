@@ -47,6 +47,53 @@ async def test_injuries_happy_path(mock_client_factory):
 
 
 @pytest.mark.asyncio
+async def test_injuries_scoped_to_fixture_uses_fixture_param_only(mock_client_factory):
+    """docs/DEBT.md item 65: the API also accepts a `fixture` param for a
+    match-scoped query; this repository's default call never used it. When
+    provided, the request must use ONLY `fixture` -- not the league/season
+    pair, which would be a different (and, per the endpoint's own semantics,
+    unnecessary) query.
+    """
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        return httpx.Response(200, json={"response": [VALID_INJURY], "errors": {}, "results": 1})
+
+    provider = APIFootballProvider(api_key="test-key", enabled=True, http_client=mock_client_factory(handler))
+    result = await provider.injuries(competition="EPL", fixture_id=12345)
+
+    assert result.status == ProviderStatus.VERIFIED
+    params = calls[0].url.params
+    assert params.get("fixture") == "12345"
+    assert "league" not in params
+    assert "season" not in params
+
+
+@pytest.mark.asyncio
+async def test_injuries_without_fixture_id_is_unchanged_from_before(mock_client_factory):
+    """Regression guard: adding the optional `fixture_id` parameter must not
+    alter the request for every existing caller that omits it
+    (orchestrator.py's _collect_prematch_enriched calls injuries(competition=c)
+    with no fixture_id) -- same league/season query, no `fixture` key at all.
+    """
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        return httpx.Response(200, json={"response": [VALID_INJURY], "errors": {}, "results": 1})
+
+    provider = APIFootballProvider(api_key="test-key", enabled=True, http_client=mock_client_factory(handler))
+    result = await provider.injuries(competition="EPL")
+
+    assert result.status == ProviderStatus.VERIFIED
+    params = calls[0].url.params
+    assert "fixture" not in params
+    assert "league" in params
+    assert "season" in params
+
+
+@pytest.mark.asyncio
 async def test_injuries_logical_error_in_200_response(mock_client_factory):
     def handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"response": [], "errors": {"league": "Invalid league"}, "results": 0})
