@@ -103,7 +103,7 @@ export default function DocsPage() {
             </h2>
             <ul className="space-y-3 text-slate-300">
               <li>• <strong>Pending</strong> live accuracy until sufficient labelled production results exist</li>
-              <li>• <strong>RPS ≤ 0.21</strong> promotion threshold — live walk-forward validation pending</li>
+              <li>• <strong>Relative RPS gate</strong>: candidate must improve over the incumbent — walk-forward evidence live</li>
               <li>• No public average-edge figure is shown before labelled live outcomes are available</li>
               <li>• CLV computed against closing-line implied probability only</li>
             </ul>
@@ -155,7 +155,7 @@ export default function DocsPage() {
               </div>
               <div className="space-y-1">
                 <p className="font-semibold text-slate-200">Phase 2 — canonical 89-feature retrain scaffold</p>
-                <p className="text-slate-400">Auto-detects candidate feature availability for shadow evaluation. RPS ≤ 0.210 remains a promotion threshold pending live validation.</p>
+                <p className="text-slate-400">Auto-detects candidate feature availability for shadow evaluation. Candidate must improve RPS over the incumbent — relative gate, walk-forward evidence live.</p>
               </div>
               <div className="space-y-1">
                 <p className="font-semibold text-slate-200">Phase 3 — Per-league calibration</p>

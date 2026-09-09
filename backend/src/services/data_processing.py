@@ -1,7 +1,8 @@
 # backend/src/services/data_processing.py
 """
 Data Processing Service - Real-time enrichment, feature engineering, and caching
-Optimized for <8ms Redis hits, 35ms PostgreSQL fallback, sub-150ms total TTFB
+Optimized for <8ms Redis hits, 35ms PostgreSQL fallback.
+The ≤150ms budget applies to model inference (predict_proba) only; full TTFB is ~1–2.5s.
 """
 
 import redis

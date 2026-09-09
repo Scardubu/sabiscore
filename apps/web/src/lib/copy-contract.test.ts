@@ -11,6 +11,14 @@ const EIGHTH_KELLY = /⅛|\b1\/8\b|one-eighth|eighth[- ]kelly/i;
 // market edge (@/lib/edge-quality) — this exact phrase + celebratory framing
 // previously shipped on BigMatchesCarousel's top-ranked card (match-selector.tsx).
 const TOP_EDGE_TODAY = /top edge today/i;
+// "Closing line value" is a term of art requiring a taken price and subsequent
+// market movement. The platform's aggregate diagnostic stat (model_probs[argmax]
+// − closing_probs[argmax]) has neither, so labelling it "Closing line value"
+// is a mislabelling — the same defect family as DEBT 63. The stat tile is now
+// labelled "Market belief differential". This guard catches regressions.
+// Note: the abbreviation "CLV" is permitted; only the spelled-out term of art
+// is banned in JSX label props on the aggregate stat tile.
+const CLV_MISLABEL = /label=["']Closing[- ]line[- ]value["']/i;
 const UNSUPPORTED_OUTCOME_CLAIMS =
   /\b(maximi[sz]e (?:your )?betting edge|beat(?:s|ing)? (?:the market|the odds)|win more|winning picks?|highly accurate predictions?|profitable predictions?|guaranteed returns?)\b/i;
 
@@ -45,5 +53,9 @@ describe("public copy contract", () => {
 
   it("contains no unsupported outcome-oriented promotional claims", () => {
     expect(matchingFiles(UNSUPPORTED_OUTCOME_CLAIMS)).toEqual([]);
+  });
+
+  it("does not mislabel the model–market belief differential as closing-line value", () => {
+    expect(matchingFiles(CLV_MISLABEL)).toEqual([]);
   });
 });

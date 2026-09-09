@@ -35,7 +35,7 @@ const CalibrationCurveChart = dynamic(
 import { ValueBetScanner } from "@/components/value-bet-scanner";
 import { formatLagosTimestamp } from "@/lib/full-analysis-contract";
 import { canonicalLeagueId } from "@/lib/league";
-import { RPS_PROMOTION_GATE, meetsRpsGate } from "@/lib/model-gates";
+import { meetsRpsGate } from "@/lib/model-gates";
 import { cn } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -222,7 +222,7 @@ export function PerformancePageClient() {
               <StatCard
                 label="Ranked probability score"
                 value={rps !== undefined ? rps.toFixed(3) : "—"}
-                detail={`Lower is better · promotion gate ≤ ${RPS_PROMOTION_GATE.toFixed(2)}`}
+                detail="Lower is better · candidate must improve over incumbent"
                 positive={rpsMeetsGate}
               />
               <StatCard
@@ -235,12 +235,16 @@ export function PerformancePageClient() {
                 value={summary?.n_splits !== undefined ? String(summary.n_splits) : "—"}
                 detail="Chronological splits — never random"
               />
-              {/* Read-only diagnostic: model belief vs. the market's closing
-                  price. Never a stake signal — no bet is ever placed. Below the
+              {/* Read-only diagnostic: how much more confident the model is than
+                  the market on its own favourite outcome (model_probs[argmax] −
+                  closing_probs[argmax]). This is NOT closing-line value — CLV
+                  requires a taken price and subsequent market movement. A uniformly
+                  overconfident model scores positive on this by construction.
+                  Never a stake signal — no bet is ever placed. Below the
                   service floor the tile reports progress toward it rather than
                   a mean computed from too few pairs. */}
               <StatCard
-                label="Closing line value"
+                label="Market belief differential"
                 value={
                   clv && !clv.skipped && clv.mean_clv !== undefined
                     ? `${clv.mean_clv >= 0 ? "+" : ""}${(clv.mean_clv * 100).toFixed(1)}pp`

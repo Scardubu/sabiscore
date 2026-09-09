@@ -10,7 +10,6 @@ import {
   mergeProviderEvidence,
   type ProviderHealthRow,
 } from "@/lib/health-status";
-import { RPS_PROMOTION_GATE } from "@/lib/model-gates";
 import { isHtmlBody } from "@/lib/proxy-utils";
 
 export const runtime = "edge";
@@ -135,7 +134,7 @@ export async function GET() {
       accuracy,
       brierScore: null,
       rps,
-      rpsGate: RPS_PROMOTION_GATE,
+      rpsGate: null,
       avgEdgePct: null,
       predictionCount,
       performanceStatus: hasSufficientData ? "MEASURED" : "PENDING",
@@ -143,7 +142,7 @@ export async function GET() {
         accuracy,
         brierScore: null,
         rps,
-        rpsGate: RPS_PROMOTION_GATE,
+        rpsGate: null,
         avgEdgePct: null,
         predictionCount,
         status: hasSufficientData ? "MEASURED" : "PENDING",
