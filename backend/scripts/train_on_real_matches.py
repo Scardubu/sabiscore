@@ -1145,6 +1145,55 @@ def _select_calibrator(
     return champion_model, diagnostics
 
 
+def _evaluate_bivariate_poisson_overlay(
+    meta_model: Any,
+    meta_features_calibration: Any,
+    y_calibration: np.ndarray,
+    meta_features_holdout: Any,
+    y_holdout: np.ndarray,
+) -> Dict[str, Any]:
+    """Evaluate the Bivariate Poisson draw overlay (directive Portfolio C /
+    Experiment E7 -- distributional goal model) on top of whichever
+    calibrator `_select_calibrator` just chose.
+
+    `src/models/calibration.py::BivariatePoissonDrawOverlay` already exists
+    and is already wired into `src/models/prediction.py`'s serving path --
+    but only for a "v6_phase8 dict" artifact shape (`models` /
+    `calibrator` / `bivariate_poisson_overlay` keys) that nothing in this
+    training pipeline produces (the currently-served `v5_phase7`/`phase7_68`
+    generation is a direct-model artifact, per `_wrap_artifact`'s own
+    docstring). This function evaluates the overlay itself, independent of
+    that unresolved artifact-format question (docs/DEBT.md item 71), against
+    the same corpus and holdout every other candidate in this pipeline is
+    scored on. Its own two-stage discipline (item 71's fix: alpha fit on the
+    calibration set, gated on a genuinely disjoint holdout) is reused
+    unmodified -- it was written for exactly this call site.
+
+    Evaluation-only: does not alter `meta_model`, does not affect which
+    calibrator ships, and is not consulted by any promotion gate.
+    """
+    from src.models.calibration import BivariatePoissonDrawOverlay
+
+    proba_calibration = meta_model.predict_proba(meta_features_calibration)
+    proba_holdout = meta_model.predict_proba(meta_features_holdout)
+    overlay = BivariatePoissonDrawOverlay.fit(
+        y_calibration, proba_calibration,
+        y_holdout=y_holdout, proba_holdout=proba_holdout,
+    )
+    return {
+        "alpha": overlay.alpha,
+        "gate_passed": overlay.gate_passed,
+        "calibration_draw_f1_before": overlay.calibration_draw_f1_before,
+        "calibration_draw_f1_after": overlay.calibration_draw_f1_after,
+        "calibration_brier_before": overlay.calibration_brier_before,
+        "calibration_brier_after": overlay.calibration_brier_after,
+        "holdout_draw_f1_before": overlay.holdout_draw_f1_before,
+        "holdout_draw_f1_after": overlay.holdout_draw_f1_after,
+        "holdout_brier_before": overlay.holdout_brier_before,
+        "holdout_brier_after": overlay.holdout_brier_after,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Optional Bayesian hyperparameter search
 # ---------------------------------------------------------------------------
@@ -1350,9 +1399,10 @@ def train_league(
     # Built once and reused below for the persistence check AND the reported
     # stacked-head metrics — same matrix, no reason to rebuild it twice.
     meta_features_test = _build_meta_features(models, X_test)
+    meta_features_calibration = _build_meta_features(models, X_calibration)
     meta_model, calibration_diagnostics = _select_calibrator(
         meta_model,
-        _build_meta_features(models, X_calibration),
+        meta_features_calibration,
         y_calibration,
         meta_features_holdout=meta_features_test,
         y_holdout=y_test,
@@ -1393,6 +1443,11 @@ def train_league(
     metrics["calibration_season"] = calibration_season
     metrics["holdout_season"] = holdout_season
     metrics["calibration_selection"] = calibration_diagnostics
+    # Evaluation-only (directive Experiment E7) -- does not affect the shipped
+    # calibrator or any promotion gate. See _evaluate_bivariate_poisson_overlay.
+    metrics["bivariate_poisson_overlay"] = _evaluate_bivariate_poisson_overlay(
+        meta_model, meta_features_calibration, y_calibration, meta_features_test, y_test,
+    )
     metrics["training_window"] = {
         "start": min(dates[core_mask]).date().isoformat(),
         "end": max(dates[core_mask]).date().isoformat(),

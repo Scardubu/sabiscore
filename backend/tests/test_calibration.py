@@ -48,6 +48,7 @@ from src.models.calibration import (  # noqa: E402
     write_calibration_report,
     write_diversity_report,
 )
+from src.models import calibration as calibration_module  # noqa: E402
 
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
@@ -337,31 +338,31 @@ class TestBivariatePoissonSkellam:
 
     def test_fit_returns_instance(self):
         y, p = _make_data(200)
-        overlay = BivariatePoissonDrawOverlay.fit(y[:150], p[:150], y[150:], p[150:])
+        overlay = BivariatePoissonDrawOverlay.fit(y[:150], p[:150], y_holdout=y[150:], proba_holdout=p[150:])
         assert isinstance(overlay, BivariatePoissonDrawOverlay)
 
     def test_alpha_in_valid_range(self):
         y, p = _make_data(200)
-        overlay = BivariatePoissonDrawOverlay.fit(y[:150], p[:150], y[150:], p[150:])
+        overlay = BivariatePoissonDrawOverlay.fit(y[:150], p[:150], y_holdout=y[150:], proba_holdout=p[150:])
         assert 0.0 <= overlay.alpha <= 1.0
 
     def test_gate_false_resets_alpha_to_zero(self):
         # Random noise data → gate should rarely pass; if it does pass we just
         # verify alpha is still in range. The key invariant: alpha==0 ↔ gate_passed==False.
         y, p = _make_data(200, seed=99)
-        overlay = BivariatePoissonDrawOverlay.fit(y[:150], p[:150], y[150:], p[150:])
+        overlay = BivariatePoissonDrawOverlay.fit(y[:150], p[:150], y_holdout=y[150:], proba_holdout=p[150:])
         if not overlay.gate_passed:
             assert overlay.alpha == 0.0
 
     def test_apply_output_shape(self):
         y, p = _make_data(200)
-        overlay = BivariatePoissonDrawOverlay.fit(y[:150], p[:150], y[150:], p[150:])
+        overlay = BivariatePoissonDrawOverlay.fit(y[:150], p[:150], y_holdout=y[150:], proba_holdout=p[150:])
         out = overlay.apply(p[150:])
         assert out.shape == p[150:].shape
 
     def test_apply_rows_sum_to_one(self):
         y, p = _make_data(200)
-        overlay = BivariatePoissonDrawOverlay.fit(y[:150], p[:150], y[150:], p[150:])
+        overlay = BivariatePoissonDrawOverlay.fit(y[:150], p[:150], y_holdout=y[150:], proba_holdout=p[150:])
         out = overlay.apply(p[150:])
         np.testing.assert_allclose(out.sum(axis=1), np.ones(50), atol=1e-6)
 
@@ -373,28 +374,87 @@ class TestBivariatePoissonSkellam:
 
     def test_brier_fields_populated(self):
         y, p = _make_data(200)
-        overlay = BivariatePoissonDrawOverlay.fit(y[:150], p[:150], y[150:], p[150:])
-        assert 0.0 <= overlay.brier_before <= 2.0
-        assert 0.0 <= overlay.brier_after <= 2.0
+        overlay = BivariatePoissonDrawOverlay.fit(y[:150], p[:150], y_holdout=y[150:], proba_holdout=p[150:])
+        assert 0.0 <= overlay.calibration_brier_before <= 2.0
+        assert 0.0 <= overlay.calibration_brier_after <= 2.0
+        assert 0.0 <= overlay.holdout_brier_before <= 2.0
+        assert 0.0 <= overlay.holdout_brier_after <= 2.0
+
+    def test_gate_evaluated_on_holdout_not_calibration_set(self, monkeypatch):
+        """The core fix (docs/DEBT.md item 71): alpha may look like a clear win
+        on the set it was fit to and still get correctly rejected if it does
+        not generalise to a disjoint holdout -- the same shape item 64 already
+        fixed for temperature/isotonic selection in
+        scripts/train_on_real_matches.py::_select_calibrator.
+
+        Stubs the metric functions directly (rather than hand-crafting
+        probability arrays that must cooperate with the real Skellam
+        arithmetic) so the test exercises only the gate's data-source
+        selection, not draw-probability estimation -- already covered by
+        TestBivariatePoissonSkellam above. `is`-identity distinguishes a
+        "before" call (the original array) from an "after" call (`_blend`
+        always returns a fresh `.copy()`); array length distinguishes
+        calibration-after from holdout-after, since the two fixtures are
+        deliberately sized differently.
+        """
+        y_cal, p_cal = _make_data(60, seed=1)
+        y_hold, p_hold = _make_data(40, seed=2)
+
+        def fake_draw_f1(y, p):
+            if p is p_cal:
+                return 0.10  # calibration "before"
+            if p is p_hold:
+                return 0.50  # holdout "before" -- already better than its own "after"
+            return 0.90 if len(y) == len(y_cal) else 0.20  # "after": calibration vs holdout
+
+        def fake_brier(y, p):
+            if p is p_cal:
+                return 0.60  # calibration "before"
+            if p is p_hold:
+                return 0.30  # holdout "before" -- already better than its own "after"
+            return 0.20 if len(y) == len(y_cal) else 0.70  # "after": calibration vs holdout
+
+        monkeypatch.setattr(calibration_module, "_draw_f1", fake_draw_f1)
+        monkeypatch.setattr(calibration_module, "_compute_brier_multiclass", fake_brier)
+
+        overlay = BivariatePoissonDrawOverlay.fit(y_cal, p_cal, y_holdout=y_hold, proba_holdout=p_hold)
+
+        # The calibration set alone would call this a clean win: f1 0.10->0.90, brier 0.60->0.20.
+        assert overlay.calibration_draw_f1_before == 0.10
+        assert overlay.calibration_draw_f1_after == 0.90
+        assert overlay.calibration_brier_before == 0.60
+        assert overlay.calibration_brier_after == 0.20
+        # The holdout says the opposite: f1 0.50->0.20 (worse), brier 0.30->0.70 (worse) --
+        # the gate must reject on this evidence, not the calibration set's. On
+        # rejection alpha resets to 0 (identity), so the reported holdout
+        # "after" reverts to "before" -- there is no blend left to report.
+        assert overlay.holdout_draw_f1_before == 0.50
+        assert overlay.holdout_draw_f1_after == 0.50
+        assert overlay.holdout_brier_before == 0.30
+        assert overlay.holdout_brier_after == 0.30
+        assert overlay.gate_passed is False
+        assert overlay.alpha == 0.0
 
 
 class TestWriteBivariatePoissonReport:
     def test_creates_json_file(self, tmp_path):
         y, p = _make_data(200)
-        overlay = BivariatePoissonDrawOverlay.fit(y[:150], p[:150], y[150:], p[150:])
+        overlay = BivariatePoissonDrawOverlay.fit(y[:150], p[:150], y_holdout=y[150:], proba_holdout=p[150:])
         path = write_bivariate_poisson_report(overlay, "serie_a", tmp_path)
         assert path.exists()
         assert path.name == "bivariate_poisson_serie_a.json"
 
     def test_json_schema_complete(self, tmp_path):
         y, p = _make_data(200)
-        overlay = BivariatePoissonDrawOverlay.fit(y[:150], p[:150], y[150:], p[150:])
+        overlay = BivariatePoissonDrawOverlay.fit(y[:150], p[:150], y_holdout=y[150:], proba_holdout=p[150:])
         path = write_bivariate_poisson_report(overlay, "ligue_1", tmp_path)
         report = json.loads(path.read_text())
         for key in (
             "league", "alpha", "league_avg_goals",
-            "draw_f1_before", "draw_f1_after", "draw_f1_delta",
-            "brier_before", "brier_after", "brier_delta",
+            "calibration_draw_f1_before", "calibration_draw_f1_after",
+            "calibration_brier_before", "calibration_brier_after",
+            "holdout_draw_f1_before", "holdout_draw_f1_after", "holdout_draw_f1_delta",
+            "holdout_brier_before", "holdout_brier_after", "holdout_brier_delta",
             "gate_passed", "generated_at",
         ):
             assert key in report, f"missing key {key}"

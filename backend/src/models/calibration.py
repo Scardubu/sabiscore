@@ -461,26 +461,45 @@ class BivariatePoissonDrawOverlay:
                λA = λ_total · p_away / (p_home + p_away + ε)
       - When p_home ≈ p_away the lambdas converge → higher Skellam draw probability.
 
-    Gate: overlay is applied only when:
+    Gate: overlay is applied only when, on a GENUINELY DISJOINT holdout set:
       - draw_f1_after ≥ draw_f1_before (non-degrading)
       - brier_after ≤ brier_before (non-degrading)
-    If neither gate passes, alpha is set to 0.0 (no blending, identity).
+    If either gate fails, alpha is set to 0.0 (no blending, identity).
+
+    ⚠️ The gate is evaluated on `holdout`, never on the `calibration` set alpha
+    was grid-searched against — the same circular-evaluation defect
+    docs/DEBT.md item 64 found and fixed for temperature/isotonic selection in
+    `scripts/train_on_real_matches.py::_select_calibrator`. A small alpha grid
+    minimising draw-NLL on a set, then graded against its own draw-F1/Brier on
+    that identical set, is expected to look good regardless of whether the
+    blend generalises. This class had no production caller when that defect
+    was found (`src/models/prediction.py`'s consumer path requires a
+    `bivariate_poisson_overlay` key nothing currently trains — see
+    docs/DEBT.md item 71), so fixing it here changed no served behaviour.
 
     Attributes:
         alpha: Mixing weight ∈ [0, 1].  blended_draw = (1-α)·model + α·skellam.
         league_avg_goals: Total expected goals used to estimate lambdas.
-        draw_f1_before: Draw-F1 before overlay (on validation set).
-        draw_f1_after:  Draw-F1 after overlay (on validation set).
-        brier_before:   Multiclass Brier before overlay.
-        brier_after:    Multiclass Brier after overlay.
-        gate_passed:    True when both F1 and Brier gates were met.
+        calibration_draw_f1_before: Draw-F1 before overlay, on the set alpha was fit to.
+        calibration_draw_f1_after:  Draw-F1 after overlay, on that same set.
+        calibration_brier_before:   Multiclass Brier before overlay, on that same set.
+        calibration_brier_after:    Multiclass Brier after overlay, on that same set.
+        holdout_draw_f1_before: Draw-F1 before overlay, on the disjoint holdout — what the gate reads.
+        holdout_draw_f1_after:  Draw-F1 after overlay, on the disjoint holdout.
+        holdout_brier_before:   Multiclass Brier before overlay, on the disjoint holdout.
+        holdout_brier_after:    Multiclass Brier after overlay, on the disjoint holdout.
+        gate_passed: True when both F1 and Brier gates were met ON THE HOLDOUT.
     """
     alpha: float = 0.0
     league_avg_goals: float = 2.65
-    draw_f1_before: float = 0.0
-    draw_f1_after: float = 0.0
-    brier_before: float = 0.0
-    brier_after: float = 0.0
+    calibration_draw_f1_before: float = 0.0
+    calibration_draw_f1_after: float = 0.0
+    calibration_brier_before: float = 0.0
+    calibration_brier_after: float = 0.0
+    holdout_draw_f1_before: float = 0.0
+    holdout_draw_f1_after: float = 0.0
+    holdout_brier_before: float = 0.0
+    holdout_brier_after: float = 0.0
     gate_passed: bool = False
 
     @staticmethod
@@ -521,31 +540,36 @@ class BivariatePoissonDrawOverlay:
     @classmethod
     def fit(
         cls,
-        y_train: np.ndarray,
-        proba_train: np.ndarray,
-        y_val: np.ndarray,
-        proba_val: np.ndarray,
+        y_calibration: np.ndarray,
+        proba_calibration: np.ndarray,
+        *,
+        y_holdout: np.ndarray,
+        proba_holdout: np.ndarray,
         league_avg_goals: float = 2.65,
         n_alpha_steps: int = 51,
     ) -> "BivariatePoissonDrawOverlay":
-        """Fit mixing weight α that minimises draw-class NLL on the validation set.
+        """Fit α on the calibration set; gate on a genuinely disjoint holdout.
 
-        Gate: overlay applied only when draw-F1 improves AND Brier does not degrade.
-        Returns an instance with alpha=0.0 (identity) when the gate is not passed.
+        Alpha is grid-searched to minimise draw-class NLL on
+        `(y_calibration, proba_calibration)` — the set it is allowed to overfit.
+        The accept/reject gate (draw-F1 non-degrading AND Brier non-degrading)
+        is then measured on `(y_holdout, proba_holdout)`, a set alpha never saw.
+        Returns an instance with alpha=0.0 (identity) when the holdout gate is
+        not passed, regardless of how well the calibration set scored.
         """
-        brier_before = _compute_brier_multiclass(y_val, proba_val)
-        draw_f1_before = _draw_f1(y_val, proba_val)
+        calibration_brier_before = _compute_brier_multiclass(y_calibration, proba_calibration)
+        calibration_draw_f1_before = _draw_f1(y_calibration, proba_calibration)
 
-        sk_draw = cls._skellam_draw_proba(proba_val, league_avg_goals)
+        sk_draw_calibration = cls._skellam_draw_proba(proba_calibration, league_avg_goals)
 
         best_alpha = 0.0
         best_nll = float("inf")
         eps = 1e-9
-        draw_mask = y_val == 1
+        draw_mask = y_calibration == 1
 
         for alpha in np.linspace(0.0, 1.0, n_alpha_steps):
-            blended_draw = (1.0 - alpha) * proba_val[:, 1] + alpha * sk_draw
-            blended = proba_val.copy()
+            blended_draw = (1.0 - alpha) * proba_calibration[:, 1] + alpha * sk_draw_calibration
+            blended = proba_calibration.copy()
             blended[:, 1] = blended_draw
             row_sums = blended.sum(axis=1, keepdims=True)
             blended /= np.where(row_sums > 0, row_sums, 1.0)
@@ -556,37 +580,53 @@ class BivariatePoissonDrawOverlay:
                 best_nll = nll
                 best_alpha = float(alpha)
 
-        # Evaluate gate on val set.
-        overlay = cls(alpha=best_alpha, league_avg_goals=league_avg_goals)
-        proba_blended = overlay._blend(proba_val)
-        brier_after = _compute_brier_multiclass(y_val, proba_blended)
-        draw_f1_after = _draw_f1(y_val, proba_blended)
+        # Report calibration-set before/after for audit (not the gate).
+        candidate = cls(alpha=best_alpha, league_avg_goals=league_avg_goals)
+        calibration_blended = candidate._blend(proba_calibration)
+        calibration_brier_after = _compute_brier_multiclass(y_calibration, calibration_blended)
+        calibration_draw_f1_after = _draw_f1(y_calibration, calibration_blended)
 
-        gate_passed = draw_f1_after >= draw_f1_before and brier_after <= brier_before
+        # Gate on the disjoint holdout — this decides whether alpha ships.
+        holdout_brier_before = _compute_brier_multiclass(y_holdout, proba_holdout)
+        holdout_draw_f1_before = _draw_f1(y_holdout, proba_holdout)
+        holdout_blended = candidate._blend(proba_holdout)
+        holdout_brier_after = _compute_brier_multiclass(y_holdout, holdout_blended)
+        holdout_draw_f1_after = _draw_f1(y_holdout, holdout_blended)
+
+        gate_passed = holdout_draw_f1_after >= holdout_draw_f1_before and holdout_brier_after <= holdout_brier_before
 
         if not gate_passed:
             logger.info(
-                "[bivariate_poisson] gate not passed — alpha reset to 0.0 "
-                "(draw_f1 %.4f→%.4f brier %.4f→%.4f)",
-                draw_f1_before, draw_f1_after, brier_before, brier_after,
+                "[bivariate_poisson] holdout gate not passed — alpha reset to 0.0 "
+                "(calibration draw_f1 %.4f→%.4f brier %.4f→%.4f; "
+                "holdout draw_f1 %.4f→%.4f brier %.4f→%.4f)",
+                calibration_draw_f1_before, calibration_draw_f1_after,
+                calibration_brier_before, calibration_brier_after,
+                holdout_draw_f1_before, holdout_draw_f1_after,
+                holdout_brier_before, holdout_brier_after,
             )
             best_alpha = 0.0
-            brier_after = brier_before
-            draw_f1_after = draw_f1_before
+            holdout_brier_after = holdout_brier_before
+            holdout_draw_f1_after = holdout_draw_f1_before
         else:
             logger.info(
-                "[bivariate_poisson] gate passed — alpha=%.3f "
-                "draw_f1 %.4f→%.4f brier %.4f→%.4f",
-                best_alpha, draw_f1_before, draw_f1_after, brier_before, brier_after,
+                "[bivariate_poisson] holdout gate passed — alpha=%.3f "
+                "holdout draw_f1 %.4f→%.4f brier %.4f→%.4f",
+                best_alpha, holdout_draw_f1_before, holdout_draw_f1_after,
+                holdout_brier_before, holdout_brier_after,
             )
 
         return cls(
             alpha=round(best_alpha, 4),
             league_avg_goals=league_avg_goals,
-            draw_f1_before=round(draw_f1_before, 4),
-            draw_f1_after=round(draw_f1_after, 4),
-            brier_before=round(brier_before, 4),
-            brier_after=round(brier_after, 4),
+            calibration_draw_f1_before=round(calibration_draw_f1_before, 4),
+            calibration_draw_f1_after=round(calibration_draw_f1_after, 4),
+            calibration_brier_before=round(calibration_brier_before, 4),
+            calibration_brier_after=round(calibration_brier_after, 4),
+            holdout_draw_f1_before=round(holdout_draw_f1_before, 4),
+            holdout_draw_f1_after=round(holdout_draw_f1_after, 4),
+            holdout_brier_before=round(holdout_brier_before, 4),
+            holdout_brier_after=round(holdout_brier_after, 4),
             gate_passed=gate_passed,
         )
 
@@ -606,12 +646,16 @@ def write_bivariate_poisson_report(
         "league": league,
         "alpha": overlay.alpha,
         "league_avg_goals": overlay.league_avg_goals,
-        "draw_f1_before": overlay.draw_f1_before,
-        "draw_f1_after": overlay.draw_f1_after,
-        "draw_f1_delta": round(overlay.draw_f1_after - overlay.draw_f1_before, 4),
-        "brier_before": overlay.brier_before,
-        "brier_after": overlay.brier_after,
-        "brier_delta": round(overlay.brier_after - overlay.brier_before, 4),
+        "calibration_draw_f1_before": overlay.calibration_draw_f1_before,
+        "calibration_draw_f1_after": overlay.calibration_draw_f1_after,
+        "calibration_brier_before": overlay.calibration_brier_before,
+        "calibration_brier_after": overlay.calibration_brier_after,
+        "holdout_draw_f1_before": overlay.holdout_draw_f1_before,
+        "holdout_draw_f1_after": overlay.holdout_draw_f1_after,
+        "holdout_draw_f1_delta": round(overlay.holdout_draw_f1_after - overlay.holdout_draw_f1_before, 4),
+        "holdout_brier_before": overlay.holdout_brier_before,
+        "holdout_brier_after": overlay.holdout_brier_after,
+        "holdout_brier_delta": round(overlay.holdout_brier_after - overlay.holdout_brier_before, 4),
         "gate_passed": overlay.gate_passed,
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
