@@ -1,5 +1,151 @@
 # SabiScore Debt Ledger
 
+## 71. Experiment E7 (distributional goal model): a Bivariate Poisson draw overlay already existed, unwired and circularly self-evaluated — fixed and measured, `REJECT` on clean evidence — 2026-09-09
+
+**Tier:** `REJECT` — `PRODUCTION_EXECUTIVE_DIRECTIVE.md` §51 decision, directive
+Experiment E7 ("Distributional Goal Model", Poisson/Dixon-Coles candidate).
+Methodology fix + real measurement, both this session; full backend suite
+green.
+
+**Found while looking for what E0/E1/E3/E4/E5/F had NOT already closed.**
+`src/models/calibration.py` (851 lines, last touched in an unrelated commit
+long before this directive existed) turned out to already contain a
+substantial, never-discussed Skellam/Bivariate-Poisson draw-probability
+overlay (`BivariatePoissonDrawOverlay`) plus an independent
+temperature/isotonic/Platt calibration-selection system
+(`compare_calibration_methods`) — neither referenced anywhere in this ledger
+before now. `src/models/prediction.py`'s live `_run_inference` **is** wired
+to consume both (`bundle.calibrator`, `bundle.overlay`, an OTel span
+`sabiscore.overlay.bivariate_poisson`) — but only for a "v6_phase8 dict"
+artifact shape (`models`/`calibrator`/`bivariate_poisson_overlay` keys,
+`_wrap_artifact`'s own docstring names it explicitly). The currently-served
+generation (`phase7_68`, confirmed via `active_generation.json`) and
+everything `scripts/train_on_real_matches.py` produces is the OTHER shape —
+a direct object with `predict_proba` — so `is_dict_artifact` is always
+`False` today and this entire consumer path is structurally unreachable.
+**Wired consumer, zero producer** — the inverse of this ledger's more common
+"wired producer, zero consumer" shape (items 35, 56, 65's injury-feature
+no-op), same root cause (an integration point nobody finished on both
+ends). Not fixed here: changing the served artifact SHAPE is a materially
+larger, higher-risk change (this is the exact class of defect the vΩ.47
+"two loaders" incident and the 68-vs-65-feature incident both were) —
+recorded as its own residual below.
+
+**Before trusting any measurement from `BivariatePoissonDrawOverlay`, its
+own `.fit()` had the identical defect item 64 fixed elsewhere the same
+day**: it grid-searched α to minimise draw-class NLL on a validation set,
+then graded its own accept/reject gate (draw-F1 non-degrading, Brier
+non-degrading) on that **same** set. A small α grid minimising draw-NLL on
+a set it is then graded against is expected to look good regardless of
+whether the blend generalises — exactly the "isotonic wins the set it was
+fit to" shape, in a different module. Had zero production callers when
+found, so fixing it changed no served behaviour. Fixed: `fit()` now takes a
+disjoint `(y_holdout, proba_holdout)` — α is still searched on the
+calibration set, but the gate is graded only on the holdout. The dataclass
+fields were split accordingly (`calibration_draw_f1_before/after`,
+`holdout_draw_f1_before/after`, etc.) — a breaking rename, safe because
+nothing outside this module and its own tests referenced the old field
+names (confirmed by the caller sweep above).
+
+**Wired into `scripts/train_on_real_matches.py::train_league()`** as a new
+`_evaluate_bivariate_poisson_overlay()` call, evaluation-only: it reads
+whatever `_select_calibrator` already chose as champion, fits the overlay on
+the same calibration/holdout split every other candidate in this pipeline
+uses, and records the result in `training_report_real.json` under
+`bivariate_poisson_overlay`. It does not alter `meta_model`, does not affect
+`calibration_method`, and is not consulted by `compare_candidate_vs_incumbent.py`'s
+promotion gate.
+
+**Measured on the real 12,765-match corpus, reproduced across 3 independent
+full retrains (JSON-verified each time, not read off scrolling terminal
+output — see the caveat below) — clean negative result:**
+
+| League | α | Holdout draw-F1 before→after | Holdout Brier before→after |
+|---|---|---|---|
+| BUNDESLIGA | 0.000 | 0.0000 → 0.0000 | 0.5833 → 0.5833 |
+| EPL | 0.000 | 0.0000 → 0.0000 | 0.6098 → 0.6098 |
+| LA_LIGA | 0.000 | 0.0000 → 0.0000 | 0.5776 → 0.5776 |
+| LIGUE_1 | 1.000 | 0.0000 → 0.0000 | 0.5894 → 0.5886 |
+| SERIE_A | 0.000 | 0.0200 → 0.0200 | 0.5920 → 0.5920 |
+| POOLED (Eredivisie) | 0.000 | 0.0000 → 0.0000 | 0.5848 → 0.5848 |
+
+**5 of 6 leagues: α=0 chosen by the NLL grid search itself**, before the
+holdout gate is even consulted — the Skellam-derived draw estimate never
+looked better than the model's own draw column even on the set it is
+allowed to overfit. This is a stronger negative than "failed to persist";
+it never found a candidate improvement to test persistence on.
+
+**LIGUE_1 is the one exception, and it does not survive scrutiny**: α=1.0
+is a grid-boundary solution (full replacement of the model's draw column
+with the raw Skellam estimate, not a blend), the holdout draw-F1 is tied at
+0.0000→0.0000 — meaning `argmax` never once assigns "draw" as most likely
+either before or after, so nothing about the actual prediction changed —
+and the holdout Brier improvement is 0.0008, an order of magnitude below
+the ±0.0004-to-0.0043 range of the genuine per-league RPS deltas item 70
+measured for its own (real, held-out-persistent) candidates. A
+decision-irrelevant tie plus a sub-signal Brier delta at a boundary
+solution does not clear directive §19's "statistically detectable but
+operationally negligible... must not be promoted" bar, independent of
+whether a bootstrap CI would call the 0.0008 significant — not run, since
+the F1 tie already settles the practical question.
+
+**`REJECT`, not `HOLD`**: this is not an underpowered-but-plausible signal
+(§51's HOLD default) — it is a clean, reproduced absence of effect in 5/6
+leagues and a decision-irrelevant technicality in the 6th. Reopening (§42)
+would need a materially different formulation of the same idea — e.g. a
+per-league-fitted `league_avg_goals` instead of the current shared 2.65
+default, or conditioning α on match-level context rather than a single
+league-wide scalar — not a re-run of the identical mechanism.
+
+⚠️ **Residual, deliberately not attempted here**: unifying the artifact
+SHAPE so `is_dict_artifact` can ever be `True` for a real, served
+generation is a separate, materially larger and riskier body of work
+(exactly the shape of change that produced the vΩ.47 two-loader incident
+and the 68-vs-65-feature incident) and is now moot for the overlay
+specifically — a rejected candidate does not need a production wiring
+path. The temperature/isotonic/Platt system in the same file
+(`compare_calibration_methods`) remains similarly unreachable and
+un-investigated; its `_DEFAULT_ISOTONIC_MIN_ROWS=2000` sample-count rule
+and Platt-scaling candidate were not evaluated against the real corpus in
+this pass — genuinely out of scope for one session, noted for whoever
+picks this up next.
+
+⚠️ **Process note, kept because it nearly produced a false alarm**: a
+first read of this session's own scrolling, warning-interleaved stdout
+across two retrains appeared to show LIGUE_1's calibration choice
+flipping between runs (temperature vs. vector) — which would have called
+item 70's central finding into question. Re-verified 3 times by parsing
+`training_report_real.json` directly (never by eyeballing terminal
+output) and LIGUE_1 chose `vector` in all 3 — the apparent flip was a
+misattribution of which league a block of interleaved log lines belonged
+to, not real non-determinism. `_TRAINING_SEED=42` is applied consistently
+to all three base learners and the meta-model; the result is reproducible.
+Item 70's finding stands, confirmed rather than merely repeated.
+
+**Fix location:** `backend/src/models/calibration.py`
+(`BivariatePoissonDrawOverlay`, `write_bivariate_poisson_report`),
+`backend/scripts/train_on_real_matches.py`
+(`_evaluate_bivariate_poisson_overlay`, wired into `train_league`).
+
+**Regression guard:** `backend/tests/test_calibration.py` — all 8 existing
+`BivariatePoissonDrawOverlay`/`write_bivariate_poisson_report` tests updated
+to the new keyword-only holdout argument and renamed fields (mechanical;
+none changed what they assert), plus one new test
+(`test_gate_evaluated_on_holdout_not_calibration_set`) that stubs the metric
+functions directly to construct a case where the calibration set would
+call the blend a clean win (F1 0.10→0.90) while the holdout says the
+opposite — pinning that the gate reads the holdout, not the calibration
+set. `backend/tests/unit/test_calibration_selection.py` gains one
+integration smoke test for `_evaluate_bivariate_poisson_overlay` against
+real (non-stubbed) data — this file's established discipline, since item
+64's own root cause was code written but never executed end-to-end.
+
+**Verification:** `ruff check` clean on all 4 touched files;
+`tests/test_calibration.py` + `tests/unit/test_calibration_selection.py` +
+`tests/unit/test_meta_model.py`: 94 passed, 0 failed. No artifact under
+`backend/models/` (the served, certified root) was touched — only
+`backend/models/candidate/`, same convention as item 70.
+
 ## 70. Experiment E0 continued: vector scaling and beta calibration complete the §20 B2 candidate set — vector ships in Ligue 1, a genuine improvement the isotonic-only cascade could not have found — RESOLVED 2026-09-09
 
 **Tier:** `RESOLVED` (§20 B2 checklist completed — candidates 2 and 4 were the

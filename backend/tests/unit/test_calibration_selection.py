@@ -355,6 +355,40 @@ def test_fit_vector_scaling_produces_a_valid_simplex_on_real_data() -> None:
     assert np.all(np.isfinite(probabilities))
 
 
+def test_evaluate_bivariate_poisson_overlay_returns_expected_keys_on_real_data() -> None:
+    """`_evaluate_bivariate_poisson_overlay` (directive Experiment E7) wires
+    `src/models/calibration.py::BivariatePoissonDrawOverlay` -- previously
+    unwired to any producer, docs/DEBT.md item 71 -- into this pipeline.
+    Smoke-tests the real (non-stubbed) integration, not just the overlay's
+    own already-tested internals (tests/test_calibration.py)."""
+    from src.core.meta_model import SoftmaxMetaModel
+
+    rng = np.random.default_rng(17)
+    base = SoftmaxMetaModel(
+        coef=np.asarray([[1.0, 0.0], [0.0, 0.0], [-1.0, 0.0]]),
+        intercept=np.zeros(3),
+        classes=np.asarray([0, 1, 2]),
+    )
+    X_cal = rng.normal(size=(120, 2))
+    y_cal = np.argmax(base.predict_proba(X_cal), axis=1)
+    X_hold = rng.normal(size=(80, 2))
+    y_hold = np.argmax(base.predict_proba(X_hold), axis=1)
+
+    result = train_on_real_matches._evaluate_bivariate_poisson_overlay(
+        base, X_cal, y_cal, X_hold, y_hold,
+    )
+
+    assert set(result) == {
+        "alpha", "gate_passed",
+        "calibration_draw_f1_before", "calibration_draw_f1_after",
+        "calibration_brier_before", "calibration_brier_after",
+        "holdout_draw_f1_before", "holdout_draw_f1_after",
+        "holdout_brier_before", "holdout_brier_after",
+    }
+    assert 0.0 <= result["alpha"] <= 1.0
+    assert isinstance(result["gate_passed"], bool)
+
+
 def test_fit_beta_calibration_produces_a_valid_simplex_on_real_data() -> None:
     from src.core.meta_model import BetaCalibratedMetaModel, SoftmaxMetaModel
 

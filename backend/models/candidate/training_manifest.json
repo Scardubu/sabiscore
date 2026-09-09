@@ -209,9 +209,9 @@
     "feature_schema_version": "apex_v1_68",
     "order_sha256": "60d9de2f7d837990bb8a603e64cfe2275db4cb542feb400f9710fad0de5f3338"
   },
-  "generated_at": "2026-09-09T20:46:04.031837+00:00",
+  "generated_at": "2026-09-09T21:32:34.702190+00:00",
   "git": {
-    "commit": "86dca4cd6a204a005e91e4c884e10460229c66d5",
+    "commit": "ec0fc22620d68c8eeace7cc68b46344a3a52dc73",
     "dirty": true
   },
   "labels": {
@@ -236,14 +236,26 @@
       "baseline_rps_market": 0.19083929061889648,
       "baseline_rps_market_quote": "opening_1x2_bet365_then_pinnacle",
       "baseline_rps_trainprior": 0.2317386552251736,
+      "bivariate_poisson_overlay": {
+        "alpha": 0.0,
+        "calibration_brier_after": 0.6105,
+        "calibration_brier_before": 0.6105,
+        "calibration_draw_f1_after": 0.0,
+        "calibration_draw_f1_before": 0.0,
+        "gate_passed": true,
+        "holdout_brier_after": 0.5833,
+        "holdout_brier_before": 0.5833,
+        "holdout_draw_f1_after": 0.0,
+        "holdout_draw_f1_before": 0.0
+      },
       "brier": 0.5945051826410722,
       "calibration_error": 0.04500568309039879,
       "calibration_n": 296,
       "calibration_season": "2425",
       "calibration_selection": {
         "beta": {
-          "reliability": 0.0035,
-          "resolution": 0.0241
+          "reliability": 0.0034,
+          "resolution": 0.0239
         },
         "chosen": "temperature",
         "held_out_persistence": {
@@ -319,11 +331,11 @@
       "rps": 0.19982636981453486,
       "stacked": {
         "accuracy": 0.521594684385382,
-        "brier": 0.583324369885232,
-        "calibration_error": 0.06323534335597092,
-        "log_loss": 0.9816868193903708,
+        "brier": 0.5833243698858858,
+        "calibration_error": 0.06323534335658063,
+        "log_loss": 0.9816868193912663,
         "n": 301,
-        "rps": 0.1993771706019101
+        "rps": 0.1993771706021916
       },
       "train_n": 1455,
       "training_window": {
@@ -337,6 +349,18 @@
       "baseline_rps_market": 0.2053660899400711,
       "baseline_rps_market_quote": "opening_1x2_bet365_then_pinnacle",
       "baseline_rps_trainprior": 0.22849150417621494,
+      "bivariate_poisson_overlay": {
+        "alpha": 0.0,
+        "calibration_brier_after": 0.5749,
+        "calibration_brier_before": 0.5749,
+        "calibration_draw_f1_after": 0.0,
+        "calibration_draw_f1_before": 0.0,
+        "gate_passed": true,
+        "holdout_brier_after": 0.6098,
+        "holdout_brier_before": 0.6098,
+        "holdout_draw_f1_after": 0.0,
+        "holdout_draw_f1_before": 0.0
+      },
       "brier": 0.6211832408284326,
       "calibration_error": 0.07217782878810916,
       "calibration_n": 375,
@@ -420,11 +444,11 @@
       "rps": 0.20602679613172206,
       "stacked": {
         "accuracy": 0.49333333333333335,
-        "brier": 0.6097897483532073,
-        "calibration_error": 0.07479077799373811,
-        "log_loss": 1.0159994215095278,
+        "brier": 0.6097897483529748,
+        "calibration_error": 0.07479077799252923,
+        "log_loss": 1.0159994215092407,
         "n": 375,
-        "rps": 0.20537497930122103
+        "rps": 0.20537497930114906
       },
       "train_n": 1821,
       "training_window": {
@@ -438,8 +462,20 @@
       "baseline_rps_market": 0.19628490507602692,
       "baseline_rps_market_quote": "opening_1x2_bet365_then_pinnacle",
       "baseline_rps_trainprior": 0.22345809865387004,
+      "bivariate_poisson_overlay": {
+        "alpha": 0.0,
+        "calibration_brier_after": 0.5699,
+        "calibration_brier_before": 0.5699,
+        "calibration_draw_f1_after": 0.0198,
+        "calibration_draw_f1_before": 0.0198,
+        "gate_passed": true,
+        "holdout_brier_after": 0.5776,
+        "holdout_brier_before": 0.5776,
+        "holdout_draw_f1_after": 0.0,
+        "holdout_draw_f1_before": 0.0
+      },
       "brier": 0.5810614560857974,
-      "calibration_error": 0.059038062599902394,
+      "calibration_error": 0.05903806259990239,
       "calibration_n": 380,
       "calibration_season": "2425",
       "calibration_selection": {
@@ -521,11 +557,11 @@
       "rps": 0.19915829562429432,
       "stacked": {
         "accuracy": 0.544,
-        "brier": 0.5775595577759742,
-        "calibration_error": 0.03453392836580839,
-        "log_loss": 0.9770878848301636,
+        "brier": 0.5775595577756999,
+        "calibration_error": 0.03453392836539107,
+        "log_loss": 0.977087884830227,
         "n": 375,
-        "rps": 0.19755302444356265
+        "rps": 0.1975530244435568
       },
       "train_n": 1817,
       "training_window": {
@@ -539,8 +575,20 @@
       "baseline_rps_market": 0.19912628829479218,
       "baseline_rps_market_quote": "opening_1x2_bet365_then_pinnacle",
       "baseline_rps_trainprior": 0.22926811378159884,
+      "bivariate_poisson_overlay": {
+        "alpha": 1.0,
+        "calibration_brier_after": 0.5666,
+        "calibration_brier_before": 0.566,
+        "calibration_draw_f1_after": 0.0,
+        "calibration_draw_f1_before": 0.0,
+        "gate_passed": true,
+        "holdout_brier_after": 0.5886,
+        "holdout_brier_before": 0.5894,
+        "holdout_draw_f1_after": 0.0,
+        "holdout_draw_f1_before": 0.0
+      },
       "brier": 0.5903327374042928,
-      "calibration_error": 0.05349692508504043,
+      "calibration_error": 0.05349692508504045,
       "calibration_n": 306,
       "calibration_season": "2425",
       "calibration_selection": {
@@ -616,17 +664,17 @@
           "subsample": 0.85
         }
       },
-      "log_loss": 0.9882541612372636,
+      "log_loss": 0.9882541612372638,
       "n": 301,
       "responsive_features": 47,
       "rps": 0.19910235117996755,
       "stacked": {
         "accuracy": 0.5249169435215947,
-        "brier": 0.5893641739258793,
-        "calibration_error": 0.047700965211168685,
-        "log_loss": 0.9901089743505379,
+        "brier": 0.5893641865165768,
+        "calibration_error": 0.047700858042300426,
+        "log_loss": 0.9901090077354534,
         "n": 301,
-        "rps": 0.20061411553643288
+        "rps": 0.20061411944221574
       },
       "train_n": 1641,
       "training_window": {
@@ -640,8 +688,20 @@
       "baseline_rps_market": 0.19784937798976898,
       "baseline_rps_market_quote": "opening_1x2_bet365_then_pinnacle",
       "baseline_rps_trainprior": 0.22896537429419572,
+      "bivariate_poisson_overlay": {
+        "alpha": 0.0,
+        "calibration_brier_after": 0.5772,
+        "calibration_brier_before": 0.5772,
+        "calibration_draw_f1_after": 0.0,
+        "calibration_draw_f1_before": 0.0,
+        "gate_passed": true,
+        "holdout_brier_after": 0.5848,
+        "holdout_brier_before": 0.5848,
+        "holdout_draw_f1_after": 0.0,
+        "holdout_draw_f1_before": 0.0
+      },
       "brier": 0.5921006187914959,
-      "calibration_error": 0.01683649267754962,
+      "calibration_error": 0.01683649267754965,
       "calibration_n": 1732,
       "calibration_season": "2425",
       "calibration_selection": {
@@ -723,11 +783,11 @@
       "rps": 0.2002131951853337,
       "stacked": {
         "accuracy": 0.5319577252138903,
-        "brier": 0.5847840971214233,
-        "calibration_error": 0.021275901331534744,
-        "log_loss": 0.9824772924993097,
+        "brier": 0.5847840971214138,
+        "calibration_error": 0.021275901331530914,
+        "log_loss": 0.9824772924992954,
         "n": 1987,
-        "rps": 0.19806913289209252
+        "rps": 0.19806913289208547
       },
       "train_n": 8537,
       "training_window": {
@@ -741,6 +801,18 @@
       "baseline_rps_market": 0.19714131951332092,
       "baseline_rps_market_quote": "opening_1x2_bet365_then_pinnacle",
       "baseline_rps_trainprior": 0.2332832744095393,
+      "bivariate_poisson_overlay": {
+        "alpha": 0.0,
+        "calibration_brier_after": 0.5737,
+        "calibration_brier_before": 0.5737,
+        "calibration_draw_f1_after": 0.0,
+        "calibration_draw_f1_before": 0.0,
+        "gate_passed": true,
+        "holdout_brier_after": 0.592,
+        "holdout_brier_before": 0.592,
+        "holdout_draw_f1_after": 0.02,
+        "holdout_draw_f1_before": 0.02
+      },
       "brier": 0.6135502581775767,
       "calibration_error": 0.06145648325332853,
       "calibration_n": 375,
@@ -824,11 +896,11 @@
       "rps": 0.2058914192638688,
       "stacked": {
         "accuracy": 0.5306666666666666,
-        "brier": 0.5919517442373642,
-        "calibration_error": 0.028175288960230728,
-        "log_loss": 0.9949205306089979,
+        "brier": 0.5919517442373601,
+        "calibration_error": 0.028175288960195787,
+        "log_loss": 0.9949205306089886,
         "n": 375,
-        "rps": 0.20083607924724975
+        "rps": 0.20083607924724758
       },
       "train_n": 1803,
       "training_window": {
