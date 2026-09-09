@@ -67,6 +67,60 @@ a Gate R1 (source qualification) deliverable only, per directive §45.
 
 ---
 
+## 67. "Zero Sentry issues" is a false negative — nothing is instrumented
+
+**Tier:** `NEXT` (frontend) / `ACCEPTED` (backend, operator-gated).
+**Found:** 2026-09-09, while checking production error telemetry after #163 merged.
+
+A Sentry organisation (`echocraft`) and a project (`javascript-nextjs`) exist and
+return **zero unresolved issues**. That was read, briefly, as evidence the client
+surface is healthy. It is not evidence of anything.
+
+**Frontend — definitively not instrumented.** Verified by direct search:
+
+- no `@sentry/*` dependency in `apps/web/package.json` or the root manifest,
+- no `sentry.client.config.*` / `sentry.server.config.*` / `sentry.edge.config.*`,
+- no `sentry` import anywhere in `apps/web/src`.
+
+So the project cannot receive an event. **Zero issues means zero reporters, not
+zero errors.**
+
+**Backend — installed, conditionally initialised, probably inert.**
+`sentry-sdk[fastapi]==1.39.1` is in `requirements.txt`, `requirements.min.txt`
+*and* `requirements.runtime.txt`, so it ships to production, and
+`backend/src/api/main.py:24` does `if settings.sentry_dsn:` before initialising.
+But `SENTRY_DSN` is **not declared in `render.yaml`**, so it is active only if an
+operator set it by hand in the dashboard — not verifiable from here.
+
+⚠️ **This is the same false-negative class the ledger already records twice**:
+`/health/ready` reporting `cache: "Connected"` while Redis was genuinely absent
+(resolved 2026-08-12), and the keep-alive workflow whose env-var check failed
+before it ever reached the thing it was meant to prove (2026-08-12). A silent
+absence of signal looks identical to a clean signal. **Do not cite an empty
+Sentry project as health evidence.**
+
+**Not built this session, deliberately.** Wiring Sentry into `apps/web` is not a
+drop-in: `apps/web/src/middleware.ts` sets a per-request CSP with a `script-src`
+nonce plus `'strict-dynamic'`, and Sentry's loader and ingest endpoint need
+explicit `script-src`/`connect-src` allowances. Getting that wrong silently
+breaks hydration on every page — the exact failure recorded for the CSP nonce on
+2026-06-28. That is its own scoped piece of work with a real regression risk, not
+a side effect of an audit.
+
+**Blast radius:** none today — this is missing observability, not broken
+behaviour. The backend's own structured logs and `/metrics` are unaffected, and
+a 24-hour Render log sweep across `error` and `warning` returned zero entries
+(query verified against `info` first, so that negative is real).
+**Cost:** frontend integration plus the CSP allowances and a Playwright check
+that hydration still works. Backend is one `render.yaml` env var, operator-side.
+**Impact:** unhandled client-side exceptions are currently invisible. Given how
+many defects in this ledger were found only by looking at the rendered page
+(items 39, 41, and the 2026-08-13 truthfulness sweep), that is a real gap.
+**Priority:** medium. Worth doing before any staking surface goes live; not
+urgent while `stake_permitted` is `false` on every fixture.
+
+---
+
 ## 65. Player availability is already acquired and already discarded before the feature vector — Portfolio B source qualification (Gate R1): `HOLD` for live serving, Phase 3 historical qualification cleared to proceed (2026-09-09)
 
 **Tier:** `RESEARCH` — `PRODUCTION_EXECUTIVE_DIRECTIVE.md` §51 decision, not a
