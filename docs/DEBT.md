@@ -67,13 +67,40 @@ is by construction already inside the price it moved to).
 opening quote by 0.00085 RPS pooled** (4 of 5 leagues; Serie A inverted in
 this one test season). **That is the same order of magnitude as the candidate
 effects the promotion gates evaluate** — item 65's best candidate moved RPS by
--0.0004. So the repeatedly-recorded "0 of 6 leagues beat the market" (items
-62, 64) **is incomplete without naming which quote it was measured against**.
-Recommended follow-up, not done here: audit which quote `market_baseline`
-uses in `compare_candidate_vs_incumbent.py` / `promotion_evidence.py` and
-state it in the gate's own output. If it is an earlier quote, every
-"did not beat the market" conclusion is measured against a weaker reference
-than a bettor faces at kickoff.
+-0.0004.
+
+⚠️ **CORRECTED same day — the audit ran and overturned this item's own
+recommendation.** The original text (kept below the line as the record)
+proposed auditing which quote `market_baseline` uses and warned that "if it is
+an earlier quote, every 'did not beat the market' conclusion is measured
+against a weaker reference than a bettor faces at kickoff." **That framing was
+wrong.** `train_on_real_matches._ODDS_COLUMNS` reads opening 1X2 only (Bet365
+preferred, Pinnacle fallback), and `build_dataset`'s docstring already gives
+the reason verbatim: *"serving fetches odds hours-to-days before kickoff and
+can never see a closing line for a future fixture, so training on closing
+prices would teach the model to lean on a systematically more-informed signal
+than serving can ever supply."* That is the **same serving-window argument
+Portfolio E derived independently** in its §1. So:
+
+- The gate is **correctly specified, not lenient**. Scoring against the close
+  would be train/serve skew.
+- **"0 of 6 leagues beat the market" stands as recorded** (items 62, 64),
+  measured against the only quote SabiScore can actually serve.
+- The 0.00085 gap is still real but means something different: it quantifies
+  **the price of the serving constraint** — accuracy structurally unavailable
+  to a product that must predict before the market finishes learning.
+
+**What WAS actionable, and is now done:** the emitted evidence never *named*
+the quote, so a `market_baseline` PASS/FAIL could not be read unambiguously.
+`baseline_rps_market_quote` is now stamped next to the metric in
+`train_on_real_matches.py`, surfaced per-league and at gate level in
+`compare_candidate_vs_incumbent.py`, and pre-label reports degrade to an
+explicit `"unlabelled_pre_2026_09_report"` rather than being assigned a quote
+they never recorded. Pinned by
+`tests/unit/test_market_baseline_quote_contract.py` (4 tests), whose
+closing-line guard was **watched failing** on a sabotaged `_ODDS_COLUMNS`
+before being trusted — adding `B365CH` there would otherwise silently
+introduce train/serve skew *and* inflate the market bar.
 
 **Q3 — cross-book dispersion: `HOLD`, explicitly flagged as probable
 multiple-testing noise.** Pooled -0.0002 with a CI touching zero at the

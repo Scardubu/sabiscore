@@ -1287,6 +1287,15 @@ def train_league(
         "market_prob_home", "market_prob_draw", "market_prob_away"
     )]
     metrics["baseline_rps_market"] = ranked_probability_score(y_test, X_test[:, market_columns])
+    # Name the quote in the evidence itself. A reader of the emitted report
+    # otherwise cannot tell WHICH market price this bar represents, and the
+    # distinction is not cosmetic: Portfolio E measured the closing quote at
+    # 0.00085 RPS better than the opening one pooled, which is larger than the
+    # candidate effects this gate adjudicates. Opening is the correct and
+    # deliberate choice here (see build_dataset's docstring -- serving can
+    # never see a closing line for a future fixture), so this label records a
+    # justified constraint, not a weakness.
+    metrics["baseline_rps_market_quote"] = "opening_1x2_bet365_then_pinnacle"
     metrics["calibration_season"] = calibration_season
     metrics["holdout_season"] = holdout_season
     metrics["calibration_selection"] = calibration_diagnostics
