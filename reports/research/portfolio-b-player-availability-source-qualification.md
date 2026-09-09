@@ -436,3 +436,127 @@ dependence → incremental forecasting, walk-forward, paired, block-bootstrap
 CI against both the incumbent and the market) rather than being appended to
 an already-substantial session. No production code, feature schema, or
 model artifact touched by this section.
+
+---
+
+## 10. Phase 4 executed in full — Stage 1, 2, and 3, ending in a real, evidence-backed `HOLD`
+
+**Date:** 2026-09-09 (same day, continued). All three information-value
+gates directive §16 requires were run in sequence, none skipped.
+
+### Stage 1 — descriptive (`backend/scripts/analyze_player_availability_dependence.py`)
+
+Built a fixture-level join (not the record-level view Phase 3 used):
+`availability_diff = home_unavailable_count − away_unavailable_count`, one
+row per fixture, distinct `player_id` deduplicated within each (team, date)
+so a player re-listed across gameweeks for a long injury is counted once,
+not once per record. **98.16% fixture-level coverage** (5,232 of 5,330
+fixtures carry signal on at least one side) — a healthier number than the
+92.1% record-level figure in §9, as expected since a fixture needs only
+partial signal to register. Distribution: mean −0.123, median 0, stdev
+3.10, range [−11, +12] — real variation, not degenerate.
+
+### Stage 2 — dependence
+
+Pooled Pearson correlation between `availability_diff` and match outcome
+(home win = +1, draw = 0, away win = −1): **r = −0.0788, 95% CI [−0.1057,
+−0.0518], n = 5,232** — the CI excludes zero, and the sign matches theory
+(a more-depleted home side trends away from a home win). Tercile
+breakdown made the size concrete: home win rate falls **47.5% → 43.1% →
+40.4%** and away win rate rises **26.8% → 31.2% → 35.3%** moving from
+"home less depleted" to "home more depleted."
+
+**Robustness check, run before trusting the pooled number (§18):**
+per-league correlations are genuinely heterogeneous, not uniform:
+
+| League | r | 95% CI | Significant? |
+|---|---|---|---|
+| SERIE_A | −0.126 | [−0.183, −0.068] | Yes |
+| LIGUE_1 | −0.163 | [−0.224, −0.101] | Yes |
+| BUNDESLIGA | −0.105 | [−0.169, −0.041] | Yes |
+| EPL | −0.045 | [−0.103, +0.014] | No (CI includes zero) |
+| LA_LIGA | +0.013 | [−0.046, +0.072] | No — wrong sign, centered on zero |
+
+3 of 5 leagues individually corroborate the pooled effect; EPL is
+directionally consistent but underpowered; LA_LIGA shows no effect at all.
+Pooling was masking real cross-league heterogeneity — reported rather than
+smoothed over.
+
+**Per §16, this is diagnostic only and does not itself authorize anything.**
+It answered the question it exists to answer: the signal is not obviously
+inert, so the heavier Stage 3 investment is justified.
+
+### Stage 3 — incremental forecasting vs. the market (`backend/scripts/test_player_availability_incremental_value.py`)
+
+The test Rule 7 actually requires: does `availability_diff` reduce
+out-of-sample RPS **beyond what the market already prices in** — a raw
+correlation with outcome is not evidence of independent information if the
+market already accounts for the same public team news.
+
+- **Baseline**: multinomial logistic regression on de-vigged Bet365
+  `[P(home), P(draw), P(away)]` alone.
+- **Candidate**: same + `availability_diff`.
+- **Reference**: the raw de-vigged market probabilities themselves,
+  unmodeled.
+- **Split**: train on seasons 2022+2023 (n=3,578), test on season 2024
+  (n=1,752) — the only genuine walk-forward split three seasons of corpus
+  history allows; train strictly precedes test, no shuffling.
+- **Significance**: paired per-fixture RPS difference (candidate −
+  baseline), non-overlapping block-bootstrap (block size 10, 1,000
+  replicates) — reused `src/models/evaluation/metrics.py`'s
+  `ranked_probability_score`/`block_bootstrap_ci` rather than
+  reimplementing either.
+
+**Result:**
+
+```text
+Pooled (n=1,752): rps_raw_market=0.19463  rps_baseline=0.19488  rps_candidate=0.19445
+  candidate − baseline: -0.0004, 95% CI [-0.0010, +0.0001]  <- includes zero
+
+Per league, candidate − baseline point estimate (all five negative — same
+direction as the pooled result — but every single CI also includes zero):
+  EPL         -0.0005  CI [-0.0022, +0.0011]
+  LA_LIGA     -0.0004  CI [-0.0012, +0.0005]
+  SERIE_A     -0.0003  CI [-0.0015, +0.0010]
+  BUNDESLIGA  -0.0006  CI [-0.0018, +0.0007]
+  LIGUE_1     -0.0005  CI [-0.0018, +0.0007]
+```
+
+**The candidate model beats both the baseline model and the raw market on
+point estimate, in every single league and pooled — but no confidence
+interval, pooled or per-league, excludes zero.** This is not a contradiction
+of Stage 2: Stage 2 measured raw correlation with outcome; Stage 3 measures
+correlation **beyond what the market already prices**. A professional
+market that already incorporates public team news would be expected to
+absorb most of a raw availability signal, leaving only a small residual —
+exactly the small-but-consistently-directional, not-yet-significant pattern
+observed here.
+
+### Decision (§51): `HOLD`
+
+**Not `PROMOTE`.** The primary significance test (paired block-bootstrap CI
+excluding zero) fails, pooled and in every league.
+
+**Not `REJECT`.** A negative point estimate in all 5 leagues, in the
+theoretically correct direction, is not the pattern of an inert or
+noise-only signal — it is the pattern of a real but currently underpowered
+effect. §51's own default applies directly: "The default decision after an
+inconclusive small sample is HOLD, not PROMOTE and not forced REJECT."
+
+**What would change this.** More seasons (the corpus has only 3 to split
+temporally; a 4th+ season would allow genuine k-fold walk-forward and
+narrower CIs), or pooling across a larger cross-competition sample if the
+effect is genuinely homogeneous enough to justify it despite §18's own
+caution about doing exactly that.
+
+**No production code, feature schema, or model artifact changed.** Two new
+scripts (Stage 1-2, Stage 3), 7 new unit tests on their pure logic (de-vig
+math, RPS scoring, bootstrap wrapper — not the network fetch or model fit),
+raw datasets persisted for reproducibility without needing to re-spend
+`api_football`'s 100/day free-tier quota
+(`portfolio-b-availability-outcome-joined.json`,
+`portfolio-b-stage3-dataset.json`). This closes the information-value-testing
+loop for Portfolio B's primary hypothesis (roster injury/suspension
+availability) — the directive's own definition of a complete research cycle
+(§48), ending in a real, evidence-backed `HOLD` rather than either an
+unearned promotion or a premature rejection.

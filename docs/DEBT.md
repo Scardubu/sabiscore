@@ -121,7 +121,7 @@ urgent while `stake_permitted` is `false` on every fixture.
 
 ---
 
-## 65. Player availability is already acquired and already discarded before the feature vector — Portfolio B source qualification (Gate R1): `HOLD` for live serving, Phase 3 historical qualification cleared to proceed (2026-09-09)
+## 65. Player availability research programme complete — Phase 2-4 run end to end, final verdict `HOLD` (real, consistent, not yet statistically significant beyond the market) (2026-09-09)
 
 **Tier:** `RESEARCH` — `PRODUCTION_EXECUTIVE_DIRECTIVE.md` §51 decision, not a
 code change. Full study: `reports/research/portfolio-b-player-availability-source-qualification.md`.
@@ -341,6 +341,61 @@ deliberately not started in this pass — it needs its own careful sequencing
 block-bootstrap CI against both incumbent and market) rather than being
 appended to an already-substantial session. No production code, feature
 schema, or model artifact touched.
+
+### Follow-up, same day: Phase 4 (Stage 1-3) run in full — final verdict `HOLD`, real and consistent but not yet significant beyond the market (2026-09-09)
+
+Two new scripts. **Stage 1-2**
+(`analyze_player_availability_dependence.py`): fixture-level join, 98.16%
+coverage (5,232/5,330 fixtures). Pooled correlation between
+`availability_diff` (home unavailable-player count minus away) and outcome:
+**r=-0.0788, 95% CI [-0.1057,-0.0518], n=5,232** -- CI excludes zero, sign
+matches theory. Tercile check: home win rate 47.5%->43.1%->40.4% as home
+depletion increases. **Robustness check, run before trusting the pooled
+number**: per-league correlations are genuinely heterogeneous -- SERIE_A
+(-0.126), LIGUE_1 (-0.163), BUNDESLIGA (-0.105) individually significant;
+EPL (-0.045) directionally consistent but CI includes zero; LA_LIGA
+(+0.013) shows no effect at all, wrong sign. Pooling was masking real
+cross-league heterogeneity.
+
+**Stage 3** (`test_player_availability_incremental_value.py`) -- the test
+Rule 7 actually requires: does the signal add value **beyond what the
+market already prices**, not just correlate with outcome. Multinomial
+logistic regression on de-vigged Bet365 odds alone (baseline) vs. same +
+`availability_diff` (candidate), trained on 2022+2023 (n=3,578), tested on
+2024 (n=1,752) -- the one genuine walk-forward split 3 seasons allows.
+Scored with the existing `ranked_probability_score`/`block_bootstrap_ci`
+(`models/evaluation/metrics.py`, reused not reimplemented), paired
+per-fixture, non-overlapping block resampling.
+
+**Result: candidate beats both baseline and raw market on point estimate,
+pooled AND in every single one of the 5 leagues (all 5 point estimates
+negative = candidate better) -- but every single 95% CI, pooled and
+per-league, includes zero.** Pooled: -0.0004, CI [-0.0010,+0.0001].
+Not a contradiction of Stage 2: Stage 2 measured raw correlation with
+outcome; Stage 3 measures correlation *beyond* the market, which already
+prices in most public team news, leaving only a small residual this sample
+size cannot yet distinguish from noise.
+
+**Final decision (§51): `HOLD`.** Not `PROMOTE` -- no CI, pooled or
+per-league, excludes zero. Not `REJECT` -- a negative point estimate in
+literally every league, in the theoretically correct direction, is the
+signature of a real-but-underpowered effect, not an inert one; rejecting
+here would record a negative result the study did not produce. Matches
+§51's own stated default: "The default decision after an inconclusive small
+sample is HOLD, not PROMOTE and not forced REJECT." Would need more
+seasons (only 3 exist for a temporal split) or a deliberately-justified
+larger pooled sample to move off HOLD in either direction.
+
+7 new unit tests on the pure logic only (de-vig math, RPS scoring, the
+bootstrap wrapper) -- not the network fetch or the sklearn fit, matching
+this session's established pattern. Raw datasets persisted
+(`portfolio-b-availability-outcome-joined.json`,
+`portfolio-b-stage3-dataset.json`) so re-running the analysis never needs to
+re-spend the 100/day free-tier quota. **This closes the information-value
+loop for Portfolio B's primary hypothesis.** No production code, feature
+schema, or model artifact changed. Full detail:
+`reports/research/portfolio-b-player-availability-source-qualification.md`
+§10.
 
 ## 64. Calibration selection scored isotonic regression against the data it was fit to — corrected to require held-out persistence per directive §20 B3, and isotonic loses in 4 of 4 opportunities — RESOLVED 2026-09-09
 
