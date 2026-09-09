@@ -44,7 +44,7 @@ from typing import Any
 
 import numpy as np
 
-__all__ = ["SoftmaxMetaModel", "TemperatureScaledMetaModel"]
+__all__ = ["SoftmaxMetaModel", "TemperatureScaledMetaModel", "IsotonicMetaModel"]
 
 
 class SoftmaxMetaModel:
@@ -133,6 +133,76 @@ class TemperatureScaledMetaModel:
         calibrated = exp / exp.sum(axis=1, keepdims=True)
         if not np.all(np.isfinite(calibrated)):
             raise ValueError("calibration produced non-finite probabilities")
+        return calibrated
+
+    def predict(self, X: Any) -> np.ndarray:
+        return self.classes_[np.argmax(self.predict_proba(X), axis=1)]
+
+
+class IsotonicMetaModel:
+    """Isotonic regression calibration wrapper (Phase B / B3).
+
+    Fits one ``IsotonicRegression`` per output class on the calibration holdout.
+    Renormalises the per-class outputs to a valid probability simplex after
+    prediction (isotonic regression is not jointly constrained).
+
+    Candidate calibrator alongside ``TemperatureScaledMetaModel``; whichever
+    achieves lower reliability on the calibration holdout is selected for the
+    next generation (target: reliability ≤ 0.010 per Production Executive
+    Directive §4.3 B3).
+
+    ⚠️ THIS MODULE'S PATH IS PART OF THE ARTIFACT FORMAT — see the module
+    docstring before moving this file.
+    """
+
+    def __init__(
+        self,
+        base_model: SoftmaxMetaModel,
+        calibrators: list,
+    ) -> None:
+        """
+        Args:
+            base_model:   The fitted ``SoftmaxMetaModel`` whose outputs will be
+                          calibrated.
+            calibrators:  One fitted ``sklearn.isotonic.IsotonicRegression`` per
+                          class (length must equal ``base_model.classes_``).
+        """
+        if len(calibrators) != len(base_model.classes_):
+            raise ValueError(
+                f"Need one calibrator per class; got {len(calibrators)} for "
+                f"{len(base_model.classes_)} classes."
+            )
+        self.base_model = base_model
+        self.calibrators = list(calibrators)
+        self.classes_ = base_model.classes_
+        self.feature_names_in_ = base_model.feature_names_in_
+
+    def predict_proba(self, X: Any) -> np.ndarray:
+        """Class probabilities, shape (n_samples, n_classes).
+
+        Runs the base model, applies per-class isotonic regression, then
+        renormalises each row to sum to 1.
+        """
+        raw = self.base_model.predict_proba(X)  # (n, n_classes)
+        n_classes = raw.shape[1]
+        calibrated = np.empty_like(raw)
+        for cls_idx, iso in enumerate(self.calibrators):
+            calibrated[:, cls_idx] = iso.predict(raw[:, cls_idx])
+        # Renormalise — isotonic per-class outputs are not jointly constrained.
+        row_sums = calibrated.sum(axis=1, keepdims=True)
+        # Avoid division by zero for degenerate rows; fall back to uniform.
+        # np.where evaluates BOTH branches, so the divisor must be made safe
+        # first — dividing and discarding emits a RuntimeWarning on every
+        # degenerate row and leaves a NaN in the discarded branch.
+        positive = row_sums > 0
+        safe_sums = np.where(positive, row_sums, 1.0)
+        calibrated = np.where(
+            positive,
+            calibrated / safe_sums,
+            1.0 / n_classes,
+        )
+        if not np.all(np.isfinite(calibrated)):
+            raise ValueError("isotonic calibration produced non-finite probabilities")
         return calibrated
 
     def predict(self, X: Any) -> np.ndarray:
