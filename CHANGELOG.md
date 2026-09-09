@@ -5,12 +5,13 @@ All notable changes to this skill suite are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased - Portfolio B (player availability) source qualification — RESEARCH verdict, no code changed (2026-09-09)
+## Unreleased - Portfolio B (player availability) source qualification, plus a tested (not live-verified) adapter extension (2026-09-09)
 
 `PRODUCTION_EXECUTIVE_DIRECTIVE.md` Phase 2 (Missing Information Discovery),
 Gate R1 (Source Qualification) — the directive's own highest-priority new
-information branch. Documentation only; no feature schema, provider call
-site, or model artifact touched.
+information branch. No feature schema, model artifact, or live orchestrator
+behaviour changed; one provider adapter gained a new, unit-tested but
+not-yet-wired-in capability (see "Added" below).
 
 ### Found
 
@@ -43,6 +44,22 @@ site, or model artifact touched.
   api-football.com tier, re-verifying a prior session's stale Sportmonks
   `/sidelined` note, extending the injury normalizer to capture a
   currently-discarded date field).
+- `APIFootballProvider.injuries()` (`backend/src/providers/api_football.py`)
+  gained an optional `fixture_id` keyword parameter using the API's own
+  `fixture` query parameter. Two tests pin the request shape: fixture-scoped
+  calls send `fixture` and nothing else; omitting `fixture_id` is
+  byte-identical to the pre-existing league+season query — the regression
+  guard that matters, since `orchestrator.py` is a live, already-running
+  caller. **Deliberately not wired into `orchestrator.py`** — the fixture-
+  scoped response has never been observed against a real credential (this
+  environment holds none for either provider), and wiring an unverified
+  query shape into a live evidence-collection path is exactly the risk this
+  repository's "ship capture before computation" precedent (CLV capture,
+  Open-Meteo weather) exists to avoid. Also sharpened, not just re-asked:
+  `SportmonksProvider.injuries()` calls the exact bare `/sidelined` shape
+  its own `probe()` docstring already records 404s under the subscribed
+  API shape — strong code-level evidence (not proof) that it has likely
+  never returned real data.
 
 ## Unreleased - Calibration selection fixed to require held-out persistence; isotonic rejected 4/4; production hygiene sweep (2026-09-09, PR #161)
 

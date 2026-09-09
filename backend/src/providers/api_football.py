@@ -128,19 +128,48 @@ class APIFootballProvider(BaseProvider):
             for competition in ESPN_LEAGUE_SLUGS
         ]
 
-    async def injuries(self, *, competition: str) -> ProviderResult:
+    async def injuries(self, *, competition: str, fixture_id: Any = None) -> ProviderResult:
+        """Injury/suspension reports.
+
+        Default (``fixture_id`` omitted): every currently-reported injury
+        across the whole competition's current season — the existing,
+        unchanged query shape every current caller (``orchestrator.py``'s
+        ``_collect_prematch_enriched``) relies on.
+
+        With ``fixture_id``: scoped to that one fixture via the API's own
+        ``fixture`` parameter (verified against third-party documentation of
+        the endpoint, docs/DEBT.md item 65 — this repository's own
+        documentation site returned HTTP 403 to a direct fetch this session).
+        Each record in the broader query already carries a per-record
+        ``fixture.id`` (see ``_normalize_injury`` and the ``VALID_INJURY``
+        test fixture), so this is NOT unlocking previously-invisible data —
+        it narrows one league-wide response (many fixtures' worth of injury
+        reports) down to one API call per fixture, which is the shape a
+        per-fixture evidence-collection call site (``_collect_prematch_enriched``
+        is called once per fixture already) actually wants, and may reach
+        fixtures outside the broader query's own lookahead window.
+        Unverified against a live response — this repository holds no
+        api_football credential in any environment this session can reach
+        (docs/DEBT.md item 65); the request-shape guarantee below is unit
+        tested, the response semantics are not.
+        """
         guard = self._guard("injuries")
         if guard is not None:
             return guard
-        league_id = _LEAGUE_IDS.get(competition.upper())
-        if league_id is None:
-            return self._unsupported_competition("injuries", competition)
+
+        if fixture_id:
+            params: dict[str, Any] = {"fixture": fixture_id}
+        else:
+            league_id = _LEAGUE_IDS.get(competition.upper())
+            if league_id is None:
+                return self._unsupported_competition("injuries", competition)
+            params = {"league": league_id, "season": _current_season()}
 
         try:
             payload, headers = await self._get_json(
                 f"{self.base_url}/injuries",
                 headers={"x-apisports-key": self.api_key or ""},
-                params={"league": league_id, "season": _current_season()},
+                params=params,
             )
         except Exception as exc:
             return self._network_failure("injuries", exc)

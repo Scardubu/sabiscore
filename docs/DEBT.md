@@ -58,9 +58,71 @@ in `backend/src`** — no local player-identity backbone exists yet; any
 team-level availability aggregation needs one built, the same class of work
 team-identity reconciliation already did for teams.
 
-**No code changed. No feature schema, model artifact, or provider call
-site touched.** This is a Gate R1 (source qualification) deliverable only,
-per directive §45's explicit rule: "No production integration yet."
+**No code changed in this initial pass. No feature schema, model artifact,
+or provider call site touched.** This is a Gate R1 (source qualification)
+deliverable only, per directive §45's explicit rule: "No production
+integration yet."
+
+### Follow-up, same day: the live probe is credential-blocked; the adapter capability was built and tested instead (2026-09-09)
+
+Attempted to execute this item's own recommended next step (a live,
+`PROVIDER_LIVE_TESTS`-gated probe). **Hard blocker, verified through the
+application's own config layer, not a raw file read:** `settings.api_football_api_key`
+and `settings.sportmonks_api_token` both read `UNSET` in every environment
+this session can reach, despite both `ENABLE_*_PROVIDER` flags and
+`PROVIDER_LIVE_TESTS` reading `True`. No credential exists locally to
+probe with — this is the same class of blocker as the production-database
+and GitHub-billing walls hit elsewhere this session, not a new kind of
+gap. **Executing the live probe itself remains operator-only**, from an
+environment holding the real key (e.g. the Render production shell).
+
+**Sharpened, not just re-asked, one open question from the earlier pass.**
+`SportmonksProvider.injuries()` calls `GET /sidelined` with **no query
+parameters at all** — and `probe()`'s own docstring, in the same file,
+already records: *"Live-verified 2026-07-04: bare `/sidelined` 404s in the
+subscribed API shape, so probing it could never verify a valid token."*
+`injuries()` uses that exact same bare call shape. This is strong
+code-level evidence (not proof — the subscription could have changed since
+July) that Sportmonks' `injuries()` has likely never returned real data in
+production. A live probe should check this specifically, not just "is
+Sportmonks reachable."
+
+**Built and tested the one piece of Phase 3 that doesn't need live
+credentials:** `APIFootballProvider.injuries()` (`backend/src/providers/api_football.py`)
+gained an optional `fixture_id` keyword parameter using the API's own
+`fixture` query parameter (per third-party documentation of the endpoint —
+this repository's own docs site 403'd a direct fetch). ⚠️ **Revised
+understanding from the earlier pass**: this is not unlocking previously
+invisible data — the existing `VALID_INJURY` test fixture already shows
+each record in the broader league+season response carries its own
+per-record `fixture.id` (`_normalize_injury` already reads it). The value
+of the fixture-scoped call is quota economy (one call per fixture instead
+of one call returning many fixtures' worth of reports) and possibly
+reaching fixtures outside the broader query's own lookahead window, not new
+information. Two tests pin the request shape: fixture-scoped calls send
+`fixture` and nothing else; omitting `fixture_id` is **byte-identical** to
+the pre-existing query (`league`+`season`, no `fixture` key) — the
+regression guard that matters, since `orchestrator.py`'s
+`_collect_prematch_enriched()` is a live, already-running caller.
+
+⚠️ **Deliberately NOT wired into `orchestrator.py`.**
+`_collect_prematch_enriched()` is confirmed (by reading its one call site)
+to run once per fixture already, so switching its `injuries()` call to pass
+`fixture_id=fixture.get("provider_event_id")` would be the natural next
+step — but the fixture-scoped query's actual response has never been
+observed against a real credential. Wiring an unverified query shape into
+a live, production evidence-collection path is precisely the risk this
+repository's own established discipline exists to avoid (ADR-0004 shipped
+CLV *capture* before *computation*; the Open-Meteo weather work is
+"acquisition complete... integration deliberately gated" per item 44).
+The capability is ready; flipping the call site is the next operator-gated
+step, once a live probe confirms the fixture-scoped response actually
+looks like what the documentation describes.
+
+**No feature schema, model artifact, or live orchestrator behaviour
+changed.** Backend suite green; `ruff check src --select E4,E7,E9,F`
+clean; provider gateway suite (74 tests, `tests/test_providers_gateway.py`
++ `tests/providers/`) green including the 2 new tests.
 
 ## 64. Calibration selection scored isotonic regression against the data it was fit to — corrected to require held-out persistence per directive §20 B3, and isotonic loses in 4 of 4 opportunities — RESOLVED 2026-09-09
 
