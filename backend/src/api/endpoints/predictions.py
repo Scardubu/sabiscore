@@ -117,7 +117,9 @@ async def create_prediction(
     5. Detect value bets (min edge: 4.2%)
     6. Calculate Smart Kelly stakes (⅛ Kelly)
     
-    Target: <150ms response time @ 10k CCU
+    Target: <150ms for model inference only (predict_proba over 68-vector).
+    Full request latency including DB, evidence fetch, and HTTP overhead is ~1–2.5s.
+    End-to-end /full-analysis p95 ≤ 2500ms is the production alert threshold (§4.1).
     Rate Limited: 100 req/min per IP
     """
     # Rate limiting

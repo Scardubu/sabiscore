@@ -1,391 +1,2219 @@
-# SabiScore — Production Executive Directive (v3, 2026-09-06)
-
-Supersedes v2 (2026-09-03). Every constant below was read out of the repository
-or a live endpoint on 2026-09-06, after PR #156 merged as `1115d1d`. v2's
-failure mode was "confidently wrong constants driving work that could not
-succeed" — three of v2's own headline numbers had already drifted by the time
-this was written (§0). This version adds a harder constraint v2 did not have:
-**a fourth independent measurement, from a different angle each time, that the
-market cannot currently be beaten by anything in this repository — including
-the market's own forecast against an intuitive accuracy bar.** Any directive
-that asks for "high-accuracy predictions" as a near-term deliverable is asking
-for something this repository has now measured four ways and not found. §2
-reframes the mission around what is actually achievable and valuable; §5–§7
-are the concrete plan under that reframing.
+# SabiScore — Data Intelligence & Prediction Improvement Executive Directive v5
+### Production Data Intelligence, Information Gain & Forecast Improvement Program
+**Date:** 2026-09-08  
+**Supersedes:** v4  
+**Governing principle:** **New trustworthy information → measurable incremental information gain → statistically defensible out-of-sample improvement → production-grade intelligence**
 
 ---
 
-## 0. Verified ground truth — do not restate from memory, re-verify next time
+## 0. Mission
 
-| Fact | Verified value | Source | vs. v2 |
-|---|---|---|---|
-| Head commit | `1115d1d` (PR #156, squash-merged) | `git log` | — |
-| Deploy parity | Render `sha:1115d1d` `healthy`; Vercel `sha:1115d1d`, `backendSha` full match, `backendStatus:ok` | live probe, this session | confirmed in sync |
-| Active generation | `v5_phase7-20260808` | `models/active_generation.json` | unchanged |
-| Certification state | `UNVERIFIED` / `ACTIVE_FAIL_CLOSED` | same | unchanged |
-| Served feature schema | `phase7_68` (68 columns) | same | unchanged |
-| **Feature contract SHA-256** | `2f80df948bb52e0a1f746271573c3b448fd6be23f322b2c988cf6d3a98076288` | `models/feature_contract.json` | **v2 quoted a different hash — regenerated since (PR #149 changed a training-side attribution string; the file is content-hashed, so any attribution edit moves it)** |
-| **Certification policy** | **v1.1.1**, SHA-256 `f823648253fc2708fc676b5fe25da807d3393d25a62bf80a3085508f130908f8` | `certification_policy.policy_sha256()` | **v2 quoted v1.1.0 / a different hash — bumped since, PR #153 era** |
-| `serving_feature_availability` | FAIL — `training_defaulted_slots=16` (needs 0), `always_data_gap_slots` floor now **6** (was 4) | DEBT item 49 | **v2 didn't carry this number; verify fresh each time — it has moved twice since 2026-08-22** |
-| `market_baseline` | FAIL — **0 of 6 leagues**, both the best candidate and the serving incumbent, with 95% CI | DEBT item 62, this session | **new: v2 treated this as a point-comparison gate; it is now a bootstrapped, statistically confirmed 0/6** |
-| `MODEL_UNCERTAINTY_UNAVAILABLE` | CRITICAL, unconditional, on 100% of live requests | `full_analysis.py:_uncertainty_from_features` | unchanged; DEBT item 50 |
-| Live staking state | `stake_permitted: false` on every fixture, all 5 providers `enabled:true` | live census, this session | providers now fully enabled (v2-era blocker resolved) |
-| mypy ceiling | 784 (currently 769) | `scripts/check_mypy_ceiling.py` | unchanged |
-| Backend suite | 2284 passed, 17 skipped, 2 xfailed | this session, full run | +5 vs. v2's 2279 (new tests from this session) |
+SabiScore must not pursue prediction improvement as a generic feature-engineering or model-complexity exercise.
 
-### Constants v2 got wrong or let go stale — the exact failure mode this file exists to prevent
+The objective of this directive is to determine, with production-grade evidence, whether SabiScore can acquire **new information that is genuinely unavailable to its current forecasting system**, transform that information into reproducible pre-match intelligence, and demonstrate that it produces **incremental out-of-sample predictive value** beyond:
 
-- ❌ Feature contract hash `7681886093e33af4…` → now `2f80df948bb52e0a1…`. **A content hash is not a fact you carry forward — it moves whenever a hashed field changes, and it changed twice between v2 and v3.**
-- ❌ Policy `v1.1.0` / `7e1e2384…` → now `v1.1.1` / `f8236482…`.
-- ❌ v2 treated `market_baseline` as answerable by a single RPS comparison. It is not — see §2. A 0.0005 RPS margin over 375 fixtures is statistically indistinguishable from zero (§2), and v2 had no way to know that because nobody had built the instrument yet.
-- ❌ "3 of 5 providers disabled, Render Blueprint sync outstanding" — resolved; all 5 are `enabled:true` in production today. Do not re-flag this.
-- ✅ Everything else in v2 §0 (runtime, React pin, `training_defaulted_slots` mechanism, dual-loader hazard) re-verified unchanged and still holds.
+1. the current SabiScore incumbent;
+2. the de-vigged market baseline;
+3. established structural baselines;
+4. existing information already represented by the current feature contract.
 
----
+The desired chain is:
 
-## 1. Closed questions — do not re-litigate without new evidence
+> **New information**
+> → **reliable acquisition**
+> → **correct temporal reconstruction**
+> → **independent information**
+> → **incremental predictive value**
+> → **statistically significant and practically meaningful improvement**
+> → **production-safe serving**
+> → **continuous verification**
 
-Each row is a measurement, not an argument. v2's table carried five; this adds
-a sixth, and strengthens the framing on one v2 already had.
+No component of that chain may be skipped.
 
-| Question | Verdict | Evidence |
-|---|---|---|
-| Heterogeneous ensemble to clear Gate 50 | **REFUTED** — 3 seed blocks. RF-only skill negative at every N tested | DEBT 59 |
-| Adding xG causal drivers (`apex_v2_71`) | **REJECTED** — mean RPS −0.00159, market_baseline 0/5 | DEBT 58 |
-| Populating the 4 (now 6) `ALWAYS_DATA_GAP` slots | **INERT** — zero-variance columns, no tree splits on them | DEBT 56 |
-| Populating h2h/venue/interaction slots (`apex_v3_68`) | **REJECTED** — 16→3 defaulted slots, genuinely used (35→43 responsive features), still 0/6 vs. market | DEBT item filed 2026-09-04, `apex-v3-68-candidate-evaluation.md` |
-| Re-specifying `error_association` per stratum | **FORBIDDEN** — post-hoc threshold change; also would not cleanly pass | DEBT 50 |
-| BullMQ / Celery / Node worker layer | **REJECTED** — competing scheduler; FastAPI lifespan loops are correct and sufficient at current load (§0: full-analysis measured 1–2.5s cold, not the "heavy ML inference" a queue would be justified by) | DEBT 54 |
-| BNN / PyTorch staking path | **CLOSED** — ADR 0009 locks `ensemble_dispersion` as the only authorised method | DEBT 42/43 |
-| **HPO + a league-stratified certification carve-out (`apex_v5_66`, EPL)** | **REJECTED — paired bootstrap CI, 0/6 leagues, both heads** | **DEBT 62, this session** |
+The programme must therefore answer a narrower and more difficult question than:
 
-**The corollary v2 stated is now measured, not inferred:** `uncertainty_policy.py`
-states clearing `MODEL_GENERATION_UNCERTIFIED` does not clear
-`MODEL_UNCERTAINTY_UNAVAILABLE`, and the converse holds. Both gates are
-independently, currently, unconditionally failing — one on a statistically
-confirmed 0/6 result, one on a real, reproducible-both-ways sign reversal
-(`error_association`, DEBT 50). **Clearing either would not enable staking.
-Clearing both is not currently possible by any means this repository has not
-already tried.**
+> “What additional football features could we add?”
+
+It must answer:
+
+> **“What information does SabiScore not currently know, can know before prediction time, can reconstruct historically without leakage, can acquire legally and reproducibly, and can demonstrate to contain incremental information after conditioning on SabiScore and the market?”**
+
+If no source survives that sequence, the correct outcome is a documented negative result.
 
 ---
 
-## 2. The central finding, reframed — read this before writing any more model code
+# 1. Strategic Position
 
-v2 said: "the single blocker is: no SabiScore model beats the de-vigged
-market-implied RPS in any league." That was correct but incomplete, and its
-incompleteness is what licensed a plausible-sounding but wrong follow-up
-proposal (the EPL stratification directive this session rejected). The
-complete picture, assembled from four independent measurements across three
-different sessions:
+## 1.1 Current evidence
 
-1. **DEBT 58** — adding real, causally-validated xG features (ATE > 0.18,
-   p < 1e-68) made the model *worse* against the market in 4 of 5 leagues.
-2. **`apex_v3_68`** — adding real h2h and home-venue history (genuinely used:
-   responsive features rose 35→43 per league) produced a statistical wash
-   against the incumbent (3 wins, 3 losses) and 0/6 against the market.
-3. **DEBT 62 (this session)** — the single number that looked like an edge
-   anywhere in this whole program (`apex_v5_66`, EPL, +0.0005 RPS) is
-   **0.078σ of an unpaired standard error**, and a properly paired 95% CI on
-   the exact same data has a half-width **5.7x** the point estimate. It spans
-   zero. So does the incumbent's.
-4. **DEBT 43** — the de-vigged bookmaker market's own Brier score is 0.5787,
-   which fails the platform's own BNN certification gate (≤0.220) **by 2.6x**.
-   The market — priced by firms with structurally more capital, faster data,
-   and more staff than this project — is not "highly accurate" by that bar
-   either.
+The current repository has established, across multiple independent analyses, that:
 
-**Read together, these four say something more specific than "the model isn't
-good enough yet": football's 1X2 outcome, at the horizon and evidence this
-platform has, is close to its predictability ceiling once market information
-is available, and that ceiling is well short of what "high-accuracy
-predictions" connotes to a general audience.** This is not a defect to
-engineer away. It is very likely close to the actual shape of the domain —
-consistent with a large academic and industry literature on football
-outcome forecasting that this project's own four measurements now
-independently reproduce.
+- the incumbent does not currently demonstrate an edge over the de-vigged market;
+- previous feature-expansion programmes produced negligible aggregate improvement;
+- the system currently has a meaningful calibration defect;
+- the current uncertainty contract is incomplete;
+- several apparent public “gates” are not actually part of the versioned certification policy;
+- parts of the existing data stack are installed but unused;
+- several supposedly promising research directions are blocked by coverage or production constraints.
 
-**What this changes about the mission, concretely:**
+These are not invitations to repeat the same experiments.
 
-- **Do not promise "high accuracy" as a product claim.** APEX §11 and
-  CLAUDE.md's prohibited-copy list already forbid `guaranteed`/`sure bet`/
-  `lock`; this finding means the softer promise — "our model is highly
-  accurate" — is equally unsupportable and should be held to the same
-  standard. The honest, defensible, and (per APEX's own design intent)
-  differentiating claim is **calibration and transparency**: "here is exactly
-  how much we know, how we know it, and where the gaps are" — not
-  "trust our accuracy."
-- **Do not spend further engineering cycles on §1's closed feature-density
-  branch.** Three different feature families (xG, h2h/venue, and a fourth
-  covered by HPO) have now been tried and rejected by the same mechanism.
-  A fifth attempt in the same shape (find/engineer a feature, retrain,
-  compare RPS) should be expected, on priors, to fail the same way, and
-  should not be greenlit without a stated reason to expect a different
-  result than the last three.
-- **Two structurally different levers remain**, neither of them "more
-  features": (a) event-level data this platform does not have at all
-  (real StatsBomb shot-maps/PPDA at scale — `home_pressing_intensity` and
-  `progressive_carry_diff` remain the only two permanently-gapped slots,
-  DEBT 49/56, blocked on data acquisition, not modeling); (b) `error_association`
-  (DEBT 50) — a genuine open research question about whether ensemble
-  dispersion tracks real error on football data at all, not an engineering
-  gap. Neither is "try another feature and retrain."
-- **The product's value, if it is not "beats the market," is honest
-  intelligence infrastructure** — evidence provenance, calibration displayed
-  as a first-class citizen (not buried), a portfolio-exposure view, and a
-  UX that makes "why does this fixture have no bet" as informative and
-  well-designed as "why does this fixture have one." §6 is this section made
-  concrete.
+They establish the research prior:
+
+> **Future improvement must come either from better use of information already available, better extraction of latent structure from legitimately available information, or genuinely new information unavailable to the incumbent.**
+
+The programme must explicitly distinguish these three possibilities.
 
 ---
 
-## 3. Non-negotiable constraints (carried forward from v2, re-affirmed)
+## 1.2 Primary strategic objectives
 
-**Architecture.** FastAPI is the sole backend authority. PostgreSQL is durable
-truth; Alembic is the only schema authority. Redis is hot state. `apps/web` is
-presentation + BFF and computes no EV, stake, edge, or de-vigging. **No second
-job queue** — confirmed again this session against a live latency measurement
-(full-analysis: 2.5s cold, ~1s warm; a queue would add a second cold-start
-surface, not remove one). No second team-name normalizer beside
-`team_identity._identity_key`.
+This directive establishes four parallel objectives:
 
-**Zero fabrication.** Unobserved is `None`, never `0.0`, never a neutral prior
-presented as a measurement. A feature that training defaults must not be
-described as observed. This now extends explicitly to **product copy**: a
-"confidence" or "accuracy" claim is fabrication in the same sense a fake
-feature value is, if it is not backed by a number the platform can show its
-work for.
+### Objective A — Repair known forecast defects
+Improve calibration and forecast integrity using the information already held.
 
-**Train/serve parity is bidirectional.** Serving must not consume a feature
-training never varied; training must not consume a feature serving cannot
-reproduce. Both directions are tested (`test_feature_vector_parity.py`).
+### Objective B — Discover genuine information gaps
+Identify information unavailable to the current system that has a credible causal relationship with pre-match outcomes.
 
-**Fail-closed.** A gate that blocks promotion or staking is never relaxed to
-unblock it. "Uncertainty remains unavailable and fail-closed" and "no model
-currently beats the market" are acceptable terminal outcomes; a manufactured
-PASS, a stratified carve-out built to admit one flattering number, or a
-softened accuracy claim are not — this directive treats all three as the same
-category of violation after this session's evidence.
+### Objective C — Prove incremental value
+Demonstrate that candidate information improves proper scoring rules and/or decision-relevant metrics after conditioning on incumbent SabiScore and market information.
 
-**Memory.** 8 GB dev machines. `maxTsServerMemory ≤ 3072`. ML research venv is
-`.venv-ml`; no training deps on Python 3.14.
-
-**Attribution.** `Co-authored-by: SCAR (Claude Code) <claude@anthropic.com>` on
-commits; the standard PR footer on pull requests.
+### Objective D — Convert only surviving evidence into production intelligence
+Integrate successful information sources without weakening train/serve parity, provenance, fail-closed semantics, licensing discipline, or certification.
 
 ---
 
-## 4. The two remaining model-side gates, precisely
+# 2. Non-Negotiable Research Doctrine
 
-### 4.1 `serving_feature_availability` — one bounded, authorization-gated fix
+## Rule 1 — Information beats feature count
 
-`training_defaulted_slots` is 16 (needs 0); of those, 6 are the permanent,
-by-policy `PHASE7_FEATURES_ALWAYS_DATA_GAP` slots that can never be anything
-else (DEBT 49). The correction that measures *unexpectedly* defaulted slots
-instead of counting the permanent ones was scoped, implemented once already
-(2026-09-03) and even has its exact diff recorded in DEBT 49 — but it does not
-promote anything (16→ still nonzero; `serving_schema_misaligned_slots` is
-independently 11 from a separate deadlock, DEBT 37). **This is a measurement
-correction, not a threshold change**, by the same reasoning item 38 already
-used — but per APEX §23 it still needs an explicit authorization before
-landing, exactly as item 38 and item 49's prior pass both required. If you
-want this gate's number to be honest, authorize the one-liner in DEBT 49 and
-regenerate the availability matrix. It will not flip `promotion_permitted` to
-`true` on its own — `market_baseline` and the uncertainty gate are
-independent and both still fail.
+One independent source with demonstrable incremental value is more important than dozens of redundant derived features.
 
-### 4.2 `error_association` — a real research question, not a backlog item
-
-DEBT 50. The highest-epistemic quartile scores *better* RPS than the lowest,
-in every league, on two independent member-selection designs. This is not
-something a sprint closes. Two honest paths, both requiring an explicit
-decision rather than more code:
-
-- **Accept it as a property of this domain and this uncertainty method**,
-  and stop treating staking-readiness as the platform's near-term target —
-  consistent with §2's reframing.
-- **Fund a genuine research effort** (a different uncertainty
-  quantification method entirely — not a threshold change on the current
-  one) with no assumption it succeeds. `ADR 0009` would need superseding,
-  not amending, since it names `ensemble_dispersion` as the *only* authorised
-  method.
-
-Nothing in §5–§7 depends on this resolving. Both are compatible with shipping
-a genuinely useful product now.
+Feature volume is not progress.
 
 ---
 
-## 5. Execution order
+## Rule 2 — Data acquisition is itself an experiment
 
-Sequenced by what is bounded and authorization-ready versus what is open-ended
-research versus what is pure product value that does not wait on either.
+A source may not be integrated merely because:
 
-### Phase A — Close what is bounded (days, not weeks)
+- it is free;
+- it is popular;
+- it has many columns;
+- it contains xG;
+- it has event-level data;
+- a research paper used it;
+- another football analytics project uses it.
 
-1. Get an explicit authorization decision on DEBT 49's one-line measurement
-   fix (§4.1). Land it or explicitly decline it — do not leave it as a
-   standing "authorized but not applied" note a third time.
-2. Resolve DEBT item 57 (Understat corpus: 1,826 duplicated matches, 2021/22
-   season missing) if any future feature work will read that corpus again.
-   Bounded data-hygiene, no modeling judgment required.
-3. Run the domestic fixture-identity SQL audit this session shipped
-   (`backend/scripts/sql/investigate_domestic_aliases_v3.sql`) against
-   production and resolve the 7 domestic identity failures it was built to
-   diagnose (of 22 total; 15 are UCL and correctly unresolved). This directly
-   reduces the live `REQUIRED_MODEL_INPUTS_UNAVAILABLE` rate, independent of
-   any certification question.
+A source first requires:
 
-### Phase B — The one open research question (§4.2)
+> **coverage → legality → temporal reconstructability → reliability → identity resolution → redundancy analysis → incremental information test**
 
-Get an explicit decision from whoever owns this platform: accept the current
-`error_association` result as a domain property (recommended, given four
-independent measurements now pointing the same direction), or commission a
-genuinely new uncertainty-method research effort with a stated budget and no
-guaranteed outcome. **Do not let this phase block Phase C** — it is
-independent of every product/UX improvement below.
-
-### Phase C — The product, reframed around §2
-
-This is the "fully operational, visually cohesive, world-class platform" the
-mission calls for, built on the honest premise §2 establishes: the value is
-transparency and calibration, not an accuracy claim the evidence does not
-support.
-
-**Implementation checkpoint (2026-09-06).** The first bounded
-frontend increment of Phase C is complete. It changed presentation and
-consumer-copy enforcement only: no backend response contract, calibration
-calculation, certification state, promotion rule, verdict gate, Kelly rule, or
-staking permission changed. The active generation remains `UNVERIFIED` /
-`ACTIVE_FAIL_CLOSED`.
-
-**C1. Make calibration a first-class, not buried, surface — first increment
-complete.**
-`/performance` already has the pieces (Murphy decomposition, walk-forward RPS,
-CLV) gated on real-data floors most of which are still below threshold. Where
-the floor is not yet crossed, the UI's job is to say so with the same design
-quality as when it is — a floor-not-met state is not an error state, it is
-real information ("11 settled predictions; 10 needed before a reliability
-curve is meaningful" reads as competent, not broken). Audit every stat tile
-against DEBT-documented neutral-defaults incidents (items 24/28/41 in the
-historical ledger) before shipping a new one — the recurring failure mode
-this platform has hit five times is rendering a registry default as if it
-were a measurement.
-
-The calibration surface now distinguishes a legitimate sample-floor state from malformed
-contracts and infrastructure failures, carries the selected evaluation window
-through the request, states the serving-generation and settled-record scope,
-and exposes plotted observations in a keyboard-readable table. It retries only
-retryable infrastructure failures and removes the unsupported ECE target.
-Future additions remain subject to the neutral-default audit above.
-
-**C2. Finish the Evidence Passport pattern everywhere a verdict appears —
-audited fixture surfaces complete.**
-Per-family provenance, freshness, and resolution status, visible without a
-click, using the existing `describeEvidenceCode()` vocabulary. A gapped
-family renders as gapped, styled with the same care as a resolved one —
-this is the concrete expression of "transparency over accuracy" as a design
-principle, not a slogan.
-
-This increment completes the contract for the two audited fixture-specific verdict
-surfaces: full analysis and betting intelligence. Both use the shared human
-evidence vocabulary and age labels without merging their distinct wire
-contracts. Result-backed analytical sharing now derives probabilities,
-verdict, model maturity, stake permission, and gap counts from a successfully
-parsed full-analysis response; fixture-header sharing remains URL-only.
-Reduced-evidence output exposes no analytical share action. Static verdict
-education and team-form taxonomy remain outside this fixture-evidence rule.
-
-**C3. Model-identity discipline stays enforced, not re-litigated.**
-`lib/model-identity.ts` (APEX §11) already maps internal generation strings to
-consumer-safe labels and fails closed on an unrecognised state. Any new
-surface showing model provenance routes through it — do not re-introduce a
-raw `v5_phase7`/`UNVERIFIED` string on a consumer page, the exact defect this
-session's history (item 41) already found and fixed once.
-
-**C4. Accessibility and performance as table stakes, not a phase.**
-WCAG 2.2 AA contrast, ≥24px targets, visible focus, `prefers-reduced-motion`
-respected — verify at 360/768/1280px on every new surface, per the standing
-convention this repo already follows (§5 of every prior directive said this;
-it has not changed).
-
-**C5. SEO and growth, bounded by the truthfulness constraint.**
-`robots.ts`/`sitemap.ts` exist; extend them as new public routes ship.
-Metadata titles are guarded by `metadata-title-contract.test.ts` — extend
-coverage to any new route rather than hand-writing a title. No growth copy
-may use the accuracy framing §2 forbids; the differentiator in metadata and
-social copy is "evidence-first," "shows its work," "calibrated," never
-"accurate" or "wins."
-
-**C6. Prohibited-copy list gains one more entry — complete.**
-Given §2's finding, `CLAUDE.md`'s existing prohibited-terms list
-(`lock`, `banker`, `guaranteed`, `sure bet`, `free money`, `execute
-immediately`) is now supplemented by aligned Vitest and CI phrase guards for
-unsupported outcome claims such as "highly accurate predictions," "winning
-picks," and "beats the odds/market." The guard is intentionally contextual:
-measured or walk-forward accuracy, historical match wins, and backend-owned
-edge metrics remain valid analytical language. Public documentation now also
-describes the active artifacts as hash-verified research artifacts with model
-certification still pending.
+Only then may engineering investment be authorized.
 
 ---
 
-## 6. Verification
+## Rule 3 — Pre-match information is the unit of truth
 
-```bash
-# backend/
-ruff check src --select E4,E7,E9,F     # CI's actual scope — not scripts/, not tests/
-python scripts/check_mypy_ceiling.py    # ceiling 784; never raise it
-PYTHONPATH=. python -m pytest tests/unit -q
-PYTHONPATH=. python -m pytest tests/integration -q
-python scripts/verify_active_artifacts.py
+Every candidate feature must answer:
 
-# apps/web/
-pnpm exec tsc --noEmit
-pnpm exec next lint --dir src
-pnpm build
+> **Exactly when did this information become knowable?**
 
-# repo root — full release gate
-make verify        # no step may be bypassed with `|| true`
+The canonical record must include:
+
+- source timestamp;
+- observed timestamp;
+- publication timestamp where applicable;
+- effective timestamp;
+- fixture kickoff;
+- allowed prediction cutoff;
+- freshness at inference;
+- whether the value changed between historical observation and post-match archival state.
+
+A feature reconstructed from current historical webpages is not automatically valid for historical inference.
+
+---
+
+## Rule 4 — Historical availability must be reconstructable
+
+A source is not historically valid merely because current data exists.
+
+The programme must distinguish:
+
+### A. Historical reconstructability
+The value can be reproduced as it would have existed before kickoff.
+
+### B. Historical availability with revision risk
+The source exists historically but may have been corrected/revised after the match.
+
+### C. Current-only availability
+Useful for production but unsuitable for retrospective model evaluation.
+
+### D. Post-match archival data
+Useful for analysis but prohibited from pre-match forecasting.
+
+This distinction must exist in the experiment registry.
+
+---
+
+## Rule 5 — No fabricated data
+
+Unknown remains `None`.
+
+Missing information must not become:
+
+- `0`;
+- league average;
+- neutral prior;
+- “not injured”;
+- “normal weather”;
+- “average player”;
+- synthetic odds;
+- placeholder confidence.
+
+A missing value is a state of knowledge, not a measurement.
+
+---
+
+## Rule 6 — The market is mandatory evidence
+
+No candidate may be described as predictive improvement merely because it beats the incumbent.
+
+Every meaningful experiment must compare:
+
+> candidate  
+> vs. incumbent  
+> vs. de-vigged market  
+> vs. appropriate structural baseline
+
+The candidate may eventually demonstrate:
+
+- better calibration;
+- better discrimination;
+- better distributional forecasting;
+- better conditional performance;
+- better robustness;
+
+without beating the market.
+
+Those are valid findings.
+
+They must not be translated into “market edge” without separate evidence.
+
+---
+
+## Rule 7 — Redundant market reconstruction is not independent signal
+
+A source that primarily reconstructs bookmaker probability is not an independent football-information source.
+
+Market-derived features may still be useful, but they must be classified as:
+
+> **market intelligence**
+
+rather than:
+
+> **independent football intelligence**
+
+The research must explicitly estimate the degree to which a candidate source adds information beyond the market.
+
+---
+
+## Rule 8 — No model shopping
+
+A failed information source cannot be repeatedly passed through increasingly sophisticated models until one produces an apparent improvement.
+
+The information layer must demonstrate value before architectural escalation.
+
+Required sequence:
+
+> source → data quality → information value → representation → simple model → advanced model
+
+not:
+
+> source → transformer → ensemble → HPO → report improvement
+
+---
+
+## Rule 9 — Statistical uncertainty is mandatory
+
+No decision may rest on a point estimate.
+
+Every candidate result must include:
+
+- sample size;
+- temporal test window;
+- metric convention;
+- confidence interval;
+- paired comparison;
+- effect size;
+- statistical test;
+- multiple-testing context;
+- practical significance;
+- robustness across folds or periods.
+
+---
+
+## Rule 10 — Negative evidence compounds
+
+A failed experiment narrows the research space.
+
+The experiment registry and `docs/DEBT.md` are therefore research assets, not administrative records.
+
+Each negative result must improve the prior.
+
+---
+
+# 3. Current Ground Truth — Mandatory Re-verification
+
+Before any new research branch is authorized, re-verify the current repository and deployment state.
+
+Do not rely on this document for stale values.
+
+Required verification includes:
+
+### Repository
+- current SHA;
+- branch;
+- dirty state;
+- active generation;
+- model artifact identity;
+- feature schema;
+- model registry;
+- certification policy;
+- certification hash;
+- active thresholds;
+- training configuration.
+
+### Deployment
+- Render SHA;
+- Vercel SHA;
+- backend SHA;
+- local SHA;
+- backend/web divergence;
+- deployment timestamp.
+
+### Database
+- PostgreSQL version;
+- Alembic head;
+- schema inventory;
+- active prediction tables;
+- feature/data provenance tables;
+- model-generation tables.
+
+### Runtime
+- Python version;
+- production dependency tree;
+- research dependency tree;
+- memory limits;
+- inference latency;
+- feature resolution latency;
+- external provider latency.
+
+### Evidence
+- settled prediction count;
+- calibration metrics;
+- RPS;
+- Brier;
+- log loss;
+- ECE;
+- market baseline;
+- CLV diagnostic;
+- uncertainty status;
+- staking status;
+- promotion gates.
+
+The output must be:
+
+> `GROUND_TRUTH_SNAPSHOT_<date>.json`
+
+and must be immutable for the duration of the experiment cycle.
+
+---
+
+# 4. The SabiScore Information Model
+
+The system must formally distinguish five layers.
+
+## Layer 1 — Raw information
+
+What the external world says.
+
+Examples:
+
+- shot;
+- player availability;
+- lineup announcement;
+- injury;
+- referee;
+- weather;
+- market quote;
+- manager appointment.
+
+---
+
+## Layer 2 — Validated observation
+
+The raw information after:
+
+- schema validation;
+- timestamp validation;
+- identity resolution;
+- duplication checks;
+- provenance assignment;
+- source confidence classification.
+
+---
+
+## Layer 3 — Prediction-time state
+
+The subset of validated information legally and temporally available at a specific prediction cutoff.
+
+This is the authoritative training/serving object.
+
+---
+
+## Layer 4 — Derived representation
+
+Examples:
+
+- rolling xG;
+- expected minutes;
+- player replacement strength;
+- tactical compatibility;
+- pressing mismatch;
+- dynamic team state.
+
+---
+
+## Layer 5 — Forecast
+
+The output:
+
+- `P(Home)`;
+- `P(Draw)`;
+- `P(Away)`;
+- score distribution;
+- confidence interval;
+- conformal set where authorized.
+
+This separation prevents post-match or revised data from silently entering the feature space.
+
+---
+
+# 5. Research Portfolio
+
+The programme is divided into six distinct research portfolios.
+
+## Portfolio A — Calibration
+
+Question:
+
+> Can SabiScore materially improve the statistical quality of its probabilities without acquiring additional information?
+
+Candidates:
+
+- temperature scaling;
+- vector scaling;
+- isotonic regression;
+- beta calibration;
+- hierarchical calibration;
+- horizon-conditional calibration;
+- probability shrinkage;
+- class-specific calibration.
+
+Primary target:
+
+> reduce reliability while preserving or improving resolution.
+
+Secondary targets:
+
+- ECE;
+- log loss;
+- RPS;
+- Brier.
+
+Calibration does **not** constitute a market-edge claim.
+
+---
+
+# 6. Portfolio B — Player Availability Intelligence
+
+This becomes the highest-priority new-information research branch.
+
+The reason is not that “players are important.”
+
+The research hypothesis is more specific:
+
+> **The current match-level system may know team strength but fail to observe last-minute changes in the composition and expected quality of the team actually available to play.**
+
+Investigate:
+
+- injuries;
+- suspensions;
+- probable XI;
+- confirmed XI;
+- expected minutes;
+- replacement quality;
+- bench depth;
+- role importance;
+- positional scarcity;
+- lineup continuity;
+- player return timing;
+- minutes restrictions;
+- manager selection patterns.
+
+The representation should not initially be player-name-heavy.
+
+Start with measurable latent quantities:
+
+### Availability delta
+
+`expected_available_strength − baseline_team_strength`
+
+### Replacement cost
+
+`starter_strength − expected_replacement_strength`
+
+### Positional disruption
+
+`importance-weighted missing strength by role`
+
+### Continuity
+
+`expected XI overlap with recent XI`
+
+### Depth resilience
+
+`quality retained after removing unavailable players`
+
+Only after these aggregate hypotheses survive should player embeddings or lineup graphs be considered.
+
+---
+
+# 7. Portfolio C — Event-Derived Team State
+
+Do not begin with a universal StatsBomb/VAEP implementation.
+
+First determine where sufficient coverage exists.
+
+Candidate information families:
+
+- shots;
+- shot locations;
+- xG;
+- passes;
+- progressive actions;
+- possession chains;
+- pressures;
+- turnovers;
+- defensive actions;
+- set pieces;
+- transition frequency;
+- final-third entries.
+
+The central question is not:
+
+> “Can we calculate xT?”
+
+It is:
+
+> **“Does event-derived team state contain information that the current SabiScore + market representation does not already contain?”**
+
+Candidate representations:
+
+- rolling opponent-adjusted xG;
+- shot-quality profile;
+- shot-location distribution;
+- build-up directness;
+- progression intensity;
+- pressing intensity;
+- transition propensity;
+- set-piece strength;
+- defensive concession profile.
+
+---
+
+# 8. Portfolio D — Tactical Matchup Intelligence
+
+This is the highest-value “unknown unknown” branch.
+
+The objective is not to classify teams as:
+
+- possession team;
+- pressing team;
+- defensive team.
+
+Those are usually too coarse.
+
+The research target is:
+
+> **interaction**
+
+Examples:
+
+- pressing vulnerability × opponent build-up quality;
+- low-block attack quality × opponent low-block defense;
+- transition creation × opponent transition concession;
+- aerial/set-piece strength × opponent set-piece weakness;
+- progressive carrying × opponent defensive channel exposure;
+- defensive line height × opponent runner threat.
+
+The key representation becomes:
+
+> **Team A behavior × Team B susceptibility**
+
+rather than independent team statistics.
+
+No tactical feature may be promoted unless historical out-of-sample evidence demonstrates that the interaction adds more than the corresponding independent components.
+
+---
+
+# 9. Portfolio E — Information Arrival / Market Microstructure
+
+This portfolio explicitly investigates whether useful information enters the public forecasting ecosystem over time.
+
+Required timestamps where available:
+
+- opening quote;
+- subsequent quote;
+- lineup publication;
+- injury update;
+- manager announcement;
+- weather revision;
+- closing quote.
+
+Research questions:
+
+1. When does meaningful probability movement occur?
+2. What observable external event coincides with that movement?
+3. Does a non-market source provide the same information earlier?
+4. Does SabiScore gain anything by observing the source directly?
+5. Is the effect independent of final market state?
+
+Candidates:
+
+- opening → intermediate movement;
+- cross-book dispersion;
+- market disagreement;
+- quote volatility;
+- pre-lineup vs post-lineup movement;
+- injury/news shocks;
+- weather shocks;
+- market convergence velocity.
+
+A model that simply reproduces the final market is not considered an independent-information success.
+
+---
+
+# 10. Portfolio F — Contextual State
+
+Investigate:
+
+- rest;
+- fixture congestion;
+- travel distance;
+- travel time;
+- time-zone displacement;
+- weather;
+- altitude;
+- stadium conditions;
+- referee characteristics;
+- scheduling asymmetry.
+
+These are intentionally lower priority.
+
+They must prove information value before engineering investment.
+
+The default prior is:
+
+> potentially useful, but likely weaker than player availability, team state, tactical interaction, and information-arrival signals.
+
+---
+
+# 11. Data Source Qualification Framework
+
+Every external source receives a formal source score.
+
+## Required dimensions
+
+| Dimension | Requirement |
+|---|---|
+| Coverage | Relevant fixtures represented |
+| Historical depth | Adequate retrospective window |
+| Temporal fidelity | Historical values reconstructable |
+| Freshness | Appropriate for serving |
+| Identity quality | Stable entity mapping |
+| Reliability | Measured source consistency |
+| Missingness | Quantified, not assumed |
+| Independence | Incremental information potential |
+| Legal status | Explicitly classified |
+| Access stability | API/scrape/download reliability |
+| Cost | Free/freemium/paid |
+| Rate limits | Measured |
+| Integration cost | Engineering estimate |
+| Compute cost | Processing estimate |
+| Operational fragility | Failure likelihood |
+| Provenance | Raw-data retention possible |
+
+---
+
+# 12. Source Legal/Access Classification
+
+Every candidate source must be placed into one of these classes:
+
+### L0 — Explicitly reusable
+Open licence / explicit public-data terms permitting intended use.
+
+### L1 — Research-use constrained
+Potentially usable for research but requiring legal review before production.
+
+### L2 — Publicly visible but rights unclear
+May not enter production without explicit approval.
+
+### L3 — Terms hostile to automated production access
+Research-only unless legal status changes.
+
+### L4 — Prohibited
+Do not ingest.
+
+The roadmap must never describe “publicly scrapeable” as equivalent to “legally reusable.”
+
+---
+
+# 13. Data Opportunity Matrix
+
+Every candidate source receives:
+
+| Opportunity | Source | Signal | Current Gap | Coverage | History | Temporal fidelity | Independence | Cost | Legal class | Integration | Leakage risk | Expected information gain | Priority |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+
+Priority is determined by:
+
+> **Expected information gain × coverage × temporal reliability × legal viability ÷ implementation cost**
+
+Not by source popularity.
+
+---
+
+# 14. Tier Definitions
+
+## Tier 0 — Immediate Research
+
+Must be investigated first because:
+
+- the information is plausibly high-value;
+- current system lacks it;
+- historical testing is feasible;
+- integration cost is bounded.
+
+Likely candidates:
+
+1. calibration;
+2. player availability;
+3. lineup/expected-minutes state;
+4. historical event-derived team state where coverage clears;
+5. information-arrival/market timing.
+
+---
+
+## Tier 1 — High-value conditional
+
+Examples:
+
+- tactical matchup;
+- replacement quality;
+- squad depth;
+- dynamic team state;
+- set-piece matchup;
+- manager-change state.
+
+---
+
+## Tier 2 — Research
+
+Examples:
+
+- richer network representations;
+- graph-based lineup representations;
+- state-space team models;
+- temporal embeddings.
+
+---
+
+## Tier 3 — Experimental
+
+Examples:
+
+- transformers;
+- deep spatial encoders;
+- GNNs;
+- neural point processes.
+
+No Tier-3 architecture may be built merely because it appears in the literature.
+
+---
+
+## Reject
+
+Examples:
+
+- redundant feature expansion;
+- repeated league carve-outs;
+- repeated HPO campaigns without new information;
+- market-copying features;
+- low-coverage data sources;
+- legally unsuitable scraping;
+- features that depend on post-match revisions;
+- features that become defaults on an unacceptable share of served fixtures;
+- architectures that add complexity without information gain.
+
+---
+
+# 15. Coverage Gate
+
+For every external source:
+
+### Gate G1 — Fixture coverage
+
+Measure percentage of SabiScore fixtures with usable records.
+
+### Gate G2 — Historical depth
+
+Measure contiguous seasons and gaps.
+
+### Gate G3 — Cross-season stability
+
+Measure whether coverage collapses outside the source's strongest seasons.
+
+### Gate G4 — Cross-league portability
+
+Measure whether the signal generalizes beyond one competition.
+
+### Gate G5 — Prediction-time availability
+
+Measure percentage available at the intended prediction cutoff.
+
+### Gate G6 — Default rate
+
+Any candidate with a high production default rate must be rejected unless the missingness itself is separately modeled and demonstrably informative.
+
+---
+
+# 16. Information Value Testing
+
+The information-testing stack must be changed from “correlation first” to a hierarchical evidence system.
+
+## Stage 1 — Descriptive
+
+Measure:
+
+- distributions;
+- variance;
+- missingness;
+- season drift;
+- league drift;
+- entity coverage.
+
+---
+
+## Stage 2 — Dependence
+
+Measure:
+
+- mutual information;
+- conditional mutual information;
+- residual association;
+- monotonicity;
+- redundancy;
+- feature-feature dependence.
+
+These are diagnostic tools, not promotion criteria.
+
+---
+
+## Stage 3 — Incremental forecasting
+
+Fit the smallest defensible temporal baseline.
+
+Compare:
+
+`incumbent`
+
+against
+
+`incumbent + candidate information`
+
+and separately:
+
+`market`
+
+against
+
+`market + candidate information`
+
+This isolates whether the information contributes:
+
+- to SabiScore;
+- to the market;
+- to neither.
+
+---
+
+## Stage 4 — Conditional value
+
+Measure performance across:
+
+- probability bands;
+- leagues;
+- team-strength bands;
+- home/away;
+- congestion;
+- data completeness;
+- lineup disruption;
+- prediction horizon.
+
+A feature that only performs in one fragile slice is not globally validated.
+
+---
+
+# 17. Primary Statistical Test
+
+The principal research question is:
+
+> Does candidate information reduce expected proper scoring loss out-of-sample?
+
+Primary metrics:
+
+1. RPS;
+2. multiclass Brier;
+3. log loss.
+
+Secondary:
+
+- ECE;
+- Murphy reliability;
+- Murphy resolution;
+- calibration slope/intercept;
+- sharpness;
+- CLV only under a proper economic definition;
+- economic utility only after the underlying forecast is certified.
+
+---
+
+# 18. Statistical Validation Protocol
+
+Every serious experiment must use:
+
+### Temporal integrity
+No random train/test split for forecasting claims.
+
+### Walk-forward evaluation
+Rolling-origin evaluation across multiple periods.
+
+### Final untouched holdout
+A final period remains sealed until the model/data hypothesis is frozen.
+
+### Paired evaluation
+Each candidate produces predictions on exactly the same eligible test fixtures as its baseline.
+
+### Confidence intervals
+Use block bootstrap appropriate to temporal dependence.
+
+### Hypothesis correction
+If multiple candidate signals are tested, apply a pre-declared multiple-testing protocol such as FDR control or family-wise correction where appropriate.
+
+### Effect size
+Report absolute and relative improvement.
+
+### Practical significance
+A statistically detectable but operationally negligible result must not be promoted.
+
+### Robustness
+A successful result should not depend on one season, one league, one seed, or one narrow parameter choice.
+
+---
+
+# 19. No Arbitrary `ΔBrier` Gate
+
+The existing research strategy must not hard-code a universal threshold such as:
+
+> `ΔBrier ≥ 0.01`
+
+unless a power analysis demonstrates that the threshold is appropriate for the available sample and business objective.
+
+Instead define:
+
+### Statistical criterion
+
+Confidence interval for paired improvement excludes zero.
+
+### Practical criterion
+
+Improvement exceeds a pre-registered minimum effect size.
+
+### Robustness criterion
+
+Improvement survives multiple temporal folds.
+
+### Market criterion
+
+Candidate does not merely reproduce the market.
+
+### Operational criterion
+
+Source remains sufficiently available and reliable in production.
+
+---
+
+# 20. Calibration Workstream
+
+## B1 — Establish immutable baseline
+
+Persist:
+
+- RPS;
+- Brier;
+- reliability;
+- resolution;
+- uncertainty;
+- ECE;
+- log loss;
+- reliability plots;
+- sample count;
+- calibration window.
+
+---
+
+## B2 — Candidate recalibration
+
+Evaluate:
+
+1. temperature scaling;
+2. vector scaling;
+3. isotonic regression;
+4. beta calibration where justified.
+
+Use the existing independent calibration holdout.
+
+---
+
+## B3 — Promotion test
+
+Candidate succeeds only if:
+
+- calibration error materially improves;
+- discrimination does not materially degrade;
+- proper scoring does not degrade;
+- improvement survives paired uncertainty analysis;
+- calibration behavior persists on untouched data;
+- candidate passes the existing promotion gates.
+
+---
+
+# 21. Uncertainty Workstream
+
+Conformal prediction may be investigated, but the claim must be explicit.
+
+## Valid claim
+
+> “The system's prediction sets achieve measured marginal coverage under the evaluation assumptions.”
+
+## Invalid claim
+
+> “The system now knows which predictions will be wrong.”
+
+These are different properties.
+
+Non-adaptive split conformal may be evaluated first.
+
+Adaptive conformal methods are prohibited until an appropriate difficulty signal has been demonstrated.
+
+Acceptance criteria must include:
+
+- empirical coverage;
+- nominal coverage;
+- set size;
+- failure concentration;
+- stability across temporal windows.
+
+Coverage alone is not sufficient.
+
+---
+
+# 22. Player Availability Research Programme
+
+This becomes the first major new-information experiment.
+
+## Hypothesis
+
+Pre-match player availability and expected lineup quality contain incremental information not already represented by SabiScore team-state features and market probabilities.
+
+## Data candidates
+
+Research, rather than prematurely integrate:
+
+- injury feeds;
+- suspension information;
+- lineup announcements;
+- expected lineups;
+- player appearances;
+- minutes;
+- role;
+- squad depth.
+
+## Derived representations
+
+Start with:
+
+- unavailable starting-strength;
+- replacement cost;
+- positional disruption;
+- expected-XI continuity;
+- expected available strength;
+- bench resilience.
+
+## Baseline
+
+`incumbent`
+
+vs.
+
+`incumbent + availability`
+
+and
+
+`market`
+
+vs.
+
+`market + availability`
+
+## Promotion requirement
+
+The signal must demonstrate incremental value independently of final market probability.
+
+---
+
+# 23. Event Data Research Programme
+
+Before implementing `socceraction`, VAEP, xT, or GNN infrastructure:
+
+### D1 — Coverage audit
+
+The StatsBomb/Understat identity crosswalk must be measured.
+
+### D2 — Event completeness
+
+Measure:
+
+- event completeness;
+- missing matches;
+- malformed events;
+- team identity consistency;
+- shot coverage;
+- player identity coverage.
+
+### D3 — Prediction-time aggregation
+
+Build only pre-match rolling state.
+
+### D4 — Information test
+
+Demonstrate incremental predictive value.
+
+### D5 — Representation escalation
+
+Only after simple aggregates survive may the programme investigate:
+
+- xT;
+- VAEP;
+- possession chains;
+- graph representations;
+- spatial encoders.
+
+This prevents a high-complexity implementation from masking a low-information dataset.
+
+---
+
+# 24. Tactical Interaction Research
+
+The first tactical model should be explicit and interpretable.
+
+Example:
+
+```text
+home_pressing_intensity
+×
+away_build_up_vulnerability
 ```
 
-Deployment parity: compare `GET /health` `sha` (Render) against
-`GET /api/health` `sha`/`backendSha` (Vercel) and local `git rev-parse
---short=7 HEAD` after any push — three-way match, not two.
+rather than immediately building a GNN.
 
-Any claim about a market-beating candidate must be accompanied by
-`scripts/bootstrap_market_edge_ci.py` output with the CI excluding zero,
-ideally under the reported Bonferroni column — a point-estimate RPS
-comparison alone is no longer sufficient evidence in this repository (§2).
+Candidate interactions:
+
+- press × buildup;
+- transition × defensive concession;
+- set-piece attack × set-piece defense;
+- crossing × aerial vulnerability;
+- carry × defensive containment;
+- line-height × depth-runner threat.
+
+The research question is whether these interaction terms improve the conditional forecast after accounting for their constituent signals.
 
 ---
 
-## 7. Definition of done
+# 25. Structural Baselines
 
-A phase is done when **all** hold:
+Add evaluation-only reference models:
 
-1. Code merged with tests proportional to risk, CI green (all required checks,
-   not just the ones that happened to run — confirm via `gh pr checks`, and
-   re-verify after any post-open-PR commit, including ones you did not push
-   yourself: this session found a GitHub Copilot auto-fix agent had pushed
-   directly to an open PR branch mid-review).
-2. Any new measured model result is recorded under `backend/reports/` or
-   `docs/DEBT.md` — including, especially, a negative one. Product-only work
-   does not manufacture a model finding merely to satisfy this checklist.
-3. Documentation updated: `CHANGELOG.md` and the relevant directive or
-   architecture document; `docs/DEBT.md` and the model card when a candidate,
-   durable defect, or model-state change was actually evaluated.
-4. No gate threshold changed. No `active_generation.json` promotion without
-   all seven `certification_policy` gates passing on their own evidence, and
-   no consumer-facing accuracy claim without a calibration number to back it.
-5. Production state re-verified and reported, including when unchanged —
-   three-way SHA parity (Render / Vercel / local HEAD), not assumed from a
-   prior session's report.
+1. historical frequency;
+2. league-adjusted frequency;
+3. Elo;
+4. dynamic Elo;
+5. Poisson;
+6. Dixon-Coles;
+7. market implied probability;
+8. current SabiScore;
+9. simple blend;
+10. candidate model.
 
-**The platform is production-ready today in the sense that matters: it fails
-closed correctly, and it can now say precisely how far from staking-ready it
-is, in numbers, four ways. It is not, and will not soon be, a high-accuracy
-prediction engine — the evidence for that ceiling is now as solid as anything
-else in this codebase. The version of "world-class" available to this
-platform right now is the most honest, best-calibrated, best-designed
-evidence-transparency product in its category — not the best predictor. Build
-that.**
+These are reference instruments.
+
+They are not automatically production candidates.
+
+---
+
+# 26. Model Escalation Ladder
+
+The system must follow:
+
+### Level 0
+Simple statistical baseline.
+
+### Level 1
+Regularized logistic / linear model.
+
+### Level 2
+Existing tree ensemble.
+
+### Level 3
+Calibrated ensemble.
+
+### Level 4
+Dynamic state-space / Bayesian model.
+
+### Level 5
+Sequence model.
+
+### Level 6
+Graph/spatial model.
+
+A model may advance only if the preceding level demonstrates that the information warrants greater representational complexity.
+
+---
+
+# 27. Auxiliary Targets
+
+Secondary targets may include:
+
+- goals scored;
+- goals conceded;
+- expected goals;
+- shot volume;
+- chance quality;
+- first goal;
+- scoreline distribution;
+- latent team strength.
+
+But auxiliary prediction is not automatically useful.
+
+Before introducing multi-task learning, test:
+
+> Does the auxiliary task improve the primary 1X2 distribution?
+
+If not, it remains research-only.
+
+---
+
+# 28. Market Intelligence Rules
+
+Market data must be separated into:
+
+### Market baseline
+
+Used to evaluate the model.
+
+### Market information
+
+Used as a feature.
+
+### Economic execution data
+
+Used only after certified forecasting.
+
+No metric may be labelled “CLV” unless it measures actual price movement relative to an obtainable reference price.
+
+A model-belief-minus-closing-probability diagnostic must have a different name.
+
+---
+
+# 29. Error-Driven Research Engine
+
+The research backlog must be generated from observed failures.
+
+For every failed prediction record:
+
+- league;
+- team-strength band;
+- market probability;
+- model probability;
+- calibration residual;
+- prediction horizon;
+- lineup state;
+- availability state;
+- congestion state;
+- tactical state where available;
+- source completeness;
+- market movement.
+
+Aggregate errors into failure clusters.
+
+The next data-acquisition hypothesis should be selected partly from:
+
+> **largest reproducible error cluster × plausible missing information × acquisition feasibility**
+
+---
+
+# 30. Unknown-Unknowns Programme
+
+Every research cycle must contain a structured unknown-unknown exercise.
+
+Researchers must ask:
+
+> What materially relevant match information exists in the real world that is absent from our data model because we have never represented it?
+
+Candidate families include:
+
+- expected starting XI;
+- player role changes;
+- lineup chemistry;
+- replacement quality;
+- manager tactical adaptation;
+- opponent-specific tactical mismatch;
+- set-piece matchup;
+- schedule fatigue;
+- information arrival timing;
+- squad rotation;
+- manager-change regime shifts;
+- latent tactical state;
+- market-news lag.
+
+Every hypothesis must be classified:
+
+### H1 — Observable and testable
+Proceed.
+
+### H2 — Observable but difficult
+Research feasibility.
+
+### H3 — Latent but inferable
+Representation research.
+
+### H4 — Speculative
+Document, but do not engineer before a testable proxy exists.
+
+---
+
+# 31. Data Architecture
+
+The production architecture remains:
+
+```text
+External Source
+      ↓
+Acquisition Adapter
+      ↓
+Raw Immutable Store
+      ↓
+Validation
+      ↓
+Entity Resolution
+      ↓
+Temporal Alignment
+      ↓
+Prediction-Time State
+      ↓
+Feature Generation
+      ↓
+Feature Contract
+      ↓
+Training Dataset / Serving
+      ↓
+Model
+      ↓
+Calibration
+      ↓
+FastAPI
+      ↓
+Production Observability
+```
+
+PostgreSQL remains durable application truth.
+
+Alembic remains schema authority.
+
+Redis remains hot operational state.
+
+FastAPI remains backend authority.
+
+No second queue.
+
+No second team-name normalizer.
+
+No hidden feature service.
+
+No client-side prediction computation.
+
+---
+
+# 32. Raw Data Rules
+
+Every new source requires:
+
+- raw payload retention;
+- source URL/API identifier;
+- acquisition timestamp;
+- source timestamp;
+- schema version;
+- content hash where feasible;
+- parser version;
+- transformation version;
+- licence/access classification.
+
+A derived feature must always be traceable back to its raw observation.
+
+---
+
+# 33. Feature Lineage
+
+Every production feature must have:
+
+```text
+feature_id
+source_id
+source_timestamp
+effective_timestamp
+prediction_cutoff
+transformation_version
+availability_status
+missingness_semantics
+training_eligibility
+serving_eligibility
+provenance
+```
+
+This becomes part of certification.
+
+---
+
+# 34. Production Failure Semantics
+
+External data failure must not silently produce a fabricated feature.
+
+Permitted outcomes:
+
+### State A
+Feature available and valid.
+
+### State B
+Feature unavailable and omitted.
+
+### State C
+Feature dependency makes prediction ineligible.
+
+### State D
+System fails closed.
+
+No fallback to arbitrary neutral values.
+
+---
+
+# 35. Memory and Compute Policy
+
+Development target:
+
+- approximately 8 GB RAM;
+- CPU-first;
+- remote GPU only when justified.
+
+Preferred tools:
+
+- DuckDB;
+- Polars;
+- PyArrow where actually required;
+- memory-mapped data;
+- Parquet;
+- streaming aggregation;
+- incremental processing.
+
+Production dependencies must remain minimal.
+
+A research dependency belongs in the ML environment unless runtime serving genuinely requires it.
+
+The experiment registry must record:
+
+- peak RSS;
+- runtime;
+- CPU usage;
+- disk consumption;
+- dataset size;
+- model artifact size.
+
+---
+
+# 36. Tooling Evaluation
+
+Candidate tools must be scored against:
+
+> capability × reliability × license × coverage × maintainability × integration cost × compute cost
+
+Possible components:
+
+- DuckDB;
+- Polars;
+- scikit-learn;
+- XGBoost;
+- LightGBM;
+- CatBoost;
+- PyTorch;
+- Optuna;
+- MLflow;
+- Evidently;
+- DVC;
+- Great Expectations;
+- Apache Arrow.
+
+No tool enters the production architecture solely because it is free or fashionable.
+
+---
+
+# 37. Agentic Research Architecture
+
+Agents may accelerate:
+
+### Research Agent
+Searches literature, repositories and source documentation.
+
+### Data Agent
+Profiles source schemas and coverage.
+
+### Feature Scientist
+Generates hypotheses from known information gaps.
+
+### Experiment Agent
+Constructs registered experiment specifications.
+
+### Statistical Reviewer
+Runs pre-declared significance and robustness tests.
+
+### Production Reviewer
+Checks lineage, dependencies, legal status, failure behavior and parity.
+
+### Certification Agent
+Produces evidence packets but cannot certify autonomously.
+
+Agents may never:
+
+- invent evidence;
+- rewrite test outcomes;
+- modify promotion thresholds after seeing results;
+- promote a model;
+- activate staking;
+- alter certification policy;
+- suppress negative results.
+
+Human authorization remains mandatory.
+
+---
+
+# 38. Experiment Registry
+
+Each experiment must contain:
+
+```yaml
+experiment_id:
+hypothesis:
+information_source:
+source_version:
+source_license_class:
+source_coverage:
+historical_window:
+prediction_cutoff:
+dataset_version:
+feature_version:
+representation_version:
+model_version:
+parameters:
+seed:
+training_window:
+validation_windows:
+final_holdout:
+baseline_models:
+market_baseline:
+primary_metrics:
+secondary_metrics:
+bootstrap_method:
+statistical_test:
+multiple_testing_family:
+effect_size:
+confidence_interval:
+sample_size:
+result:
+robustness:
+failure_modes:
+compute:
+peak_rss:
+runtime:
+decision:
+artifact_location:
+provenance:
+reviewer:
+certification_status:
+```
+
+The registry must be machine-readable.
+
+---
+
+# 39. Experiment State Machine
+
+Every experiment follows:
+
+```text
+PROPOSED
+↓
+SOURCE QUALIFIED
+↓
+DATA VALIDATED
+↓
+TEMPORAL VALIDATED
+↓
+INFORMATION TEST
+↓
+MODEL CANDIDATE
+↓
+OUT-OF-SAMPLE EVALUATION
+↓
+STATISTICAL REVIEW
+↓
+ROBUSTNESS REVIEW
+↓
+PRODUCTION REVIEW
+↓
+SHADOW
+↓
+CERTIFICATION
+↓
+PROMOTION
+```
+
+The system must never jump from:
+
+`PROPOSED → PRODUCTION`
+
+or
+
+`FEATURE → MODEL`
+
+without intermediate evidence.
+
+---
+
+# 40. Research Gates
+
+## Gate R0 — Ground truth
+
+Current repository and deployment state verified.
+
+## Gate R1 — Source qualification
+
+Coverage, legality, temporal reproducibility and provenance pass.
+
+## Gate R2 — Information qualification
+
+Signal demonstrates non-trivial incremental information.
+
+## Gate R3 — Forecast improvement
+
+Candidate improves appropriate proper scores under temporal validation.
+
+## Gate R4 — Statistical robustness
+
+Confidence intervals, paired testing and multiple-testing controls pass.
+
+## Gate R5 — Production viability
+
+Runtime, freshness, failure behavior and dependency budget pass.
+
+## Gate R6 — Shadow production
+
+Live data proves operational integrity.
+
+## Gate R7 — Certification
+
+Existing promotion policy passes without modification.
+
+---
+
+# 41. Kill Criteria
+
+A branch is killed when:
+
+### Data failure
+- insufficient coverage;
+- unacceptable missingness;
+- unreliable historical reconstruction;
+- unstable source;
+- unresolved identity mapping.
+
+### Legal failure
+- unclear or incompatible production rights;
+- prohibited automation;
+- unresolvable licensing risk.
+
+### Information failure
+- no incremental value conditional on incumbent;
+- no incremental value conditional on market;
+- candidate is demonstrably redundant.
+
+### Statistical failure
+- improvement indistinguishable from noise;
+- benefit disappears across folds;
+- effect depends on one narrow period;
+- benefit disappears after proper multiplicity correction.
+
+### Operational failure
+- excessive latency;
+- excessive memory;
+- unreliable source;
+- unacceptable maintenance burden.
+
+### Complexity failure
+A more complex representation cannot demonstrate material improvement over the simpler representation using the same information.
+
+---
+
+# 42. Reopening a Rejected Idea
+
+A closed branch may be reopened only if at least one of the following is materially different:
+
+1. new information;
+2. new historical coverage;
+3. new prediction cutoff;
+4. new causal hypothesis;
+5. new representation that encodes genuinely different information;
+6. corrected methodological defect;
+7. previously unavailable statistical power.
+
+“Try it again with XGBoost instead of LightGBM” is not sufficient.
+
+---
+
+# 43. Priority Experiment Backlog
+
+## Experiment E0 — Calibration Repair
+
+**Hypothesis:** current probabilities are materially miscalibrated.
+
+**Information:** no new source.
+
+**Method:** temperature, vector and isotonic candidates.
+
+**Baseline:** current serving probabilities.
+
+**Success:** meaningful reduction in reliability/ECE without degradation in discrimination.
+
+**Importance:** immediate.
+
+---
+
+## Experiment E1 — Player Availability Delta
+
+**Hypothesis:** expected available team strength contains incremental information.
+
+**Source:** legally viable availability/lineup source.
+
+**Representation:** availability delta, replacement cost, positional disruption.
+
+**Baseline:** incumbent + market.
+
+**Success:** statistically defensible improvement across multiple temporal windows.
+
+**Importance:** highest-priority new information candidate.
+
+---
+
+## Experiment E2 — Expected XI / Continuity
+
+**Hypothesis:** lineup continuity and expected XI state contribute incremental signal.
+
+**Representation:**
+
+- expected XI overlap;
+- positional changes;
+- starter absence count;
+- role disruption.
+
+---
+
+## Experiment E3 — Event-Derived Team State
+
+**Hypothesis:** historical event-derived performance contains information not represented by current aggregate features.
+
+**Prerequisite:** coverage gate.
+
+---
+
+## Experiment E4 — Tactical Interaction
+
+**Hypothesis:** opponent-specific interaction contains information beyond independent team strength.
+
+**Representation:** interaction terms first; graph model only if warranted.
+
+---
+
+## Experiment E5 — Market Information Arrival
+
+**Hypothesis:** timing and structure of market movement reveal information arrival not captured by opening prices.
+
+**Important:** must distinguish market intelligence from independent football intelligence.
+
+---
+
+## Experiment E6 — Dynamic Team State
+
+**Hypothesis:** latent team strength changes faster than current Elo/rating representation.
+
+**Candidate:** lightweight state-space model.
+
+---
+
+## Experiment E7 — Distributional Goal Model
+
+**Hypothesis:** modelling score distributions directly improves 1X2 probability quality.
+
+**Candidate:** Poisson/Dixon-Coles baseline, followed only if justified by evidence.
+
+---
+
+# 44. What Not to Do
+
+The following are explicitly prohibited during this directive unless reopened under a materially different hypothesis:
+
+- broad feature-density expansion;
+- blind addition of dozens of statistics;
+- repeated HPO campaigns;
+- repeated ensemble expansion;
+- league-specific carving without causal justification;
+- generic weather-feature dumping;
+- indiscriminate bookmaker-source aggregation;
+- GNN/Transformer implementation before information qualification;
+- automatic integration of StatsBomb simply because the dataset is rich;
+- scraping every available website;
+- replacing missing values with neutral measurements;
+- marketing claims based on model-market disagreement;
+- treating calibration as evidence of market superiority.
+
+---
+
+# 45. Immediate Production Hygiene
+
+Before new research acquisition:
+
+### A1
+Resolve phantom certification thresholds.
+
+### A2
+Correct the CLV terminology.
+
+### A3
+Move research-only dependencies out of runtime.
+
+### A4
+Correct latency definitions.
+
+### A5
+Resolve authorized feature-availability instrumentation.
+
+### A6
+Resolve duplicated/malformed historical corpus issues before using it as a calibration or modelling source.
+
+These are prerequisites for trustworthy experimentation.
+
+---
+
+# 46. Phase Plan
+
+## Phase 0 — Ground Truth
+
+Deliverables:
+
+- repository snapshot;
+- source inventory;
+- feature inventory;
+- model inventory;
+- market inventory;
+- certification inventory;
+- debt inventory.
+
+---
+
+## Phase 1 — Calibration
+
+Deliverables:
+
+- baseline series;
+- recalibration candidates;
+- statistical comparison;
+- candidate artifact;
+- certification packet.
+
+---
+
+## Phase 2 — Missing Information Discovery
+
+Deliverables:
+
+- information opportunity matrix;
+- source qualification table;
+- legal/access assessment;
+- coverage map;
+- historical reconstructability map.
+
+---
+
+## Phase 3 — Data Qualification
+
+Deliverables:
+
+- source adapters;
+- raw snapshots;
+- entity-resolution audit;
+- temporal audit;
+- missingness audit;
+- provenance records.
+
+No production integration yet.
+
+---
+
+## Phase 4 — Information-Value Testing
+
+For every surviving source:
+
+> data → simple representation → incremental test → kill/promote
+
+This is the principal research gate.
+
+---
+
+## Phase 5 — Representation Research
+
+Only surviving information proceeds into:
+
+- dynamic state;
+- interactions;
+- embeddings;
+- graphs;
+- spatial models.
+
+---
+
+## Phase 6 — Controlled Model Experiments
+
+Models are compared using frozen experiment configurations.
+
+---
+
+## Phase 7 — Statistical Validation
+
+Use:
+
+- temporal folds;
+- block bootstrap;
+- paired tests;
+- multiple-testing correction;
+- holdout confirmation.
+
+---
+
+## Phase 8 — Shadow Production
+
+Evaluate:
+
+- data freshness;
+- feature availability;
+- serving parity;
+- latency;
+- failures;
+- operational completeness.
+
+---
+
+## Phase 9 — Certification
+
+All existing gates remain authoritative.
+
+Research may not modify policy in order to pass a candidate.
+
+---
+
+## Phase 10 — Production Integration
+
+Only after certification:
+
+- schema migration;
+- feature activation;
+- model promotion;
+- telemetry activation;
+- post-deploy verification.
+
+---
+
+# 47. Top Ten Immediate Actions
+
+## 1. Freeze the current evidence baseline
+
+Persist every current metric and active artifact under a versioned baseline.
+
+## 2. Complete calibration repair experiments
+
+Use the existing temporal calibration holdout before acquiring new data.
+
+## 3. Build the canonical Information Opportunity Matrix
+
+Map:
+
+> what SabiScore knows  
+> what the market knows  
+> what potentially exists outside both.
+
+## 4. Run a formal player-availability source study
+
+Do not integrate yet.
+
+First determine:
+
+- legality;
+- historical depth;
+- expected lineup availability;
+- timestamp fidelity;
+- coverage.
+
+## 5. Build a prediction-time source contract
+
+Every external observation gets:
+
+> `observed_at`, `effective_at`, `available_at`, `cutoff`, `source_version`.
+
+## 6. Re-run all event-data coverage audits
+
+Especially the StatsBomb/Understat identity crosswalk.
+
+Do not authorize VAEP/xT merely because the libraries are available.
+
+## 7. Build lightweight incremental-information test harnesses
+
+The harness must compare:
+
+> incumbent  
+> incumbent + source  
+> market  
+> market + source
+
+using identical temporal folds.
+
+## 8. Establish structural evaluation baselines
+
+Add:
+
+- Poisson;
+- Dixon-Coles;
+- dynamic rating baseline.
+
+Evaluation-only.
+
+## 9. Establish the machine-readable experiment registry
+
+No research result exists unless it is reproducible from the registry.
+
+## 10. Start the first three bounded experiments
+
+Run:
+
+1. calibration;
+2. player availability;
+3. event-derived team state where coverage qualifies.
+
+Do not start GNN/Transformer research before those results exist.
+
+---
+
+# 48. Definition of Success
+
+This programme does **not** succeed merely because:
+
+- more data was acquired;
+- more features were created;
+- a neural network was trained;
+- an RPS point estimate improved;
+- a paper was reproduced;
+- the market was beaten on one fold;
+- an accuracy number increased;
+- a dashboard became more sophisticated.
+
+The programme succeeds when it produces at least one chain of evidence:
+
+```text
+NEW INFORMATION
+      ↓
+RELIABLY ACQUIRED
+      ↓
+LEGALLY USABLE
+      ↓
+HISTORICALLY RECONSTRUCTABLE
+      ↓
+TEMPORALLY VALID
+      ↓
+INDEPENDENT OF CURRENT FEATURES
+      ↓
+INCREMENTAL INFORMATION DEMONSTRATED
+      ↓
+OUT-OF-SAMPLE FORECAST IMPROVEMENT
+      ↓
+STATISTICALLY ROBUST
+      ↓
+PRACTICALLY MATERIAL
+      ↓
+PRODUCTIONALLY RELIABLE
+      ↓
+CERTIFIED
+```
+
+Anything short of that remains research.
+
+---
+
+# 49. Definition of Failure
+
+The programme must explicitly conclude:
+
+> **No sufficiently independent, economically practical, legally usable source was demonstrated to improve SabiScore out-of-sample under the specified validation regime.**
+
+That is a successful scientific conclusion if the evidence supports it.
+
+The system must never manufacture a roadmap merely because the roadmap is expected to contain positive findings.
+
+---
+
+# 50. Standing Product Position
+
+SabiScore must continue to represent its forecasting capability accurately.
+
+The product may claim:
+
+- probabilistic forecasting;
+- calibration measurement;
+- uncertainty research;
+- transparent evidence;
+- model diagnostics;
+- market comparison.
+
+It must not claim:
+
+- superior accuracy;
+- market-beating performance;
+- profitable betting performance;
+- closing-line value;
+- predictive superiority;
+
+unless the corresponding evidence passes the platform's actual certification requirements.
+
+---
+
+# 51. Final Decision Framework
+
+Every research branch ends with one of four decisions.
+
+### PROMOTE
+
+Evidence demonstrates:
+
+- information value;
+- forecast value;
+- statistical robustness;
+- operational viability;
+- certification readiness.
+
+### RESEARCH
+
+Signal is promising but evidence or production readiness is incomplete.
+
+### HOLD
+
+Signal is plausible but insufficiently powered or historically reconstructable.
+
+### REJECT
+
+Evidence indicates the source/representation does not justify further investment.
+
+The default decision after an inconclusive small sample is **HOLD**, not PROMOTE and not forced REJECT.
+
+---
+
+# 52. Core Research Question
+
+The entire programme ultimately answers one question:
+
+> **What new, trustworthy, legally usable, temporally available information can SabiScore acquire and transform into genuinely independent predictive signal, and what is the smallest rigorous experimental sequence capable of proving whether that information improves out-of-sample forecasting?**
+
+The answer must be expressed as:
+
+```text
+Source
+→ Coverage
+→ Legal Status
+→ Temporal Fidelity
+→ Missingness
+→ Entity Resolution
+→ Independent Information
+→ Representation
+→ Baseline
+→ Out-of-Sample Result
+→ Confidence Interval
+→ Statistical Decision
+→ Production Decision
+```
+
+No step may be inferred from another.
+
+---
+
+# 53. Executive Principle
+
+The programme is therefore governed by:
+
+> **Do not build the feature until the information earns the feature.**
+>
+> **Do not build the model until the information earns the model.**
+>
+> **Do not build the infrastructure until the model earns production.**
+>
+> **Do not claim the result until the evidence earns the claim.**
+
+SabiScore does not need more data for its own sake.
+
+It needs **better information, better temporal truth, better calibration, better representations of genuinely missing state, and better evidence about whether any of those things actually improve forecasting.**
+
+That is the standard for every subsequent data, modelling, and intelligence decision.

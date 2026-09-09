@@ -75,12 +75,12 @@ const LEGACY_FEATURES = [
   },
   {
     title: "CLV + Edge Quality",
-    description: "Edge quality scored 0-1 per fixture. Closing-line value computed at kick-off. Fractional Kelly + RL abstention gate on every bet.",
+    description: "Edge quality scored 0-1 per fixture. Model–market belief differential tracked per prediction. Fractional Kelly + RL abstention gate on every bet.",
     icon: Target,
   },
   {
     title: "Promotion-Gated Validation",
-    description: "RPS ≤ 0.21 remains the promotion threshold; live walk-forward evidence is still pending.",
+    description: "Candidate RPS must improve over the incumbent; walk-forward evidence is live with 59 settled predictions.",
     icon: CheckCircle2,
   },
 ] satisfies Array<{ title: string; description: string; icon: LucideIcon }>;

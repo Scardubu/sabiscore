@@ -128,7 +128,7 @@ describe("PerformancePageClient summary", () => {
 
     renderWithClient();
 
-    expect(await screen.findByText(/closing line value/i)).toBeInTheDocument();
+    expect(await screen.findByText(/market belief differential/i)).toBeInTheDocument();
     expect(screen.getByText(/6 of 10 joined predictions/i)).toBeInTheDocument();
     expect(screen.queryByText(/pp$/)).not.toBeInTheDocument();
   });

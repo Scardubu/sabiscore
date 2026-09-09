@@ -264,7 +264,13 @@ class PredictionHistoryResponse(BaseModel):
 class ModelPerformanceMetrics(BaseModel):
     """Real-time model performance metrics"""
     predictions_today: int
-    avg_processing_time_ms: float = Field(..., description="Target: <150ms")
+    avg_processing_time_ms: float = Field(
+        ...,
+        description=(
+            "Average model inference time (predict_proba over 68-vector). "
+            "Budget: ≤150ms p95 for inference only — not the full request cycle (~1–2.5s)."
+        ),
+    )
     cache_hit_rate: float = Field(..., ge=0, le=1)
     calibration_status: CalibrationMetrics
     value_bets_identified: int

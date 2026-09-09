@@ -1614,7 +1614,11 @@ function FullAnalysisDashboardInner({
           <svg className="w-4 h-4 flex-shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <p className="text-xs text-slate-400">Live market odds unavailable — edge calculation skipped.</p>
+          <p className="text-xs text-slate-400">
+            {presentation.predictionAvailable
+              ? "Live market odds unavailable — edge calculation skipped."
+              : "No model-vs-market comparison — an edge needs a measured forecast, and only a diagnostic baseline was produced for this fixture."}
+          </p>
         </div>
       )}
 

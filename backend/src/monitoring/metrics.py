@@ -350,6 +350,27 @@ class MetricsCollector:
             
             summary["model_accuracy"] = model_metrics
         
+        # Latency budget status (§4.1 Production Executive Directive)
+        # model_inference ≤ 150ms p95 (CI assertion in test_latency_budgets.py)
+        # analysis.latency ≤ 2500ms p95 (alert threshold — not a CI hard gate)
+        timers = summary.get("timers", {})
+        inference_p95 = (timers.get("model_inference") or {}).get("p95_ms")
+        analysis_p95 = (timers.get("analysis.latency") or {}).get("p95_ms")
+        summary["latency_budgets"] = {
+            "model_inference": {
+                "budget_ms": 150,
+                "p95_ms": inference_p95,
+                "within_budget": (inference_p95 is None) or (inference_p95 <= 150),
+                "note": "inference-only (predict_proba over 68-vector); full request is ~1–2.5s",
+            },
+            "full_analysis_end_to_end": {
+                "budget_ms": 2500,
+                "p95_ms": analysis_p95,
+                "within_budget": (analysis_p95 is None) or (analysis_p95 <= 2500),
+                "note": "alert threshold — not a CI hard gate; enforced via /metrics monitoring",
+            },
+        }
+
         return summary
 
     def reset(self) -> None:

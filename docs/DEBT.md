@@ -1,5 +1,223 @@
 # SabiScore Debt Ledger
 
+## 64. Calibration selection scored isotonic regression against the data it was fit to — corrected to require held-out persistence per directive §20 B3, and isotonic loses in 4 of 4 opportunities — RESOLVED 2026-09-09
+
+**Tier:** `RESOLVED` — measurement bug fixed, gate tightened on the resulting
+evidence, retrained, full backend suite green, new unit coverage watched
+failing on both the pre-fix and pre-tightening behavior before being trusted.
+
+**Found while executing `PRODUCTION_EXECUTIVE_DIRECTIVE.md`'s Phase 1 / E0
+("Calibration Repair") workstream**, whose B2/B3 machinery
+(`scripts/train_on_real_matches.py::_select_calibrator`, `_fit_temperature`,
+`_fit_isotonic`) had been written in a prior session but never executed
+end-to-end. Running it surfaced two independent measurement defects before any
+result could be trusted, and then a decisive empirical finding once they were
+fixed.
+
+**Defect 1 — binning convention drift.** `_calibration_reliability` special-
+cased its first bin as `[0.0, 0.1]` inclusive while every other bin — and both
+production functions it claimed to match (`expected_calibration_error`,
+`brier_score_decomposition` in `src/models/evaluation/metrics.py`) — use
+`(lo, hi]` uniformly. Isotonic regression's `y_min=0.0` clip makes exact-zero
+outputs a real occurrence (not a theoretical edge case), so a number computed
+this way was not safely comparable to the live production baseline
+(`backend/models/calibration_baselines.json`, reliability 0.0326) or to the
+"≤0.010" target both cite. Fixed by deleting the second implementation and
+delegating to `brier_score_decomposition` directly — the same function
+`GET /api/v1/model-performance/calibration` serves — so there is one
+implementation of this convention, not two that can drift (this repository's
+own recurring failure shape: duplicated season tables, two divergent
+`completeness` formulas, the Brier mean-over-samples-vs-mean-over-classes
+convention mismatch already recorded in
+`reports/evaluation/metric-contract.json`).
+
+**Defect 2 — circular evaluation.** Having fixed the binning, the selection
+logic still chose between temperature scaling and isotonic regression by
+measuring reliability **on the exact calibration split each candidate was fit
+to.** Isotonic regression is flexible enough to fit a few hundred rows almost
+exactly; a near-zero in-sample reliability number is what an overfitting
+calibrator looks like, not evidence it generalises. Directive §20 B3 names
+this exact risk and its fix: a recalibration candidate "succeeds only if...
+calibration behavior persists on untouched data." `_select_calibrator` now
+scores both candidates a second time on the genuinely disjoint holdout
+season (the temporal test split every league's reported RPS/accuracy already
+comes from) and requires isotonic to win **both** comparisons before it ships;
+losing the second demotes it to temperature regardless of the first.
+
+⚠️ **This was not a theoretical fix — retraining on the real 12,765-match
+corpus (`backend/data/cache/fd_*.csv`) measured it directly.** Isotonic won
+the calibration-set comparison in 4 of 6 leagues (EPL, LA_LIGA, LIGUE_1, and
+the pooled model covering EREDIVISIE) and **failed the held-out persistence
+check in all 4 — a complete reversal every time**, not a close call:
+
+| League | Calibration-set reliability (iso vs temp) | Held-out reliability (iso vs temp) |
+|---|---|---|
+| EPL | 0.0020 < 0.0035 (iso "wins") | 0.0041 > 0.0033 (iso loses) |
+| LA_LIGA | 0.0021 < 0.0039 (iso "wins") | 0.0054 > 0.0033 (iso loses) |
+| LIGUE_1 | 0.0020 < 0.0038 (iso "wins") | 0.0069 > 0.0059 (iso loses) |
+| POOLED (Eredivisie) | 0.0004 < 0.0015 (iso "wins") | 0.0017 > 0.0005 (iso loses) |
+
+BUNDESLIGA and SERIE_A never won the calibration-set comparison to begin with
+(isotonic improved reliability but degraded resolution — the separate,
+already-implemented B3 discrimination guard). **Net result: temperature
+scaling ships in all 6 leagues.** Per directive §51's decision framework this
+is a clean **REJECT** for isotonic regression as a per-league recalibration
+candidate at this data volume (a few hundred calibration rows per league) —
+useful negative evidence (§10), not an inconclusive sample: it is 4 for 4, and
+the reversal size in every case dwarfs measurement noise.
+
+⚠️ **A side effect that would otherwise have gone unnoticed:** `responsive_features`
+(the `input_responsiveness` promotion-gate diagnostic, `_served_sensitivity`)
+jumped from `2/68`, `8/68`, `6/68` (EPL/LA_LIGA/POOLED, computed through the
+buggy isotonic-shipping run) to `50/68`, `51/68`, `55/68` once temperature
+shipped instead. Isotonic's per-class step function can absorb a perturbed
+input without crossing a breakpoint, so a served isotonic calibrator
+artificially suppresses this gate's reading of the underlying base learners'
+real sensitivity — a second, independent reason not to ship it here, on top
+of the reliability/resolution finding above.
+
+**Full candidate evaluation** (`scripts/compare_candidate_vs_incumbent.py`,
+default `apex_v1_68` schema, holdout season 2526, output
+`backend/models/candidate/comparison_report_v5_phase7_isotonic_fix.json`):
+`promotion_permitted: false`. `no_league_regression` FAIL (3/6 league wins —
+EREDIVISIE, LA_LIGA, SERIE_A), `market_baseline` FAIL (0/6, worse than the
+previously-evaluated `apex_v5_66` candidate's 1/6), `serving_feature_availability`
+FAIL (the pre-existing item 37/49 schema-deadlock residual, untouched by this
+session). This candidate was **not promoted** — re-confirms, on a
+methodologically-corrected artifact, the same market-baseline blocker this
+ledger has already recorded against every prior candidate.
+
+**Fix location:** `backend/scripts/train_on_real_matches.py`
+(`_calibration_reliability`, `_calibration_wins`, `_select_calibrator`,
+`train_league`). `train_league` now builds the holdout meta-feature matrix
+once and reuses it for both the persistence check and the reported stacked-head
+metrics (previously built twice). Every league's `calibration_selection`
+diagnostics (both stages' reliability/resolution, which was chosen, and why)
+are persisted in `training_report_real.json` and the served artifact's
+`model_metadata.calibration_method` / `calibration_selection_reason` — a
+promotion review does not need to re-derive this from logs.
+
+**Regression guard:** `backend/tests/unit/test_calibration_selection.py` (5
+tests) — delegation-matches-production, isotonic chosen when it wins both
+stages, isotonic rejected for degrading resolution even when reliability
+improves, **isotonic rejected when it wins the calibration set but fails
+holdout persistence** (reusing a class-balance-preserving cyclic relabelling
+so temperature's label-blind constant prediction is mathematically unaffected
+while isotonic's per-row target becomes wrong for every row — not a
+contrived edge case, this is the exact shape of all 4 real reversals above),
+and the isotonic-fit-failure fallback. All watched failing against the
+pre-fix and pre-tightening code before being trusted.
+
+**Verification:** `ruff check src --select E4,E7,E9,F` (the actual CI gate)
+clean; `ruff check scripts/train_on_real_matches.py
+tests/unit/test_calibration_selection.py` clean; full backend suite green;
+web lint/typecheck clean (unaffected, confirmed as a clean baseline). No
+artifact under `backend/models/` (the served, certified root) was touched —
+only `backend/models/candidate/` (gitignored `.pkl`s; the tracked
+`training_report_real.json` and new `comparison_report_v5_phase7_isotonic_fix.json`
+carry the evidence trail). Nothing was committed or promoted this session.
+
+## 63. A flat diagnostic prior was differenced against real market prices and published as a "+29.8pp" edge — RESOLVED 2026-09-08
+
+**Tier:** `RESOLVED` — root cause fixed at the backend, guard watched failing,
+full unit suite green.
+
+**Found from a live production screenshot, not a test.** On
+`/match/fd-575329?league=UCL` (FC Barcelona vs Feyenoord Rotterdam), the
+Ensemble card read *"Official outcome probabilities are unavailable. Diagnostic
+baseline values are not displayed."* with *"Top outcome probability:
+Unavailable"* — and two cards below it, **Edge Delta rendered `Model 33.4%` vs
+`Fair market 3.6%` = `+29.8pp`, in emerald, captioned "Model above fair
+market."** The same page carried `RL BET RECOMMENDATION: No bet`, `BNN
+UNCERTAINTY: Unavailable`, `ELO CONTEXT: —`, and `5 critical gaps`.
+
+33.4% is the flat 1/3 diagnostic prior. `_odds_edge_from_features`
+(`full_analysis.py`) took `ensemble.home_win_prob` / `draw_prob` /
+`away_win_prob` with **no check on `prediction_status`**, so on the
+`REDUCED_EVIDENCE_BASELINE` path it differenced that prior against a real
+de-vigged price.
+
+⚠️ **This is not a weak signal, it is a systematically flattering fabrication.**
+The selection loop maximises `model_prob - fair_market`. With a flat prior every
+term of the first half is identical, so the maximum is always attained at the
+*smallest* fair-market probability — i.e. **the longest shot on the board,
+every time**, with the bookmaker's own margin on that leg reported as model
+skill. The 27.00 away price is what produced 29.8pp. A shorter board would have
+produced a smaller but equally fabricated number.
+
+**Three surfaces leaked from the one root cause**, which is why the fix belongs
+in the backend and not in the components: `EdgeDeltaBar`, `OddsEdgeCard`, and
+`_build_actionability`'s `top_evidence` list, which formats
+`f"Market edge +{...}pp on {market}"` into the narrative.
+
+⚠️ **It was latent for as long as the code existed and was activated by a
+*different* fix.** The Layer 4 comment in `get_full_analysis` records that
+`market_odds` was structurally always `None` — nothing ever asked a provider
+for a price — so `_odds_edge_from_features` always returned `None` and no
+comparison ever rendered. Wiring live odds up (the `_team_key` normalizer fix,
+14/59 → 59/59 matched) supplied the missing second term and switched this on.
+**A dormant fabrication has no symptom until the input it was waiting for
+arrives; fixing a data-plumbing bug can commission one.**
+
+**The `UNAVAILABLE` path was already safe by accident, not by design** —
+`_empty_ensemble` carries `0.0` probabilities, so `edge = 0 - fair < 0` and the
+`best[3] <= 0` guard rejected it. Only `REDUCED_EVIDENCE_BASELINE` leaked. The
+fix covers both, so the safety no longer depends on that coincidence.
+
+**Fix.** `prediction_status` is now a required keyword-only argument of
+`_odds_edge_from_features`, which returns `None` for any status other than
+`AVAILABLE`. The guard lives in the function rather than at the call site so no
+future caller can reintroduce the comparison by forgetting it.
+
+⚠️ **`COHERENT_1X2_MARKET_UNAVAILABLE` must NOT be appended on the suppressed
+path** — the market was *resolved* there (the live Evidence Passport read
+`Market Price — RESOLVED · 4` on the same screenshot). The call site now only
+claims that gap when `prediction_status == AVAILABLE`. This cannot loosen a
+staking gate: `MODEL_PREDICTION_REDUCED_EVIDENCE` / `MODEL_PREDICTION_UNAVAILABLE`
+is already appended on those paths, already forces `partial`, and already zeroes
+every public stake.
+
+**Deliberately NOT fixed — a pre-existing mislabel of the same family.** When
+the model *is* available and no market carries a positive edge,
+`_odds_edge_from_features` returns `None` via `best[3] <= 0` and the call site
+still appends `COHERENT_1X2_MARKET_UNAVAILABLE` → "no stable market price to
+compare against yet", when the real reason is "no positive edge found". Correct
+label, wrong cause. It is left alone because removing that gap would drop a
+critical gap on the `AVAILABLE` path and could open a staking gate — a Class C
+gate-loosening change requiring explicit authorization under APEX §23. Behaviour
+on the `AVAILABLE` path is byte-identical to before this fix.
+
+**Frontend.** The `!data.odds_edge` fallback previously read *"Live market odds
+unavailable — edge calculation skipped."* — which the backend fix would have
+made **false** on exactly the new path (odds were available; the model was not).
+It is now conditional on `presentation.predictionAvailable`.
+
+**Regression guard** (`test_full_analysis_contract.py`), parametrized over both
+non-`AVAILABLE` statuses, using the screenshot's own board
+(`{home 1.12, draw 9.5, away 27.0}`) against a flat 1/3 prior. **Watched
+failing** with the guard reverted, and it reproduced the live number exactly:
+`OddsEdge(market='away_win', market_odds=27.0, model_prob=0.3333,
+edge=0.29755)` → **+29.8pp**. A companion test pins that magnitude and the
+longest-shot selection so the guard's value stays visible, and a third asserts a
+real forecast still produces a comparison — the gate is on the model term only,
+not an odds kill switch.
+
+**Verification.** Backend unit suite 1281 passed / 4 skipped / 2 xfailed (the
+xfails are item 50's `error_association`); `test_full_analysis_contract.py`
+24/24; ruff `E4,E7,E9,F` clean on `src`; mypy 769 ≤ 784 (unchanged); web
+typecheck clean; ESLint clean; web Vitest 347/348 (the one failure is an
+unrelated pre-existing load-flake, see below).
+
+**Unrelated finding, not fixed.**
+`src/components/performance/performance-page-client.test.tsx > distinguishes a
+real outage from having no settled data` times out at the 5000 ms default under
+full-suite parallel load, and passes in isolation at **4202 ms** — an 0.8 s
+margin. It shares no import path with anything changed here
+(`performance-page-client.tsx` never imports `full-analysis-dashboard.tsx`).
+This is a latent CI flake that will fail intermittently on a loaded runner;
+raising its timeout is a judgment call left to whoever owns that surface.
+
+
 ## 62. A league-stratified staking carve-out was proposed and rejected on a paired bootstrap CI — the "EPL edge" was 0.078σ of an unpaired SE, and 0/6 leagues clear it either way (2026-09-06, PR #156)
 
 **Tier:** `ACCEPTED` — measured, documented, not revisited without new evidence.

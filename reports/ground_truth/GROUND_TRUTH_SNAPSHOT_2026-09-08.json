@@ -1,0 +1,231 @@
+{
+  "snapshot_id": "GROUND_TRUTH_SNAPSHOT_2026-09-08",
+  "directive": "Production Executive Directive v5",
+  "gate": "R0",
+  "phase": "Phase 0 - Ground Truth",
+  "captured_at_utc": "2026-09-08T22:27:00Z",
+  "immutability_note": "Frozen for the duration of the v5 experiment cycle. Every field below was measured this session from the cited source. No value is transcribed from directive prose or from a prior status document. Do not edit; supersede with a new dated snapshot.",
+
+  "repository": {
+    "source": "git (local working copy)",
+    "head_sha": "9f6628d5b56bed6cb36182fac09de7096e017e65",
+    "head_sha_short": "9f6628d",
+    "branch": "fix/baseline-market-edge-fabrication",
+    "origin_master_sha_short": "221a05a",
+    "ahead_behind_origin_master": { "ahead": 2, "behind": 0 },
+    "unpushed_commits": [
+      "008c439 fix(analysis): never derive a market edge from the diagnostic baseline",
+      "9f6628d docs(directive): v4 - pivot to calibration as a measured target"
+    ],
+    "working_tree_dirty": true,
+    "modified_tracked_files": 15,
+    "untracked_paths": [
+      ".claude/hooks/",
+      ".claude/skills/prisma-composer/",
+      ".vscode/",
+      "INSTRUCTIONS.md",
+      "backend/models/calibration_baselines.json",
+      "backend/scripts/snapshot_calibration_baseline.py",
+      "backend/tests/unit/test_latency_budgets.py"
+    ],
+    "in_flight_workstream": "Directive v4 section 45 production hygiene (A1 phantom thresholds, A2 CLV terminology, A3 research deps out of runtime, A4 latency definitions) plus Portfolio A / E0 isotonic calibration candidate. Uncommitted."
+  },
+
+  "active_generation": {
+    "source": "backend/models/active_generation.json (hash-verified manifest)",
+    "generation": "v5_phase7-20260808",
+    "active_version": "v5_phase7",
+    "feature_schema_version": "phase7_68",
+    "feature_count": 68,
+    "feature_contract_sha256": "2f80df948bb52e0a1f746271573c3b448fd6be23f322b2c988cf6d3a98076288",
+    "served_head": "SoftmaxMetaModel",
+    "certification_state": "UNVERIFIED",
+    "certified_at": null,
+    "promotion_state": "ACTIVE_FAIL_CLOSED",
+    "required_leagues": ["epl", "la_liga", "bundesliga", "serie_a", "ligue_1"],
+    "optional_leagues": ["eredivisie"],
+    "artifact_count": 12
+  },
+
+  "certification_policy": {
+    "source": "backend/src/models/certification_policy.py (frozen, hashed)",
+    "policy_version": "1.1.1",
+    "policy_sha256": "f823648253fc2708fc676b5fe25da807d3393d25a62bf80a3085508f130908f8",
+    "promotion_requires_all_gates": true,
+    "rps_gate_is_absolute": false,
+    "rps_gate_rule": "primary_metric_improvement.min_mean_rps_improvement > 0.0 (relative to incumbent, strict)",
+    "phantom_threshold_note": "No absolute RPS threshold (e.g. 0.21) exists anywhere in the frozen policy. Public surfaces citing 'RPS <= 0.21' as a promotion gate are citing a display constant, not policy. This is directive section 45 A1 and is addressed by uncommitted changes to apps/web/src/lib/model-gates.ts."
+  },
+
+  "candidate_under_evaluation": {
+    "source": "backend/models/candidate/comparison_report.json",
+    "candidate_schema": "apex_v5_66",
+    "candidate_feature_count": 66,
+    "holdout_season": "2526",
+    "promotion_permitted": false,
+    "gates": {
+      "valid_probability_simplex": "PASS",
+      "input_responsiveness": "PASS (min 37 responsive features)",
+      "coherent_price_perturbation": "PASS",
+      "serving_feature_availability": "FAIL (training_defaulted_slots 1, serving_schema_misaligned_slots 14, always_data_gap_slots 4, non_variable_training_slots 5)",
+      "primary_metric_improvement": "PASS (mean_rps_improvement +0.0014593825649170898)",
+      "no_league_regression": "FAIL (3 of 6 leagues won)",
+      "market_baseline": "FAIL (1 of 6 leagues beat market)"
+    }
+  },
+
+  "deployment": {
+    "backend": {
+      "source": "GET https://sabiscore-api-bav1.onrender.com/health",
+      "host": "sabiscore-api-bav1.onrender.com",
+      "sha": "221a05a",
+      "status": "healthy",
+      "uptime_seconds": 8731,
+      "reported_version_field": "1.0.0",
+      "reported_version_field_note": "Static literal, not a build identifier. The build identifier is the 'sha' field."
+    },
+    "web": {
+      "source": "GET https://web-lac-theta-42.vercel.app/api/health",
+      "host": "web-lac-theta-42.vercel.app",
+      "backend_sha_seen": "221a05a0a2bf91f9ac49caef827b2aa9e9cf7365",
+      "backend_status": "ok"
+    },
+    "parity_assessment": "IN SYNC WITH origin/master. Both surfaces serve 221a05a, which is origin/master. Local HEAD is 2 commits ahead and unpushed, so the deployment lag is expected and correct - not an incident.",
+    "custom_domain_sabiscore_com": "not probed this cycle; operator-deprioritized (Vercel alias is canonical)"
+  },
+
+  "database": {
+    "source": "GET /api/health (backendChecks.migrations, backendChecks.elo)",
+    "engine": "postgresql",
+    "connection_status": "healthy",
+    "alembic_head_applied": "0013_push_devices",
+    "alembic_head_expected_local": "0013_push_devices",
+    "migration_drift": "none",
+    "postgres_server_version": null,
+    "postgres_server_version_note": "Not verified this cycle. Production DB (sabiscore_db_v3) is not reachable from this environment (single-IP allowlist); no local psql client is installed.",
+    "elo_state": {
+      "authority": "postgres",
+      "rows": 25918,
+      "unique_teams": 198,
+      "last_match_date": "2026-09-08T19:00:00"
+    }
+  },
+
+  "runtime": {
+    "local_python": "3.14.6",
+    "production_python": "3.11.9 (render.yaml PYTHON_VERSION)",
+    "production_python_note": "Not re-probed this cycle; recorded from configuration, flagged as configuration-sourced not measured.",
+    "research_dependency_split": "IN FLIGHT (uncommitted): polars and pyarrow removed from backend/requirements.runtime.txt (zero importers in backend/src). Directive section 45 A3.",
+    "inference_latency_p95_ms": null,
+    "inference_latency_note": "Not measured this cycle. An uncommitted CI guard exists at backend/tests/unit/test_latency_budgets.py asserting model inference p95 <= 150ms over a synthetic 68-vector. The 150ms figure applies to predict_proba only; end-to-end /full-analysis budget is 2500ms p95 as an alert threshold, not a CI gate (section 45 A4, uncommitted)."
+  },
+
+  "providers": {
+    "source": "GET /api/v1/providers/health",
+    "total": 5,
+    "enabled": 5,
+    "configured": 5,
+    "per_provider_status": {
+      "espn": "CONFIGURED_UNVERIFIED",
+      "football_data_org": "CONFIGURED_UNVERIFIED",
+      "api_football": "CONFIGURED_UNVERIFIED",
+      "sportmonks": "CONFIGURED_UNVERIFIED",
+      "the_odds_api": "CONFIGURED_UNVERIFIED"
+    },
+    "state_change_note": "All five providers are now enabled. The Render Blueprint env-sync blocker recorded from vOmega.12 through vOmega.28 (3 of 5 disabled) is RESOLVED. CONFIGURED_UNVERIFIED reflects PROVIDER_LIVE_TESTS=false - the flag is on and a key is present, but no live probe was run. It is not a failure state."
+  },
+
+  "evidence": {
+    "settled_predictions": 59,
+    "settled_predictions_source": "GET /api/v1/model-performance",
+    "model_version_scoping": "v5_phase7 (generation-scoped; not cross-generation pooled)",
+
+    "walk_forward": {
+      "source": "GET /api/v1/model-performance -> walk_forward",
+      "skipped": false,
+      "n_splits": 5,
+      "total_records": 59,
+      "pooled_test_records": 33,
+      "rps_overall": 0.2355738711011905,
+      "rps_std": 0.03934839504925854,
+      "accuracy_overall": 0.4730952380952381,
+      "baseline_accuracy_uniform": 0.3333333333333333,
+      "brier_overall": 0.6471610593428572,
+      "brier_overall_convention": "mean_over_samples(sum_over_classes(...)), range [0,2]",
+      "fold_rps_means": [0.21977637714285717, 0.244180645, 0.2958631566666667, 0.22933493812500003, 0.1887142385714286],
+      "fold_date_range": { "from": "2026-08-27T18:30:00", "to": "2026-09-06T19:00:00" }
+    },
+
+    "calibration": {
+      "source": "GET /api/v1/model-performance/calibration",
+      "sample_size": 59,
+      "minimum_sample_size": 10,
+      "meets_sample_floor": true,
+      "n_bins": 10,
+      "ece_mean": 0.1343,
+      "ece_per_class": { "class_0": 0.1178, "class_1": 0.1554, "class_2": 0.1297 },
+      "brier_decomposition_mean": {
+        "brier_score": 0.2088,
+        "reliability": 0.0326,
+        "resolution": 0.0412,
+        "uncertainty": 0.2159
+      },
+      "brier_decomposition_convention": "mean_over_classes(one-vs-rest per-class Brier), range [0,0.667]",
+      "identity_check": "Brier = Reliability - Resolution + Uncertainty = 0.0326 - 0.0412 + 0.2159 = 0.2073 vs reported 0.2088. Residual 0.0015 is rounding at 4 dp on four independently-rounded terms.",
+      "baseline_file_agreement": "backend/models/calibration_baselines.json (untracked) matches this endpoint field-for-field. The committed baseline is measured, not transcribed."
+    },
+
+    "model_market_belief_differential": {
+      "source": "GET /api/v1/model-performance -> clv",
+      "n": 33,
+      "mean": 0.02518242759185497,
+      "positive_rate": 0.6666666666666666,
+      "skipped": false,
+      "naming_warning": "The backend field is still named 'clv' and the service is still clv_service.py. Per directive section 28 this quantity is NOT closing-line value - it is model_probs[argmax] - closing_probs[argmax], which requires no taken price and no subsequent market movement. A uniformly overconfident model scores positive on it by construction. Uncommitted work renames the public display label to 'Market belief differential'; the backend field name is NOT yet renamed. Directive section 45 A2 is therefore only half closed."
+    },
+
+    "uncertainty_and_staking": {
+      "status": "not probed this cycle",
+      "note": "No live /full-analysis probe was run. Certification state is UNVERIFIED and promotion_state is ACTIVE_FAIL_CLOSED per the manifest above; staking posture must be re-probed against a live fixture before any claim is made about it."
+    }
+  },
+
+  "measurement_hazards_recorded_this_cycle": [
+    {
+      "hazard": "Two different brier_decomposition blocks, same field names, different sample sets",
+      "detail": "GET /api/v1/model-performance returns walk_forward.brier_decomposition over the 33 pooled walk-forward TEST predictions (reliability 0.0574). GET /api/v1/model-performance/calibration returns brier_decomposition over all 59 settled predictions (reliability 0.0326). Same key names, same convention, 76 percent different value. Neither payload states which population it covers.",
+      "consequence": "A baseline snapshot or a recalibration comparison that reads 'reliability' from the wrong endpoint compares against the wrong prior. backend/scripts/snapshot_calibration_baseline.py currently reads the /calibration endpoint and is therefore correct today; nothing enforces that it stays correct.",
+      "status": "OBSERVED, NOT FIXED. Recorded for section 20 B1 so the calibration baseline series is anchored to one named population."
+    },
+    {
+      "hazard": "Brier reported in two conventions inside one response",
+      "detail": "walk_forward.brier_overall = 0.6472 uses mean-over-samples-of-sum-over-classes (range [0,2]). walk_forward.brier_decomposition.mean.brier_score = 0.2169 uses mean-over-classes one-vs-rest (range [0,0.667]). They differ by exactly the class count.",
+      "status": "KNOWN AND DOCUMENTED - backend/reports/evaluation/metric-contract.json v1.0.0 records this and its 2026-08-31 correction, and instructs that values must not be compared across the two conventions. No action required; recorded so this snapshot is not misread."
+    }
+  ],
+
+  "gate_r0_assessment": {
+    "result": "PASS",
+    "verified": [
+      "repository state",
+      "active generation and artifact manifest",
+      "feature schema and contract hash",
+      "certification policy version and hash",
+      "candidate promotion gate status",
+      "backend and web deployment SHAs and parity",
+      "alembic head and migration drift",
+      "provider enablement",
+      "settled prediction count",
+      "walk-forward series",
+      "calibration decomposition and ECE",
+      "model-market belief differential"
+    ],
+    "not_verified_and_why": [
+      "PostgreSQL server version - production DB unreachable from this environment, no local psql",
+      "inference and feature-resolution latency - not measured this cycle; guard exists but is uncommitted",
+      "staking posture / uncertainty gate - no live /full-analysis probe run",
+      "Docker image build - no reachable Docker daemon (pre-existing, docs/DEBT.md item 16)",
+      "full local test suite - not executed this cycle"
+    ]
+  }
+}

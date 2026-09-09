@@ -415,7 +415,32 @@ def _odds_edge_from_features(
     ensemble: EnsemblePrediction,
     odds: Optional[Dict[str, float]],
     effective_kelly_cap: float = 0.0,
+    *,
+    prediction_status: PredictionStatus,
 ) -> Optional[OddsEdge]:
+    """Compare a *measured* model probability against a de-vigged market price.
+
+    ``prediction_status`` is required and gates the whole comparison. An edge
+    has two terms, and on any status other than ``AVAILABLE`` the first one
+    does not exist: ``ensemble`` then holds the flat ~1/3 diagnostic prior
+    rather than a forecast. Differencing that prior against a real price does
+    not produce a weak edge, it produces a fabricated and systematically
+    flattering one — the loop below maximises ``model_prob - fair_market``, so
+    a flat prior always selects the longest shot on the board and reports the
+    book's own margin on it as model skill.
+
+    Observed live on fd-575329 (UCL) before this guard existed: a 27.00 away
+    price rendered as "Model 33.4% / Fair market 3.6% / +29.8pp · Model above
+    fair market", two cards below "Diagnostic baseline values are not
+    displayed". It was latent until live odds were wired up (see the Layer 4
+    note in ``get_full_analysis``: ``market_odds`` was structurally always
+    None, so no comparison ever rendered); fetching real prices activated it.
+
+    The guard lives here rather than at the call site so no future caller can
+    reintroduce the comparison by forgetting it.
+    """
+    if prediction_status != PredictionStatus.AVAILABLE:
+        return None
     if odds is None:
         return None
 
@@ -845,13 +870,22 @@ async def get_full_analysis(
     if elo_ctx is None:
         data_gaps.append("elo_ratings")
 
-    # Layer 6: Odds edge (optional)
+    # Layer 6: Odds edge (optional) — suppressed unless the model term is real;
+    # see `_odds_edge_from_features` for why a baseline-vs-market comparison is
+    # a fabrication rather than a weak signal.
     odds_edge = _odds_edge_from_features(
         ensemble,
         market_odds,
         effective_kelly_cap=effective_kelly_cap,
+        prediction_status=prediction_status,
     )
-    if odds_edge is None:
+    # Only claim the *market* is unavailable when the model was actually in a
+    # position to ask it a question. On the baseline paths the market was
+    # resolved and the model was not; MODEL_PREDICTION_REDUCED_EVIDENCE /
+    # MODEL_PREDICTION_UNAVAILABLE is already recorded above, is the true
+    # reason no comparison is shown, and already forces `partial` — so
+    # withholding this gap here cannot loosen any staking gate.
+    if odds_edge is None and prediction_status == PredictionStatus.AVAILABLE:
         critical_gaps.append("COHERENT_1X2_MARKET_UNAVAILABLE")
 
     if prediction_status != PredictionStatus.AVAILABLE or critical_gaps or conflicts:
