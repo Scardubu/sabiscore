@@ -5,6 +5,65 @@ All notable changes to this skill suite are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased - Portfolio C (weather) Gate G1 measured — HOLD at 68.9% (2026-09-09)
+
+Directive v5 Phase 2 / Gate R1 qualification for the next candidate portfolio.
+Read-only throughout: no feature vector, schema version, model artifact,
+certification rule, verdict gate, Kelly rule, database, or serving path is
+touched. `docs/DEBT.md` item 44 moves `NEXT` → `HOLD`.
+
+### Added
+
+- `backend/scripts/qualify_venue_locations.py` — resolves every one of the 160
+  distinct clubs in `data/cache/fd_*.csv` to a location using only text the
+  clubs call themselves (folded full name, then its own tokens of four or more
+  characters), geocoded through Open-Meteo's keyless endpoint constrained to the
+  league's own country, then classified onto the same
+  `VERIFIED`/`REQUIRES_REVIEW`/`UNKNOWN` taxonomy `providers/reconciliation.py`
+  uses for team identity. Nothing is recalled from memory, so a wrong answer is
+  an auditable wrong *derivation*, never an invented coordinate. Acquires no
+  weather and writes no artifact.
+- `reports/research/portfolio-c-weather-venue-location-qualification.md` and
+  `reports/research/portfolio-c-venue-location-manifest.json` — the study and
+  the per-club evidence (every query attempted, every candidate returned).
+- `backend/tests/unit/test_venue_location_qualification.py` — 19 tests pinning
+  the classifier. Each guard was watched failing on a reverted rule first.
+
+### Measured
+
+- Gate G1, per match across the 12,765-match corpus: **`VERIFIED` 68.9%**,
+  `REQUIRES_REVIEW` 13.5%, `UNKNOWN` 17.6%. Per league: Ligue 1 89.5%, EPL
+  76.4%, Bundesliga 73.8%, Eredivisie 61.1%, Serie A 55.7%, La Liga 53.6%.
+- Gates G4 (cross-league portability) and G6 (default rate) fail together: the
+  missing 31% is concentrated in Serie A and La Liga, so a model trained on it
+  would learn a league artifact wearing a weather label. Rule 5 forbids closing
+  the gap by default-filling.
+- The failure mode item 44 predicted fired on the first attempt: `Wolves`
+  resolved to **"Wolvesnewton"**, a Welsh hamlet ~150 km from Wolverhampton,
+  inside the correct country, as the top hit. Caught only by the rule requiring
+  the resolved place to be named in the club's own name.
+
+### Decision
+
+- **HOLD**, not `REJECT` — nothing here says weather lacks predictive
+  information; the question was never asked, because the corpus cannot yet be
+  located well enough to ask it. The unblock is bounded: **44 clubs** need a
+  reviewed *place name* (never a coordinate — the geocoder still derives the
+  position, so every stored value stays reproducible from an auditable input).
+  All 44 are enumerated in the manifest with their evidence.
+- No alias table was created. An empty table nothing populates is scaffolding,
+  and whether the 44 reviews are worth doing depends on Stage 3 information
+  value, which cannot run until G1 passes.
+
+### Verified
+
+- Full backend suite 2303 passed / 17 skipped / 2 xfailed, exit 0.
+- `temperature` / `precipitation` / `wind_speed` / `weather_impact_score` remain
+  absent from `CANONICAL_FEATURES_68`, `CANONICAL_FEATURES_58` and
+  `APEX_FEATURES_68` — checked directly. They are computed into
+  `FeatureTransformer`'s legacy defaults and discarded before the feature
+  vector, so no weather constant reaches a model today. Left as is.
+
 ## Unreleased - Portfolio B (player availability) source qualification, live-probed to a `HOLD` verdict; one tested adapter extension (2026-09-09)
 
 `PRODUCTION_EXECUTIVE_DIRECTIVE.md` Phase 2 (Missing Information Discovery),

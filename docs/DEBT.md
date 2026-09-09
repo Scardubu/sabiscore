@@ -2781,8 +2781,11 @@ and must be stated as such — it verifies the new revision's DDL, not the chain
 
 ## 44. Weather acquisition is shipped; weather as a model feature is not
 
-**Tier:** `NEXT` — acquisition is complete and live-verified. Feature
-integration is deliberately gated. Filed 2026-08-30.
+**Tier:** `HOLD` (was `NEXT`) — acquisition is complete and live-verified;
+prerequisite (1) is now **measured and fails Gate G1 at 68.9%**, so feature
+integration is blocked on a bounded operator review rather than on more
+engineering. Filed 2026-08-30. Measured 2026-09-09 — see the Gate G1 result at
+the end of this item.
 
 `backend/src/providers/open_meteo.py` resolves match weather from Open-Meteo.
 Live-verified end to end: `probe` returns `VERIFIED` (the first keyless
@@ -2842,6 +2845,64 @@ Before that work starts, three things must hold:
 Until all three hold, a missing reading is an **advisory** gap. Weather can
 never be critical evidence: the trust tier is `OPEN_DATA` and the provider is
 not a football source.
+
+### Gate G1 measured, 2026-09-09 — prerequisite (1) fails at 68.9%
+
+Prerequisite (1) was an estimate ("~130 stadiums"). It is now a measurement.
+`backend/scripts/qualify_venue_locations.py` resolves every one of the **160
+distinct clubs** in `data/cache/fd_*.csv` using only text the clubs call
+themselves — the folded full name, then each of its own tokens of four
+characters or more — geocoded through Open-Meteo's keyless endpoint constrained
+to the league's own country, then classified onto the same
+`VERIFIED`/`REQUIRES_REVIEW`/`UNKNOWN` taxonomy `providers/reconciliation.py`
+uses for team identity. Nothing is recalled from memory, so a wrong answer is a
+wrong *derivation* an operator can audit rather than an invented coordinate.
+
+Per match — the number that governs a backfill, since a match needs only its
+home venue — across the 12,765-match corpus: **`VERIFIED` 8,799 (68.9%)**,
+`REQUIRES_REVIEW` 1,718 (13.5%), `UNKNOWN` 2,248 (17.6%).
+
+The per-league spread is what actually blocks the work: Ligue 1 89.5%, EPL
+76.4%, Bundesliga 73.8%, Eredivisie 61.1%, Serie A 55.7%, **La Liga 53.6%**.
+Directive Gates G4 (cross-league portability) and G6 (default rate) fail
+together and for the same reason — the missing 31% is concentrated in two
+leagues, so a model trained on it would learn a feature systematically present
+for French fixtures and systematically absent for Spanish ones. A league
+artifact wearing a weather label, which is the vΩ.46 train/serve skew shape
+arriving from a new direction. Rule 5 forbids closing the gap by default-filling.
+
+⚠️ **The predicted failure mode fired on the first attempt.** `Wolves` resolved
+to **"Wolvesnewton"** — a hamlet in Monmouthshire, Wales, ~150 km from
+Wolverhampton, inside the correct country, as the top hit. It was caught only
+because the classifier requires the resolved place's name to appear verbatim in
+the club's own name. A top-hit geocoder would have stored it and produced
+confidently wrong weather for every Wolves home fixture. Two more of the same
+class: `Napoli` → "Napoli-Nola" (a different town ~25 km from Naples), and
+`Monaco` → nothing, because AS Monaco plays in Ligue 1 but sits in `MC`, so the
+country filter correctly refused to place it somewhere in France sharing the
+name. The `UNKNOWN` bulk is clubs whose names contain no place at all — `Inter`,
+`Juventus`, `Ajax`, `Chelsea`, `Atalanta`, `Arsenal`.
+
+**Verdict: `HOLD`, not `REJECT`.** Nothing here says weather lacks predictive
+information; the question was never asked, because the corpus cannot yet be
+located well enough to ask it. The unblock is bounded and enumerated: **44 clubs**
+(17 `REQUIRES_REVIEW` + 27 `UNKNOWN`) need a reviewed **place name** — never a
+coordinate, so the geocoder still derives the position and every stored value
+stays reproducible from an auditable input, exactly as
+`team_identity._AUDITED_ALIASES` does for corpus spellings. Each of the 44 is
+listed in `reports/research/portfolio-c-venue-location-manifest.json` with the
+queries attempted and candidates returned, so the review is a confirmation task
+against real evidence rather than a recall exercise.
+
+No alias table was created. An empty table nothing populates is scaffolding, and
+whether these 44 reviews are worth doing depends on a question still unanswered
+— whether weather carries incremental information at all, which is Stage 3 and
+cannot run until G1 passes.
+
+Full study: `reports/research/portfolio-c-weather-venue-location-qualification.md`.
+Classifier pinned by `backend/tests/unit/test_venue_location_qualification.py`
+(19 tests); every guard was watched failing on a reverted rule before being
+trusted.
 
 
 ## 43. The BNN Brier gate is below the bookmaker market's own score — unattainable by construction

@@ -1,0 +1,3103 @@
+{
+  "generated_at": "2026-09-09T14:21:58.528916+00:00",
+  "corpus": "C:\\Users\\UBEC-DC-ANAMBRA\\Documents\\sabiscore\\backend\\data\\cache",
+  "roster_size": 160,
+  "weather_cell_km": 25.0,
+  "counts": {
+    "VERIFIED": 116,
+    "REQUIRES_REVIEW": 17,
+    "UNKNOWN": 27
+  },
+  "coverage_verified": 0.725,
+  "entries": [
+    {
+      "club": "AZ Alkmaar",
+      "divisions": [
+        "N1"
+      ],
+      "country": "NL",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Alkmaar",
+          "latitude": 52.6317,
+          "longitude": 4.7486,
+          "country_code": "NL"
+        }
+      ],
+      "queried": [
+        "az alkmaar",
+        "alkmaar"
+      ]
+    },
+    {
+      "club": "Ajaccio",
+      "divisions": [
+        "F1"
+      ],
+      "country": "FR",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Ajaccio",
+          "latitude": 41.9189,
+          "longitude": 8.7381,
+          "country_code": "FR"
+        }
+      ],
+      "queried": [
+        "ajaccio"
+      ]
+    },
+    {
+      "club": "Ajax",
+      "divisions": [
+        "N1"
+      ],
+      "country": "NL",
+      "verdict": "UNKNOWN",
+      "reason": "no_geocoding_match_within_league_country",
+      "candidates": [],
+      "queried": [
+        "ajax"
+      ]
+    },
+    {
+      "club": "Alaves",
+      "divisions": [
+        "SP1"
+      ],
+      "country": "ES",
+      "verdict": "UNKNOWN",
+      "reason": "no_geocoding_match_within_league_country",
+      "candidates": [],
+      "queried": [
+        "alaves"
+      ]
+    },
+    {
+      "club": "Almeria",
+      "divisions": [
+        "SP1"
+      ],
+      "country": "ES",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Almería",
+          "latitude": 36.8381,
+          "longitude": -2.4597,
+          "country_code": "ES"
+        }
+      ],
+      "queried": [
+        "almeria"
+      ]
+    },
+    {
+      "club": "Amiens",
+      "divisions": [
+        "F1"
+      ],
+      "country": "FR",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Amiens",
+          "latitude": 49.9,
+          "longitude": 2.3,
+          "country_code": "FR"
+        }
+      ],
+      "queried": [
+        "amiens"
+      ]
+    },
+    {
+      "club": "Angers",
+      "divisions": [
+        "F1"
+      ],
+      "country": "FR",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Angers",
+          "latitude": 47.4716,
+          "longitude": -0.552,
+          "country_code": "FR"
+        }
+      ],
+      "queried": [
+        "angers"
+      ]
+    },
+    {
+      "club": "Arsenal",
+      "divisions": [
+        "E0"
+      ],
+      "country": "GB",
+      "verdict": "UNKNOWN",
+      "reason": "no_geocoding_match_within_league_country",
+      "candidates": [],
+      "queried": [
+        "arsenal"
+      ]
+    },
+    {
+      "club": "Aston Villa",
+      "divisions": [
+        "E0"
+      ],
+      "country": "GB",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Aston",
+          "latitude": 51.725,
+          "longitude": -1.508,
+          "country_code": "GB"
+        }
+      ],
+      "queried": [
+        "aston villa",
+        "aston",
+        "villa"
+      ]
+    },
+    {
+      "club": "Atalanta",
+      "divisions": [
+        "I1"
+      ],
+      "country": "IT",
+      "verdict": "UNKNOWN",
+      "reason": "no_geocoding_match_within_league_country",
+      "candidates": [],
+      "queried": [
+        "atalanta"
+      ]
+    },
+    {
+      "club": "Ath Bilbao",
+      "divisions": [
+        "SP1"
+      ],
+      "country": "ES",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Bilbao",
+          "latitude": 43.2627,
+          "longitude": -2.9253,
+          "country_code": "ES"
+        }
+      ],
+      "queried": [
+        "ath bilbao",
+        "bilbao"
+      ]
+    },
+    {
+      "club": "Ath Madrid",
+      "divisions": [
+        "SP1"
+      ],
+      "country": "ES",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Madrid",
+          "latitude": 40.4165,
+          "longitude": -3.7026,
+          "country_code": "ES"
+        }
+      ],
+      "queried": [
+        "ath madrid",
+        "madrid"
+      ]
+    },
+    {
+      "club": "Augsburg",
+      "divisions": [
+        "D1"
+      ],
+      "country": "DE",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Augsburg",
+          "latitude": 48.3715,
+          "longitude": 10.8985,
+          "country_code": "DE"
+        }
+      ],
+      "queried": [
+        "augsburg"
+      ]
+    },
+    {
+      "club": "Auxerre",
+      "divisions": [
+        "F1"
+      ],
+      "country": "FR",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Auxerre",
+          "latitude": 47.7996,
+          "longitude": 3.5703,
+          "country_code": "FR"
+        }
+      ],
+      "queried": [
+        "auxerre"
+      ]
+    },
+    {
+      "club": "Barcelona",
+      "divisions": [
+        "SP1"
+      ],
+      "country": "ES",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Barcelona",
+          "latitude": 41.3888,
+          "longitude": 2.159,
+          "country_code": "ES"
+        }
+      ],
+      "queried": [
+        "barcelona"
+      ]
+    },
+    {
+      "club": "Bayern Munich",
+      "divisions": [
+        "D1"
+      ],
+      "country": "DE",
+      "verdict": "REQUIRES_REVIEW",
+      "reason": "candidates_span_more_than_one_weather_cell",
+      "candidates": [
+        {
+          "name": "Bayern",
+          "latitude": 47.795,
+          "longitude": 12.5338,
+          "country_code": "DE"
+        },
+        {
+          "name": "Munich",
+          "latitude": 48.1374,
+          "longitude": 11.5755,
+          "country_code": "DE"
+        }
+      ],
+      "queried": [
+        "bayern munich",
+        "bayern",
+        "munich"
+      ]
+    },
+    {
+      "club": "Benevento",
+      "divisions": [
+        "I1"
+      ],
+      "country": "IT",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Benevento",
+          "latitude": 41.1307,
+          "longitude": 14.7782,
+          "country_code": "IT"
+        }
+      ],
+      "queried": [
+        "benevento"
+      ]
+    },
+    {
+      "club": "Betis",
+      "divisions": [
+        "SP1"
+      ],
+      "country": "ES",
+      "verdict": "UNKNOWN",
+      "reason": "no_geocoding_match_within_league_country",
+      "candidates": [],
+      "queried": [
+        "betis"
+      ]
+    },
+    {
+      "club": "Bielefeld",
+      "divisions": [
+        "D1"
+      ],
+      "country": "DE",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Bielefeld",
+          "latitude": 52.0333,
+          "longitude": 8.5333,
+          "country_code": "DE"
+        }
+      ],
+      "queried": [
+        "bielefeld"
+      ]
+    },
+    {
+      "club": "Bochum",
+      "divisions": [
+        "D1"
+      ],
+      "country": "DE",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Bochum",
+          "latitude": 51.4817,
+          "longitude": 7.2165,
+          "country_code": "DE"
+        }
+      ],
+      "queried": [
+        "bochum"
+      ]
+    },
+    {
+      "club": "Bologna",
+      "divisions": [
+        "I1"
+      ],
+      "country": "IT",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Bologna",
+          "latitude": 44.4938,
+          "longitude": 11.3387,
+          "country_code": "IT"
+        }
+      ],
+      "queried": [
+        "bologna"
+      ]
+    },
+    {
+      "club": "Bordeaux",
+      "divisions": [
+        "F1"
+      ],
+      "country": "FR",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Bordeaux",
+          "latitude": 44.8412,
+          "longitude": -0.5805,
+          "country_code": "FR"
+        }
+      ],
+      "queried": [
+        "bordeaux"
+      ]
+    },
+    {
+      "club": "Bournemouth",
+      "divisions": [
+        "E0"
+      ],
+      "country": "GB",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Bournemouth",
+          "latitude": 50.7205,
+          "longitude": -1.8795,
+          "country_code": "GB"
+        }
+      ],
+      "queried": [
+        "bournemouth"
+      ]
+    },
+    {
+      "club": "Brentford",
+      "divisions": [
+        "E0"
+      ],
+      "country": "GB",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Brentford",
+          "latitude": 51.4862,
+          "longitude": -0.3083,
+          "country_code": "GB"
+        }
+      ],
+      "queried": [
+        "brentford"
+      ]
+    },
+    {
+      "club": "Brescia",
+      "divisions": [
+        "I1"
+      ],
+      "country": "IT",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Brescia",
+          "latitude": 45.5356,
+          "longitude": 10.2147,
+          "country_code": "IT"
+        }
+      ],
+      "queried": [
+        "brescia"
+      ]
+    },
+    {
+      "club": "Brest",
+      "divisions": [
+        "F1"
+      ],
+      "country": "FR",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Brest",
+          "latitude": 48.3903,
+          "longitude": -4.4863,
+          "country_code": "FR"
+        }
+      ],
+      "queried": [
+        "brest"
+      ]
+    },
+    {
+      "club": "Brighton",
+      "divisions": [
+        "E0"
+      ],
+      "country": "GB",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Brighton",
+          "latitude": 50.8284,
+          "longitude": -0.1395,
+          "country_code": "GB"
+        }
+      ],
+      "queried": [
+        "brighton"
+      ]
+    },
+    {
+      "club": "Burnley",
+      "divisions": [
+        "E0"
+      ],
+      "country": "GB",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Burnley",
+          "latitude": 53.8,
+          "longitude": -2.2333,
+          "country_code": "GB"
+        }
+      ],
+      "queried": [
+        "burnley"
+      ]
+    },
+    {
+      "club": "Cadiz",
+      "divisions": [
+        "SP1"
+      ],
+      "country": "ES",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Cadiz",
+          "latitude": 36.5267,
+          "longitude": -6.2891,
+          "country_code": "ES"
+        }
+      ],
+      "queried": [
+        "cadiz"
+      ]
+    },
+    {
+      "club": "Cagliari",
+      "divisions": [
+        "I1"
+      ],
+      "country": "IT",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Cagliari",
+          "latitude": 39.2305,
+          "longitude": 9.1192,
+          "country_code": "IT"
+        }
+      ],
+      "queried": [
+        "cagliari"
+      ]
+    },
+    {
+      "club": "Celta",
+      "divisions": [
+        "SP1"
+      ],
+      "country": "ES",
+      "verdict": "UNKNOWN",
+      "reason": "no_geocoding_match_within_league_country",
+      "candidates": [],
+      "queried": [
+        "celta"
+      ]
+    },
+    {
+      "club": "Chelsea",
+      "divisions": [
+        "E0"
+      ],
+      "country": "GB",
+      "verdict": "UNKNOWN",
+      "reason": "no_geocoding_match_within_league_country",
+      "candidates": [],
+      "queried": [
+        "chelsea"
+      ]
+    },
+    {
+      "club": "Clermont",
+      "divisions": [
+        "F1"
+      ],
+      "country": "FR",
+      "verdict": "REQUIRES_REVIEW",
+      "reason": "resolved_place_is_not_named_in_the_club_name",
+      "candidates": [
+        {
+          "name": "Clermont-Ferrand",
+          "latitude": 45.7797,
+          "longitude": 3.0868,
+          "country_code": "FR"
+        }
+      ],
+      "queried": [
+        "clermont"
+      ]
+    },
+    {
+      "club": "Como",
+      "divisions": [
+        "I1"
+      ],
+      "country": "IT",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Como",
+          "latitude": 45.8082,
+          "longitude": 9.0832,
+          "country_code": "IT"
+        }
+      ],
+      "queried": [
+        "como"
+      ]
+    },
+    {
+      "club": "Cremonese",
+      "divisions": [
+        "I1"
+      ],
+      "country": "IT",
+      "verdict": "UNKNOWN",
+      "reason": "no_geocoding_match_within_league_country",
+      "candidates": [],
+      "queried": [
+        "cremonese"
+      ]
+    },
+    {
+      "club": "Crotone",
+      "divisions": [
+        "I1"
+      ],
+      "country": "IT",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Crotone",
+          "latitude": 39.0808,
+          "longitude": 17.1276,
+          "country_code": "IT"
+        }
+      ],
+      "queried": [
+        "crotone"
+      ]
+    },
+    {
+      "club": "Crystal Palace",
+      "divisions": [
+        "E0"
+      ],
+      "country": "GB",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Crystal Palace",
+          "latitude": 51.4193,
+          "longitude": -0.0785,
+          "country_code": "GB"
+        }
+      ],
+      "queried": [
+        "crystal palace",
+        "crystal",
+        "palace"
+      ]
+    },
+    {
+      "club": "Darmstadt",
+      "divisions": [
+        "D1"
+      ],
+      "country": "DE",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Darmstadt",
+          "latitude": 49.8717,
+          "longitude": 8.6503,
+          "country_code": "DE"
+        }
+      ],
+      "queried": [
+        "darmstadt"
+      ]
+    },
+    {
+      "club": "Dijon",
+      "divisions": [
+        "F1"
+      ],
+      "country": "FR",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Dijon",
+          "latitude": 47.3134,
+          "longitude": 5.0139,
+          "country_code": "FR"
+        }
+      ],
+      "queried": [
+        "dijon"
+      ]
+    },
+    {
+      "club": "Dortmund",
+      "divisions": [
+        "D1"
+      ],
+      "country": "DE",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Dortmund",
+          "latitude": 51.5149,
+          "longitude": 7.466,
+          "country_code": "DE"
+        }
+      ],
+      "queried": [
+        "dortmund"
+      ]
+    },
+    {
+      "club": "Eibar",
+      "divisions": [
+        "SP1"
+      ],
+      "country": "ES",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Eibar",
+          "latitude": 43.1849,
+          "longitude": -2.4716,
+          "country_code": "ES"
+        }
+      ],
+      "queried": [
+        "eibar"
+      ]
+    },
+    {
+      "club": "Ein Frankfurt",
+      "divisions": [
+        "D1"
+      ],
+      "country": "DE",
+      "verdict": "REQUIRES_REVIEW",
+      "reason": "resolved_place_is_not_named_in_the_club_name",
+      "candidates": [
+        {
+          "name": "Frankfurt am Main",
+          "latitude": 50.1155,
+          "longitude": 8.6842,
+          "country_code": "DE"
+        }
+      ],
+      "queried": [
+        "ein frankfurt",
+        "frankfurt"
+      ]
+    },
+    {
+      "club": "Elche",
+      "divisions": [
+        "SP1"
+      ],
+      "country": "ES",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Elche",
+          "latitude": 38.2622,
+          "longitude": -0.7011,
+          "country_code": "ES"
+        }
+      ],
+      "queried": [
+        "elche"
+      ]
+    },
+    {
+      "club": "Empoli",
+      "divisions": [
+        "I1"
+      ],
+      "country": "IT",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Empoli",
+          "latitude": 43.718,
+          "longitude": 10.9476,
+          "country_code": "IT"
+        }
+      ],
+      "queried": [
+        "empoli"
+      ]
+    },
+    {
+      "club": "Espanol",
+      "divisions": [
+        "SP1"
+      ],
+      "country": "ES",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Español",
+          "latitude": 28.5,
+          "longitude": -16.3333,
+          "country_code": "ES"
+        }
+      ],
+      "queried": [
+        "espanol"
+      ]
+    },
+    {
+      "club": "Everton",
+      "divisions": [
+        "E0"
+      ],
+      "country": "GB",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Everton",
+          "latitude": 52.1458,
+          "longitude": -0.2462,
+          "country_code": "GB"
+        }
+      ],
+      "queried": [
+        "everton"
+      ]
+    },
+    {
+      "club": "Excelsior",
+      "divisions": [
+        "N1"
+      ],
+      "country": "NL",
+      "verdict": "UNKNOWN",
+      "reason": "no_geocoding_match_within_league_country",
+      "candidates": [],
+      "queried": [
+        "excelsior"
+      ]
+    },
+    {
+      "club": "FC Koln",
+      "divisions": [
+        "D1"
+      ],
+      "country": "DE",
+      "verdict": "REQUIRES_REVIEW",
+      "reason": "resolved_place_is_not_named_in_the_club_name",
+      "candidates": [
+        {
+          "name": "Cologne",
+          "latitude": 50.9333,
+          "longitude": 6.95,
+          "country_code": "DE"
+        }
+      ],
+      "queried": [
+        "fc koln",
+        "koln"
+      ]
+    },
+    {
+      "club": "Feyenoord",
+      "divisions": [
+        "N1"
+      ],
+      "country": "NL",
+      "verdict": "UNKNOWN",
+      "reason": "no_geocoding_match_within_league_country",
+      "candidates": [],
+      "queried": [
+        "feyenoord"
+      ]
+    },
+    {
+      "club": "Fiorentina",
+      "divisions": [
+        "I1"
+      ],
+      "country": "IT",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Fiorentina",
+          "latitude": 42.9639,
+          "longitude": 10.5356,
+          "country_code": "IT"
+        }
+      ],
+      "queried": [
+        "fiorentina"
+      ]
+    },
+    {
+      "club": "For Sittard",
+      "divisions": [
+        "N1"
+      ],
+      "country": "NL",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Sittard",
+          "latitude": 50.9983,
+          "longitude": 5.8694,
+          "country_code": "NL"
+        }
+      ],
+      "queried": [
+        "for sittard",
+        "sittard"
+      ]
+    },
+    {
+      "club": "Fortuna Dusseldorf",
+      "divisions": [
+        "D1"
+      ],
+      "country": "DE",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Düsseldorf",
+          "latitude": 51.2232,
+          "longitude": 6.7793,
+          "country_code": "DE"
+        }
+      ],
+      "queried": [
+        "fortuna dusseldorf",
+        "fortuna",
+        "dusseldorf"
+      ]
+    },
+    {
+      "club": "Freiburg",
+      "divisions": [
+        "D1"
+      ],
+      "country": "DE",
+      "verdict": "REQUIRES_REVIEW",
+      "reason": "resolved_place_is_not_named_in_the_club_name",
+      "candidates": [
+        {
+          "name": "Freiburg im Breisgau",
+          "latitude": 47.9959,
+          "longitude": 7.8522,
+          "country_code": "DE"
+        }
+      ],
+      "queried": [
+        "freiburg"
+      ]
+    },
+    {
+      "club": "Frosinone",
+      "divisions": [
+        "I1"
+      ],
+      "country": "IT",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Frosinone",
+          "latitude": 41.6398,
+          "longitude": 13.3411,
+          "country_code": "IT"
+        }
+      ],
+      "queried": [
+        "frosinone"
+      ]
+    },
+    {
+      "club": "Fulham",
+      "divisions": [
+        "E0"
+      ],
+      "country": "GB",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Fulham",
+          "latitude": 51.4803,
+          "longitude": -0.1993,
+          "country_code": "GB"
+        }
+      ],
+      "queried": [
+        "fulham"
+      ]
+    },
+    {
+      "club": "Genoa",
+      "divisions": [
+        "I1"
+      ],
+      "country": "IT",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Genoa",
+          "latitude": 44.4048,
+          "longitude": 8.9444,
+          "country_code": "IT"
+        }
+      ],
+      "queried": [
+        "genoa"
+      ]
+    },
+    {
+      "club": "Getafe",
+      "divisions": [
+        "SP1"
+      ],
+      "country": "ES",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Getafe",
+          "latitude": 40.3057,
+          "longitude": -3.733,
+          "country_code": "ES"
+        }
+      ],
+      "queried": [
+        "getafe"
+      ]
+    },
+    {
+      "club": "Girona",
+      "divisions": [
+        "SP1"
+      ],
+      "country": "ES",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Girona",
+          "latitude": 41.9831,
+          "longitude": 2.8249,
+          "country_code": "ES"
+        }
+      ],
+      "queried": [
+        "girona"
+      ]
+    },
+    {
+      "club": "Go Ahead Eagles",
+      "divisions": [
+        "N1"
+      ],
+      "country": "NL",
+      "verdict": "UNKNOWN",
+      "reason": "no_geocoding_match_within_league_country",
+      "candidates": [],
+      "queried": [
+        "go ahead eagles",
+        "ahead",
+        "eagles"
+      ]
+    },
+    {
+      "club": "Granada",
+      "divisions": [
+        "SP1"
+      ],
+      "country": "ES",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Granada",
+          "latitude": 37.1882,
+          "longitude": -3.6067,
+          "country_code": "ES"
+        }
+      ],
+      "queried": [
+        "granada"
+      ]
+    },
+    {
+      "club": "Greuther Furth",
+      "divisions": [
+        "D1"
+      ],
+      "country": "DE",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Fürth",
+          "latitude": 49.4759,
+          "longitude": 10.9886,
+          "country_code": "DE"
+        }
+      ],
+      "queried": [
+        "greuther furth",
+        "greuther",
+        "furth"
+      ]
+    },
+    {
+      "club": "Groningen",
+      "divisions": [
+        "N1"
+      ],
+      "country": "NL",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Groningen",
+          "latitude": 53.2192,
+          "longitude": 6.5667,
+          "country_code": "NL"
+        }
+      ],
+      "queried": [
+        "groningen"
+      ]
+    },
+    {
+      "club": "Hamburg",
+      "divisions": [
+        "D1"
+      ],
+      "country": "DE",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Hamburg",
+          "latitude": 53.5507,
+          "longitude": 9.993,
+          "country_code": "DE"
+        }
+      ],
+      "queried": [
+        "hamburg"
+      ]
+    },
+    {
+      "club": "Heerenveen",
+      "divisions": [
+        "N1"
+      ],
+      "country": "NL",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Heerenveen",
+          "latitude": 52.9593,
+          "longitude": 5.9185,
+          "country_code": "NL"
+        }
+      ],
+      "queried": [
+        "heerenveen"
+      ]
+    },
+    {
+      "club": "Heidenheim",
+      "divisions": [
+        "D1"
+      ],
+      "country": "DE",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Heidenheim",
+          "latitude": 48.678,
+          "longitude": 10.1516,
+          "country_code": "DE"
+        }
+      ],
+      "queried": [
+        "heidenheim"
+      ]
+    },
+    {
+      "club": "Heracles",
+      "divisions": [
+        "N1"
+      ],
+      "country": "NL",
+      "verdict": "UNKNOWN",
+      "reason": "no_geocoding_match_within_league_country",
+      "candidates": [],
+      "queried": [
+        "heracles"
+      ]
+    },
+    {
+      "club": "Hertha",
+      "divisions": [
+        "D1"
+      ],
+      "country": "DE",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Hertha",
+          "latitude": 54.55,
+          "longitude": 13.5833,
+          "country_code": "DE"
+        }
+      ],
+      "queried": [
+        "hertha"
+      ]
+    },
+    {
+      "club": "Hoffenheim",
+      "divisions": [
+        "D1"
+      ],
+      "country": "DE",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Hoffenheim",
+          "latitude": 49.272,
+          "longitude": 8.841,
+          "country_code": "DE"
+        }
+      ],
+      "queried": [
+        "hoffenheim"
+      ]
+    },
+    {
+      "club": "Holstein Kiel",
+      "divisions": [
+        "D1"
+      ],
+      "country": "DE",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Kiel",
+          "latitude": 54.3213,
+          "longitude": 10.1349,
+          "country_code": "DE"
+        }
+      ],
+      "queried": [
+        "holstein kiel",
+        "holstein",
+        "kiel"
+      ]
+    },
+    {
+      "club": "Huesca",
+      "divisions": [
+        "SP1"
+      ],
+      "country": "ES",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Huesca",
+          "latitude": 42.1362,
+          "longitude": -0.4087,
+          "country_code": "ES"
+        }
+      ],
+      "queried": [
+        "huesca"
+      ]
+    },
+    {
+      "club": "Inter",
+      "divisions": [
+        "I1"
+      ],
+      "country": "IT",
+      "verdict": "UNKNOWN",
+      "reason": "no_geocoding_match_within_league_country",
+      "candidates": [],
+      "queried": [
+        "inter"
+      ]
+    },
+    {
+      "club": "Ipswich",
+      "divisions": [
+        "E0"
+      ],
+      "country": "GB",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Ipswich",
+          "latitude": 52.0592,
+          "longitude": 1.1555,
+          "country_code": "GB"
+        }
+      ],
+      "queried": [
+        "ipswich"
+      ]
+    },
+    {
+      "club": "Juventus",
+      "divisions": [
+        "I1"
+      ],
+      "country": "IT",
+      "verdict": "UNKNOWN",
+      "reason": "no_geocoding_match_within_league_country",
+      "candidates": [],
+      "queried": [
+        "juventus"
+      ]
+    },
+    {
+      "club": "Las Palmas",
+      "divisions": [
+        "SP1"
+      ],
+      "country": "ES",
+      "verdict": "REQUIRES_REVIEW",
+      "reason": "resolved_place_is_not_named_in_the_club_name",
+      "candidates": [
+        {
+          "name": "Las Palmas de Gran Canaria",
+          "latitude": 28.1018,
+          "longitude": -15.4157,
+          "country_code": "ES"
+        }
+      ],
+      "queried": [
+        "las palmas",
+        "palmas"
+      ]
+    },
+    {
+      "club": "Lazio",
+      "divisions": [
+        "I1"
+      ],
+      "country": "IT",
+      "verdict": "UNKNOWN",
+      "reason": "no_geocoding_match_within_league_country",
+      "candidates": [],
+      "queried": [
+        "lazio"
+      ]
+    },
+    {
+      "club": "Le Havre",
+      "divisions": [
+        "F1"
+      ],
+      "country": "FR",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Le Havre",
+          "latitude": 49.4935,
+          "longitude": 0.1079,
+          "country_code": "FR"
+        }
+      ],
+      "queried": [
+        "le havre",
+        "havre"
+      ]
+    },
+    {
+      "club": "Lecce",
+      "divisions": [
+        "I1"
+      ],
+      "country": "IT",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Lecce",
+          "latitude": 40.3548,
+          "longitude": 18.1724,
+          "country_code": "IT"
+        }
+      ],
+      "queried": [
+        "lecce"
+      ]
+    },
+    {
+      "club": "Leeds",
+      "divisions": [
+        "E0"
+      ],
+      "country": "GB",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Leeds",
+          "latitude": 53.7965,
+          "longitude": -1.5478,
+          "country_code": "GB"
+        }
+      ],
+      "queried": [
+        "leeds"
+      ]
+    },
+    {
+      "club": "Leganes",
+      "divisions": [
+        "SP1"
+      ],
+      "country": "ES",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Leganés",
+          "latitude": 40.3272,
+          "longitude": -3.7635,
+          "country_code": "ES"
+        }
+      ],
+      "queried": [
+        "leganes"
+      ]
+    },
+    {
+      "club": "Leicester",
+      "divisions": [
+        "E0"
+      ],
+      "country": "GB",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Leicester",
+          "latitude": 52.6386,
+          "longitude": -1.1317,
+          "country_code": "GB"
+        }
+      ],
+      "queried": [
+        "leicester"
+      ]
+    },
+    {
+      "club": "Lens",
+      "divisions": [
+        "F1"
+      ],
+      "country": "FR",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Lens",
+          "latitude": 50.433,
+          "longitude": 2.8279,
+          "country_code": "FR"
+        }
+      ],
+      "queried": [
+        "lens"
+      ]
+    },
+    {
+      "club": "Levante",
+      "divisions": [
+        "SP1"
+      ],
+      "country": "ES",
+      "verdict": "UNKNOWN",
+      "reason": "no_geocoding_match_within_league_country",
+      "candidates": [],
+      "queried": [
+        "levante"
+      ]
+    },
+    {
+      "club": "Leverkusen",
+      "divisions": [
+        "D1"
+      ],
+      "country": "DE",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Leverkusen",
+          "latitude": 51.0303,
+          "longitude": 6.9843,
+          "country_code": "DE"
+        }
+      ],
+      "queried": [
+        "leverkusen"
+      ]
+    },
+    {
+      "club": "Lille",
+      "divisions": [
+        "F1"
+      ],
+      "country": "FR",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Lille",
+          "latitude": 50.6339,
+          "longitude": 3.0551,
+          "country_code": "FR"
+        }
+      ],
+      "queried": [
+        "lille"
+      ]
+    },
+    {
+      "club": "Liverpool",
+      "divisions": [
+        "E0"
+      ],
+      "country": "GB",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Liverpool",
+          "latitude": 53.4106,
+          "longitude": -2.9779,
+          "country_code": "GB"
+        }
+      ],
+      "queried": [
+        "liverpool"
+      ]
+    },
+    {
+      "club": "Lorient",
+      "divisions": [
+        "F1"
+      ],
+      "country": "FR",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Lorient",
+          "latitude": 47.7482,
+          "longitude": -3.3718,
+          "country_code": "FR"
+        }
+      ],
+      "queried": [
+        "lorient"
+      ]
+    },
+    {
+      "club": "Luton",
+      "divisions": [
+        "E0"
+      ],
+      "country": "GB",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Luton",
+          "latitude": 51.8797,
+          "longitude": -0.4175,
+          "country_code": "GB"
+        }
+      ],
+      "queried": [
+        "luton"
+      ]
+    },
+    {
+      "club": "Lyon",
+      "divisions": [
+        "F1"
+      ],
+      "country": "FR",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Lyon",
+          "latitude": 45.7491,
+          "longitude": 4.8479,
+          "country_code": "FR"
+        }
+      ],
+      "queried": [
+        "lyon"
+      ]
+    },
+    {
+      "club": "M'gladbach",
+      "divisions": [
+        "D1"
+      ],
+      "country": "DE",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Gladbach",
+          "latitude": 49.9333,
+          "longitude": 6.7667,
+          "country_code": "DE"
+        }
+      ],
+      "queried": [
+        "m gladbach",
+        "gladbach"
+      ]
+    },
+    {
+      "club": "Mainz",
+      "divisions": [
+        "D1"
+      ],
+      "country": "DE",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Mainz",
+          "latitude": 49.9819,
+          "longitude": 8.2801,
+          "country_code": "DE"
+        }
+      ],
+      "queried": [
+        "mainz"
+      ]
+    },
+    {
+      "club": "Mallorca",
+      "divisions": [
+        "SP1"
+      ],
+      "country": "ES",
+      "verdict": "REQUIRES_REVIEW",
+      "reason": "resolved_place_is_not_named_in_the_club_name",
+      "candidates": [
+        {
+          "name": "Majorca",
+          "latitude": 39.6078,
+          "longitude": 3.012,
+          "country_code": "ES"
+        }
+      ],
+      "queried": [
+        "mallorca"
+      ]
+    },
+    {
+      "club": "Man City",
+      "divisions": [
+        "E0"
+      ],
+      "country": "GB",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "City",
+          "latitude": 51.4953,
+          "longitude": -3.4553,
+          "country_code": "GB"
+        }
+      ],
+      "queried": [
+        "man city",
+        "city"
+      ]
+    },
+    {
+      "club": "Man United",
+      "divisions": [
+        "E0"
+      ],
+      "country": "GB",
+      "verdict": "REQUIRES_REVIEW",
+      "reason": "resolved_place_is_not_named_in_the_club_name",
+      "candidates": [
+        {
+          "name": "United Kingdom",
+          "latitude": 54.7584,
+          "longitude": -2.6953,
+          "country_code": "GB"
+        }
+      ],
+      "queried": [
+        "man united",
+        "united"
+      ]
+    },
+    {
+      "club": "Marseille",
+      "divisions": [
+        "F1"
+      ],
+      "country": "FR",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Marseille",
+          "latitude": 43.297,
+          "longitude": 5.3811,
+          "country_code": "FR"
+        }
+      ],
+      "queried": [
+        "marseille"
+      ]
+    },
+    {
+      "club": "Metz",
+      "divisions": [
+        "F1"
+      ],
+      "country": "FR",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Metz",
+          "latitude": 49.1191,
+          "longitude": 6.1727,
+          "country_code": "FR"
+        }
+      ],
+      "queried": [
+        "metz"
+      ]
+    },
+    {
+      "club": "Milan",
+      "divisions": [
+        "I1"
+      ],
+      "country": "IT",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Milan",
+          "latitude": 45.4643,
+          "longitude": 9.1895,
+          "country_code": "IT"
+        }
+      ],
+      "queried": [
+        "milan"
+      ]
+    },
+    {
+      "club": "Monaco",
+      "divisions": [
+        "F1"
+      ],
+      "country": "FR",
+      "verdict": "UNKNOWN",
+      "reason": "no_geocoding_match_within_league_country",
+      "candidates": [],
+      "queried": [
+        "monaco"
+      ]
+    },
+    {
+      "club": "Montpellier",
+      "divisions": [
+        "F1"
+      ],
+      "country": "FR",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Montpellier",
+          "latitude": 43.6109,
+          "longitude": 3.8763,
+          "country_code": "FR"
+        }
+      ],
+      "queried": [
+        "montpellier"
+      ]
+    },
+    {
+      "club": "Monza",
+      "divisions": [
+        "I1"
+      ],
+      "country": "IT",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Monza",
+          "latitude": 45.58,
+          "longitude": 9.2725,
+          "country_code": "IT"
+        }
+      ],
+      "queried": [
+        "monza"
+      ]
+    },
+    {
+      "club": "NAC Breda",
+      "divisions": [
+        "N1"
+      ],
+      "country": "NL",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Breda",
+          "latitude": 51.5866,
+          "longitude": 4.776,
+          "country_code": "NL"
+        }
+      ],
+      "queried": [
+        "nac breda",
+        "breda"
+      ]
+    },
+    {
+      "club": "Nantes",
+      "divisions": [
+        "F1"
+      ],
+      "country": "FR",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Nantes",
+          "latitude": 47.2172,
+          "longitude": -1.5534,
+          "country_code": "FR"
+        }
+      ],
+      "queried": [
+        "nantes"
+      ]
+    },
+    {
+      "club": "Napoli",
+      "divisions": [
+        "I1"
+      ],
+      "country": "IT",
+      "verdict": "REQUIRES_REVIEW",
+      "reason": "resolved_place_is_not_named_in_the_club_name",
+      "candidates": [
+        {
+          "name": "Napoli-Nola",
+          "latitude": 40.8762,
+          "longitude": 14.5195,
+          "country_code": "IT"
+        }
+      ],
+      "queried": [
+        "napoli"
+      ]
+    },
+    {
+      "club": "Newcastle",
+      "divisions": [
+        "E0"
+      ],
+      "country": "GB",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Newcastle",
+          "latitude": 54.218,
+          "longitude": -5.8898,
+          "country_code": "GB"
+        }
+      ],
+      "queried": [
+        "newcastle"
+      ]
+    },
+    {
+      "club": "Nice",
+      "divisions": [
+        "F1"
+      ],
+      "country": "FR",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Nice",
+          "latitude": 43.7031,
+          "longitude": 7.2661,
+          "country_code": "FR"
+        }
+      ],
+      "queried": [
+        "nice"
+      ]
+    },
+    {
+      "club": "Nijmegen",
+      "divisions": [
+        "N1"
+      ],
+      "country": "NL",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Nijmegen",
+          "latitude": 51.8425,
+          "longitude": 5.8528,
+          "country_code": "NL"
+        }
+      ],
+      "queried": [
+        "nijmegen"
+      ]
+    },
+    {
+      "club": "Nimes",
+      "divisions": [
+        "F1"
+      ],
+      "country": "FR",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Nîmes",
+          "latitude": 43.8366,
+          "longitude": 4.3579,
+          "country_code": "FR"
+        }
+      ],
+      "queried": [
+        "nimes"
+      ]
+    },
+    {
+      "club": "Norwich",
+      "divisions": [
+        "E0"
+      ],
+      "country": "GB",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Norwich",
+          "latitude": 52.6278,
+          "longitude": 1.2983,
+          "country_code": "GB"
+        }
+      ],
+      "queried": [
+        "norwich"
+      ]
+    },
+    {
+      "club": "Nott'm Forest",
+      "divisions": [
+        "E0"
+      ],
+      "country": "GB",
+      "verdict": "REQUIRES_REVIEW",
+      "reason": "resolved_place_is_not_named_in_the_club_name",
+      "candidates": [
+        {
+          "name": "Nottingham",
+          "latitude": 52.9536,
+          "longitude": -1.1505,
+          "country_code": "GB"
+        }
+      ],
+      "queried": [
+        "nott m forest",
+        "nott",
+        "forest"
+      ]
+    },
+    {
+      "club": "Osasuna",
+      "divisions": [
+        "SP1"
+      ],
+      "country": "ES",
+      "verdict": "UNKNOWN",
+      "reason": "no_geocoding_match_within_league_country",
+      "candidates": [],
+      "queried": [
+        "osasuna"
+      ]
+    },
+    {
+      "club": "Oviedo",
+      "divisions": [
+        "SP1"
+      ],
+      "country": "ES",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Oviedo",
+          "latitude": 43.3603,
+          "longitude": -5.8448,
+          "country_code": "ES"
+        }
+      ],
+      "queried": [
+        "oviedo"
+      ]
+    },
+    {
+      "club": "PSV Eindhoven",
+      "divisions": [
+        "N1"
+      ],
+      "country": "NL",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Eindhoven",
+          "latitude": 51.4408,
+          "longitude": 5.4778,
+          "country_code": "NL"
+        }
+      ],
+      "queried": [
+        "psv eindhoven",
+        "eindhoven"
+      ]
+    },
+    {
+      "club": "Paderborn",
+      "divisions": [
+        "D1"
+      ],
+      "country": "DE",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Paderborn",
+          "latitude": 51.7191,
+          "longitude": 8.7544,
+          "country_code": "DE"
+        }
+      ],
+      "queried": [
+        "paderborn"
+      ]
+    },
+    {
+      "club": "Paris FC",
+      "divisions": [
+        "F1"
+      ],
+      "country": "FR",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Paris",
+          "latitude": 48.8534,
+          "longitude": 2.3488,
+          "country_code": "FR"
+        }
+      ],
+      "queried": [
+        "paris fc",
+        "paris"
+      ]
+    },
+    {
+      "club": "Paris SG",
+      "divisions": [
+        "F1"
+      ],
+      "country": "FR",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Paris",
+          "latitude": 48.8534,
+          "longitude": 2.3488,
+          "country_code": "FR"
+        }
+      ],
+      "queried": [
+        "paris sg",
+        "paris"
+      ]
+    },
+    {
+      "club": "Parma",
+      "divisions": [
+        "I1"
+      ],
+      "country": "IT",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Parma",
+          "latitude": 44.7993,
+          "longitude": 10.3262,
+          "country_code": "IT"
+        }
+      ],
+      "queried": [
+        "parma"
+      ]
+    },
+    {
+      "club": "Pisa",
+      "divisions": [
+        "I1"
+      ],
+      "country": "IT",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Pisa",
+          "latitude": 43.7085,
+          "longitude": 10.4036,
+          "country_code": "IT"
+        }
+      ],
+      "queried": [
+        "pisa"
+      ]
+    },
+    {
+      "club": "RB Leipzig",
+      "divisions": [
+        "D1"
+      ],
+      "country": "DE",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Leipzig",
+          "latitude": 51.3396,
+          "longitude": 12.3713,
+          "country_code": "DE"
+        }
+      ],
+      "queried": [
+        "rb leipzig",
+        "leipzig"
+      ]
+    },
+    {
+      "club": "Real Madrid",
+      "divisions": [
+        "SP1"
+      ],
+      "country": "ES",
+      "verdict": "REQUIRES_REVIEW",
+      "reason": "candidates_span_more_than_one_weather_cell",
+      "candidates": [
+        {
+          "name": "Real",
+          "latitude": 38.8333,
+          "longitude": 0.1333,
+          "country_code": "ES"
+        },
+        {
+          "name": "Madrid",
+          "latitude": 40.4165,
+          "longitude": -3.7026,
+          "country_code": "ES"
+        }
+      ],
+      "queried": [
+        "real madrid",
+        "real",
+        "madrid"
+      ]
+    },
+    {
+      "club": "Reims",
+      "divisions": [
+        "F1"
+      ],
+      "country": "FR",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Reims",
+          "latitude": 49.2653,
+          "longitude": 4.0285,
+          "country_code": "FR"
+        }
+      ],
+      "queried": [
+        "reims"
+      ]
+    },
+    {
+      "club": "Rennes",
+      "divisions": [
+        "F1"
+      ],
+      "country": "FR",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Rennes",
+          "latitude": 48.1111,
+          "longitude": -1.6743,
+          "country_code": "FR"
+        }
+      ],
+      "queried": [
+        "rennes"
+      ]
+    },
+    {
+      "club": "Roma",
+      "divisions": [
+        "I1"
+      ],
+      "country": "IT",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Roma",
+          "latitude": 44.9936,
+          "longitude": 11.1064,
+          "country_code": "IT"
+        }
+      ],
+      "queried": [
+        "roma"
+      ]
+    },
+    {
+      "club": "Salernitana",
+      "divisions": [
+        "I1"
+      ],
+      "country": "IT",
+      "verdict": "UNKNOWN",
+      "reason": "no_geocoding_match_within_league_country",
+      "candidates": [],
+      "queried": [
+        "salernitana"
+      ]
+    },
+    {
+      "club": "Sampdoria",
+      "divisions": [
+        "I1"
+      ],
+      "country": "IT",
+      "verdict": "UNKNOWN",
+      "reason": "no_geocoding_match_within_league_country",
+      "candidates": [],
+      "queried": [
+        "sampdoria"
+      ]
+    },
+    {
+      "club": "Sassuolo",
+      "divisions": [
+        "I1"
+      ],
+      "country": "IT",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Sassuolo",
+          "latitude": 44.5432,
+          "longitude": 10.7848,
+          "country_code": "IT"
+        }
+      ],
+      "queried": [
+        "sassuolo"
+      ]
+    },
+    {
+      "club": "Schalke 04",
+      "divisions": [
+        "D1"
+      ],
+      "country": "DE",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Schalke",
+          "latitude": 51.5198,
+          "longitude": 7.0968,
+          "country_code": "DE"
+        }
+      ],
+      "queried": [
+        "schalke 04",
+        "schalke"
+      ]
+    },
+    {
+      "club": "Sevilla",
+      "divisions": [
+        "SP1"
+      ],
+      "country": "ES",
+      "verdict": "REQUIRES_REVIEW",
+      "reason": "resolved_place_is_not_named_in_the_club_name",
+      "candidates": [
+        {
+          "name": "Seville",
+          "latitude": 37.3828,
+          "longitude": -5.9732,
+          "country_code": "ES"
+        }
+      ],
+      "queried": [
+        "sevilla"
+      ]
+    },
+    {
+      "club": "Sheffield United",
+      "divisions": [
+        "E0"
+      ],
+      "country": "GB",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Sheffield",
+          "latitude": 53.383,
+          "longitude": -1.4659,
+          "country_code": "GB"
+        },
+        {
+          "name": "United Kingdom",
+          "latitude": 54.7584,
+          "longitude": -2.6953,
+          "country_code": "GB"
+        }
+      ],
+      "queried": [
+        "sheffield united",
+        "sheffield",
+        "united"
+      ]
+    },
+    {
+      "club": "Sociedad",
+      "divisions": [
+        "SP1"
+      ],
+      "country": "ES",
+      "verdict": "UNKNOWN",
+      "reason": "no_geocoding_match_within_league_country",
+      "candidates": [],
+      "queried": [
+        "sociedad"
+      ]
+    },
+    {
+      "club": "Southampton",
+      "divisions": [
+        "E0"
+      ],
+      "country": "GB",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Southampton",
+          "latitude": 50.904,
+          "longitude": -1.4043,
+          "country_code": "GB"
+        }
+      ],
+      "queried": [
+        "southampton"
+      ]
+    },
+    {
+      "club": "Spal",
+      "divisions": [
+        "I1"
+      ],
+      "country": "IT",
+      "verdict": "UNKNOWN",
+      "reason": "no_geocoding_match_within_league_country",
+      "candidates": [],
+      "queried": [
+        "spal"
+      ]
+    },
+    {
+      "club": "Sparta Rotterdam",
+      "divisions": [
+        "N1"
+      ],
+      "country": "NL",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Rotterdam",
+          "latitude": 51.9225,
+          "longitude": 4.4792,
+          "country_code": "NL"
+        }
+      ],
+      "queried": [
+        "sparta rotterdam",
+        "sparta",
+        "rotterdam"
+      ]
+    },
+    {
+      "club": "Spezia",
+      "divisions": [
+        "I1"
+      ],
+      "country": "IT",
+      "verdict": "REQUIRES_REVIEW",
+      "reason": "resolved_place_is_not_named_in_the_club_name",
+      "candidates": [
+        {
+          "name": "La Spezia",
+          "latitude": 44.103,
+          "longitude": 9.8238,
+          "country_code": "IT"
+        }
+      ],
+      "queried": [
+        "spezia"
+      ]
+    },
+    {
+      "club": "St Etienne",
+      "divisions": [
+        "F1"
+      ],
+      "country": "FR",
+      "verdict": "UNKNOWN",
+      "reason": "no_geocoding_match_within_league_country",
+      "candidates": [],
+      "queried": [
+        "st etienne",
+        "etienne"
+      ]
+    },
+    {
+      "club": "St Pauli",
+      "divisions": [
+        "D1"
+      ],
+      "country": "DE",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Pauli",
+          "latitude": 51.5519,
+          "longitude": 8.1074,
+          "country_code": "DE"
+        }
+      ],
+      "queried": [
+        "st pauli",
+        "pauli"
+      ]
+    },
+    {
+      "club": "Strasbourg",
+      "divisions": [
+        "F1"
+      ],
+      "country": "FR",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Strasbourg",
+          "latitude": 48.5839,
+          "longitude": 7.7455,
+          "country_code": "FR"
+        }
+      ],
+      "queried": [
+        "strasbourg"
+      ]
+    },
+    {
+      "club": "Stuttgart",
+      "divisions": [
+        "D1"
+      ],
+      "country": "DE",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Stuttgart",
+          "latitude": 48.7823,
+          "longitude": 9.177,
+          "country_code": "DE"
+        }
+      ],
+      "queried": [
+        "stuttgart"
+      ]
+    },
+    {
+      "club": "Sunderland",
+      "divisions": [
+        "E0"
+      ],
+      "country": "GB",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Sunderland",
+          "latitude": 54.9046,
+          "longitude": -1.3822,
+          "country_code": "GB"
+        }
+      ],
+      "queried": [
+        "sunderland"
+      ]
+    },
+    {
+      "club": "Telstar",
+      "divisions": [
+        "N1"
+      ],
+      "country": "NL",
+      "verdict": "UNKNOWN",
+      "reason": "no_geocoding_match_within_league_country",
+      "candidates": [],
+      "queried": [
+        "telstar"
+      ]
+    },
+    {
+      "club": "Torino",
+      "divisions": [
+        "I1"
+      ],
+      "country": "IT",
+      "verdict": "REQUIRES_REVIEW",
+      "reason": "resolved_place_is_not_named_in_the_club_name",
+      "candidates": [
+        {
+          "name": "Turin",
+          "latitude": 45.0705,
+          "longitude": 7.6868,
+          "country_code": "IT"
+        }
+      ],
+      "queried": [
+        "torino"
+      ]
+    },
+    {
+      "club": "Tottenham",
+      "divisions": [
+        "E0"
+      ],
+      "country": "GB",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Tottenham",
+          "latitude": 51.6037,
+          "longitude": -0.0679,
+          "country_code": "GB"
+        }
+      ],
+      "queried": [
+        "tottenham"
+      ]
+    },
+    {
+      "club": "Toulouse",
+      "divisions": [
+        "F1"
+      ],
+      "country": "FR",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Toulouse",
+          "latitude": 43.6043,
+          "longitude": 1.4437,
+          "country_code": "FR"
+        }
+      ],
+      "queried": [
+        "toulouse"
+      ]
+    },
+    {
+      "club": "Troyes",
+      "divisions": [
+        "F1"
+      ],
+      "country": "FR",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Troyes",
+          "latitude": 48.3007,
+          "longitude": 4.0852,
+          "country_code": "FR"
+        }
+      ],
+      "queried": [
+        "troyes"
+      ]
+    },
+    {
+      "club": "Twente",
+      "divisions": [
+        "N1"
+      ],
+      "country": "NL",
+      "verdict": "UNKNOWN",
+      "reason": "no_geocoding_match_within_league_country",
+      "candidates": [],
+      "queried": [
+        "twente"
+      ]
+    },
+    {
+      "club": "Udinese",
+      "divisions": [
+        "I1"
+      ],
+      "country": "IT",
+      "verdict": "UNKNOWN",
+      "reason": "no_geocoding_match_within_league_country",
+      "candidates": [],
+      "queried": [
+        "udinese"
+      ]
+    },
+    {
+      "club": "Union Berlin",
+      "divisions": [
+        "D1"
+      ],
+      "country": "DE",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Berlin",
+          "latitude": 52.5244,
+          "longitude": 13.4105,
+          "country_code": "DE"
+        }
+      ],
+      "queried": [
+        "union berlin",
+        "union",
+        "berlin"
+      ]
+    },
+    {
+      "club": "Utrecht",
+      "divisions": [
+        "N1"
+      ],
+      "country": "NL",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Utrecht",
+          "latitude": 52.0908,
+          "longitude": 5.1222,
+          "country_code": "NL"
+        }
+      ],
+      "queried": [
+        "utrecht"
+      ]
+    },
+    {
+      "club": "Valencia",
+      "divisions": [
+        "SP1"
+      ],
+      "country": "ES",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Valencia",
+          "latitude": 39.4739,
+          "longitude": -0.3797,
+          "country_code": "ES"
+        }
+      ],
+      "queried": [
+        "valencia"
+      ]
+    },
+    {
+      "club": "Valladolid",
+      "divisions": [
+        "SP1"
+      ],
+      "country": "ES",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Valladolid",
+          "latitude": 41.6554,
+          "longitude": -4.7235,
+          "country_code": "ES"
+        }
+      ],
+      "queried": [
+        "valladolid"
+      ]
+    },
+    {
+      "club": "Vallecano",
+      "divisions": [
+        "SP1"
+      ],
+      "country": "ES",
+      "verdict": "UNKNOWN",
+      "reason": "no_geocoding_match_within_league_country",
+      "candidates": [],
+      "queried": [
+        "vallecano"
+      ]
+    },
+    {
+      "club": "Venezia",
+      "divisions": [
+        "I1"
+      ],
+      "country": "IT",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Venezia",
+          "latitude": 44.4233,
+          "longitude": 11.1737,
+          "country_code": "IT"
+        }
+      ],
+      "queried": [
+        "venezia"
+      ]
+    },
+    {
+      "club": "Verona",
+      "divisions": [
+        "I1"
+      ],
+      "country": "IT",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Verona",
+          "latitude": 45.4385,
+          "longitude": 10.9938,
+          "country_code": "IT"
+        }
+      ],
+      "queried": [
+        "verona"
+      ]
+    },
+    {
+      "club": "Villarreal",
+      "divisions": [
+        "SP1"
+      ],
+      "country": "ES",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Villarreal",
+          "latitude": 38.7257,
+          "longitude": -7.2153,
+          "country_code": "ES"
+        }
+      ],
+      "queried": [
+        "villarreal"
+      ]
+    },
+    {
+      "club": "Volendam",
+      "divisions": [
+        "N1"
+      ],
+      "country": "NL",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Volendam",
+          "latitude": 52.495,
+          "longitude": 5.0708,
+          "country_code": "NL"
+        }
+      ],
+      "queried": [
+        "volendam"
+      ]
+    },
+    {
+      "club": "Watford",
+      "divisions": [
+        "E0"
+      ],
+      "country": "GB",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Watford",
+          "latitude": 51.6553,
+          "longitude": -0.396,
+          "country_code": "GB"
+        }
+      ],
+      "queried": [
+        "watford"
+      ]
+    },
+    {
+      "club": "Werder Bremen",
+      "divisions": [
+        "D1"
+      ],
+      "country": "DE",
+      "verdict": "REQUIRES_REVIEW",
+      "reason": "candidates_span_more_than_one_weather_cell",
+      "candidates": [
+        {
+          "name": "Werder",
+          "latitude": 52.3787,
+          "longitude": 12.934,
+          "country_code": "DE"
+        },
+        {
+          "name": "Bremen",
+          "latitude": 53.0758,
+          "longitude": 8.8072,
+          "country_code": "DE"
+        }
+      ],
+      "queried": [
+        "werder bremen",
+        "werder",
+        "bremen"
+      ]
+    },
+    {
+      "club": "West Brom",
+      "divisions": [
+        "E0"
+      ],
+      "country": "GB",
+      "verdict": "REQUIRES_REVIEW",
+      "reason": "candidates_span_more_than_one_weather_cell",
+      "candidates": [
+        {
+          "name": "West Bromwich",
+          "latitude": 52.5187,
+          "longitude": -1.9945,
+          "country_code": "GB"
+        },
+        {
+          "name": "Brome",
+          "latitude": 52.3441,
+          "longitude": 1.1338,
+          "country_code": "GB"
+        }
+      ],
+      "queried": [
+        "west brom",
+        "west",
+        "brom"
+      ]
+    },
+    {
+      "club": "West Ham",
+      "divisions": [
+        "E0"
+      ],
+      "country": "GB",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "West Ham",
+          "latitude": 51.5333,
+          "longitude": 0.0167,
+          "country_code": "GB"
+        }
+      ],
+      "queried": [
+        "west ham",
+        "west"
+      ]
+    },
+    {
+      "club": "Wolfsburg",
+      "divisions": [
+        "D1"
+      ],
+      "country": "DE",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Wolfsburg",
+          "latitude": 52.4245,
+          "longitude": 10.7815,
+          "country_code": "DE"
+        }
+      ],
+      "queried": [
+        "wolfsburg"
+      ]
+    },
+    {
+      "club": "Wolves",
+      "divisions": [
+        "E0"
+      ],
+      "country": "GB",
+      "verdict": "REQUIRES_REVIEW",
+      "reason": "resolved_place_is_not_named_in_the_club_name",
+      "candidates": [
+        {
+          "name": "Wolvesnewton",
+          "latitude": 51.6934,
+          "longitude": -2.791,
+          "country_code": "GB"
+        }
+      ],
+      "queried": [
+        "wolves"
+      ]
+    },
+    {
+      "club": "Zwolle",
+      "divisions": [
+        "N1"
+      ],
+      "country": "NL",
+      "verdict": "VERIFIED",
+      "reason": "place_name_appears_in_club_name",
+      "candidates": [
+        {
+          "name": "Zwolle",
+          "latitude": 52.5125,
+          "longitude": 6.0944,
+          "country_code": "NL"
+        }
+      ],
+      "queried": [
+        "zwolle"
+      ]
+    }
+  ]
+}
