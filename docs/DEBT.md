@@ -1,5 +1,155 @@
 # SabiScore Debt Ledger
 
+## 73. `insights/simulators.py` raised `AttributeError` on every call under the installed NumPy, and nothing imported it — RESOLVED 2026-09-10
+
+**Tier:** `RESOLVED` (defect fixed, first executable coverage added) with an
+open **deletion decision** left to an operator, deliberately not taken here.
+
+`src/insights/simulators.py:60` computed Poisson scoreline probabilities with
+`np.math.factorial(goals)`. **`np.math` was a private alias for the stdlib
+module and was REMOVED in NumPy 2.0**; the installed interpreter runs NumPy
+**2.5.0**, so `_calculate_poisson_probs` — and therefore
+`run_match_simulation`, the module's only entry point — raised
+`AttributeError: module 'numpy' has no attribute 'math'` on **every** call.
+
+**It survived because nothing calls it.** A repo-wide search for
+`insights.simulators` / `MatchSimulator` / `MatchSimulationResult` returns
+exactly one file: itself. Zero importers in `src/`, `scripts/`, `tests/` or
+`apps/`. The module has, as far as this ledger can show, never once executed
+successfully in this environment. Same "written, never run" shape as item 64's
+root cause and item 56's xG ingestion — a third instance, now in a module
+nobody had looked at.
+
+**Fixed** to `math.factorial` (one line, plus the stdlib import). Verified by
+running the simulator end to end for the first time: 2,000 simulations at
+xG 1.6 vs 1.1 return a coherent outcome simplex.
+
+**Regression guard:** `backend/tests/unit/test_insights_simulators.py` (5
+tests) — the module's first coverage of any kind. Asserts **correctness, not
+absence of a crash**: the truncated Poisson pmf is checked against
+`scipy.stats.poisson` to 1e-9, so a plausible-looking-but-wrong replacement
+would fail too. One test pins the actual defect (`np.math` no longer exists to
+fall back on). ⚠️ Writing these caught a second, smaller error — *mine*: the
+first draft asserted `outcome_probabilities` keys of `home_win`/`draw`/
+`away_win`, but the module emits `home_win_prob`/`draw_prob`/`away_win_prob`.
+The test was wrong, not the code; fixed the test. Reading the emitted schema
+beats guessing it, which is the same lesson item 71's process note records
+about scrolling stdout.
+
+**A wider sweep found no siblings.** `np.float_`, `np.int_`, `np.bool8`,
+`np.object_`, `np.unicode_`, `np.NaN`, `np.Inf`, `np.alltrue`, `np.sometrue`
+and `np.math` across all of `backend/` return exactly this one hit. The NumPy
+2.0 removals are otherwise clean in this codebase.
+
+⚠️ **Open decision, not taken here: this module is a deletion candidate.** It
+is dead, it duplicates a *rejected* capability (item 71's Bivariate Poisson
+scoreline modelling), and duplicated implementations drifting apart is this
+repository's single most-repeated defect class. Deleting it is nonetheless a
+product call about whether Monte-Carlo scoreline simulation is wanted later —
+harder to reverse than a one-line fix, and not mine to make unilaterally. It
+is recorded here so the choice is explicit rather than forgotten.
+
+## 72. Experiment E6 (dynamic team state) — the state-space model works, but league football's metronomic cadence leaves it almost nothing to adapt to — `HOLD` / `REJECT` / `REJECT` — 2026-09-10
+
+**Tier:** `HOLD` beyond the incumbent · `REJECT` for the uncertainty channel ·
+`REJECT` beyond the market — `PRODUCTION_EXECUTIVE_DIRECTIVE.md` §51.
+Full study: `reports/research/e6-dynamic-team-state.md`.
+Raw results: `reports/research/e6-dynamic-team-state.json`.
+**Found:** 2026-09-10, directive §43 E6 / Phase 4. Zero acquisition cost —
+every input is `backend/data/cache/fd_*.csv`, already on disk. This closes the
+last experiment in the directive's own numbered backlog that had never been
+tested.
+
+**Candidate:** `src/features/dynamic_team_state.py`, a local-level
+(random-walk) state-space rating in the Glicko/Kalman family — stated plainly
+rather than dressed up as novel. Its Kalman gain grows with the gap since a
+team last played, which is E6's hypothesis ("strength changes faster than the
+current representation") expressed as a model rather than a slogan.
+
+⚠️ **The control is the methodological core, and it is what makes this a test
+of the hypothesis rather than of learning rate.** A state-space model that
+merely moves ratings further per match would beat or lose to Elo for reasons
+unrelated to E6. So the arms are matched on everything else: the expectation
+function is byte-for-byte Elo's (pinned by a parametrised test), and
+`calibrate_observation_noise_scale()` solves **in closed form, touching no
+data**, for the observation noise that makes the steady-state gain equal the
+incumbent's `settings.elo_k_base`. It lands exactly on 20.0 points/unit-error.
+Because it is analytic it cannot be the test-set-informed selection item 64
+had to fix.
+
+**⭐ The finding is in Stage 1, before any model was scored.** The mechanism
+keys on days-since-last-played. Measured across 12,690 fixtures: **median 7,
+p90 14, and only 2.85 % of matches follow a gap longer than 30 days.** League
+football runs on a metronome, so **a staleness-adaptive gain is, in this
+competition structure, nearly a constant gain.** The hypothesis is not so much
+wrong as starved of surface to act on. Stage 2 says the same thing from the
+other side: Pearson(`elo_diff`, `dynamic_diff`) = **0.9748** — the candidate is
+largely a re-encoding of the incumbent.
+
+**Stage 3** (pre-declared: 3 tests, one family, positive only if the 95 % AND
+the Bonferroni 98.33 % CI both exclude zero — declared in the script docstring
+before any result was computed), n = 1,752, test season 2425:
+
+| Test | Baseline RPS | Candidate RPS | Δ | 95 % CI |
+|---|---|---|---|---|
+| H1 beyond Elo | 0.20249 | 0.20132 | −0.0012 | [−0.0028, +0.0002] |
+| H2 + uncertainty | 0.20249 | 0.20132 | −0.0012 | [−0.0028, +0.0002] |
+| H3 beyond market | 0.19488 | 0.19498 | +0.0001 | [0.0000, +0.0002] |
+
+De-vigged market scored directly: **0.19463**.
+
+**H1 `HOLD`** — point estimate favours the candidate, sign consistent in 4 of 5
+leagues, but no CI excludes zero at either level. The *wide* null of item 65,
+not the tight null of items 68/69; §51's default for an inconclusive sample is
+HOLD.
+**H2 `REJECT`** — the uncertainty channel moves out-of-sample RPS by 3 × 10⁻⁶
+and draws ~1 × 10⁻⁴ weight. ⚠️ Verified rather than inferred: it is *not*
+degenerate (652 distinct values in the test window, CV 7.2 %) — the model
+simply finds no use for it. The two rows agreeing to 4 dp is rounding, not a
+wiring bug; checked directly after the printed table looked suspicious.
+**H3 `REJECT`** — a tight null on the *wrong side*, 0.0001 RPS worse than the
+market alone.
+
+⚠️ **Scale check governing all three:** the market's advantage over the best
+model here is **0.0067 RPS — about 5.7× the size of the candidate's own
+improvement over Elo.** Whatever H1 turns out to be, it does not close that gap,
+and this study makes no market-edge claim.
+
+**Limitations, recorded rather than buried:** the learning-rate control is
+exact in the regime it was solved for and **~25 % off in realised average**
+(Elo 8.016 vs state-space 9.989 mean |Δrating|) because the corpus includes
+burn-in, international breaks and asymmetric matchups; the residual runs *in
+the candidate's favour*, so the null is the conservative reading. One test
+season. And Elo's 50 % season-carryover regression was **removed, not
+ablated** — the study cannot separate "adaptive gain helped" from "dropping the
+summer regression helped"; a 2×2 ablation would, and was not run.
+
+**Reopening (§42)** needs one of: more evaluation seasons; a 2×2 ablation; or —
+the pointer Stage 1 actually earns — **process noise driven by something that
+varies when the calendar does not** (squad churn, manager change, transfer
+turnover), which is genuinely different information rather than a
+reparameterisation.
+
+**Shared-harness change:** `scripts/_incremental_value_harness.py`'s
+`paired_rps_diff_bootstrap` gained a defaulted `ci_level` passthrough so the
+Bonferroni-adjusted interval is computable. Backward compatible — Portfolios
+B, E and F call it unchanged and their behaviour is unaffected.
+
+**Regression guard:** `backend/tests/unit/test_dynamic_team_state.py` (15
+tests). The two load-bearing ones were **watched failing on deliberately
+broken variants before being trusted**: with process noise set to zero the
+model degenerates to a fixed gain and the adaptivity test's premise collapses
+(3-day and 120-day layoffs both move 102.613 points, vs 122.003 / 180.339 for
+the real model); moving `update()` above `get_context()` makes the leakage test
+fail with a first-row `strength_diff` of 196.81 instead of 0.0. A third pins
+the steady-state gain against the incumbent K, so the control cannot silently
+drift.
+
+**No feature schema, model artifact, promotion gate, or production code path
+changed.** `dynamic_team_state.py` is imported only by its own tests and the
+study — the standing `elo_replay.py` had before M2 wired it in, and it stays
+there unless E6 earns promotion.
+
 ## 71. Experiment E7 (distributional goal model): a Bivariate Poisson draw overlay already existed, unwired and circularly self-evaluated — fixed and measured, `REJECT` on clean evidence — 2026-09-09
 
 **Tier:** `REJECT` — `PRODUCTION_EXECUTIVE_DIRECTIVE.md` §51 decision, directive

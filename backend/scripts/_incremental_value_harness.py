@@ -77,7 +77,11 @@ def fit_multinomial_logistic(X: np.ndarray, y: np.ndarray) -> Any:
 
 
 def paired_rps_diff_bootstrap(
-    y_true: np.ndarray, proba_candidate: np.ndarray, proba_baseline: np.ndarray
+    y_true: np.ndarray,
+    proba_candidate: np.ndarray,
+    proba_baseline: np.ndarray,
+    *,
+    ci_level: float = 0.95,
 ) -> dict[str, Any]:
     """Block-bootstrap CI on the per-fixture RPS difference (candidate - baseline).
 
@@ -102,7 +106,11 @@ def paired_rps_diff_bootstrap(
         return float(np.mean(diffs))
 
     return block_bootstrap_ci(
-        dummy_y_true, per_fixture_diff.reshape(-1, 1), _mean_metric, block_size=10
+        dummy_y_true,
+        per_fixture_diff.reshape(-1, 1),
+        _mean_metric,
+        block_size=10,
+        ci_level=ci_level,
     )
 
 
