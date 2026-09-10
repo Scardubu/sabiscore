@@ -18,11 +18,20 @@ be honest. It is split **temporally** in two: the earlier half conformalizes
 (computes conformity scores), the later half is scored. Calibration therefore
 strictly precedes test, matching how the model would actually be deployed.
 
-Wrapping a surrogate model instead would measure the conformal machinery but
-say nothing about SabiScore's served forecasts, so the real artifact is wrapped
--- base models (RandomForest / XGBoost / LightGBM) → meta features → the
-``SoftmaxMetaModel`` head, replicating `src/models/ensemble.py::_create_meta_features`
-column-for-column so the wrapper is the production stacking, not a look-alike.
+Wrapping a surrogate model would measure the conformal machinery but say
+nothing about SabiScore's served forecasts, so the real artifact is wrapped --
+specifically, **the equal-weight average of its RandomForest / XGBoost /
+LightGBM base learners**, which is what ``PredictionEngine`` computes on the
+request path.
+
+⚠️ The stacking head is deliberately NOT used. ``_ensemble_predict_dict``
+averages the base learners and never touches ``meta_model``; serving's
+``_ArtifactBundle`` has no ``meta_model`` field at all. Wrapping the stacking
+head instead — as an earlier revision of this script did — measures a model
+production never serves, and scored ~0.008 RPS better than each artifact's own
+recorded metric. Averaging reproduces every recorded metric **exactly**, which
+is the evidence that this wrapper is the served path rather than a plausible
+look-alike.
 
 **Non-adaptive only.** ``conformity_score="lac"`` is the Least Ambiguous
 set-valued Classifier score (s = 1 - p_true). The adaptive scores (``aps``,
@@ -52,7 +61,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import pandas as pd
 
 _SCRIPTS = Path(__file__).resolve().parent
 REPO_ROOT = _SCRIPTS.parents[1]
@@ -75,40 +83,64 @@ CLASS_NAMES = ["home_win", "draw", "away_win"]
 
 
 class ServedEnsemble:
-    """sklearn-compatible view of a served v5_phase7 artifact.
+    """sklearn-compatible view of what production actually serves.
 
     MAPIE needs ``predict_proba``, ``predict`` and ``classes_``. The artifact is
-    a plain dict, so this adapts it without modifying anything on disk. The
-    meta-feature construction mirrors
-    ``src/models/ensemble.py::_create_meta_features`` exactly -- same column
-    names, same per-model ordering -- because ``SoftmaxMetaModel`` carries
-    ``feature_names_in_`` and would otherwise be fed a differently-shaped frame.
+    a plain dict, so this adapts it without modifying anything on disk.
+
+    ⚠️ **This averages the base learners and does NOT use ``meta_model``.**
+    That is not an approximation -- it is what the request path computes.
+    ``PredictionEngine._ensemble_predict_dict`` (`src/models/prediction.py`) is
+    an equal-weight average of every base learner's ``predict_proba``, and
+    never touches the stacking head; ``_ArtifactBundle`` does not even carry a
+    ``meta_model`` field. CLAUDE.md's vΩ.47 entry records the same split: the
+    stacking head is read by ``SabiScoreEnsemble.load_model()`` at *startup*,
+    while the request path averages.
+
+    An earlier revision of this script wrapped ``meta_model`` instead, on the
+    assumption that ``ensemble.py::predict``'s stacking flow was the served
+    one. It is not, and the error was visible in the numbers: the stacking head
+    scored ~0.008 RPS *better* than each artifact's own recorded metric, which
+    was misread as the artifact being unreproducible. Averaging the base
+    learners reproduces every recorded metric exactly (see `faithfulness` in
+    the report), which is the proof this wrapper is the served path.
     """
 
     _estimator_type = "classifier"
 
     def __init__(self, artifact: dict[str, Any]) -> None:
         self._models: dict[str, Any] = artifact["models"]
-        self._meta = artifact["meta_model"]
+        # Retained only for classes_; serving never invokes the stacking head.
+        self._unused_meta_model = artifact.get("meta_model")
         self.feature_columns: list[str] = artifact["feature_columns"]
-        self.classes_ = np.asarray(getattr(self._meta, "classes_", [0, 1, 2]))
+        self.classes_ = np.asarray(
+            getattr(self._unused_meta_model, "classes_", None)
+            if getattr(self._unused_meta_model, "classes_", None) is not None
+            else [0, 1, 2]
+        )
         self.metadata: dict[str, Any] = artifact.get("model_metadata", {})
 
-    def _meta_features(self, X: np.ndarray) -> pd.DataFrame:
-        frame = pd.DataFrame(X, columns=self.feature_columns)
-        meta = pd.DataFrame(index=frame.index)
-        for name, model in self._models.items():
-            probs = model.predict_proba(frame)
-            if probs.shape[1] > 2:
-                meta[f"{name}_prob_home"] = probs[:, 0]
-                meta[f"{name}_prob_draw"] = probs[:, 1]
-                meta[f"{name}_prob_away"] = probs[:, 2]
-            else:
-                meta[f"{name}_prob"] = probs[:, 1]
-        return meta
-
     def predict_proba(self, X: Any) -> np.ndarray:
-        return np.asarray(self._meta.predict_proba(self._meta_features(np.asarray(X))))
+        """Equal-weight average of base learner probabilities.
+
+        Mirrors ``PredictionEngine._ensemble_predict_dict``, including its
+        skip-on-failure behaviour, so a base learner that raises is dropped
+        from the average rather than failing the whole prediction. Numpy in,
+        numpy out -- no DataFrame at the inference boundary, matching how the
+        base learners were fitted and how serving calls them.
+        """
+        arr = np.asarray(X, dtype=float)
+        collected: list[np.ndarray] = []
+        for model in self._models.values():
+            try:
+                probs = np.asarray(model.predict_proba(arr), dtype=np.float64)
+            except Exception:  # noqa: BLE001 - mirrors serving's own tolerance
+                continue
+            if probs.ndim == 2 and probs.shape[1] == 3:
+                collected.append(probs)
+        if not collected:
+            raise RuntimeError("no base learner produced a valid 3-class matrix")
+        return np.mean(collected, axis=0)
 
     def predict(self, X: Any) -> np.ndarray:
         return self.classes_[self.predict_proba(X).argmax(axis=1)]
@@ -319,7 +351,12 @@ def main() -> int:
         ),
         "method": {
             "library": f"mapie {__import__('mapie').__version__}",
-            "estimator": "served v5_phase7 stacking ensemble (RF + XGB + LGBM -> SoftmaxMetaModel)",
+            "estimator": (
+                "served v5_phase7 request path: equal-weight average of the "
+                "RF/XGB/LGBM base learners, matching "
+                "PredictionEngine._ensemble_predict_dict. The stacking head is "
+                "NOT used, because the request path does not use it."
+            ),
             "conformity_score": "lac (non-adaptive)",
             "adaptive_scores_excluded": (
                 "aps/raps deliberately not evaluated: §21 prohibits adaptive "

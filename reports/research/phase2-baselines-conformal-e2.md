@@ -99,60 +99,84 @@ would need does not exist.
 training. It is split temporally in half: the earlier half conformalizes, the
 later half is scored. Calibration strictly precedes test.
 
-The estimator is the **real served ensemble** — RandomForest + XGBoost +
-LightGBM base models feeding a `SoftmaxMetaModel` head — with meta-features
-built column-for-column as `src/models/ensemble.py::_create_meta_features`
-builds them, so the wrapper is production's stacking rather than a look-alike.
+The estimator is **what production actually serves**: the equal-weight average
+of the artifact's RandomForest / XGBoost / LightGBM base learners, mirroring
+`PredictionEngine._ensemble_predict_dict`.
+
+⚠️ **The stacking head is deliberately not used**, because the request path
+does not use it — `_ensemble_predict_dict` averages the base learners and
+never touches `meta_model`, and serving's `_ArtifactBundle` carries no
+`meta_model` field at all (CLAUDE.md vΩ.47 records the same split: the stacking
+head is read by `SabiScoreEnsemble.load_model()` at *startup*, the request path
+averages).
 
 ### Result (n = 867 across 5 leagues)
 
 | Nominal | Empirical | Gap | Mean set size (of 3) |
 |---|---|---|---|
-| 0.80 | 0.760 | −0.040 | 2.02 |
-| 0.90 | 0.881 | −0.019 | 2.50 |
-| 0.95 | 0.932 | −0.018 | 2.70 |
+| 0.80 | 0.798 | −0.002 | 2.15 |
+| 0.90 | 0.896 | −0.004 | 2.56 |
+| 0.95 | 0.955 | +0.005 | 2.77 |
 
-Per league at nominal 0.90: EPL 0.915, BUNDESLIGA 0.878, SERIE_A 0.872,
-LIGUE_1 0.869, LA_LIGA 0.868. EREDIVISIE has no rows in the holdout season and
+Per league at nominal 0.90: LA_LIGA 0.916, LIGUE_1 0.915, SERIE_A 0.910,
+EPL 0.894, BUNDESLIGA 0.838. EREDIVISIE has no rows in the holdout season and
 is skipped.
+
+### Faithfulness — the wrapper is provably the served path
+
+On each artifact's own declared holdout, with row counts matching exactly, this
+wrapper reproduces every recorded metric **to the last decimal**:
+
+| League | RPS here | artifact recorded |
+|---|---|---|
+| BUNDESLIGA | 0.23347 | 0.23347 |
+| EPL | 0.23036 | 0.23036 |
+| LA_LIGA | 0.21937 | 0.21937 |
+| LIGUE_1 | 0.22905 | 0.22905 |
+| SERIE_A | 0.21611 | 0.21611 |
+
+That exactness is the evidence the conformalized object is the served model,
+not a plausible look-alike.
 
 ### Reading
 
-**Coverage undershoots at every level.** Split conformal's marginal guarantee
-holds under exchangeability; football fixtures across a season are not
-exchangeable, and the undershoot is consistent with temporal drift between the
-calibration and test halves. This is a property of the data, not a defect in
-the method.
+**Coverage is essentially nominal.** Gaps of −0.002, −0.004 and +0.005 across
+867 fixtures mean split conformal delivers its marginal guarantee on this data,
+despite football fixtures not being strictly exchangeable across a season.
 
-**The sharpness cost is the more important finding.** To approach nominal
-coverage the sets must contain 2.50 of 3 possible outcomes at 90%, and 2.70 at
-95%. A set containing all three of {home, draw, away} asserts only that the
-match will have a result. §21's warning that "coverage alone is not sufficient"
-turns out to bind here even before coverage is met.
+**The sharpness cost is the finding.** Meeting that coverage requires sets
+containing **2.56 of 3 possible outcomes at 90%**, and 2.77 at 95%. A set
+holding all of {home, draw, away} asserts only that the match will have a
+result. §21's warning that "coverage alone is not sufficient" is exactly right
+here: coverage is *met*, and the sets are still close to operationally vacuous.
 
-### ⚠️ Scope caveat — what was actually conformalized
+### ⚠️ Correction — an earlier revision measured the wrong model
 
-The conformalized object is the **artifact's stacking output**, which is what
-the `.pkl` carries. It is **not** the fully-calibrated served probability.
+The first version of this study wrapped the **stacking head**
+(`meta_model.predict_proba`), on the assumption that
+`ensemble.py::predict`'s stacking flow was the served one. It is not.
 
-Measured, not assumed: on each artifact's own declared holdout, with row counts
-matching **exactly** (EPL 375 = 375, BUNDESLIGA 296 = 296, and so on for all
-five), this wrapper does not reproduce the artifact's recorded metrics —
+That error produced two wrong conclusions, both now retracted:
 
-| League | accuracy here | artifact recorded | RPS here | artifact recorded |
-|---|---|---|---|---|
-| BUNDESLIGA | 0.443 | 0.416 | 0.22599 | 0.23347 |
-| EPL | 0.491 | 0.464 | 0.22156 | 0.23036 |
-| LA_LIGA | 0.479 | 0.450 | 0.21286 | 0.21937 |
-| LIGUE_1 | 0.507 | 0.477 | 0.22715 | 0.22905 |
-| SERIE_A | 0.464 | 0.453 | 0.21062 | 0.21611 |
+1. It reported **undercoverage at every level** (0.760 / 0.881 / 0.932). The
+   corrected served path is at nominal.
+2. It reported that the artifacts' recorded metrics **could not be reproduced
+   from the artifacts**, and inferred a dropped training-time calibrator. That
+   inference was wrong. The stacking head simply scores ~0.008 RPS better than
+   the averaged base learners, and the recorded metrics were the averaged ones
+   all along — they reproduce exactly, as the table above shows.
 
-Identical fixtures, systematically different metrics, in the same direction in
-all five leagues. The calibrator selected during training is **not persisted
-inside the artifact**, and `backend/models/calibration_baselines.json` holds
-recorded telemetry rather than a fitted calibrator object. A
-calibrated-pipeline coverage claim therefore requires that calibrator to be
-persisted or re-fit first, and is not made here.
+There is no missing calibrator. The served `v5_phase7` artifacts were trained
+**2026-08-08**, and `_select_calibrator` did not land until **2026-09-10**, so
+no calibrator existed to persist when they were built. When one is selected
+today it replaces `meta_model` with a wrapped calibrated object that is then
+serialized — so it is carried inside `meta_model`, not dropped.
+
+The genuinely open question is separate and already in the ledger as item 71:
+serving can read an optional `calibrator` key that this training pipeline never
+writes, and since the request path ignores `meta_model` entirely, a calibrator
+baked into the head would not reach serving. That is an artifact-format
+question, not a lost object, and it is not resolved here.
 
 ---
 

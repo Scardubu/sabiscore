@@ -770,14 +770,13 @@ experiments:
     state: CLOSED
     decision: RESEARCH
     decision_detail: >-
-      Coverage undershoots nominal at all three levels, and the set sizes
-      needed to approach nominal are close to vacuous - 2.50 of 3 possible
-      outcomes at 90%, 2.70 at 95%. §21 says coverage alone is insufficient;
-      here even coverage is not met, and the sharpness cost makes the sets
-      operationally weak. Not REJECT: split conformal is doing what it
-      guarantees under exchangeability, and the undershoot is consistent with
-      temporal drift between calibration and test halves, which is a property
-      of the data rather than a defect in the method.
+      Coverage is essentially nominal on the served path (gaps -0.002, -0.004,
+      +0.005 across 867 fixtures), so split conformal delivers its marginal
+      guarantee here. The finding is sharpness: meeting that coverage needs
+      sets containing 2.56 of 3 possible outcomes at 90% and 2.77 at 95%, which
+      is close to asserting only that the match will have a result. §21's
+      "coverage alone is not sufficient" is exactly right - coverage is met and
+      the sets are still operationally weak.
     information_source: "served v5_phase7 artifacts + the 68-feature corpus projection"
     source_version: "v5_phase7-20260808"
     source_license_class: L0
@@ -787,7 +786,10 @@ experiments:
     dataset_version: "reports/research/split-conformal-report.json"
     feature_version: "phase7_68"
     representation_version: "LAC conformity score (non-adaptive)"
-    model_version: "v5_phase7 stacking head (RF + XGB + LGBM -> SoftmaxMetaModel)"
+    model_version: >-
+      v5_phase7 served request path: equal-weight average of the RF/XGB/LGBM
+      base learners (PredictionEngine._ensemble_predict_dict). The stacking
+      head is NOT used, because serving does not use it.
     parameters: "confidence_level [0.80, 0.90, 0.95]; conformity_score lac; prefit"
     seed: "n/a - split conformal is deterministic given a fixed temporal split"
     training_window: "not re-trained; artifacts used prefit"
@@ -801,20 +803,23 @@ experiments:
     statistical_test: "empirical vs nominal coverage comparison"
     multiple_testing_family: "3 confidence levels x (pooled + 5 leagues)"
     effect_size: >-
-      coverage gap -0.040 at 0.80, -0.019 at 0.90, -0.018 at 0.95
+      coverage gap -0.002 at 0.80, -0.004 at 0.90, +0.005 at 0.95
     confidence_interval: "not computed - reported as direct proportions on n=867"
     sample_size: 867
     result: >-
-      Pooled empirical coverage 0.760 / 0.881 / 0.932 against nominal 0.80 /
-      0.90 / 0.95, with mean set sizes 2.02 / 2.50 / 2.70 out of 3 classes.
-      Undercoverage at every level, and near-vacuous sets where coverage is
-      closest.
+      Pooled empirical coverage 0.798 / 0.896 / 0.955 against nominal 0.80 /
+      0.90 / 0.95, with mean set sizes 2.15 / 2.56 / 2.77 out of 3 classes.
+      Coverage is met; the sets are near-vacuous. The wrapper reproduces every
+      artifact's own recorded RPS exactly, which is the proof it is the served
+      path.
     robustness: >-
-      Per-league and two-window temporal stability both recorded. LA_LIGA is
-      the weakest (0.705 at nominal 0.80), EPL the strongest (0.793).
+      Per-league and two-window temporal stability both recorded. At nominal
+      0.90: LA_LIGA 0.916, LIGUE_1 0.915, SERIE_A 0.910, EPL 0.894,
+      BUNDESLIGA 0.838 (the weakest).
     failure_modes:
-      - "undercoverage at all levels suggests exchangeability is violated by temporal drift between calibration and test halves"
-      - "conformalizes the ARTIFACT's stacking output, not the fully-calibrated served probability - the calibrator selected during training is not persisted in the .pkl, and this wrapper does not reproduce the artifact's own recorded accuracy/rps on an identical fixture set (row counts match exactly, metrics do not)"
+      - "sets are near-vacuous at useful confidence levels (2.56 of 3 outcomes at 90%), so nominal coverage does not make them operationally useful"
+      - "CORRECTED: an earlier revision wrapped the stacking head rather than the served averaging path, and reported undercoverage (0.760/0.881/0.932) plus an inferred dropped calibrator. Both were artifacts of wrapping a model production never serves; the recorded metrics reproduce exactly against the averaged base learners."
+      - "separate and still open (docs/DEBT.md item 71): serving can read an optional `calibrator` key this training pipeline never writes, and the request path ignores meta_model, so a calibrator baked into the head would not reach serving"
     compute: "CPU only"
     peak_rss: UNDECLARED
     runtime: "~4 minutes including the walk-forward feature build"

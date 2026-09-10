@@ -32,16 +32,50 @@ compare** — and note that the tell here was a suspicious *equality*, not an
 error.
 
 **§21 split conformal** (`U1`) — `mapie` `SplitConformalClassifier`,
-non-adaptive LAC score, wrapping the real served stacking ensemble on season
-2425 (the artifacts' own declared holdout, so leakage-free), calibration half
-strictly preceding test half. Pooled coverage 0.760 / 0.881 / 0.932 against
-nominal 0.80 / 0.90 / 0.95 — undercoverage at every level, consistent with
-temporal drift breaking exchangeability. The larger finding is sharpness: mean
-set size is 2.50 of 3 outcomes at 90% and 2.70 at 95%, so the sets approach
-"the match will have a result". §21's "coverage alone is not sufficient" binds
-here before coverage is even met. Adaptive scores (`aps`/`raps`) deliberately
-not evaluated — §21 prohibits them until a difficulty signal exists, and item
-50 records that `error_association` fails.
+non-adaptive LAC score, wrapping **what production actually serves** (the
+equal-weight average of the RF/XGB/LGBM base learners, per
+`PredictionEngine._ensemble_predict_dict`) on season 2425, which each artifact
+declares as its own holdout, so the evaluation is leakage-free. Calibration
+half strictly precedes test half. Pooled coverage 0.798 / 0.896 / 0.955 against
+nominal 0.80 / 0.90 / 0.95 — **coverage is essentially nominal**, so split
+conformal delivers its marginal guarantee here. The finding is sharpness: mean
+set size 2.56 of 3 outcomes at 90% and 2.77 at 95%, so the sets approach "the
+match will have a result". §21's "coverage alone is not sufficient" is exactly
+right — coverage is *met* and the sets are still operationally weak. Adaptive
+scores (`aps`/`raps`) deliberately not evaluated: §21 prohibits them until a
+difficulty signal is demonstrated and item 50 records that `error_association`
+fails.
+
+⚠️ **Corrected in the same session, and the correction matters more than the
+result.** The first revision wrapped the **stacking head**
+(`meta_model.predict_proba`), assuming `ensemble.py::predict`'s stacking flow
+was the served one. It is not — `_ensemble_predict_dict` averages the base
+learners and never touches `meta_model`, and `_ArtifactBundle` has no
+`meta_model` field. CLAUDE.md's vΩ.47 entry already records that split, and I
+had it in context and wrapped the wrong head anyway.
+
+That error produced two retracted conclusions: (1) undercoverage at every level
+(0.760 / 0.881 / 0.932), and (2) an inferred **dropped training-time
+calibrator**, on the reasoning that the artifacts' recorded metrics could not be
+reproduced from the artifacts. Both were artifacts of measuring a model
+production never serves. Against the averaged base learners the recorded RPS
+reproduces **exactly** in all five leagues (EPL 0.23036 = 0.23036, BUNDESLIGA
+0.23347 = 0.23347, LA_LIGA 0.21937, LIGUE_1 0.22905, SERIE_A 0.21611). The
+stacking head simply scores ~0.008 RPS better, which is what the gap was.
+
+**There is no missing calibrator.** The served artifacts were trained
+2026-08-08; `_select_calibrator` did not land until 2026-09-10, so none existed
+to persist. When one is selected today it *replaces* `meta_model` with a wrapped
+calibrated object which is then serialized — carried inside the head, not
+dropped. ⚠️ **Exact reproduction of a recorded metric is the cheapest available
+proof that you are measuring the object you think you are measuring. Run it
+before drawing an inference from a discrepancy.**
+
+The genuinely open question is separate and already ledgered as **item 71**:
+serving reads an optional `calibrator` key this training pipeline never writes,
+and because the request path ignores `meta_model`, a calibrator baked into the
+head would not reach serving. That is an artifact-format question, not a lost
+object, and it is not resolved here.
 
 ⚠️ **Newly measured, and it bounds the claim: the served artifacts' recorded
 metrics cannot be reproduced from the artifacts alone.** On each artifact's own
