@@ -1,0 +1,196 @@
+{
+  "study": "Directive \u00a725 structural baselines (evaluation-only)",
+  "generated_at": "2026-09-10T16:50:29Z",
+  "role": "Reference instruments. NOT production candidates (\u00a725). No feature contract, model artifact, promotion gate or serving path is touched.",
+  "split": {
+    "train_seasons": [
+      2223,
+      2324
+    ],
+    "test_season": 2425,
+    "leagues": [
+      "EPL",
+      "LA_LIGA",
+      "SERIE_A",
+      "BUNDESLIGA",
+      "LIGUE_1"
+    ],
+    "train_n": 3578,
+    "test_n_raw": 1752,
+    "test_n_eligible_paired": 1468,
+    "excluded": {
+      "missing_odds": 0,
+      "dixon_coles_unseen_team": 284,
+      "unknown_league": 0
+    },
+    "split_note": "Identical to Portfolio B / E / F and E6, so these instruments are directly comparable to those studies."
+  },
+  "scoring": {
+    "primary_metric": "mean RPS (lower is better)",
+    "implementation": "backend/scripts/_incremental_value_harness.py",
+    "bootstrap": "non-overlapping block bootstrap, paired per fixture",
+    "threshold_policy": "No absolute gate. \u00a719 forbids a hard-coded universal \u0394Brier or \u0394RPS threshold; only paired CIs are reported."
+  },
+  "cross_study_anchor": {
+    "slice": "full test season 2425, all 1752 fixtures",
+    "market_rps_here": 0.19463141609768259,
+    "portfolio_b_reported": 0.19463,
+    "agrees": true
+  },
+  "pooled": {
+    "market": {
+      "rps": 0.19532133328976087,
+      "accuracy": 0.5361035422343324
+    },
+    "dixon_coles": {
+      "rps": 0.2056574986567739,
+      "accuracy": 0.526566757493188,
+      "vs_market": {
+        "point_estimate": 0.0103,
+        "ci_lower": 0.0069,
+        "ci_upper": 0.0136,
+        "ci_level": 0.95,
+        "n_bootstrap": 1000,
+        "block_size": 10,
+        "n_samples": 1468
+      }
+    },
+    "frequency": {
+      "rps": 0.23371331882446145,
+      "accuracy": 0.42370572207084467,
+      "vs_market": {
+        "point_estimate": 0.0384,
+        "ci_lower": 0.0323,
+        "ci_upper": 0.0447,
+        "ci_level": 0.95,
+        "n_bootstrap": 1000,
+        "block_size": 10,
+        "n_samples": 1468
+      }
+    },
+    "league_frequency": {
+      "rps": 0.23415581580309858,
+      "accuracy": 0.42370572207084467,
+      "vs_market": {
+        "point_estimate": 0.0388,
+        "ci_lower": 0.0324,
+        "ci_upper": 0.0451,
+        "ci_level": 0.95,
+        "n_bootstrap": 1000,
+        "block_size": 10,
+        "n_samples": 1468
+      }
+    }
+  },
+  "per_league": {
+    "BUNDESLIGA": {
+      "n": 240,
+      "market": {
+        "rps": 0.20180787540265174
+      },
+      "dixon_coles": {
+        "rps": 0.2100032104064585
+      },
+      "frequency": {
+        "rps": 0.23599570325164765
+      },
+      "league_frequency": {
+        "rps": 0.23748558246828147
+      }
+    },
+    "EPL": {
+      "n": 342,
+      "market": {
+        "rps": 0.19723284986144013
+      },
+      "dixon_coles": {
+        "rps": 0.21360672460762942
+      },
+      "frequency": {
+        "rps": 0.23432299740467508
+      },
+      "league_frequency": {
+        "rps": 0.23527479609110494
+      }
+    },
+    "LA_LIGA": {
+      "n": 342,
+      "market": {
+        "rps": 0.19129082237438344
+      },
+      "dixon_coles": {
+        "rps": 0.1982623623399736
+      },
+      "frequency": {
+        "rps": 0.22959380438299287
+      },
+      "league_frequency": {
+        "rps": 0.22983937365343182
+      }
+    },
+    "LIGUE_1": {
+      "n": 272,
+      "market": {
+        "rps": 0.20541784136883243
+      },
+      "dixon_coles": {
+        "rps": 0.22042501844543883
+      },
+      "frequency": {
+        "rps": 0.23612900699237258
+      },
+      "league_frequency": {
+        "rps": 0.23660267418087605
+      }
+    },
+    "SERIE_A": {
+      "n": 272,
+      "market": {
+        "rps": 0.18216572946970033
+      },
+      "dixon_coles": {
+        "rps": 0.18635884109321496
+      },
+      "frequency": {
+        "rps": 0.23369686448752267
+      },
+      "league_frequency": {
+        "rps": 0.2327912660909239
+      }
+    }
+  },
+  "historical_frequency_rates": {
+    "global": {
+      "home": 0.44438233650083847,
+      "draw": 0.25321408608160983,
+      "away": 0.3024035774175517
+    },
+    "per_league": {
+      "BUNDESLIGA": [
+        0.45588235294117646,
+        0.2549019607843137,
+        0.28921568627450983
+      ],
+      "SERIE_A": [
+        0.42105263157894735,
+        0.2789473684210526,
+        0.3
+      ],
+      "LA_LIGA": [
+        0.45921052631578946,
+        0.2578947368421053,
+        0.28289473684210525
+      ],
+      "EPL": [
+        0.4723684210526316,
+        0.22236842105263158,
+        0.30526315789473685
+      ],
+      "LIGUE_1": [
+        0.41253644314868804,
+        0.2521865889212828,
+        0.33527696793002915
+      ]
+    }
+  }
+}

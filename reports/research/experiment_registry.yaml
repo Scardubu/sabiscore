@@ -202,17 +202,31 @@ experiments:
     state: SOURCE_QUALIFIED
     decision: HOLD
     decision_detail: >-
-      Held at source qualification for a STRUCTURAL reason, not a statistical
-      one, and never taken through Stage 1-3 information-value testing.
-      Confirmed lineups publish 20-40 minutes before kickoff (some
-      competitions post-match only), which fails Gate G5 for this platform's
-      primary serving surface - users browse upcoming fixtures days ahead, so
-      the data does not exist at request time.
-    information_source: "api_football / sportmonks .lineups() (collected, unconsumed)"
-    source_version: "api-sports.io v3, free plan"
+      HOLD on two independent gates, one structural and one operational.
+      (1) SERVING, unchanged from Portfolio B: confirmed lineups publish 20-40
+      minutes before kickoff, failing Gate G5 for this platform's
+      browse-days-ahead surface. (2) ACQUISITION, newly measured 2026-09-10:
+      the historical data DOES exist and IS accessible on the current plan
+      (probe returned VERIFIED, 40 records for a season-2024 fixture), and the
+      record content is sufficient - player_id, role="starting", and formation
+      are exactly what expected-XI overlap, starter-absence counts and
+      positional disruption need. But /fixtures/lineups takes only a `fixture`
+      parameter with no league-season bulk form, so one season x 5 leagues
+      costs 1,752 requests = 17.5 days of uninterrupted free-tier quota, and
+      continuity metrics need the whole season rather than a sample. This is a
+      costed operational gate, not a kill (§41) - the same class as E1's
+      plan-tier wall, and resolvable by the same paid tier.
+    information_source: "api_football /fixtures/lineups (collected today, unconsumed)"
+    source_version: "api-sports.io v3, free plan (100 req/day)"
     source_license_class: L0
-    source_coverage: UNDECLARED
-    historical_window: UNDECLARED
+    source_coverage: >-
+      Content sufficiency CONFIRMED on a live probe: 40 records for one
+      fixture, carrying player_id, player_name, role, formation, team_id.
+      Fixture-level coverage across a season NOT measured - measuring it is
+      itself the 1,752-request acquisition this entry is blocked on.
+    historical_window: >-
+      Season 2024 confirmed reachable (the plan blocks only the current
+      season, per E1's finding). Earlier seasons untested.
     prediction_cutoff: "T-20 to T-40 minutes - incompatible with days-ahead serving"
     dataset_version: null
     feature_version: null
@@ -234,26 +248,35 @@ experiments:
     confidence_interval: null
     sample_size: null
     result: >-
-      No information-value test was run. orchestrator._collect_lineup_refresh()
-      already exists as a dedicated late-firing evidence profile, so the
-      architecture anticipated the timing problem, but nothing downstream
-      consumes it as a feature.
+      No information-value test was run, and none can be until the corpus is
+      acquired. What IS now established: the endpoint answers for historical
+      fixtures on this plan, and its payload carries every field the §22
+      representations require. orchestrator._collect_lineup_refresh() already
+      exists as a dedicated late-firing evidence profile, so the architecture
+      anticipated the timing problem, but nothing downstream consumes it.
     robustness: null
     failure_modes:
-      - "Gate G5 structural failure for the primary serving surface"
+      - "Gate G5 structural failure for the primary serving surface (20-40 min pre-kickoff)"
+      - "no bulk query shape: 1 request per fixture, 1,752 per season x 5 leagues"
+      - "continuity metrics need consecutive fixtures per team, so sampling does not reduce the cost"
     compute: null
     peak_rss: null
-    runtime: null
-    artifact_location: null
+    runtime: "1 live request spent on the feasibility probe"
+    artifact_location: "reports/research/e2-lineup-availability-probe.json"
     provenance:
       - "docs/DEBT.md#65"
       - "reports/research/portfolio-b-player-availability-source-qualification.md §2b"
+      - "reports/research/e2-lineup-availability-probe.json"
+      - "backend/scripts/probe_lineup_availability.py"
     reviewer: UNDECLARED
     certification_status: "not a candidate"
     reopening_conditions: >-
-      §42: a separately prioritised near-kickoff product surface would make the
-      prediction cutoff compatible. Do not build a training feature around it
-      before that surface exists.
+      §42: (a) a paid api_football tier, which converts the 17.5-day quota wall
+      into a bounded backfill and unblocks a retrospective Stage 1-3 test; or
+      (b) a separately prioritised near-kickoff product surface, which would
+      make the prediction cutoff compatible for serving. These are independent
+      - (a) alone enables research, (b) alone enables serving, and promotion
+      needs both. Do not build a training feature before (a).
 
   # =========================================================================
   - experiment_id: E3
@@ -666,3 +689,141 @@ experiments:
     provenance: ["docs/DEBT.md#71"]
     reviewer: UNDECLARED
     certification_status: "no feature schema, artifact, or gate changed"
+
+  # =========================================================================
+  - experiment_id: S1
+    title: "Structural baselines — historical frequency, league-adjusted frequency, Dixon-Coles"
+    portfolio: null
+    hypothesis: >-
+      Not a hypothesis. §25 reference instruments: establish what the standard
+      structural models score on this repo's own evaluation split, so future
+      candidates can be anchored against something other than the incumbent.
+    migrated_retrospectively: false
+    state: CLOSED
+    decision: RESEARCH
+    decision_detail: >-
+      Instruments, not candidates (§25: "not automatically production
+      candidates"). No promotion is sought or implied. Recorded as RESEARCH
+      because they exist to serve future experiments, not to be decided upon.
+    information_source: "backend/data/cache/fd_*.csv (12,765-match corpus)"
+    source_version: "30 normalized files, seasons 1920-2425, 5 leagues"
+    source_license_class: L0
+    source_coverage: >-
+      1,468 of 1,752 test fixtures eligible for the strictly-paired
+      comparison; 284 excluded because Dixon-Coles cannot predict a team it
+      never saw in training (promoted sides), 0 for missing odds
+    historical_window: "train seasons 2223+2324, test season 2425"
+    prediction_cutoff: "pre-kickoff (opening 1X2 price for the market instrument)"
+    dataset_version: "reports/research/structural-baselines-report.json"
+    feature_version: "none - these instruments use goals and odds only"
+    representation_version: "base-rate frequencies; Dixon-Coles bivariate goal model"
+    model_version: "penaltyblog 1.12.1 DixonColesGoalModel"
+    parameters: "penaltyblog defaults; no tuning (an untuned reference is the point)"
+    seed: "n/a - Dixon-Coles fit is deterministic; bootstrap seeded at 42 by the shared harness"
+    training_window: "seasons 2223+2324 (n=3,578)"
+    validation_windows: "none - reference instruments are not tuned"
+    final_holdout: "season 2425 (n=1,752 raw, 1,468 paired-eligible)"
+    baseline_models: ["de-vigged Bet365 market"]
+    market_baseline: "de-vigged Bet365, RPS 0.19532 on the paired-eligible set"
+    primary_metrics: [RPS]
+    secondary_metrics: [accuracy]
+    bootstrap_method: "non-overlapping block bootstrap, paired per fixture (shared harness)"
+    statistical_test: "paired per-fixture RPS difference vs the market"
+    multiple_testing_family: "3 instruments x (pooled + 5 leagues)"
+    effect_size: >-
+      vs market: Dixon-Coles +0.01030, league-adjusted frequency +0.03880,
+      global frequency +0.03840 (positive = worse than market)
+    confidence_interval: >-
+      Dixon-Coles 95% [+0.00690, +0.01360]; league frequency [+0.03240,
+      +0.04510]; global frequency [+0.03230, +0.04470]. All exclude zero.
+    sample_size: 1468
+    result: >-
+      Every structural instrument is significantly worse than the de-vigged
+      market, and Dixon-Coles (0.20566) is also worse than both the incumbent
+      Elo (0.20249) and E6's best ablation cell (0.20121). League-adjusted
+      frequency does not beat global frequency. Pipeline verified against an
+      independent number: the market scores 0.19463 on the full test season
+      here, reproducing Portfolio B's separately-produced figure to 5 decimals.
+    robustness: "per-league breakdown reported; no league reverses the ordering"
+    failure_modes:
+      - "Dixon-Coles cannot score a promoted team, costing 284 of 1,752 fixtures (16%)"
+      - "an earlier run silently scored EPL only, because the corpus league vocabulary (La_Liga) is not the canonical one (LA_LIGA) and EPL is spelled identically in both — caught by frequency and league_frequency returning byte-identical numbers"
+    compute: "CPU only, Polars + penaltyblog"
+    peak_rss: UNDECLARED
+    runtime: "~2 minutes"
+    artifact_location: "reports/research/structural-baselines-report.json"
+    provenance:
+      - "reports/research/structural-baselines-report.json"
+      - "backend/scripts/evaluate_structural_baselines.py"
+    reviewer: UNDECLARED
+    certification_status: "evaluation-only; no feature schema, artifact or gate touched"
+
+  # =========================================================================
+  - experiment_id: U1
+    title: "Split conformal prediction-set coverage (non-adaptive, MAPIE)"
+    portfolio: null
+    hypothesis: >-
+      §21: do the system's prediction sets achieve their nominal marginal
+      coverage under this evaluation's assumptions? Explicitly NOT a claim that
+      the system knows which predictions will be wrong.
+    migrated_retrospectively: false
+    state: CLOSED
+    decision: RESEARCH
+    decision_detail: >-
+      Coverage undershoots nominal at all three levels, and the set sizes
+      needed to approach nominal are close to vacuous - 2.50 of 3 possible
+      outcomes at 90%, 2.70 at 95%. §21 says coverage alone is insufficient;
+      here even coverage is not met, and the sharpness cost makes the sets
+      operationally weak. Not REJECT: split conformal is doing what it
+      guarantees under exchangeability, and the undershoot is consistent with
+      temporal drift between calibration and test halves, which is a property
+      of the data rather than a defect in the method.
+    information_source: "served v5_phase7 artifacts + the 68-feature corpus projection"
+    source_version: "v5_phase7-20260808"
+    source_license_class: L0
+    source_coverage: "5 of 6 leagues; EREDIVISIE has 0 rows in the holdout season"
+    historical_window: "season 2425 only - the artifacts' own declared holdout"
+    prediction_cutoff: "pre-kickoff; walk-forward features never see their own result"
+    dataset_version: "reports/research/split-conformal-report.json"
+    feature_version: "phase7_68"
+    representation_version: "LAC conformity score (non-adaptive)"
+    model_version: "v5_phase7 stacking head (RF + XGB + LGBM -> SoftmaxMetaModel)"
+    parameters: "confidence_level [0.80, 0.90, 0.95]; conformity_score lac; prefit"
+    seed: "n/a - split conformal is deterministic given a fixed temporal split"
+    training_window: "not re-trained; artifacts used prefit"
+    validation_windows: "test half re-split into two windows for stability"
+    final_holdout: "later half of season 2425 by date (n=867 across 5 leagues)"
+    baseline_models: ["the point prediction itself"]
+    market_baseline: "not applicable - this measures set coverage, not forecast skill"
+    primary_metrics: [empirical_coverage, mean_set_size]
+    secondary_metrics: [singleton_rate, failure_concentration, temporal_stability]
+    bootstrap_method: "none - coverage is a direct proportion"
+    statistical_test: "empirical vs nominal coverage comparison"
+    multiple_testing_family: "3 confidence levels x (pooled + 5 leagues)"
+    effect_size: >-
+      coverage gap -0.040 at 0.80, -0.019 at 0.90, -0.018 at 0.95
+    confidence_interval: "not computed - reported as direct proportions on n=867"
+    sample_size: 867
+    result: >-
+      Pooled empirical coverage 0.760 / 0.881 / 0.932 against nominal 0.80 /
+      0.90 / 0.95, with mean set sizes 2.02 / 2.50 / 2.70 out of 3 classes.
+      Undercoverage at every level, and near-vacuous sets where coverage is
+      closest.
+    robustness: >-
+      Per-league and two-window temporal stability both recorded. LA_LIGA is
+      the weakest (0.705 at nominal 0.80), EPL the strongest (0.793).
+    failure_modes:
+      - "undercoverage at all levels suggests exchangeability is violated by temporal drift between calibration and test halves"
+      - "conformalizes the ARTIFACT's stacking output, not the fully-calibrated served probability - the calibrator selected during training is not persisted in the .pkl, and this wrapper does not reproduce the artifact's own recorded accuracy/rps on an identical fixture set (row counts match exactly, metrics do not)"
+    compute: "CPU only"
+    peak_rss: UNDECLARED
+    runtime: "~4 minutes including the walk-forward feature build"
+    artifact_location: "reports/research/split-conformal-report.json"
+    provenance:
+      - "reports/research/split-conformal-report.json"
+      - "backend/scripts/evaluate_split_conformal.py"
+    reviewer: UNDECLARED
+    certification_status: >-
+      evaluation-only. Adaptive conformal (aps/raps) deliberately NOT
+      evaluated: §21 prohibits it until a difficulty signal is demonstrated,
+      and docs/DEBT.md item 50 records that error_association fails.

@@ -1,5 +1,84 @@
 # SabiScore Debt Ledger
 
+## 76. Phase 2 run: §25 structural baselines, §21 split-conformal coverage, and E2's acquisition cost measured — 2026-09-10
+
+**Tier:** `RESEARCH` for the two new evaluation instruments · `HOLD` for E2.
+Study: `reports/research/phase2-baselines-conformal-e2.md`.
+Registry: `reports/research/experiment_registry.yaml` entries `S1`, `U1`, `E2`.
+
+**§25 structural baselines** (`S1`) — historical frequency, league-adjusted
+frequency and Dixon-Coles (`penaltyblog`), on the same train-2223+2324 /
+test-2425 split every other study uses, scored by the same shared harness.
+All three are significantly worse than the de-vigged market (every CI excludes
+zero). Dixon-Coles 0.20566 is also worse than the incumbent Elo (0.20249) and
+E6's best ablation cell (0.20121), so a future goal-model proposal has a real
+number to beat. League adjustment buys nothing — league-adjusted frequency
+(0.23416) is marginally worse than the global rate (0.23371).
+
+Pipeline verified against an independent number: the market scores **0.19463**
+on the full test season here, reproducing Portfolio B's separately-produced
+figure to five decimals.
+
+⚠️ **The two-league-vocabulary trap fired again, for the sixth recorded time,
+and I walked straight into it.** The corpus `league` column carries
+`Bundesliga` / `La_Liga` / `Ligue_1` / `Serie_A`; a string comparison against
+canonical `LA_LIGA` etc. kept **only EPL**, because EPL is the one league
+spelled identically in both vocabularies. The first run reported `train n=760`
+(one league's worth) and, decisively, `frequency` and `league_frequency`
+scoring **byte-identically** — which can only happen with a single league. Now
+normalized through production's own `canonical_league_id`; `train n=3,578 /
+test n=1,752`, matching every other study exactly. **Normalize, never
+compare** — and note that the tell here was a suspicious *equality*, not an
+error.
+
+**§21 split conformal** (`U1`) — `mapie` `SplitConformalClassifier`,
+non-adaptive LAC score, wrapping the real served stacking ensemble on season
+2425 (the artifacts' own declared holdout, so leakage-free), calibration half
+strictly preceding test half. Pooled coverage 0.760 / 0.881 / 0.932 against
+nominal 0.80 / 0.90 / 0.95 — undercoverage at every level, consistent with
+temporal drift breaking exchangeability. The larger finding is sharpness: mean
+set size is 2.50 of 3 outcomes at 90% and 2.70 at 95%, so the sets approach
+"the match will have a result". §21's "coverage alone is not sufficient" binds
+here before coverage is even met. Adaptive scores (`aps`/`raps`) deliberately
+not evaluated — §21 prohibits them until a difficulty signal exists, and item
+50 records that `error_association` fails.
+
+⚠️ **Newly measured, and it bounds the claim: the served artifacts' recorded
+metrics cannot be reproduced from the artifacts alone.** On each artifact's own
+declared holdout, with row counts matching *exactly* (EPL 375 = 375,
+BUNDESLIGA 296 = 296, all five leagues), this wrapper scores systematically
+better than the metadata records (EPL accuracy 0.491 vs 0.464, RPS 0.22156 vs
+0.23036 — same direction in all five). The calibrator selected during training
+is not persisted inside the `.pkl`, and `calibration_baselines.json` holds
+recorded telemetry rather than a fitted calibrator. So the coverage numbers
+describe the **stacking head**, not the fully-calibrated served probability,
+and a calibrated-pipeline coverage claim needs that calibrator persisted or
+re-fit first. Recorded rather than smoothed over.
+
+**Experiment E2** — one live request (quota 99/100 remaining) answers the
+question Portfolio B left open. `lineups(fixture_id=1208021)` returns
+`VERIFIED`, 40 records, carrying `player_id`, `role: "starting"` and
+`formation: "4-2-3-1"` — exactly what expected-XI overlap, starter-absence
+counts and positional disruption need. **Content sufficiency confirmed, not
+assumed.**
+
+The blocker is acquisition cost, now costed rather than hand-waved:
+`/fixtures/lineups` takes only a `fixture` parameter (no league-season bulk
+form, unlike `/injuries` which returns a whole league-season in one call), so
+one season × 5 leagues is **1,752 requests = 17.5 days of uninterrupted
+free-tier quota**, and continuity metrics need consecutive fixtures per team so
+sampling does not reduce it. `HOLD` on two independent gates — serving (G5,
+20–40 min pre-kickoff) and acquisition — which unblock separately: a paid tier
+enables the research, a near-kickoff surface enables serving, promotion needs
+both. Not a §41 kill; the same class as E1's plan-tier wall.
+
+**Blast radius:** none. Evaluation-only — no feature contract, model artifact,
+calibration layer, promotion gate or serving path touched. `penaltyblog` and
+`mapie` are declared in `requirements-training.txt` only and appear in neither
+`requirements.txt` nor `requirements.runtime.txt`.
+
+---
+
 ## 75. Directive procedural debt closed — §3 ground-truth snapshot is reproducible, §38 registry exists, portfolio mislabel corrected — 2026-09-10
 
 **Tier:** `RESOLVED` — three procedural items the directive requires and the
