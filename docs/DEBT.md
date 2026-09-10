@@ -1,5 +1,78 @@
 # SabiScore Debt Ledger
 
+## 77. FBref (Tier 0 data roadmap) killed at Gate R1 on legal grounds — soccerdata's reader defeats bot detection — 2026-09-10
+
+**Tier:** `REJECT` (§41 Legal failure). Registry entry `D1`.
+Pipeline retained and reusable: `backend/scripts/ingest_fbref_sources.py`.
+
+**Zero rows acquired, deliberately.** FBref was the Tier 0 acquisition target.
+The pipeline was built (two-stage acquisition/resolution split, fail-closed
+entity resolution, partitioned Parquet sink, temporal-cutoff guard), and the
+qualification run then stopped it on legal grounds before any data moved.
+
+⚠️ **The escalation came from running it, not from reading the terms.**
+`soccerdata`'s FBref reader does not perform an ordinary HTTP fetch. It drives
+a browser via `seleniumbase` and, on first use, downloads and **binary-patches
+`undetected_chromedriver.exe`** (`seleniumbase/undetected/patcher.py`) — a tool
+whose sole purpose is defeating bot detection. FBref sits behind Cloudflare and
+Sports Reference's terms restrict automated bulk access. The source was
+classified `L2` ("publicly visible, rights unclear") when the script was
+written; the traceback moved it to **`L3` — terms hostile to automated
+access**, and §41 lists "prohibited automation" as a Legal-failure kill
+criterion. Acquiring this data means circumventing an access control, so the
+pipeline does not.
+
+This is the cheap version of the failure: §41 exists so a source dies before
+features are built on it, not after.
+
+⚠️ **Reopening (§42) requires a different ACCESS PATH, not a different
+scraper** — an official Sports Reference licence or a first-party API.
+Installing Chrome is not a reopening condition.
+
+**What the aborted run still established, and it is worth keeping:**
+
+* **The ML virtualenv split is necessary, not tidiness.** `soccerdata` requires
+  `pytest>=8` through `seleniumbase`; this repo pins `pytest==7.4.3`. A
+  constrained install into the main venv correctly refused with
+  `ResolutionImpossible` — had it resolved, it would have silently upgraded
+  pytest under the 1,392-test suite. Installed into gitignored `.venv-ml/`
+  instead, which is the slot §35 already implies.
+* **`soccerdata._common` imports `seleniumbase` at module scope**, so there is
+  no `--no-deps` path to the FBref reader. Tried; it fails at import.
+* **All five target league ids resolve correctly** against
+  `FBref.available_leagues()`. The reader takes soccerdata's own vocabulary
+  (`ENG-Premier League`), not site slugs — the trap that made the Understat
+  ingestion a silent no-op (item 56). The script reads the existing
+  `LEAGUE_TO_UNDERSTAT` constant via `ast` rather than restating it, so the two
+  cannot drift, and validates against `available_leagues()` before any request.
+* **A fresh venv produced three corrupt packages** (numpy, pandas, lxml — all
+  `ModuleNotFoundError` on their compiled cores). Each needed
+  `--force-reinstall --no-cache-dir`. Worth knowing before blaming a library.
+
+**Retained because it is source-agnostic and reviewed:**
+
+* **Temporal integrity.** FBref-style statistics are post-match by
+  construction, so `build_pre_match_rollups` `shift(1)`s before aggregating: a
+  fixture never sees its own result. `backend/tests/unit/test_fbref_ingest_temporal.py`
+  pins it, and **the guard was watched failing** — deleting the `shift(1)` turns
+  4 passed into 4 failed, including the "first match has no history" case.
+* **Entity resolution reuses production's one normalizer** (§31: "No second
+  team-name normalizer"). `services.team_identity.identity_key` is called
+  directly and **fails closed** if unimportable rather than substituting a local
+  key, which is why acquisition and resolution are separate stages: the ML venv
+  has no backend dependency tree.
+* **Memory.** Polars lazy frames with `sink_parquet`. ⚠️ Note the 3072 MB figure
+  in circulating directives is `maxTsServerMemory` — the TypeScript language
+  server — and has nothing to do with a Python ingest. The applicable ceiling is
+  §35's ~8 GB development target.
+
+**Blast radius:** none. No data acquired, no feature contract, model artifact,
+promotion gate or serving path touched. `.venv-ml/` is gitignored;
+`downloaded_files/` (a chromedriver lock the aborted run created) was removed
+and the path added to `.gitignore`.
+
+---
+
 ## 76. Phase 2 run: §25 structural baselines, §21 split-conformal coverage, and E2's acquisition cost measured — 2026-09-10
 
 **Tier:** `RESEARCH` for the two new evaluation instruments · `HOLD` for E2.

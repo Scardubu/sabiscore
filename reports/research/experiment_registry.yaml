@@ -832,3 +832,87 @@ experiments:
       evaluation-only. Adaptive conformal (aps/raps) deliberately NOT
       evaluated: §21 prohibits it until a difficulty signal is demonstrated,
       and docs/DEBT.md item 50 records that error_association fails.
+
+  # =========================================================================
+  - experiment_id: D1
+    title: "FBref acquisition via soccerdata (Tier 0 data roadmap)"
+    portfolio: null
+    hypothesis: >-
+      Not a forecasting hypothesis. Source qualification: can FBref match, team
+      and player statistics be acquired lawfully, reproducibly and with
+      temporal integrity, as a Tier 0 data-roadmap candidate?
+    migrated_retrospectively: false
+    state: SOURCE_QUALIFIED
+    decision: REJECT
+    decision_detail: >-
+      Killed at Gate R1 on LEGAL grounds before any data was acquired, which is
+      an explicit §41 outcome ("Legal failure - prohibited automation") and far
+      cheaper than discovering it after building features. Classified L2 when
+      the pipeline was written; escalated to L3 by the qualification run itself.
+      soccerdata's FBref reader does not perform an ordinary HTTP fetch - it
+      drives seleniumbase and, on first use, downloads and binary-patches
+      undetected_chromedriver.exe (seleniumbase/undetected/patcher.py), a tool
+      whose sole purpose is defeating bot detection. FBref sits behind
+      Cloudflare and Sports Reference's terms restrict automated bulk access.
+      Acquiring the data therefore requires circumventing an access control,
+      which this pipeline does not do.
+    information_source: "FBref (Sports Reference LLC) via soccerdata 1.9.1"
+    source_version: "soccerdata 1.9.1; FBref exposes 9 leagues, all 5 target competitions present"
+    source_license_class: L3
+    source_coverage: >-
+      Not measured. All five target league ids were verified present in
+      FBref.available_leagues(), so the failure is not coverage - acquisition
+      was stopped at the access-control step.
+    historical_window: "not acquired"
+    prediction_cutoff: >-
+      Designed as strict: FBref statistics are post-match, so pre-match rollups
+      shift(1) before aggregating. Implemented and tested even though the source
+      was killed, because the guard is source-agnostic.
+    dataset_version: null
+    feature_version: null
+    representation_version: "build_pre_match_rollups (implemented, unused)"
+    model_version: null
+    parameters: "--max-requests bounded; default 3"
+    seed: null
+    training_window: null
+    validation_windows: null
+    final_holdout: null
+    baseline_models: []
+    market_baseline: null
+    primary_metrics: [rows_ingested]
+    secondary_metrics: [peak_python_heap_mb]
+    bootstrap_method: null
+    statistical_test: null
+    multiple_testing_family: null
+    effect_size: null
+    confidence_interval: null
+    sample_size: 0
+    result: >-
+      0 rows acquired. The run aborted at the chromedriver patch step; the stray
+      lock directory it created was removed and the path gitignored. What the
+      run did establish: the ML virtualenv split is necessary (soccerdata needs
+      pytest>=8 via seleniumbase, and this repo pins pytest==7.4.3, so a shared
+      venv would have silently broken the backend suite), and all five target
+      league ids resolve correctly against soccerdata's own vocabulary.
+    robustness: null
+    failure_modes:
+      - "LEGAL: acquisition requires undetected-chromedriver bot-detection evasion (§41 kill criterion)"
+      - "soccerdata's dependency tree conflicts with the repo's pinned pytest==7.4.3"
+      - "three packages (numpy, pandas, lxml) extracted corrupt into the fresh ML venv and needed --force-reinstall --no-cache-dir"
+    compute: "CPU only"
+    peak_python_heap_mb: UNDECLARED
+    peak_rss: UNDECLARED
+    runtime: "aborted at the access-control step"
+    artifact_location: null
+    provenance:
+      - "backend/scripts/ingest_fbref_sources.py"
+      - "backend/tests/unit/test_fbref_ingest_temporal.py"
+    reviewer: "requires a human decision on licensed access before reopening"
+    certification_status: "not a candidate; no data acquired"
+    reopening_conditions: >-
+      §42 requires a materially different ACCESS PATH, not a different scraper:
+      an official Sports Reference data licence or a first-party API. Installing
+      Chrome is not a reopening condition. The pipeline itself (two-stage
+      acquisition/resolution split, fail-closed identity resolution, partitioned
+      Parquet sink, temporal-cutoff guard) is source-agnostic and can be pointed
+      at any source that clears §12.
