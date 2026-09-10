@@ -1,0 +1,385 @@
+{
+  "experiment": "E6_ablation_2x2",
+  "generated_at": "2026-09-10T11:15:50.370223+01:00",
+  "supersedes_limitation": "reports/research/e6-dynamic-team-state.md section 8",
+  "frame": "substitution (one rating input per cell), NOT E6's incremental H1",
+  "statistical_standing": "second pass over a holdout E6 already used; any CI excluding zero requires confirmation on fresh data and is not reported as a finding",
+  "train_seasons": [
+    "2223",
+    "2324"
+  ],
+  "test_season": "2425",
+  "multiple_testing": {
+    "family_size": 3,
+    "adjusted_ci_level": 0.9833333333333333
+  },
+  "cells": {
+    "A_fixed_carryover": {
+      "gain": "fixed",
+      "season_carryover": true
+    },
+    "B_adaptive_carryover": {
+      "gain": "adaptive",
+      "season_carryover": true
+    },
+    "C_fixed_no_carryover": {
+      "gain": "fixed",
+      "season_carryover": false
+    },
+    "D_adaptive_no_carryover": {
+      "gain": "adaptive",
+      "season_carryover": false
+    }
+  },
+  "stage_1_descriptives": {
+    "corpus_matches": 12765,
+    "scored_rows": 12761,
+    "skipped_self_play": 0,
+    "mean_abs_rating_move": {
+      "A_fixed_carryover": 8.016,
+      "B_adaptive_carryover": 10.009,
+      "C_fixed_no_carryover": 7.804,
+      "D_adaptive_no_carryover": 9.989
+    },
+    "pearson_vs_incumbent": {
+      "B_adaptive_carryover": 0.9903,
+      "C_fixed_no_carryover": 0.9666,
+      "D_adaptive_no_carryover": 0.9748
+    }
+  },
+  "contrasts": {
+    "B_adaptive_carryover": {
+      "train_seasons": [
+        "2223",
+        "2324"
+      ],
+      "test_season": "2425",
+      "train_n": 3578,
+      "test_n": 1752,
+      "pooled": {
+        "n": 1752,
+        "rps_baseline_model": 0.20249,
+        "rps_candidate_model": 0.20273,
+        "candidate_minus_baseline_bootstrap": {
+          "point_estimate": 0.0002,
+          "ci_lower": -0.0003,
+          "ci_upper": 0.0008,
+          "ci_level": 0.95,
+          "n_bootstrap": 1000,
+          "block_size": 10,
+          "n_samples": 1752
+        },
+        "rps_raw_reference": 0.19463,
+        "candidate_minus_baseline_bootstrap_bonferroni": {
+          "point_estimate": 0.0002,
+          "ci_lower": -0.0005,
+          "ci_upper": 0.001,
+          "ci_level": 0.9833333333333333,
+          "n_bootstrap": 1000,
+          "block_size": 10,
+          "n_samples": 1752
+        }
+      },
+      "per_group": {
+        "BUNDESLIGA": {
+          "n": 306,
+          "rps_baseline_model": 0.21509,
+          "rps_candidate_model": 0.21523,
+          "candidate_minus_baseline_bootstrap": {
+            "point_estimate": 0.0001,
+            "ci_lower": -0.002,
+            "ci_upper": 0.0024,
+            "ci_level": 0.95,
+            "n_bootstrap": 1000,
+            "block_size": 10,
+            "n_samples": 306
+          },
+          "rps_raw_reference": 0.20198
+        },
+        "EPL": {
+          "n": 380,
+          "rps_baseline_model": 0.20227,
+          "rps_candidate_model": 0.20139,
+          "candidate_minus_baseline_bootstrap": {
+            "point_estimate": -0.0009,
+            "ci_lower": -0.0018,
+            "ci_upper": 0.0001,
+            "ci_level": 0.95,
+            "n_bootstrap": 1000,
+            "block_size": 10,
+            "n_samples": 380
+          },
+          "rps_raw_reference": 0.19724
+        },
+        "LA_LIGA": {
+          "n": 380,
+          "rps_baseline_model": 0.19708,
+          "rps_candidate_model": 0.19711,
+          "candidate_minus_baseline_bootstrap": {
+            "point_estimate": 0.0,
+            "ci_lower": -0.001,
+            "ci_upper": 0.001,
+            "ci_level": 0.95,
+            "n_bootstrap": 1000,
+            "block_size": 10,
+            "n_samples": 380
+          },
+          "rps_raw_reference": 0.18996
+        },
+        "LIGUE_1": {
+          "n": 306,
+          "rps_baseline_model": 0.20888,
+          "rps_candidate_model": 0.20951,
+          "candidate_minus_baseline_bootstrap": {
+            "point_estimate": 0.0006,
+            "ci_lower": -0.0006,
+            "ci_upper": 0.002,
+            "ci_level": 0.95,
+            "n_bootstrap": 1000,
+            "block_size": 10,
+            "n_samples": 306
+          },
+          "rps_raw_reference": 0.20281
+        },
+        "SERIE_A": {
+          "n": 380,
+          "rps_baseline_model": 0.19282,
+          "rps_candidate_model": 0.19417,
+          "candidate_minus_baseline_bootstrap": {
+            "point_estimate": 0.0013,
+            "ci_lower": 0.0003,
+            "ci_upper": 0.0024,
+            "ci_level": 0.95,
+            "n_bootstrap": 1000,
+            "block_size": 10,
+            "n_samples": 380
+          },
+          "rps_raw_reference": 0.1842
+        }
+      }
+    },
+    "C_fixed_no_carryover": {
+      "train_seasons": [
+        "2223",
+        "2324"
+      ],
+      "test_season": "2425",
+      "train_n": 3578,
+      "test_n": 1752,
+      "pooled": {
+        "n": 1752,
+        "rps_baseline_model": 0.20249,
+        "rps_candidate_model": 0.20121,
+        "candidate_minus_baseline_bootstrap": {
+          "point_estimate": -0.0013,
+          "ci_lower": -0.0028,
+          "ci_upper": 0.0002,
+          "ci_level": 0.95,
+          "n_bootstrap": 1000,
+          "block_size": 10,
+          "n_samples": 1752
+        },
+        "rps_raw_reference": 0.19463,
+        "candidate_minus_baseline_bootstrap_bonferroni": {
+          "point_estimate": -0.0013,
+          "ci_lower": -0.0032,
+          "ci_upper": 0.0005,
+          "ci_level": 0.9833333333333333,
+          "n_bootstrap": 1000,
+          "block_size": 10,
+          "n_samples": 1752
+        }
+      },
+      "per_group": {
+        "BUNDESLIGA": {
+          "n": 306,
+          "rps_baseline_model": 0.21509,
+          "rps_candidate_model": 0.21335,
+          "candidate_minus_baseline_bootstrap": {
+            "point_estimate": -0.0017,
+            "ci_lower": -0.0059,
+            "ci_upper": 0.0024,
+            "ci_level": 0.95,
+            "n_bootstrap": 1000,
+            "block_size": 10,
+            "n_samples": 306
+          },
+          "rps_raw_reference": 0.20198
+        },
+        "EPL": {
+          "n": 380,
+          "rps_baseline_model": 0.20227,
+          "rps_candidate_model": 0.2032,
+          "candidate_minus_baseline_bootstrap": {
+            "point_estimate": 0.0009,
+            "ci_lower": -0.0034,
+            "ci_upper": 0.0051,
+            "ci_level": 0.95,
+            "n_bootstrap": 1000,
+            "block_size": 10,
+            "n_samples": 380
+          },
+          "rps_raw_reference": 0.19724
+        },
+        "LA_LIGA": {
+          "n": 380,
+          "rps_baseline_model": 0.19708,
+          "rps_candidate_model": 0.19551,
+          "candidate_minus_baseline_bootstrap": {
+            "point_estimate": -0.0016,
+            "ci_lower": -0.0047,
+            "ci_upper": 0.0014,
+            "ci_level": 0.95,
+            "n_bootstrap": 1000,
+            "block_size": 10,
+            "n_samples": 380
+          },
+          "rps_raw_reference": 0.18996
+        },
+        "LIGUE_1": {
+          "n": 306,
+          "rps_baseline_model": 0.20888,
+          "rps_candidate_model": 0.20611,
+          "candidate_minus_baseline_bootstrap": {
+            "point_estimate": -0.0028,
+            "ci_lower": -0.006,
+            "ci_upper": 0.0007,
+            "ci_level": 0.95,
+            "n_bootstrap": 1000,
+            "block_size": 10,
+            "n_samples": 306
+          },
+          "rps_raw_reference": 0.20281
+        },
+        "SERIE_A": {
+          "n": 380,
+          "rps_baseline_model": 0.19282,
+          "rps_candidate_model": 0.1912,
+          "candidate_minus_baseline_bootstrap": {
+            "point_estimate": -0.0016,
+            "ci_lower": -0.0059,
+            "ci_upper": 0.002,
+            "ci_level": 0.95,
+            "n_bootstrap": 1000,
+            "block_size": 10,
+            "n_samples": 380
+          },
+          "rps_raw_reference": 0.1842
+        }
+      }
+    },
+    "D_adaptive_no_carryover": {
+      "train_seasons": [
+        "2223",
+        "2324"
+      ],
+      "test_season": "2425",
+      "train_n": 3578,
+      "test_n": 1752,
+      "pooled": {
+        "n": 1752,
+        "rps_baseline_model": 0.20249,
+        "rps_candidate_model": 0.20135,
+        "candidate_minus_baseline_bootstrap": {
+          "point_estimate": -0.0011,
+          "ci_lower": -0.0025,
+          "ci_upper": 0.0,
+          "ci_level": 0.95,
+          "n_bootstrap": 1000,
+          "block_size": 10,
+          "n_samples": 1752
+        },
+        "rps_raw_reference": 0.19463,
+        "candidate_minus_baseline_bootstrap_bonferroni": {
+          "point_estimate": -0.0011,
+          "ci_lower": -0.0028,
+          "ci_upper": 0.0004,
+          "ci_level": 0.9833333333333333,
+          "n_bootstrap": 1000,
+          "block_size": 10,
+          "n_samples": 1752
+        }
+      },
+      "per_group": {
+        "BUNDESLIGA": {
+          "n": 306,
+          "rps_baseline_model": 0.21509,
+          "rps_candidate_model": 0.2133,
+          "candidate_minus_baseline_bootstrap": {
+            "point_estimate": -0.0018,
+            "ci_lower": -0.0046,
+            "ci_upper": 0.0013,
+            "ci_level": 0.95,
+            "n_bootstrap": 1000,
+            "block_size": 10,
+            "n_samples": 306
+          },
+          "rps_raw_reference": 0.20198
+        },
+        "EPL": {
+          "n": 380,
+          "rps_baseline_model": 0.20227,
+          "rps_candidate_model": 0.20227,
+          "candidate_minus_baseline_bootstrap": {
+            "point_estimate": -0.0,
+            "ci_lower": -0.0036,
+            "ci_upper": 0.0036,
+            "ci_level": 0.95,
+            "n_bootstrap": 1000,
+            "block_size": 10,
+            "n_samples": 380
+          },
+          "rps_raw_reference": 0.19724
+        },
+        "LA_LIGA": {
+          "n": 380,
+          "rps_baseline_model": 0.19708,
+          "rps_candidate_model": 0.19567,
+          "candidate_minus_baseline_bootstrap": {
+            "point_estimate": -0.0014,
+            "ci_lower": -0.0043,
+            "ci_upper": 0.0013,
+            "ci_level": 0.95,
+            "n_bootstrap": 1000,
+            "block_size": 10,
+            "n_samples": 380
+          },
+          "rps_raw_reference": 0.18996
+        },
+        "LIGUE_1": {
+          "n": 306,
+          "rps_baseline_model": 0.20888,
+          "rps_candidate_model": 0.20664,
+          "candidate_minus_baseline_bootstrap": {
+            "point_estimate": -0.0022,
+            "ci_lower": -0.0044,
+            "ci_upper": -0.0,
+            "ci_level": 0.95,
+            "n_bootstrap": 1000,
+            "block_size": 10,
+            "n_samples": 306
+          },
+          "rps_raw_reference": 0.20281
+        },
+        "SERIE_A": {
+          "n": 380,
+          "rps_baseline_model": 0.19282,
+          "rps_candidate_model": 0.19224,
+          "candidate_minus_baseline_bootstrap": {
+            "point_estimate": -0.0006,
+            "ci_lower": -0.0044,
+            "ci_upper": 0.0026,
+            "ci_level": 0.95,
+            "n_bootstrap": 1000,
+            "block_size": 10,
+            "n_samples": 380
+          },
+          "rps_raw_reference": 0.1842
+        }
+      }
+    }
+  },
+  "interaction_point_estimate": -0.0,
+  "incumbent_rps": 0.20249,
+  "market_rps": 0.19463
+}

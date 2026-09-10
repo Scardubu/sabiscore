@@ -20,14 +20,13 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import sys
 import time
 import unicodedata
 import urllib.request
 from datetime import date
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Set, Tuple
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -179,7 +178,7 @@ def load_understat_tuples() -> List[Tuple[str, str, str]]:
     df = pd.concat(frames, ignore_index=True)
 
     # Only played matches carry xG
-    played = df[df["is_result"] == True].copy()
+    played = df[df["is_result"]].copy()
     log.info("Understat corpus: %d played matches loaded", len(played))
 
     rows: List[Tuple[str, str, str]] = []
@@ -223,8 +222,8 @@ def run_crosswalk() -> Dict[str, object]:
     # Per-league breakdown
     per_league: Dict[str, Dict[str, int]] = {}
     for lg in _SB_COMP_TO_LEAGUE.values():
-        sb_lg = {(h, a) for l, h, a in sb_symmetric if l == lg}
-        us_lg = {(h, a) for l, h, a in us_set if l == lg}
+        sb_lg = {(h, a) for league, h, a in sb_symmetric if league == lg}
+        us_lg = {(h, a) for league, h, a in us_set if league == lg}
         inter_lg = us_lg & sb_lg
         per_league[lg] = {
             "sb_matches": len(sb_lg),

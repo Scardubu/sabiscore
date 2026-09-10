@@ -62,18 +62,50 @@ ELO_TRAINING_COLUMNS: Tuple[str, ...] = (
 )
 
 
+#: Fraction of a team's distance from the league mean that survives the
+#: summer break. `EloEngine`'s own rule; named once here so the state-space
+#: replay in ``dynamic_team_state.py`` can borrow it verbatim for the E6
+#: ablation rather than re-deriving it and silently drifting.
+SEASON_CARRYOVER_RETENTION = 0.5
+
+
+def apply_season_carryover(last_rating: float, league_mean: float) -> float:
+    """Regress a stale rating toward the league mean across a season boundary.
+
+    The incumbent's ad-hoc answer to staleness: a fixed-K rating has no notion
+    of how long ago an estimate was formed, so Elo compensates with a blanket
+    50% pull at every season change. `docs/DEBT.md` item 72's ablation exists
+    to separate this rule's contribution from the state-space gain's, which is
+    why it lives in one function both replays call.
+    """
+    return league_mean + SEASON_CARRYOVER_RETENTION * (last_rating - league_mean)
+
+
 class FastEloReplay:
     """Same rating math as ``EloEngine``, O(1)-amortized per match instead of
     ``EloEngine``'s O(n) DataFrame filter-and-copy. Replicates, not reinvents:
     home-advantage-adjusted expected score, per-league K-factor, 5-game
     post-minus-pre delta trend, and the 50% season-carryover regression toward
     the league mean when a team's last rating predates the current season.
+
+    ``season_carryover`` defaults to True — the incumbent's behaviour, which
+    every existing caller relies on. It is a constructor flag only so the E6
+    ablation can hold the gain fixed and vary the carryover rule, without a
+    second copy of this class existing to drift from this one.
     """
 
-    def __init__(self, home_advantage: float, k_base: float, league_importance: Dict[str, float]) -> None:
+    def __init__(
+        self,
+        home_advantage: float,
+        k_base: float,
+        league_importance: Dict[str, float],
+        *,
+        season_carryover: bool = True,
+    ) -> None:
         self._home_advantage = home_advantage
         self._k_base = k_base
         self._league_importance = league_importance
+        self._season_carryover = season_carryover
         self._history: Dict[Tuple[str, str], List[Tuple[str, float]]] = defaultdict(list)
         self._deltas: Dict[Tuple[str, str], Deque[float]] = defaultdict(lambda: deque(maxlen=5))
         self._league_season_sum: Dict[Tuple[str, str], float] = defaultdict(float)
@@ -87,11 +119,11 @@ class FastEloReplay:
         last_season, last_post = hist[-1]
         deltas = self._deltas[key]
         trend = float(np.mean(deltas)) if deltas else 0.0
-        if last_season != season:
+        if self._season_carryover and last_season != season:
             ls_key = (league, season)
             n = self._league_season_n[ls_key]
             league_mean = (self._league_season_sum[ls_key] / n) if n else _DEFAULT_BASE_ELO
-            last_post = league_mean + 0.5 * (last_post - league_mean)
+            last_post = apply_season_carryover(last_post, league_mean)
         return last_post, trend, True
 
     def get_context(self, home: str, away: str, league: str, season: str) -> EloContext:

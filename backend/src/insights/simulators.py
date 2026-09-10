@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 import pandas as pd
 from typing import Dict, List, Any
@@ -57,7 +59,12 @@ class MatchSimulator:
         """Calculate Poisson probabilities for goals 0 to max_goals"""
         probs = np.zeros(max_goals + 1)
         for goals in range(max_goals + 1):
-            probs[goals] = np.exp(-xg) * (xg ** goals) / np.math.factorial(goals)
+            # `math.factorial`, not `np.math.factorial`: `np.math` was a private
+            # alias for the stdlib module and was REMOVED in NumPy 2.0. This line
+            # raised AttributeError on every call under the installed NumPy
+            # (2.5.0), which no test or caller ever surfaced because nothing in
+            # the repository imports this module — see docs/DEBT.md item 73.
+            probs[goals] = np.exp(-xg) * (xg**goals) / math.factorial(goals)
 
         # Normalize to ensure sum = 1 (due to factorial approximation)
         probs = probs / probs.sum()
