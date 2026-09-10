@@ -1,8 +1,19 @@
-# Portfolio C — Weather: venue-location qualification (Gate G1)
+# Portfolio F — Weather: venue-location qualification (Gate G1)
 
 **Date:** 2026-09-09
 **Directive:** `docs/PRODUCTION_EXECUTIVE_DIRECTIVE.md` v5, Phase 2 / Gate R1, Gates G1–G6
 **Ledger item:** `docs/DEBT.md` item 44, prerequisite (1)
+
+⚠️ **Portfolio relabelled 2026-09-10 (`C` → `F`).** This study was filed as
+"Portfolio C" when written. That is wrong against the directive's own lettering:
+§7 Portfolio C is *Event-Derived Team State* (shots, xG, passes, possession
+chains), while §10 Portfolio F is *Contextual State* and lists **weather**,
+**altitude**, and **stadium conditions** explicitly. Venue location is a weather
+prerequisite, so this is Portfolio F work and always was. The file name, this
+title, and every in-repo reference were corrected; the original commit message
+(`7be5bc3`) still carries the old label and cannot be corrected without
+rewriting merged `master` history, which is not done. No finding, number, or
+verdict in this document changed — only the portfolio label.
 **Decision:** **HOLD** — automated derivation resolves 68.9% of the corpus; the
 remainder needs a human-reviewed place-name assertion that this study must not
 invent.
@@ -75,7 +86,7 @@ trusted.
 ## 3. Result
 
 Full per-club evidence — every query attempted and every candidate returned —
-is in `reports/research/portfolio-c-venue-location-manifest.json`.
+is in `reports/research/portfolio-f-venue-location-manifest.json`.
 
 **By club (n=160):**
 

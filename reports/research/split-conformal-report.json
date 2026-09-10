@@ -1,0 +1,748 @@
+{
+  "study": "Directive \u00a721 \u2014 non-adaptive split conformal (MAPIE)",
+  "generated_at": "2026-09-10T19:02:38Z",
+  "claim_scope": "Measures marginal coverage of prediction sets under this evaluation's assumptions (\u00a721 VALID claim). Does NOT support any claim that the system knows which individual predictions will be wrong.",
+  "method": {
+    "library": "mapie 1.5.0",
+    "estimator": "served v5_phase7 request path: equal-weight average of the RF/XGB/LGBM base learners, matching PredictionEngine._ensemble_predict_dict. The stacking head is NOT used, because the request path does not use it.",
+    "conformity_score": "lac (non-adaptive)",
+    "adaptive_scores_excluded": "aps/raps deliberately not evaluated: \u00a721 prohibits adaptive conformal until a difficulty signal is demonstrated, and docs/DEBT.md item 50 records that error_association fails.",
+    "prefit": true,
+    "scope_caveat": "The conformalized object is the ARTIFACT's stacking output (SoftmaxMetaModel.predict_proba), which is what the .pkl actually carries. It is NOT the fully-calibrated served probability: each artifact's own model_metadata records accuracy/rps that this wrapper does not reproduce on the identical fixture set (row counts match exactly; metrics do not), because the calibrator selected during training is not persisted inside the artifact and calibration_baselines.json holds recorded telemetry rather than a fitted calibrator. See per_league[].faithfulness for the measured gap. Coverage numbers here therefore describe the stacking head, and a calibrated-pipeline coverage claim would need the calibrator re-fit or persisted first.",
+    "split": "season 2425 (the artifacts' own declared holdout, so no training leakage), ordered by date, earlier half conformalizes, later half tested",
+    "confidence_levels": [
+      0.8,
+      0.9,
+      0.95
+    ]
+  },
+  "pooled": {
+    "0.80": {
+      "nominal_coverage": 0.8,
+      "empirical_coverage": 0.798154555940023,
+      "coverage_gap": -0.0018454440599769972,
+      "mean_set_size": 2.1476355247981544,
+      "n": 867
+    },
+    "0.90": {
+      "nominal_coverage": 0.9,
+      "empirical_coverage": 0.8961937716262975,
+      "coverage_gap": -0.0038062283737024805,
+      "mean_set_size": 2.56401384083045,
+      "n": 867
+    },
+    "0.95": {
+      "nominal_coverage": 0.95,
+      "empirical_coverage": 0.9550173010380623,
+      "coverage_gap": 0.005017301038062305,
+      "mean_set_size": 2.767012687427912,
+      "n": 867
+    }
+  },
+  "per_league": [
+    {
+      "league": "BUNDESLIGA",
+      "n_conformalize": 148,
+      "n_test": 148,
+      "conformalize_date_range": [
+        "2024-08-23 00:00:00",
+        "2025-01-18 00:00:00"
+      ],
+      "test_date_range": [
+        "2025-01-18 00:00:00",
+        "2025-05-17 00:00:00"
+      ],
+      "point_accuracy_on_test": 0.3581081081081081,
+      "artifact_reported_accuracy": 0.4155405405405405,
+      "levels": {
+        "0.80": {
+          "nominal_coverage": 0.8,
+          "empirical_coverage": 0.6824324324324325,
+          "coverage_gap": -0.11756756756756759,
+          "mean_set_size": 2.0472972972972974,
+          "set_size_distribution": {
+            "0": 0,
+            "1": 39,
+            "2": 63,
+            "3": 46
+          },
+          "singleton_rate": 0.2635135135135135,
+          "full_set_rate": 0.3108108108108108,
+          "empty_set_rate": 0.0,
+          "failure_concentration_by_true_class": {
+            "home_win": {
+              "n": 43,
+              "missed": 2,
+              "miss_rate": 0.046511627906976744
+            },
+            "draw": {
+              "n": 46,
+              "missed": 23,
+              "miss_rate": 0.5
+            },
+            "away_win": {
+              "n": 59,
+              "missed": 22,
+              "miss_rate": 0.3728813559322034
+            }
+          }
+        },
+        "0.90": {
+          "nominal_coverage": 0.9,
+          "empirical_coverage": 0.8378378378378378,
+          "coverage_gap": -0.06216216216216219,
+          "mean_set_size": 2.527027027027027,
+          "set_size_distribution": {
+            "0": 0,
+            "1": 12,
+            "2": 46,
+            "3": 90
+          },
+          "singleton_rate": 0.08108108108108109,
+          "full_set_rate": 0.6081081081081081,
+          "empty_set_rate": 0.0,
+          "failure_concentration_by_true_class": {
+            "home_win": {
+              "n": 43,
+              "missed": 0,
+              "miss_rate": 0.0
+            },
+            "draw": {
+              "n": 46,
+              "missed": 12,
+              "miss_rate": 0.2608695652173913
+            },
+            "away_win": {
+              "n": 59,
+              "missed": 12,
+              "miss_rate": 0.2033898305084746
+            }
+          }
+        },
+        "0.95": {
+          "nominal_coverage": 0.95,
+          "empirical_coverage": 0.9527027027027027,
+          "coverage_gap": 0.002702702702702786,
+          "mean_set_size": 2.858108108108108,
+          "set_size_distribution": {
+            "0": 0,
+            "1": 1,
+            "2": 19,
+            "3": 128
+          },
+          "singleton_rate": 0.006756756756756757,
+          "full_set_rate": 0.8648648648648649,
+          "empty_set_rate": 0.0,
+          "failure_concentration_by_true_class": {
+            "home_win": {
+              "n": 43,
+              "missed": 0,
+              "miss_rate": 0.0
+            },
+            "draw": {
+              "n": 46,
+              "missed": 3,
+              "miss_rate": 0.06521739130434782
+            },
+            "away_win": {
+              "n": 59,
+              "missed": 4,
+              "miss_rate": 0.06779661016949153
+            }
+          }
+        }
+      },
+      "temporal_stability": {
+        "test_first_half": {
+          "n": 74,
+          "empirical_coverage": {
+            "0.80": 0.6621621621621622,
+            "0.90": 0.8108108108108109,
+            "0.95": 0.9594594594594594
+          }
+        },
+        "test_second_half": {
+          "n": 74,
+          "empirical_coverage": {
+            "0.80": 0.7027027027027027,
+            "0.90": 0.8648648648648649,
+            "0.95": 0.9459459459459459
+          }
+        }
+      },
+      "faithfulness": {
+        "n_here": 296,
+        "artifact_holdout_samples": 296,
+        "row_counts_match": true,
+        "accuracy_here": 0.4155405405405405,
+        "artifact_recorded_accuracy": 0.4155405405405405,
+        "rps_here": 0.23346907401668637,
+        "artifact_recorded_rps": 0.23346907377864365
+      }
+    },
+    {
+      "league": "EPL",
+      "n_conformalize": 187,
+      "n_test": 188,
+      "conformalize_date_range": [
+        "2024-08-16 00:00:00",
+        "2025-01-04 00:00:00"
+      ],
+      "test_date_range": [
+        "2025-01-04 00:00:00",
+        "2025-05-25 00:00:00"
+      ],
+      "point_accuracy_on_test": 0.4787234042553192,
+      "artifact_reported_accuracy": 0.464,
+      "levels": {
+        "0.80": {
+          "nominal_coverage": 0.8,
+          "empirical_coverage": 0.824468085106383,
+          "coverage_gap": 0.024468085106382986,
+          "mean_set_size": 2.1968085106382977,
+          "set_size_distribution": {
+            "0": 0,
+            "1": 32,
+            "2": 87,
+            "3": 69
+          },
+          "singleton_rate": 0.1702127659574468,
+          "full_set_rate": 0.3670212765957447,
+          "empty_set_rate": 0.0,
+          "failure_concentration_by_true_class": {
+            "home_win": {
+              "n": 78,
+              "missed": 2,
+              "miss_rate": 0.02564102564102564
+            },
+            "draw": {
+              "n": 40,
+              "missed": 18,
+              "miss_rate": 0.45
+            },
+            "away_win": {
+              "n": 70,
+              "missed": 13,
+              "miss_rate": 0.18571428571428572
+            }
+          }
+        },
+        "0.90": {
+          "nominal_coverage": 0.9,
+          "empirical_coverage": 0.8936170212765957,
+          "coverage_gap": -0.00638297872340432,
+          "mean_set_size": 2.5,
+          "set_size_distribution": {
+            "0": 0,
+            "1": 14,
+            "2": 66,
+            "3": 108
+          },
+          "singleton_rate": 0.07446808510638298,
+          "full_set_rate": 0.574468085106383,
+          "empty_set_rate": 0.0,
+          "failure_concentration_by_true_class": {
+            "home_win": {
+              "n": 78,
+              "missed": 1,
+              "miss_rate": 0.01282051282051282
+            },
+            "draw": {
+              "n": 40,
+              "missed": 9,
+              "miss_rate": 0.225
+            },
+            "away_win": {
+              "n": 70,
+              "missed": 10,
+              "miss_rate": 0.14285714285714285
+            }
+          }
+        },
+        "0.95": {
+          "nominal_coverage": 0.95,
+          "empirical_coverage": 0.9202127659574468,
+          "coverage_gap": -0.029787234042553123,
+          "mean_set_size": 2.6861702127659575,
+          "set_size_distribution": {
+            "0": 0,
+            "1": 10,
+            "2": 39,
+            "3": 139
+          },
+          "singleton_rate": 0.05319148936170213,
+          "full_set_rate": 0.7393617021276596,
+          "empty_set_rate": 0.0,
+          "failure_concentration_by_true_class": {
+            "home_win": {
+              "n": 78,
+              "missed": 1,
+              "miss_rate": 0.01282051282051282
+            },
+            "draw": {
+              "n": 40,
+              "missed": 4,
+              "miss_rate": 0.1
+            },
+            "away_win": {
+              "n": 70,
+              "missed": 10,
+              "miss_rate": 0.14285714285714285
+            }
+          }
+        }
+      },
+      "temporal_stability": {
+        "test_first_half": {
+          "n": 94,
+          "empirical_coverage": {
+            "0.80": 0.8404255319148937,
+            "0.90": 0.925531914893617,
+            "0.95": 0.9361702127659575
+          }
+        },
+        "test_second_half": {
+          "n": 94,
+          "empirical_coverage": {
+            "0.80": 0.8085106382978723,
+            "0.90": 0.8617021276595744,
+            "0.95": 0.9042553191489362
+          }
+        }
+      },
+      "faithfulness": {
+        "n_here": 375,
+        "artifact_holdout_samples": 375,
+        "row_counts_match": true,
+        "accuracy_here": 0.464,
+        "artifact_recorded_accuracy": 0.464,
+        "rps_here": 0.23036328720368093,
+        "artifact_recorded_rps": 0.23036328683498208
+      }
+    },
+    {
+      "league": "LA_LIGA",
+      "n_conformalize": 190,
+      "n_test": 190,
+      "conformalize_date_range": [
+        "2024-08-15 00:00:00",
+        "2025-01-13 00:00:00"
+      ],
+      "test_date_range": [
+        "2025-01-17 00:00:00",
+        "2025-05-25 00:00:00"
+      ],
+      "point_accuracy_on_test": 0.4789473684210526,
+      "artifact_reported_accuracy": 0.45,
+      "levels": {
+        "0.80": {
+          "nominal_coverage": 0.8,
+          "empirical_coverage": 0.8052631578947368,
+          "coverage_gap": 0.0052631578947367474,
+          "mean_set_size": 2.1315789473684212,
+          "set_size_distribution": {
+            "0": 0,
+            "1": 38,
+            "2": 89,
+            "3": 63
+          },
+          "singleton_rate": 0.2,
+          "full_set_rate": 0.33157894736842103,
+          "empty_set_rate": 0.0,
+          "failure_concentration_by_true_class": {
+            "home_win": {
+              "n": 82,
+              "missed": 4,
+              "miss_rate": 0.04878048780487805
+            },
+            "draw": {
+              "n": 47,
+              "missed": 19,
+              "miss_rate": 0.40425531914893614
+            },
+            "away_win": {
+              "n": 61,
+              "missed": 14,
+              "miss_rate": 0.22950819672131148
+            }
+          }
+        },
+        "0.90": {
+          "nominal_coverage": 0.9,
+          "empirical_coverage": 0.9157894736842105,
+          "coverage_gap": 0.015789473684210464,
+          "mean_set_size": 2.536842105263158,
+          "set_size_distribution": {
+            "0": 0,
+            "1": 13,
+            "2": 62,
+            "3": 115
+          },
+          "singleton_rate": 0.06842105263157895,
+          "full_set_rate": 0.6052631578947368,
+          "empty_set_rate": 0.0,
+          "failure_concentration_by_true_class": {
+            "home_win": {
+              "n": 82,
+              "missed": 0,
+              "miss_rate": 0.0
+            },
+            "draw": {
+              "n": 47,
+              "missed": 7,
+              "miss_rate": 0.14893617021276595
+            },
+            "away_win": {
+              "n": 61,
+              "missed": 9,
+              "miss_rate": 0.14754098360655737
+            }
+          }
+        },
+        "0.95": {
+          "nominal_coverage": 0.95,
+          "empirical_coverage": 0.9736842105263158,
+          "coverage_gap": 0.023684210526315863,
+          "mean_set_size": 2.7,
+          "set_size_distribution": {
+            "0": 0,
+            "1": 7,
+            "2": 43,
+            "3": 140
+          },
+          "singleton_rate": 0.03684210526315789,
+          "full_set_rate": 0.7368421052631579,
+          "empty_set_rate": 0.0,
+          "failure_concentration_by_true_class": {
+            "home_win": {
+              "n": 82,
+              "missed": 0,
+              "miss_rate": 0.0
+            },
+            "draw": {
+              "n": 47,
+              "missed": 2,
+              "miss_rate": 0.0425531914893617
+            },
+            "away_win": {
+              "n": 61,
+              "missed": 3,
+              "miss_rate": 0.04918032786885246
+            }
+          }
+        }
+      },
+      "temporal_stability": {
+        "test_first_half": {
+          "n": 95,
+          "empirical_coverage": {
+            "0.80": 0.8315789473684211,
+            "0.90": 0.9368421052631579,
+            "0.95": 0.9894736842105263
+          }
+        },
+        "test_second_half": {
+          "n": 95,
+          "empirical_coverage": {
+            "0.80": 0.7789473684210526,
+            "0.90": 0.8947368421052632,
+            "0.95": 0.9578947368421052
+          }
+        }
+      },
+      "faithfulness": {
+        "n_here": 380,
+        "artifact_holdout_samples": 380,
+        "row_counts_match": true,
+        "accuracy_here": 0.45,
+        "artifact_recorded_accuracy": 0.45,
+        "rps_here": 0.21937399026377127,
+        "artifact_recorded_rps": 0.21937399002758193
+      }
+    },
+    {
+      "league": "LIGUE_1",
+      "n_conformalize": 153,
+      "n_test": 153,
+      "conformalize_date_range": [
+        "2024-08-16 00:00:00",
+        "2025-01-12 00:00:00"
+      ],
+      "test_date_range": [
+        "2025-01-17 00:00:00",
+        "2025-05-17 00:00:00"
+      ],
+      "point_accuracy_on_test": 0.48366013071895425,
+      "artifact_reported_accuracy": 0.477124183006536,
+      "levels": {
+        "0.80": {
+          "nominal_coverage": 0.8,
+          "empirical_coverage": 0.8496732026143791,
+          "coverage_gap": 0.04967320261437902,
+          "mean_set_size": 2.196078431372549,
+          "set_size_distribution": {
+            "0": 0,
+            "1": 22,
+            "2": 79,
+            "3": 52
+          },
+          "singleton_rate": 0.1437908496732026,
+          "full_set_rate": 0.33986928104575165,
+          "empty_set_rate": 0.0,
+          "failure_concentration_by_true_class": {
+            "home_win": {
+              "n": 71,
+              "missed": 5,
+              "miss_rate": 0.07042253521126761
+            },
+            "draw": {
+              "n": 27,
+              "missed": 12,
+              "miss_rate": 0.4444444444444444
+            },
+            "away_win": {
+              "n": 55,
+              "missed": 6,
+              "miss_rate": 0.10909090909090909
+            }
+          }
+        },
+        "0.90": {
+          "nominal_coverage": 0.9,
+          "empirical_coverage": 0.9150326797385621,
+          "coverage_gap": 0.015032679738562038,
+          "mean_set_size": 2.549019607843137,
+          "set_size_distribution": {
+            "0": 0,
+            "1": 14,
+            "2": 41,
+            "3": 98
+          },
+          "singleton_rate": 0.0915032679738562,
+          "full_set_rate": 0.6405228758169934,
+          "empty_set_rate": 0.0,
+          "failure_concentration_by_true_class": {
+            "home_win": {
+              "n": 71,
+              "missed": 3,
+              "miss_rate": 0.04225352112676056
+            },
+            "draw": {
+              "n": 27,
+              "missed": 8,
+              "miss_rate": 0.2962962962962963
+            },
+            "away_win": {
+              "n": 55,
+              "missed": 2,
+              "miss_rate": 0.03636363636363636
+            }
+          }
+        },
+        "0.95": {
+          "nominal_coverage": 0.95,
+          "empirical_coverage": 0.9673202614379085,
+          "coverage_gap": 0.017320261437908546,
+          "mean_set_size": 2.764705882352941,
+          "set_size_distribution": {
+            "0": 0,
+            "1": 9,
+            "2": 18,
+            "3": 126
+          },
+          "singleton_rate": 0.058823529411764705,
+          "full_set_rate": 0.8235294117647058,
+          "empty_set_rate": 0.0,
+          "failure_concentration_by_true_class": {
+            "home_win": {
+              "n": 71,
+              "missed": 0,
+              "miss_rate": 0.0
+            },
+            "draw": {
+              "n": 27,
+              "missed": 3,
+              "miss_rate": 0.1111111111111111
+            },
+            "away_win": {
+              "n": 55,
+              "missed": 2,
+              "miss_rate": 0.03636363636363636
+            }
+          }
+        }
+      },
+      "temporal_stability": {
+        "test_first_half": {
+          "n": 76,
+          "empirical_coverage": {
+            "0.80": 0.8552631578947368,
+            "0.90": 0.9210526315789473,
+            "0.95": 0.9868421052631579
+          }
+        },
+        "test_second_half": {
+          "n": 77,
+          "empirical_coverage": {
+            "0.80": 0.8441558441558441,
+            "0.90": 0.9090909090909091,
+            "0.95": 0.948051948051948
+          }
+        }
+      },
+      "faithfulness": {
+        "n_here": 306,
+        "artifact_holdout_samples": 306,
+        "row_counts_match": true,
+        "accuracy_here": 0.477124183006536,
+        "artifact_recorded_accuracy": 0.477124183006536,
+        "rps_here": 0.2290499980263666,
+        "artifact_recorded_rps": 0.22904999788391422
+      }
+    },
+    {
+      "league": "SERIE_A",
+      "n_conformalize": 187,
+      "n_test": 188,
+      "conformalize_date_range": [
+        "2024-08-17 00:00:00",
+        "2025-01-12 00:00:00"
+      ],
+      "test_date_range": [
+        "2025-01-12 00:00:00",
+        "2025-05-25 00:00:00"
+      ],
+      "point_accuracy_on_test": 0.4574468085106383,
+      "artifact_reported_accuracy": 0.4533333333333333,
+      "levels": {
+        "0.80": {
+          "nominal_coverage": 0.8,
+          "empirical_coverage": 0.8138297872340425,
+          "coverage_gap": 0.01382978723404249,
+          "mean_set_size": 2.154255319148936,
+          "set_size_distribution": {
+            "0": 0,
+            "1": 33,
+            "2": 93,
+            "3": 62
+          },
+          "singleton_rate": 0.17553191489361702,
+          "full_set_rate": 0.32978723404255317,
+          "empty_set_rate": 0.0,
+          "failure_concentration_by_true_class": {
+            "home_win": {
+              "n": 79,
+              "missed": 7,
+              "miss_rate": 0.08860759493670886
+            },
+            "draw": {
+              "n": 50,
+              "missed": 14,
+              "miss_rate": 0.28
+            },
+            "away_win": {
+              "n": 59,
+              "missed": 14,
+              "miss_rate": 0.23728813559322035
+            }
+          }
+        },
+        "0.90": {
+          "nominal_coverage": 0.9,
+          "empirical_coverage": 0.9095744680851063,
+          "coverage_gap": 0.009574468085106314,
+          "mean_set_size": 2.6968085106382977,
+          "set_size_distribution": {
+            "0": 0,
+            "1": 4,
+            "2": 49,
+            "3": 135
+          },
+          "singleton_rate": 0.02127659574468085,
+          "full_set_rate": 0.7180851063829787,
+          "empty_set_rate": 0.0,
+          "failure_concentration_by_true_class": {
+            "home_win": {
+              "n": 79,
+              "missed": 4,
+              "miss_rate": 0.05063291139240506
+            },
+            "draw": {
+              "n": 50,
+              "missed": 5,
+              "miss_rate": 0.1
+            },
+            "away_win": {
+              "n": 59,
+              "missed": 8,
+              "miss_rate": 0.13559322033898305
+            }
+          }
+        },
+        "0.95": {
+          "nominal_coverage": 0.95,
+          "empirical_coverage": 0.9627659574468085,
+          "coverage_gap": 0.012765957446808529,
+          "mean_set_size": 2.845744680851064,
+          "set_size_distribution": {
+            "0": 0,
+            "1": 1,
+            "2": 27,
+            "3": 160
+          },
+          "singleton_rate": 0.005319148936170213,
+          "full_set_rate": 0.851063829787234,
+          "empty_set_rate": 0.0,
+          "failure_concentration_by_true_class": {
+            "home_win": {
+              "n": 79,
+              "missed": 2,
+              "miss_rate": 0.02531645569620253
+            },
+            "draw": {
+              "n": 50,
+              "missed": 2,
+              "miss_rate": 0.04
+            },
+            "away_win": {
+              "n": 59,
+              "missed": 3,
+              "miss_rate": 0.05084745762711865
+            }
+          }
+        }
+      },
+      "temporal_stability": {
+        "test_first_half": {
+          "n": 94,
+          "empirical_coverage": {
+            "0.80": 0.8085106382978723,
+            "0.90": 0.9148936170212766,
+            "0.95": 0.9468085106382979
+          }
+        },
+        "test_second_half": {
+          "n": 94,
+          "empirical_coverage": {
+            "0.80": 0.8191489361702128,
+            "0.90": 0.9042553191489362,
+            "0.95": 0.9787234042553191
+          }
+        }
+      },
+      "faithfulness": {
+        "n_here": 375,
+        "artifact_holdout_samples": 375,
+        "row_counts_match": true,
+        "accuracy_here": 0.4533333333333333,
+        "artifact_recorded_accuracy": 0.4533333333333333,
+        "rps_here": 0.21610897418110733,
+        "artifact_recorded_rps": 0.21610897410130936
+      }
+    }
+  ],
+  "skipped_leagues": {
+    "EREDIVISIE": "only 0 holdout rows"
+  },
+  "threshold_policy": "No pass/fail gate is asserted. \u00a719 forbids hard-coded universal thresholds; coverage gaps and set sizes are reported as measurements."
+}

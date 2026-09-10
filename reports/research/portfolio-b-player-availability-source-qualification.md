@@ -407,7 +407,7 @@ Full per-league-season detail, including every unresolved team name, in
 | Gate | Verdict | Basis |
 |---|---|---|
 | G1 — fixture coverage | **PASS** | 92.1% end-to-end crosswalk rate, well above the 85% bar this codebase already uses elsewhere (Portfolio D §1, the StatsBomb audit). |
-| G4 — cross-league portability | **PASS** | No league collapses — the low end is LIGUE_1 team-resolution at 87.0%, not a 30+ point spread like Portfolio C's weather study found. |
+| G4 — cross-league portability | **PASS** | No league collapses — the low end is LIGUE_1 team-resolution at 87.0%, not a 30+ point spread like Portfolio F's weather study found. |
 | G6 — default rate | **PASS (implied)** | <8% of records would need to be treated as a genuine data gap. |
 
 **The residual 7.8% unresolved is small, closed, and named — not

@@ -29,3 +29,16 @@ great-expectations==0.18.8; python_version < "3.14"
 # readers we do not use; budget a long first install on a slow link.
 soccerdata==1.9.1; python_version < "3.14"
 rapidfuzz==3.14.6; python_version < "3.14"
+
+# Directive §25 structural baselines and §21 conformal evaluation. Offline,
+# evaluation-only — no serving path imports either, and neither appears in
+# requirements.runtime.txt (§35: a research dependency belongs in the ML
+# environment unless runtime serving genuinely requires it).
+#   penaltyblog → backend/scripts/evaluate_structural_baselines.py (Dixon-Coles)
+#   mapie       → backend/scripts/evaluate_split_conformal.py (split conformal)
+# ⚠️ penaltyblog's top-level __init__ eagerly imports its fpl/viz/statsbomb
+# submodules, so it drags in pulp, plotly, statsbombpy and tabulate even when
+# only models.DixonColesGoalModel is used. Verified 2026-09-10 on Python 3.14.6
+# (a cp314 wheel exists); mapie is pure Python.
+penaltyblog==1.12.1
+mapie==1.5.0

@@ -1,0 +1,53 @@
+{
+  "probe": "E2 historical lineup availability",
+  "directive": "\u00a743 Experiment E2; \u00a715 Gates G1/G5; \u00a741 kill criteria",
+  "requests_spent": 1,
+  "endpoint_shape": {
+    "path": "/fixtures/lineups",
+    "accepts_bulk_league_season_query": false,
+    "evidence": "src/providers/api_football.py:224 sends params={'fixture': id} only; there is no league/season form, unlike /injuries which Portfolio B measured returning 3,168 records for one league-season in a single call."
+  },
+  "historical_fixture_probe": {
+    "fixture_id": 1208021,
+    "status": "ProviderStatus.VERIFIED",
+    "error_code": null,
+    "record_count": 40,
+    "warnings": [],
+    "sample_record_keys": [
+      "coherent",
+      "fixture_id",
+      "formation",
+      "player_id",
+      "player_name",
+      "provider",
+      "rejection_reason",
+      "role",
+      "team_id",
+      "team_name"
+    ],
+    "sample_record": {
+      "provider": "api_football",
+      "fixture_id": 1208021,
+      "team_id": 33,
+      "team_name": "Manchester United",
+      "formation": "4-2-3-1",
+      "player_id": 526,
+      "player_name": "A. Onana",
+      "role": "starting",
+      "coherent": true,
+      "rejection_reason": null
+    },
+    "quota": {
+      "limit": 100,
+      "remaining": 99,
+      "reset_at": null,
+      "cost": null
+    }
+  },
+  "acquisition_cost": {
+    "requests_per_season_5_leagues": 1752,
+    "free_tier_daily_quota": 100,
+    "days_of_full_quota_per_season": 17.5,
+    "note": "Continuity metrics (expected-XI overlap, positional disruption) need consecutive fixtures per team, so a usable study needs essentially the whole season, not a sample. One request per fixture is the only available shape."
+  }
+}

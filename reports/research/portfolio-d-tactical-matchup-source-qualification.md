@@ -149,7 +149,7 @@ version of Portfolio D available by recombining what the model already has.
 | G1 — fixture coverage | **FAIL** | 23.58% of the Understat-identified corpus has a StatsBomb event-data match, against an 85% bar this codebase already set for the same source. |
 | G2 — historical depth | Not separately measurable | StatsBomb Open Data's free tier is a curated competition/season selection, not a contiguous domestic-league archive — "historical depth" is not the limiting dimension; breadth of competition coverage is. |
 | G3 — cross-season stability | **FAIL (by construction)** | The free tier's competition list does not grow with the calendar; coverage will not improve by waiting for more seasons to pass. |
-| G4 — cross-league portability | **FAIL** | Per-league breakdown in the 2026-09-04 audit shows uneven, generally low coverage across the five scoreable leagues — the same failure shape Portfolio C's weather study found for a different reason. |
+| G4 — cross-league portability | **FAIL** | Per-league breakdown in the 2026-09-04 audit shows uneven, generally low coverage across the five scoreable leagues — the same failure shape Portfolio F's weather study found for a different reason. |
 | G5 — prediction-time availability | Not reached | Blocked upstream by G1; a source that cannot supply historical training coverage cannot be evaluated for live serving timing. |
 | G6 — default rate | **FAIL** | A ~76% default/gap rate on the raw team-level ingredient is already what forced `home_pressing_intensity`/`progressive_carry_diff` into `PHASE7_FEATURES_ALWAYS_DATA_GAP`; an interaction built from two such ingredients would default at least as often, and Rule 5 forbids filling that gap with a neutral value. |
 
@@ -160,7 +160,7 @@ version of Portfolio D available by recombining what the model already has.
 **`HOLD`.** Not `REJECT` — nothing here says tactical interaction data lacks
 predictive information; the question cannot yet be asked at adequate
 coverage, and rejecting on that basis would record a negative result this
-study did not produce (the same reasoning Portfolio C's weather study
+study did not produce (the same reasoning Portfolio F's weather study
 applied to its own G1 failure). Not `RESEARCH` — the next step is not more
 analysis of the current source; it is the same external precondition
 already on record for the two StatsBomb features this portfolio would have

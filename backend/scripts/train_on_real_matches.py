@@ -1152,9 +1152,14 @@ def _evaluate_bivariate_poisson_overlay(
     meta_features_holdout: Any,
     y_holdout: np.ndarray,
 ) -> Dict[str, Any]:
-    """Evaluate the Bivariate Poisson draw overlay (directive Portfolio C /
+    """Evaluate the Bivariate Poisson draw overlay (directive section 43,
     Experiment E7 -- distributional goal model) on top of whichever
     calibrator `_select_calibrator` just chose.
+
+    Label corrected 2026-09-10: this previously read "Portfolio C / Experiment
+    E7". E7 is a standalone experiment in section 43 and carries no portfolio
+    letter; section 7's Portfolio C is Event-Derived Team State (shots, xG,
+    passes), which this overlay is not.
 
     `src/models/calibration.py::BivariatePoissonDrawOverlay` already exists
     and is already wired into `src/models/prediction.py`'s serving path --

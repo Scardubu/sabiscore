@@ -26,7 +26,7 @@ exactly this kind of question:
   team does not (misspelled/unmapped club) — collapsing them into one
   pass/fail would hide which failure mode actually dominates.
 * **No alias is invented here.** A team that fails to resolve is reported
-  by name in the manifest for human review, exactly like Portfolio C's
+  by name in the manifest for human review, exactly like Portfolio F's
   unresolved venues — never silently matched by best-guess proximity.
 * **UCL is out of scope, explicitly, not by omission.** football-data.co.uk
   publishes domestic leagues only; there is no local corpus file to

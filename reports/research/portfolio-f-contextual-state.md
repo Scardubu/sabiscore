@@ -132,9 +132,9 @@ measured rather than assumed.
 Only genuinely different information, not a different model:
 
 - **Travel distance / time-zone displacement**, which §10 lists and this
-  corpus cannot supply — it has no venue coordinates. That is Portfolio C's
-  unresolved venue-location work (`HOLD` at 68.9% derivable), so this
-  reopening is blocked behind that same review.
+  corpus cannot supply — it has no venue coordinates. That is this same
+  portfolio's unresolved venue-location work (`docs/DEBT.md` item 44, `HOLD`
+  at 68.9% derivable), so this reopening is blocked behind that same review.
 - **Referee data for the other four leagues**, which would make F2 a real
   five-league test rather than an EPL-only one.
 - A **materially longer congestion window or cup-inclusive fixture list** —
