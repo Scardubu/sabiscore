@@ -24,7 +24,11 @@ from src.features.dynamic_team_state import (
     compute_dynamic_state_columns,
     default_dynamic_state_replay,
 )
-from src.features.elo_replay import default_fast_elo_replay
+from src.features.elo_replay import (
+    SEASON_CARRYOVER_RETENTION,
+    apply_season_carryover,
+    default_fast_elo_replay,
+)
 
 _HOME_ADVANTAGE = 60.0
 
@@ -239,6 +243,82 @@ def test_replay_is_deterministic() -> None:
     first = compute_dynamic_state_columns(matches, home_advantage=_HOME_ADVANTAGE)
     second = compute_dynamic_state_columns(matches, home_advantage=_HOME_ADVANTAGE)
     assert first == second
+
+
+# ── Season carryover: the second factor in the item-72 2x2 ablation ────────
+
+
+def _dominant_team_strength(*, season_carryover: bool) -> float:
+    """Build one dominant team over season A, then read it entering season B."""
+    replay = DynamicTeamStateReplay(
+        home_advantage=_HOME_ADVANTAGE, season_carryover=season_carryover
+    )
+    start = date(2023, 8, 1)
+    # Alpha beats a rotating cast all of season A; the rest beat each other,
+    # so the league mean stays near the base while Alpha climbs away from it.
+    for i in range(20):
+        when = start + timedelta(days=7 * i)
+        replay.get_context("Alpha", f"Rival{i % 4}", "EPL", when, season="2324")
+        replay.update("Alpha", f"Rival{i % 4}", "EPL", when, 3, 0, season="2324")
+    next_season = start + timedelta(days=365)
+    return replay.get_context("Alpha", "Rival0", "EPL", next_season, season="2425").home_strength
+
+
+def test_carryover_off_by_default_leaves_the_rating_untouched_across_seasons() -> None:
+    """E6's tested configuration: elapsed-time process noise is the principled
+    replacement for the incumbent's blanket regression, not a supplement."""
+    replay = DynamicTeamStateReplay(home_advantage=_HOME_ADVANTAGE)
+    start = date(2023, 8, 1)
+    for i in range(10):
+        when = start + timedelta(days=7 * i)
+        replay.get_context("Alpha", "Beta", "EPL", when, season="2324")
+        replay.update("Alpha", "Beta", "EPL", when, 2, 0, season="2324")
+
+    end_of_season = replay.get_context(
+        "Alpha", "Beta", "EPL", start + timedelta(days=7 * 10), season="2324"
+    ).home_strength
+    new_season = replay.get_context(
+        "Alpha", "Beta", "EPL", start + timedelta(days=365), season="2425"
+    ).home_strength
+
+    assert new_season == pytest.approx(end_of_season)
+
+
+def test_carryover_on_pulls_a_dominant_rating_back_toward_the_league_mean() -> None:
+    with_carryover = _dominant_team_strength(season_carryover=True)
+    without = _dominant_team_strength(season_carryover=False)
+
+    assert with_carryover < without, (
+        "carryover must regress a dominant team toward the league mean; "
+        f"got {with_carryover:.2f} with vs {without:.2f} without"
+    )
+
+
+def test_state_space_carryover_borrows_the_incumbent_rule_verbatim() -> None:
+    """One rule, one implementation — the ablation's two arms cannot drift."""
+    assert apply_season_carryover(1700.0, 1500.0) == pytest.approx(
+        1500.0 + SEASON_CARRYOVER_RETENTION * 200.0
+    )
+
+
+def test_carryover_regresses_the_rating_but_not_the_variance() -> None:
+    """The flag varies ONE factor. Bundling a variance reset into it would
+    make the ablation's 'carryover' cell also a 'more uncertainty' cell."""
+    start = date(2023, 8, 1)
+    readings = {}
+    for carryover in (False, True):
+        replay = DynamicTeamStateReplay(
+            home_advantage=_HOME_ADVANTAGE, season_carryover=carryover
+        )
+        for i in range(10):
+            when = start + timedelta(days=7 * i)
+            replay.get_context("Alpha", "Beta", "EPL", when, season="2324")
+            replay.update("Alpha", "Beta", "EPL", when, 2, 0, season="2324")
+        readings[carryover] = replay.get_context(
+            "Alpha", "Beta", "EPL", start + timedelta(days=365), season="2425"
+        ).home_rd
+
+    assert readings[True] == pytest.approx(readings[False])
 
 
 def test_a_win_raises_the_winner_and_lowers_the_loser() -> None:

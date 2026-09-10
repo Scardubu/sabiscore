@@ -2,8 +2,19 @@
 
 **Directive:** `docs/PRODUCTION_EXECUTIVE_DIRECTIVE.md` §43 E6, §16 Stage 1–3, §18, Rules 6/7/8/9.
 **Date:** 2026-09-10
-**Verdict (§51):** `HOLD` beyond the incumbent · `REJECT` for the uncertainty channel · `REJECT` beyond the market
+**Verdict (§51):** ~~`HOLD` beyond the incumbent~~ → **`REJECT`, reattributed** · `REJECT` for the uncertainty channel · `REJECT` beyond the market
 **Artifacts:** `reports/research/e6-dynamic-team-state.json`, `backend/src/features/dynamic_team_state.py`, `backend/scripts/study_e6_dynamic_team_state.py`
+
+> ⚠️ **AMENDED 2026-09-10 — H1's HOLD has been reattributed and no longer stands
+> as written.** The 2×2 ablation §8 of this document called for was run:
+> `reports/research/e6-ablation-2x2.md`. It shows the −0.0012 below came
+> **entirely from dropping Elo's season-carryover regression**, not from the
+> state-space gain, which is neutral-to-slightly-harmful in *both* carryover
+> conditions (+0.00024 and +0.00014). Plain incumbent Elo with the carryover
+> rule switched off scores 0.20121 — better than this study's own candidate,
+> with no state-space machinery at all. **Read §7's H1 verdict together with
+> that amendment.** The rest of this document — the design, the Stage 1
+> cadence finding, the Stage 2 redundancy, H2 and H3 — is unaffected.
 
 ---
 
@@ -174,9 +185,15 @@ Whatever H1 eventually turns out to be, it does not close that gap.
   the defect item 64 exists to prevent.
 * **One test season, 1,752 rows.** The same power ceiling every study in this
   programme has hit.
-* **Elo's season-carryover regression was removed, not ablated.** The study
+* ~~**Elo's season-carryover regression was removed, not ablated.** The study
   does not separate "state-space gain helped" from "dropping the 50 % summer
-  regression helped". A 2×2 ablation would, and was not run.
+  regression helped". A 2×2 ablation would, and was not run.~~
+  ✅ **CLOSED 2026-09-10 — the ablation was run, and it answered against this
+  study.** `reports/research/e6-ablation-2x2.md`: the effect is entirely the
+  carryover factor (−0.00128 / −0.00138 across both gain settings); the
+  state-space gain is +0.00024 / +0.00014 — neutral-to-harmful in both
+  carryover conditions. Interaction ≈ 0. This limitation was not a footnote;
+  it was load-bearing, and naming it is what got it tested.
 
 ## 9. Reopening (§42)
 
@@ -187,8 +204,17 @@ A re-run of the identical mechanism would not qualify. What would:
    pointer: elapsed days is nearly constant, so a gain keyed on it is nearly
    constant. Squad churn, manager change, or transfer-window turnover are
    candidates that move when the calendar does not — and are genuinely
-   different information, not a reparameterisation.
-3. **The 2×2 ablation** separating gain adaptivity from carryover removal.
+   different information, not a reparameterisation. ⚠️ Post-ablation this bar
+   is **higher**, not lower: a reopening now also has to explain why the gain
+   was inert in *both* carryover conditions, not merely that it was
+   underpowered.
+3. ~~**The 2×2 ablation** separating gain adaptivity from carryover removal.~~
+   ✅ Run — `reports/research/e6-ablation-2x2.md`.
+4. **New:** the ablation surfaced a *separate, cheaper* candidate this study
+   never proposed — **removing the carryover regression from the incumbent**,
+   with no state-space machinery at all. Not significant, and a second look at
+   an already-used holdout, so it has earned a pre-registered test on fresh
+   seasons and nothing more.
 
 ## 10. What did not change
 

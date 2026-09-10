@@ -71,6 +71,8 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Dict, List, Mapping, Sequence, Tuple
 
+from .elo_replay import apply_season_carryover
+
 _BASE_STRENGTH = 1500.0
 
 #: Glicko's RD₀. A never-seen team is maximally uncertain.
@@ -160,6 +162,7 @@ class _TeamState:
     strength: float = _BASE_STRENGTH
     variance: float = _INITIAL_RD**2
     last_played: date | None = None
+    last_season: str | None = None
 
 
 @dataclass(frozen=True)
@@ -204,12 +207,28 @@ class DynamicTeamStateReplay:
         initial_rd: float = _INITIAL_RD,
         process_variance_per_day: float = _PROCESS_VARIANCE_PER_DAY,
         observation_noise_scale: float = 1.0,
+        season_carryover: bool = False,
     ) -> None:
+        """
+        Args:
+            season_carryover: Apply the incumbent's 50% regression toward the
+                league mean at a season boundary, on top of the state-space
+                gain. Defaults to False — the configuration E6 tested, where
+                elapsed-time process noise is the principled *replacement* for
+                that ad-hoc rule. Set True only for the item-72 ablation's
+                cell B, which asks whether the two mechanisms are complements
+                rather than alternatives. Only the RATING is regressed; the
+                variance is left to the time update, so the flag varies one
+                factor rather than smuggling a variance change in with it.
+        """
         self._home_advantage = float(home_advantage)
         self._initial_variance = float(initial_rd) ** 2
         self._process_variance_per_day = float(process_variance_per_day)
         self._observation_noise_scale = float(observation_noise_scale)
+        self._season_carryover = bool(season_carryover)
         self._states: Dict[Tuple[str, str], _TeamState] = {}
+        self._league_season_sum: Dict[Tuple[str, str], float] = {}
+        self._league_season_n: Dict[Tuple[str, str], int] = {}
 
     # ── state access ──────────────────────────────────────────────────────
 
@@ -234,18 +253,46 @@ class DynamicTeamStateReplay:
         grown = state.variance + self._process_variance_per_day * elapsed_days
         return min(grown, _MAX_VARIANCE)
 
+    def _carried_strength(self, state: _TeamState, league: str, season: str | None) -> float:
+        """Rating entering this match, after the optional carryover rule.
+
+        With `season_carryover=False` (E6's tested configuration) this is the
+        identity — the time update already prices staleness. With it True, the
+        incumbent's own rule is borrowed verbatim from `elo_replay`, not
+        re-derived, so the ablation's two arms cannot drift apart.
+        """
+        if not self._season_carryover or season is None:
+            return state.strength
+        if state.last_season is None or state.last_season == season:
+            return state.strength
+        key = (league, season)
+        n = self._league_season_n.get(key, 0)
+        league_mean = (self._league_season_sum[key] / n) if n else _BASE_STRENGTH
+        return apply_season_carryover(state.strength, league_mean)
+
     def get_context(
-        self, home: str, away: str, league: str, match_date: date | datetime
+        self,
+        home: str,
+        away: str,
+        league: str,
+        match_date: date | datetime,
+        season: str | None = None,
     ) -> DynamicStateContext:
-        """Pre-match context. Reads state only; never mutates it."""
+        """Pre-match context. Reads state only; never mutates it.
+
+        `season` is required only when `season_carryover=True`; the default
+        configuration ignores it entirely.
+        """
         when = _as_date(match_date)
         home_state, away_state = self._state(home, league), self._state(away, league)
         home_var = self._projected_variance(home_state, when)
         away_var = self._projected_variance(away_state, when)
+        home_strength = self._carried_strength(home_state, league, season)
+        away_strength = self._carried_strength(away_state, league, season)
         return DynamicStateContext(
-            home_strength=home_state.strength,
-            away_strength=away_state.strength,
-            strength_diff=home_state.strength - away_state.strength,
+            home_strength=home_strength,
+            away_strength=away_strength,
+            strength_diff=home_strength - away_strength,
             home_rd=math.sqrt(home_var),
             away_rd=math.sqrt(away_var),
             uncertainty=math.sqrt(home_var + away_var),
@@ -273,6 +320,7 @@ class DynamicTeamStateReplay:
         match_date: date | datetime,
         home_goals: int,
         away_goals: int,
+        season: str | None = None,
     ) -> None:
         """EKF measurement update. Call strictly AFTER `get_context`."""
         when = _as_date(match_date)
@@ -280,6 +328,11 @@ class DynamicTeamStateReplay:
 
         home_var = self._projected_variance(home_state, when)
         away_var = self._projected_variance(away_state, when)
+
+        # Same carried rating `get_context` just reported, so the update acts
+        # on the estimate the prediction was made from.
+        home_state.strength = self._carried_strength(home_state, league, season)
+        away_state.strength = self._carried_strength(away_state, league, season)
 
         expected = self.expected_home_score(home_state.strength, away_state.strength)
         if home_goals > away_goals:
@@ -307,6 +360,20 @@ class DynamicTeamStateReplay:
         away_state.variance = max((1.0 - away_gain * slope) * away_var, 1.0)
         home_state.last_played = when
         away_state.last_played = when
+
+        if season is not None:
+            home_state.last_season = season
+            away_state.last_season = season
+            # Running league-season mean, for the carryover rule to regress
+            # toward. Accumulated from POST-match ratings, matching
+            # FastEloReplay's own bookkeeping.
+            key = (league, season)
+            self._league_season_sum[key] = (
+                self._league_season_sum.get(key, 0.0)
+                + home_state.strength
+                + away_state.strength
+            )
+            self._league_season_n[key] = self._league_season_n.get(key, 0) + 2
 
 
 def default_dynamic_state_replay() -> DynamicTeamStateReplay:

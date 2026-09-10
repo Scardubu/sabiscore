@@ -1,5 +1,89 @@
 # SabiScore Debt Ledger
 
+## 74. The E6 ablation reattributes item 72's HOLD: the state-space gain did nothing, dropping Elo's summer regression did all of it — 2026-09-10
+
+**Tier:** state-space **gain** → `REJECT` (reattributed from item 72's H1
+`HOLD`) · carryover **removal** → `HOLD`, as a new and separable hypothesis.
+`PRODUCTION_EXECUTIVE_DIRECTIVE.md` §51.
+Full study: `reports/research/e6-ablation-2x2.md`.
+Raw results: `reports/research/e6-ablation-2x2.json`.
+
+**Ran the 2×2 that item 72's own limitations section named against itself.**
+E6 compared cell A (incumbent Elo: fixed K + 50% season carryover) against
+cell D (state-space gain + no carryover) — **two changes at once**. The
+missing cells are B (adaptive + carryover, never tested) and C (fixed + no
+carryover).
+
+| Cell | Configuration | RPS | Δ vs A | 95% CI |
+|---|---|---|---|---|
+| A | fixed + carryover (**incumbent**) | 0.20249 | — | — |
+| B | adaptive + carryover | 0.20273 | +0.0002 | [−0.0003, +0.0008] |
+| C | fixed + **no** carryover | **0.20121** | −0.0013 | [−0.0028, +0.0002] |
+| D | adaptive + no carryover (E6's candidate) | 0.20135 | −0.0011 | [−0.0025, 0.0000] |
+
+**⭐ Main effects, and they replicate across both conditions:**
+
+| Effect | at carryover ON | at carryover OFF |
+|---|---|---|
+| **Adaptive gain** (the subject of E6) | **+0.00024** | **+0.00014** |
+| **Dropping carryover** | **−0.00128** | **−0.00138** |
+
+Interaction ≈ **0.0** — additive.
+
+**E6's improvement was never the state-space model.** The adaptive gain is
+neutral-to-slightly-harmful in *both* carryover settings — two independent
+looks, same sign, same magnitude, which is replicated absence rather than an
+underpowered null. Everything that moved came from removing Elo's blanket 50%
+pull toward the league mean at each season boundary. **Cell C — plain
+incumbent Elo with one rule switched off and no state-space machinery at
+all — is the best of the four**, marginally ahead of E6's own candidate.
+
+Item 72's H1 `HOLD` would naturally have been read as "the state-space model
+shows promise, needs power." It does not. **A one-line deletion in the
+incumbent shows the same promise, more cheaply.** ⚠️ This is what an ablation
+is for, and it only happened because item 72 wrote its own limitation down
+instead of shipping a clean-looking HOLD.
+
+⚠️ **Do not act on the carryover result.** `FastEloReplay`'s carryover is live
+in the training pipeline. C − A = −0.0013 with a CI of [−0.0028, +0.0002] that
+comfortably includes zero; it is a **second pass over a holdout item 72 already
+spent**, and EPL (+0.0009) runs the other way. Declared before the run: any CI
+excluding zero here requires confirmation on fresh data and is not reported as
+a finding. What it has earned is a **pre-registered test on fresh seasons**.
+
+⚠️ **Frame caveat:** this study is *substitution* (one rating input per cell,
+same model class) where item 72's H1 was *incremental* (`[elo]` vs
+`[elo, dynamic]`). The four cells are internally consistent, which is what
+attribution needs — but the deltas are **not** on the same footing as item
+72's and must not be read against them.
+
+**Scale check, unchanged:** the de-vigged market scores 0.19463; the best cell
+here is 0.20121, still **+0.0066 behind** — roughly five times the largest
+effect in the table.
+
+**Implementation:** `FastEloReplay` and `DynamicTeamStateReplay` each gained
+one defaulted `season_carryover` keyword, so all four cells come from the two
+replays that already exist rather than a third and fourth copy of the rating
+math. The 50% rule itself was extracted to `elo_replay.apply_season_carryover`
+and is called by both — one implementation, so the ablation's arms cannot
+drift. Both defaults preserve existing behaviour exactly, and the
+Elo↔`EloEngine` cross-verification test passes unmodified, which is the
+strongest available evidence the incumbent was not disturbed. Cell A is the
+real `FastEloReplay`, not a look-alike, so the baseline is the production
+rating system.
+
+**Regression guard:** 4 new tests in
+`backend/tests/unit/test_dynamic_team_state.py` — carryover off by default
+leaves a rating untouched across a season boundary; carryover on pulls a
+dominant team back toward the league mean; the shared rule is borrowed
+verbatim (retention constant pinned); and the flag regresses the **rating but
+not the variance**, so the ablation's "carryover" cell is not also a "more
+uncertainty" cell.
+
+**Verification:** `ruff check` clean; `backend/tests/unit` 1392 passed, 4
+skipped, 2 xfailed, 0 failed. No feature schema, model artifact, promotion
+gate or production code path changed.
+
 ## 73. `insights/simulators.py` raised `AttributeError` on every call under the installed NumPy, and nothing imported it — RESOLVED 2026-09-10
 
 **Tier:** `RESOLVED` (defect fixed, first executable coverage added) with an
@@ -51,9 +135,19 @@ is recorded here so the choice is explicit rather than forgotten.
 
 ## 72. Experiment E6 (dynamic team state) — the state-space model works, but league football's metronomic cadence leaves it almost nothing to adapt to — `HOLD` / `REJECT` / `REJECT` — 2026-09-10
 
-**Tier:** `HOLD` beyond the incumbent · `REJECT` for the uncertainty channel ·
-`REJECT` beyond the market — `PRODUCTION_EXECUTIVE_DIRECTIVE.md` §51.
+**Tier:** ~~`HOLD` beyond the incumbent~~ → **`REJECT`, reattributed by item
+74** · `REJECT` for the uncertainty channel · `REJECT` beyond the market —
+`PRODUCTION_EXECUTIVE_DIRECTIVE.md` §51.
 Full study: `reports/research/e6-dynamic-team-state.md`.
+
+⚠️ **AMENDED 2026-09-10 — H1's `HOLD` below no longer stands as written.** The
+2×2 ablation this item's own limitations section called for was run (item 74):
+the −0.0012 came **entirely from dropping Elo's season-carryover regression**,
+not from the state-space gain, which is +0.00024 / +0.00014 — neutral-to-
+harmful in *both* carryover conditions. Plain incumbent Elo with the carryover
+rule switched off scores 0.20121, better than this item's own candidate, with
+no state-space machinery at all. Everything else here — the design, the Stage 1
+cadence finding, Stage 2 redundancy, H2 and H3 — is unaffected and stands.
 Raw results: `reports/research/e6-dynamic-team-state.json`.
 **Found:** 2026-09-10, directive §43 E6 / Phase 4. Zero acquisition cost —
 every input is `backend/data/cache/fd_*.csv`, already on disk. This closes the
