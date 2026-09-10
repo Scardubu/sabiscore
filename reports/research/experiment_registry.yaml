@@ -345,17 +345,38 @@ experiments:
       independent team-strength components they are built from.
     migrated_retrospectively: true
     state: SOURCE_QUALIFIED
-    decision: HOLD
+    decision: REJECT
     decision_detail: >-
-      Blocked at Gate G1 by a coverage ceiling this codebase had already
-      measured for a different feature (COVERAGE_THRESHOLD_PCT = 85.0). No new
-      audit was run because the existing measurement already answers it. Not
-      REJECT - nothing here says tactical interaction lacks information.
+      Superseded 2026-09-11. The previous HOLD was reached on a BORROWED
+      measurement: 23.58% coverage of the Understat corpus, produced for a
+      different feature decision, with this entry recording that "no new audit
+      was run". That is the wrong denominator for E4. A dedicated audit against
+      the corpus SabiScore actually trains and serves on (data/cache/fd_*.csv,
+      12,765 fixtures, 2019/2020-2025/2026) measures G1 at 1.15%, not 23.58%,
+      and measures Gate G5 (prediction-time availability) for the first time at
+      0.00% - 0 of 2,058 servable 2025/2026 fixtures. REJECT rather than HOLD
+      because G5 = 0 is structural, not small-sample: StatsBomb Open publishes
+      no season at or after 2023/2024 for any SabiScore league, so no model,
+      representation or sample size can move it. Gates C and D are both blocked
+      on this one fact. Source remains RESEARCH-ONLY: D2 event completeness
+      PASSES (0 malformed events, 3,917 events/match, Pressure and Carry present
+      in 12/12 sampled matches) - the kill is availability, not quality.
+      Phases SPADL / xT / VAEP were NOT built; §23 D5, §47 Action 6, §15 G6 and
+      §44 each independently block that escalation on this evidence.
     information_source: "StatsBomb open data (event-level)"
-    source_version: UNDECLARED
+    source_version: "open-data @ github.com/statsbomb/open-data, competitions.json read 2026-09-11 (80 competition-season rows, 24 competitions)"
     source_license_class: L0
-    source_coverage: "fails the 85% bar; per-league breakdown uneven and generally low"
-    historical_window: UNDECLARED
+    source_coverage: >-
+      G1 1.15% (147/12,765) vs 85% bar. Per league: EPL 0.00%, LA_LIGA 2.22%,
+      SERIE_A 0.00%, BUNDESLIGA 1.49%, LIGUE_1 2.40%, EREDIVISIE 0.00%
+      (never published by StatsBomb at all). G5 0.00%. G6 implied production
+      default rate 100.0%. D1 crosswalk resolves 103/157 team keys (65.61%),
+      remainder left unresolved rather than substituted.
+    historical_window: >-
+      Corpus 2019/2020-2025/2026. StatsBomb in-window seasons: LA_LIGA 2019/2020
+      and 2020/2021, LIGUE_1 2021/2022 and 2022/2023, BUNDESLIGA 2023/2024;
+      EPL, SERIE_A and EREDIVISIE have none. All five are curated single-club
+      subsets (24-32 matched fixtures) rather than full seasons.
     prediction_cutoff: "pre-kickoff rolling aggregates"
     dataset_version: UNDECLARED
     feature_version: null
@@ -376,17 +397,31 @@ experiments:
     effect_size: null
     confidence_interval: null
     sample_size: null
-    result: "Gate G1 (fixture coverage) FAIL; Gate G4 (cross-league portability) FAIL"
+    result: >-
+      G1 FAIL (1.15%), G2 FAIL, G3 FAIL, G4 FAIL (3 of 6 leagues at zero),
+      G5 FAIL (0.00%), G6 FAIL (100% default rate); D2 PASS.
     robustness: null
     failure_modes:
-      - "coverage collapses unevenly across the five scoreable leagues"
-    compute: null
-    peak_rss: null
-    runtime: null
-    artifact_location: null
+      - "no open event source covers the season being served (G5 = 0.00%)"
+      - "in-window data is curated single-club subsets, not domestic-league feeds"
+      - "EREDIVISIE has never been published by StatsBomb Open in any season"
+      - >-
+        crosswalk defect found and fixed while building D1: a bare token-subset
+        rule silently resolved 'Paris Saint-Germain' to corpus key 'paris'
+        (Paris FC), reporting LIGUE_1 as 0/58 matched. Replaced with a
+        containment score requiring a unique strict maximum; pinned by
+        backend/tests/unit/test_statsbomb_e4_crosswalk.py and watched failing
+        against the reverted rule.
+    compute: "stdlib + urllib; no dataframe engine, no new dependency installed"
+    peak_rss: UNDECLARED
+    runtime: UNDECLARED
+    artifact_location: "backend/reports/evaluation/e4-statsbomb-source-qualification.json"
     provenance:
       - "docs/DEBT.md#66"
+      - "docs/DEBT.md#78"
       - "reports/research/portfolio-d-tactical-matchup-source-qualification.md"
+      - "reports/research/e4-statsbomb-open-source-qualification.md"
+      - "backend/scripts/audit_statsbomb_e4_coverage.py"
     reviewer: UNDECLARED
     certification_status: "not a candidate"
 

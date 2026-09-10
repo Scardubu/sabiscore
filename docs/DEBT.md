@@ -1,5 +1,90 @@
 # SabiScore Debt Ledger
 
+## 78. StatsBomb Open killed at Gate R1 — the blocker is the served season, not coverage in general — 2026-09-11
+
+**Tier:** `REJECT` for production integration; `RESEARCH-ONLY` retained.
+Registry entry `E4` (moved `HOLD` → `REJECT`).
+Study: `reports/research/e4-statsbomb-open-source-qualification.md`.
+Artifact: `backend/reports/evaluation/e4-statsbomb-source-qualification.json`.
+Reproduce: `cd backend && PYTHONPATH=. python scripts/audit_statsbomb_e4_coverage.py`.
+
+**The previous HOLD rested on a borrowed measurement, and the borrowed number
+was ~20× too generous.** E4's own registry entry admitted it: *"No new audit was
+run because the existing measurement already answers it."* The measurement it
+borrowed — **23.58%** — comes from `audit_statsbomb_coverage.py`, which
+measures StatsBomb against the **Understat parquet corpus** to decide Path A/B
+for two feature slots. Correct for that question; wrong denominator for E4.
+
+Measured against the corpus SabiScore actually trains and serves on
+(`backend/data/cache/fd_*.csv`, 12,765 fixtures, 2019/2020–2025/2026):
+
+| Gate | Result | Bar |
+|---|---|---|
+| G1 fixture coverage | **1.15%** (147/12,765) | ≥85% |
+| G4 cross-league portability | 0 of 6 leagues clear; EPL, SERIE_A, EREDIVISIE at **zero** | all |
+| **G5 prediction-time availability** | **0.00%** — 0 of 2,058 servable 2025/2026 fixtures | ≥85% |
+| G6 production default rate | **100.0%** | ≤15% |
+| D2 event completeness | **PASS** | — |
+
+⚠️ **G5 had never been measured for this source, and it is the one that
+decides.** The newest domestic-league season StatsBomb Open publishes for *any*
+SabiScore league is **2023/2024**; SabiScore serves **2025/2026**. Eredivisie has
+never been published at all. The five in-window league-seasons that do exist are
+curated single-club releases (24–32 matched fixtures), not domestic feeds — the
+full-season open releases (EPL/Serie A/Ligue 1/La Liga 2015/16, ~380 each) all
+predate the training window. This is structural: no sample size, model, or
+representation moves a number that is zero because the data does not exist yet.
+
+⚠️ **The kill is availability — NOT quality and NOT legality.** StatsBomb is
+`L0`, and D2 passes cleanly: 12 sampled in-window matches, **0 malformed
+events**, 3,917 events/match, `Pressure` and `Carry` present in 12/12, exactly
+two teams in 12/12. That distinction sets the reopening condition: a *richer
+archive is worth nothing here*. Only **current-season coverage** reopens it.
+
+**SPADL / xT / VAEP were NOT built, and `kloppy` / `socceraction` / `duckdb`
+were NOT installed.** Four independent directive clauses block that escalation
+on this evidence: §23 D5 (simple aggregates must survive first — the two
+StatsBomb-derived aggregates are already permanently relegated to
+`PHASE7_FEATURES_ALWAYS_DATA_GAP`), §47 Action 6 ("do not authorize VAEP/xT
+merely because the libraries are available"), §15 G6 (100% default rate), and
+§44. A VAEP feature built now would be a registry default on 100% of live
+requests — §34 State C/D on every prediction.
+
+⚠️ **A crosswalk defect was found by building Gate D1, and it produced a
+plausible wrong answer rather than an error.** The corpus speaks
+football-data.co.uk abbreviations; StatsBomb speaks full legal names. A bare
+token-subset rule resolved `"Paris Saint-Germain"` → `{paris, saint, germain}`
+against corpus `"Paris"` (Paris FC, key `{paris}`, **is** a subset) instead of
+`"Paris SG"` (key `{paris, sg}`, **not** a subset) — silently handing PSG's
+fixtures to a different club and reporting **LIGUE_1 as 0 matched out of 58**.
+Read at face value that zero says "StatsBomb has no usable Ligue 1 data." This is
+the same collision `services/team_identity.py` already guards on the
+market-matching side, reintroduced in a new file — **the fourth recurrence of the
+two-vocabulary class in this repo.** Fixed with a containment *score* (how much
+of the StatsBomb name a corpus key accounts for) requiring a unique strict
+maximum: `paris sg` scores 3, `paris` scores 1. Ties are left unresolved, never
+guessed. Effect: G1 0.70% → 1.15%, zero-coverage leagues 4 → 3, D1 resolution
+61.78% → 65.61%; **G5 stayed 0.00%**, as it must. Pinned by
+`backend/tests/unit/test_statsbomb_e4_crosswalk.py` (9 tests), **watched failing**
+against the reverted rule before being trusted.
+
+**Reopening conditions (§42)** — re-running this audit against the same archive
+is not one of them:
+
+1. StatsBomb Open publishes a **current-season** domestic feed for a SabiScore
+   league (the reproduce command above answers this in one run).
+2. A commercial StatsBomb licence is authorized.
+3. A different `L0`/`L1` event source clears **G1 and G5**.
+
+**What this narrows (§10).** Portfolio C (event-derived team state) and Portfolio
+D (tactical interaction) are not two independent chances — they share one
+upstream dependency, and it is empty at prediction time. With `D1` (FBref, killed
+`L3`) and `E3` (Understat, `REJECT`), all three qualified open event-data avenues
+now fail, on legal, information, and availability grounds respectively. Do not
+re-enter Portfolio C/D through another archive-shaped source.
+
+---
+
 ## 77. FBref (Tier 0 data roadmap) killed at Gate R1 on legal grounds — soccerdata's reader defeats bot detection — 2026-09-10
 
 **Tier:** `REJECT` (§41 Legal failure). Registry entry `D1`.
