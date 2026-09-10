@@ -1,0 +1,668 @@
+# SabiScore Experiment Registry
+#
+# Directive: PRODUCTION_EXECUTIVE_DIRECTIVE.md §38 (registry schema),
+#            §39 (state machine), §51 (decision framework).
+#
+# §47 Action 9: "No research result exists unless it is reproducible from the
+# registry." This file is the machine-readable index of every registered
+# experiment. It does not replace the narrative studies in reports/research/
+# or the incident record in docs/DEBT.md -- it makes them queryable and
+# enforces that each one declares the same fields.
+#
+# ---------------------------------------------------------------------------
+# HONESTY CONTRACT
+# ---------------------------------------------------------------------------
+# §38 names 37 fields. Several of them (seed, peak_rss, runtime, compute) were
+# never recorded by the studies that ran before this registry existed. Those
+# fields carry the literal string UNDECLARED -- the same convention
+# backend/models/feature_contract.json already uses for facts no code can
+# answer.
+#
+#   UNDECLARED  = the study did not record this. NOT "zero", NOT "none".
+#   null        = genuinely not applicable to this experiment's design.
+#
+# Back-filling an UNDECLARED with a plausible reconstruction is fabrication
+# and is prohibited. A future run of the same experiment should record the
+# field properly rather than retro-fitting it here.
+#
+# Registry entries are migrated from studies that completed BEFORE this schema
+# existed; `migrated_retrospectively: true` marks those, because they were not
+# pre-registered and their field coverage is therefore partial by construction.
+# ---------------------------------------------------------------------------
+
+registry_version: "1.0.0"
+directive_version: "v5"
+created: "2026-09-10"
+schema_reference: "PRODUCTION_EXECUTIVE_DIRECTIVE.md §38"
+
+# §39 state machine, in order. An experiment's `state` must be one of these.
+states:
+  - PROPOSED
+  - SOURCE_QUALIFIED
+  - DATA_VALIDATED
+  - TEMPORAL_VALIDATED
+  - INFORMATION_TEST
+  - MODEL_CANDIDATE
+  - OUT_OF_SAMPLE_EVALUATION
+  - STATISTICAL_REVIEW
+  - ROBUSTNESS_REVIEW
+  - PRODUCTION_REVIEW
+  - SHADOW
+  - CERTIFICATION
+  - PROMOTION
+  - CLOSED  # terminal: reached a §51 decision and stopped
+
+# §51 decisions.
+decisions: [PROMOTE, RESEARCH, HOLD, REJECT]
+
+# §12 legal/access classes.
+license_classes: [L0, L1, L2, L3, L4]
+
+experiments:
+
+  # =========================================================================
+  - experiment_id: E0
+    title: "Calibration repair"
+    portfolio: "A"
+    hypothesis: >-
+      Current serving probabilities are materially miscalibrated, and a
+      post-hoc recalibrator can improve reliability without degrading
+      discrimination or proper scoring.
+    migrated_retrospectively: true
+    state: CLOSED
+    decision: PROMOTE
+    decision_detail: >-
+      Per-candidate, not portfolio-wide. Temperature scaling ships in 5 of 6
+      leagues (BUNDESLIGA, EPL, LA_LIGA, SERIE_A, pooled EREDIVISIE); vector
+      scaling ships in LIGUE_1 on a genuine calibration-set + held-out win;
+      beta calibration REJECT (never wins the cascade in any league); isotonic
+      regression REJECT (won 4 of 4 in-sample comparisons, lost all 4 once
+      scored held-out -- the defect item 64 fixed).
+    information_source: "none - no new external source"
+    source_version: null
+    source_license_class: null
+    source_coverage: null
+    historical_window: UNDECLARED
+    prediction_cutoff: null
+    dataset_version: "backend/models/calibration_baselines.json"
+    feature_version: "phase7_68"
+    representation_version: "post-hoc probability recalibration"
+    model_version: "v5_phase7"
+    parameters: "single-elimination cascade, simplest candidate first"
+    seed: UNDECLARED
+    training_window: "calibration split"
+    validation_windows: "independent held-out calibration holdout"
+    final_holdout: "held-out persistence check (item 64's correction)"
+    baseline_models: ["uncalibrated serving probabilities"]
+    market_baseline: "not applicable - calibration is not a market-edge claim (§5)"
+    primary_metrics: [ECE, log_loss, RPS, Brier]
+    secondary_metrics: [reliability, resolution]
+    bootstrap_method: UNDECLARED
+    statistical_test: "held-out persistence (calibration-set win must persist)"
+    multiple_testing_family: "6 leagues x 4 candidates"
+    effect_size: UNDECLARED
+    confidence_interval: UNDECLARED
+    sample_size: UNDECLARED
+    result: >-
+      2 of 4 §20 B2 candidates ship somewhere; isotonic and beta rejected.
+      Calibration explicitly does NOT constitute a market-edge claim.
+    robustness: "held-out persistence required, which is what killed isotonic"
+    failure_modes:
+      - "isotonic overfits its own fit data; in-sample scoring hid it"
+    compute: UNDECLARED
+    peak_rss: UNDECLARED
+    runtime: UNDECLARED
+    artifact_location: "backend/models/calibration_baselines.json"
+    provenance: ["docs/DEBT.md#70", "docs/DEBT.md#64"]
+    reviewer: UNDECLARED
+    certification_status: "not a promotion candidate - calibration layer only"
+
+  # =========================================================================
+  - experiment_id: E1
+    title: "Player availability delta (roster injury/suspension)"
+    portfolio: "B"
+    hypothesis: >-
+      Pre-match player availability contains incremental information not
+      already represented by SabiScore team-state features and de-vigged
+      market probabilities.
+    migrated_retrospectively: true
+    state: CLOSED
+    decision: HOLD
+    decision_detail: >-
+      Not PROMOTE - the paired block-bootstrap CI includes zero, pooled and in
+      every league. Not REJECT - the point estimate is negative (favouring the
+      candidate) in all 5 leagues in the theoretically correct direction,
+      which is the pattern of a real but underpowered effect, not an inert
+      one. §51's stated default for an inconclusive sample applies.
+    information_source: "api_football GET /injuries (fixture- and season-scoped)"
+    source_version: "api-sports.io v3, free plan"
+    source_license_class: L0
+    source_coverage: >-
+      92.1% of records fully crosswalk to a dated corpus fixture (41,188
+      records, 15 league-seasons); 98.16% fixture-level coverage (5,232 of
+      5,330 fixtures carry signal on at least one side)
+    historical_window: "seasons 2022, 2023, 2024; 5 leagues (EREDIVISIE/UCL excluded)"
+    prediction_cutoff: "pre-kickoff; roster availability is known days ahead"
+    dataset_version: "reports/research/portfolio-b-stage3-dataset.json"
+    feature_version: "availability_diff (not in any served feature contract)"
+    representation_version: >-
+      home_unavailable_count - away_unavailable_count, distinct player_id
+      deduplicated within each (team, date)
+    model_version: "multinomial logistic regression on de-vigged 1X2 + candidate"
+    parameters: "multinomial logistic; de-vigged Bet365 1X2 as baseline features"
+    seed: UNDECLARED
+    training_window: "seasons 2022+2023 (n=3,578)"
+    validation_windows: "single walk-forward split (only 3 seasons available)"
+    final_holdout: "season 2024 (n=1,752)"
+    baseline_models: ["de-vigged market logistic baseline", "raw de-vigged market"]
+    market_baseline: "raw de-vigged Bet365 probabilities, rps=0.19463"
+    primary_metrics: [RPS]
+    secondary_metrics: [pearson_r_vs_outcome]
+    bootstrap_method: "non-overlapping block bootstrap, block size 10, 1000 replicates"
+    statistical_test: "paired per-fixture RPS difference"
+    multiple_testing_family: "5 leagues + pooled"
+    effect_size: "pooled candidate - baseline = -0.0004 RPS"
+    confidence_interval: "95% [-0.0010, +0.0001] (includes zero)"
+    sample_size: 1752
+    result: >-
+      Stage 2 dependence real (pooled r=-0.0788, CI [-0.1057,-0.0518]) but
+      heterogeneous - significant in SERIE_A/LIGUE_1/BUNDESLIGA, not EPL,
+      absent in LA_LIGA. Stage 3 candidate beats both baseline and raw market
+      on point estimate in all 5 leagues and pooled, but no CI excludes zero.
+    robustness: >-
+      Direction consistent across all 5 leagues; magnitude is not. Per-league
+      Stage 2 heterogeneity was reported rather than smoothed by pooling.
+    failure_modes:
+      - "free plan blocks current-season injuries entirely (live serving HOLD)"
+      - "sportmonks /sidelined returns HTTP 404 under the subscribed shape"
+      - "_normalize_injury discards the date field, so no duration weighting"
+      - "13 team names unresolved by the inherited alias tables (7.8% residual)"
+    compute: UNDECLARED
+    peak_rss: UNDECLARED
+    runtime: UNDECLARED
+    artifact_location: "reports/research/portfolio-b-stage3-incremental-value-report.json"
+    provenance:
+      - "docs/DEBT.md#65"
+      - "reports/research/portfolio-b-player-availability-source-qualification.md"
+    reviewer: UNDECLARED
+    certification_status: "no feature schema, artifact, or gate changed"
+    reopening_conditions: >-
+      §42: more seasons (only 3 exist, allowing one temporal split), or a
+      pre-registered cross-league pooled test justified against the Stage 2
+      heterogeneity.
+
+  # =========================================================================
+  - experiment_id: E2
+    title: "Expected XI / lineup continuity"
+    portfolio: "B"
+    hypothesis: >-
+      Lineup continuity and expected-XI state contribute incremental signal
+      beyond roster availability alone.
+    migrated_retrospectively: true
+    state: SOURCE_QUALIFIED
+    decision: HOLD
+    decision_detail: >-
+      Held at source qualification for a STRUCTURAL reason, not a statistical
+      one, and never taken through Stage 1-3 information-value testing.
+      Confirmed lineups publish 20-40 minutes before kickoff (some
+      competitions post-match only), which fails Gate G5 for this platform's
+      primary serving surface - users browse upcoming fixtures days ahead, so
+      the data does not exist at request time.
+    information_source: "api_football / sportmonks .lineups() (collected, unconsumed)"
+    source_version: "api-sports.io v3, free plan"
+    source_license_class: L0
+    source_coverage: UNDECLARED
+    historical_window: UNDECLARED
+    prediction_cutoff: "T-20 to T-40 minutes - incompatible with days-ahead serving"
+    dataset_version: null
+    feature_version: null
+    representation_version: "not built"
+    model_version: null
+    parameters: null
+    seed: null
+    training_window: null
+    validation_windows: null
+    final_holdout: null
+    baseline_models: []
+    market_baseline: null
+    primary_metrics: [RPS]
+    secondary_metrics: []
+    bootstrap_method: null
+    statistical_test: null
+    multiple_testing_family: null
+    effect_size: null
+    confidence_interval: null
+    sample_size: null
+    result: >-
+      No information-value test was run. orchestrator._collect_lineup_refresh()
+      already exists as a dedicated late-firing evidence profile, so the
+      architecture anticipated the timing problem, but nothing downstream
+      consumes it as a feature.
+    robustness: null
+    failure_modes:
+      - "Gate G5 structural failure for the primary serving surface"
+    compute: null
+    peak_rss: null
+    runtime: null
+    artifact_location: null
+    provenance:
+      - "docs/DEBT.md#65"
+      - "reports/research/portfolio-b-player-availability-source-qualification.md §2b"
+    reviewer: UNDECLARED
+    certification_status: "not a candidate"
+    reopening_conditions: >-
+      §42: a separately prioritised near-kickoff product surface would make the
+      prediction cutoff compatible. Do not build a training feature around it
+      before that surface exists.
+
+  # =========================================================================
+  - experiment_id: E3
+    title: "Event-derived team state (xG)"
+    portfolio: "C"
+    hypothesis: >-
+      Historical event-derived performance (xG and shot quality) contains
+      information not represented by current aggregate features.
+    migrated_retrospectively: true
+    state: CLOSED
+    decision: REJECT
+    decision_detail: >-
+      apex_v2_71 rejected on measured out-of-sample evidence. The lesson
+      recorded is that a large, highly significant ATE is NOT evidence of
+      out-of-sample predictive lift - the causal screen filters noise, it is
+      not a promotion criterion.
+    information_source: "Understat via soccerdata"
+    source_version: "understat, 35 league-seasons 2019-2025"
+    source_license_class: L1
+    source_coverage: "12,560 matches; 202 xG nulls, all Ligue 1 2019/20 COVID cancellations"
+    historical_window: "2019-2025, 5 leagues"
+    prediction_cutoff: "pre-kickoff rolling aggregates, leak-free replay"
+    dataset_version: "data/processed/v4_sources (gitignored)"
+    feature_version: "apex_v2_71"
+    representation_version: "3 CAUSAL_DRIVER xG features appended to APEX_FEATURES_68"
+    model_version: "apex_v2_71 candidate"
+    parameters: UNDECLARED
+    seed: UNDECLARED
+    training_window: UNDECLARED
+    validation_windows: UNDECLARED
+    final_holdout: "identical holdout to the apex_v1_68 baseline"
+    baseline_models: ["apex_v1_68 incumbent"]
+    market_baseline: "market_baseline gate: 0 of 5 leagues"
+    primary_metrics: [RPS]
+    secondary_metrics: [ATE]
+    bootstrap_method: UNDECLARED
+    statistical_test: "promotion gate comparison on an identical holdout"
+    multiple_testing_family: "5 leagues"
+    effect_size: "mean RPS -0.00159 (worse); improved in 1 of 5 leagues"
+    confidence_interval: UNDECLARED
+    sample_size: UNDECLARED
+    result: >-
+      ATE 0.2485 / 0.2181 / 0.1832 at p < 1e-68, training_coverage 1.0, nothing
+      defaulted or fabricated - and the block still costs RPS in 4 of 5
+      leagues. no_league_regression 2/5, market_baseline 0/5,
+      promotion_permitted false.
+    robustness: "neutral-to-worse in 4 of 5 leagues"
+    failure_modes:
+      - "corpus carries 1,826 duplicated matches; 2021/22 missing entirely"
+      - "dropping 1,478 rows (12%) may cost more than the features add"
+      - "market block may already price shot quality (redundancy)"
+    compute: UNDECLARED
+    peak_rss: UNDECLARED
+    runtime: UNDECLARED
+    artifact_location: "reports/evaluation/apex-v2-71-candidate-evaluation.json"
+    provenance: ["docs/DEBT.md#58", "docs/DEBT.md#57", "docs/DEBT.md#56"]
+    reviewer: UNDECLARED
+    certification_status: "apex_v2_71 registered as a measurement contract, not an endorsement"
+
+  # =========================================================================
+  - experiment_id: E4
+    title: "Tactical matchup interaction"
+    portfolio: "D"
+    hypothesis: >-
+      Opponent-specific interaction terms contain information beyond the
+      independent team-strength components they are built from.
+    migrated_retrospectively: true
+    state: SOURCE_QUALIFIED
+    decision: HOLD
+    decision_detail: >-
+      Blocked at Gate G1 by a coverage ceiling this codebase had already
+      measured for a different feature (COVERAGE_THRESHOLD_PCT = 85.0). No new
+      audit was run because the existing measurement already answers it. Not
+      REJECT - nothing here says tactical interaction lacks information.
+    information_source: "StatsBomb open data (event-level)"
+    source_version: UNDECLARED
+    source_license_class: L0
+    source_coverage: "fails the 85% bar; per-league breakdown uneven and generally low"
+    historical_window: UNDECLARED
+    prediction_cutoff: "pre-kickoff rolling aggregates"
+    dataset_version: UNDECLARED
+    feature_version: null
+    representation_version: "interaction terms first; graph model explicitly deferred"
+    model_version: null
+    parameters: null
+    seed: null
+    training_window: null
+    validation_windows: null
+    final_holdout: null
+    baseline_models: []
+    market_baseline: null
+    primary_metrics: [RPS]
+    secondary_metrics: []
+    bootstrap_method: null
+    statistical_test: null
+    multiple_testing_family: null
+    effect_size: null
+    confidence_interval: null
+    sample_size: null
+    result: "Gate G1 (fixture coverage) FAIL; Gate G4 (cross-league portability) FAIL"
+    robustness: null
+    failure_modes:
+      - "coverage collapses unevenly across the five scoreable leagues"
+    compute: null
+    peak_rss: null
+    runtime: null
+    artifact_location: null
+    provenance:
+      - "docs/DEBT.md#66"
+      - "reports/research/portfolio-d-tactical-matchup-source-qualification.md"
+    reviewer: UNDECLARED
+    certification_status: "not a candidate"
+
+  # =========================================================================
+  - experiment_id: E5
+    title: "Market information arrival / microstructure"
+    portfolio: "E"
+    hypothesis: >-
+      The timing and structure of market movement reveal information arrival
+      not captured by the closing quote alone.
+    migrated_retrospectively: true
+    state: CLOSED
+    decision: REJECT
+    decision_detail: >-
+      Q2 (drift beyond the closing quote) REJECT on a tight null across all 5
+      leagues and pooled - this is positive evidence of absence, not
+      underpowered ambiguity, which is what distinguishes it from Portfolio
+      B's wide null. Q3 (cross-book dispersion beyond close) HOLD, explicitly
+      flagged as probable multiple-testing noise (18 uncorrected comparisons,
+      1/5 leagues, marginal pooled CI).
+    information_source: "market quote series (opening / closing)"
+    source_version: UNDECLARED
+    source_license_class: L0
+    source_coverage: UNDECLARED
+    historical_window: "seasons 2022-2024"
+    prediction_cutoff: "closing quote"
+    dataset_version: "reports/research/portfolio-e-market-microstructure-report.json"
+    feature_version: "drift and dispersion features (not in any served contract)"
+    representation_version: "opening->closing drift; cross-book dispersion"
+    model_version: "multinomial logistic on de-vigged market + candidate"
+    parameters: UNDECLARED
+    seed: UNDECLARED
+    training_window: "seasons 2022+2023 (n=3,578)"
+    validation_windows: "single walk-forward split"
+    final_holdout: "season 2024 (n=1,752)"
+    baseline_models: ["de-vigged closing-quote logistic baseline"]
+    market_baseline: "de-vigged closing quote"
+    primary_metrics: [RPS]
+    secondary_metrics: []
+    bootstrap_method: "non-overlapping block bootstrap"
+    statistical_test: "paired per-fixture RPS difference"
+    multiple_testing_family: "18 uncorrected comparisons across questions x leagues"
+    effect_size: "Q2 pooled 0.0000; Q3 pooled -0.0002"
+    confidence_interval: "Q2 95% [-0.0001, +0.0002]; Q3 95% [-0.0004, -0.0000]"
+    sample_size: 1752
+    result: >-
+      A model that reproduces the final market is not an independent-information
+      success (Rule 7). The actionable finding is the open/close gap itself,
+      not drift beyond the close.
+    robustness: "Q2 null holds in all 5 leagues and pooled"
+    failure_modes:
+      - "Q3's marginal significance is probable multiplicity artifact"
+    compute: UNDECLARED
+    peak_rss: UNDECLARED
+    runtime: UNDECLARED
+    artifact_location: "reports/research/portfolio-e-market-microstructure-report.json"
+    provenance: ["docs/DEBT.md#68", "reports/research/portfolio-e-market-microstructure.md"]
+    reviewer: UNDECLARED
+    certification_status: "no feature schema, artifact, or gate changed"
+    reopening_conditions: "Q3 requires pre-registered replication, not re-analysis."
+
+  # =========================================================================
+  - experiment_id: F1
+    title: "Contextual state (rest, congestion, referee)"
+    portfolio: "F"
+    hypothesis: >-
+      Rest, fixture congestion and referee characteristics contain incremental
+      pre-match information.
+    migrated_retrospectively: true
+    state: CLOSED
+    decision: REJECT
+    decision_detail: >-
+      REJECT rather than HOLD, and the distinction is the point: the nulls are
+      tight, not wide. Two real defects were found by reading descriptives
+      before modelling.
+    information_source: "fixture calendar (corpus-derived); referee data (EPL only)"
+    source_version: "backend/data/cache/fd_*.csv"
+    source_license_class: L0
+    source_coverage: "domestic-league only - no cup or European fixtures"
+    historical_window: "seasons 2022-2024"
+    prediction_cutoff: "pre-kickoff (schedule is known in advance)"
+    dataset_version: "reports/research/portfolio-f-contextual-state-report.json"
+    feature_version: "congestion / rest / referee features (not in any served contract)"
+    representation_version: "rest days, congestion counts, referee aggregates"
+    model_version: "multinomial logistic on de-vigged market + candidate"
+    parameters: UNDECLARED
+    seed: UNDECLARED
+    training_window: "seasons 2022+2023"
+    validation_windows: "single walk-forward split"
+    final_holdout: "season 2024"
+    baseline_models: ["de-vigged market logistic baseline"]
+    market_baseline: "de-vigged market probabilities"
+    primary_metrics: [RPS]
+    secondary_metrics: []
+    bootstrap_method: "non-overlapping block bootstrap"
+    statistical_test: "paired per-fixture RPS difference"
+    multiple_testing_family: "multiple studies x leagues"
+    effect_size: "tight nulls"
+    confidence_interval: "see report table §3"
+    sample_size: 1752
+    result: "Tight null. Congestion leakage tests verified by deliberate inversion."
+    robustness: "leakage guard watched failing before being trusted"
+    failure_modes:
+      - "congestion measured against domestic fixtures only - a Thursday Europa League tie reads as fully rested, so the rejection is understated for true fixture load"
+      - "referee data available for EPL only, so F2 is not a five-league test"
+    compute: UNDECLARED
+    peak_rss: UNDECLARED
+    runtime: UNDECLARED
+    artifact_location: "reports/research/portfolio-f-contextual-state-report.json"
+    provenance: ["docs/DEBT.md#69", "reports/research/portfolio-f-contextual-state.md"]
+    reviewer: UNDECLARED
+    certification_status: "no feature schema, artifact, or gate changed"
+    reopening_conditions: >-
+      §42: travel distance / time-zone displacement (blocked behind this same
+      portfolio's venue-location HOLD, item 44), referee data for the other
+      four leagues, or a cup-inclusive fixture list.
+
+  # =========================================================================
+  - experiment_id: F2
+    title: "Weather: venue-location qualification (Gate G1)"
+    portfolio: "F"
+    hypothesis: >-
+      Venue location can be derived reliably enough from the corpus to support
+      weather features.
+    migrated_retrospectively: true
+    state: DATA_VALIDATED
+    decision: HOLD
+    decision_detail: >-
+      Automated derivation resolves 68.9% of the corpus. The remainder needs a
+      human-reviewed place-name assertion the study must not invent (clubs
+      whose name is not their city - Bayer Leverkusen, Hoffenheim, Atalanta).
+      Blocked on a bounded operator review, not on more engineering.
+    information_source: "Open-Meteo (acquisition shipped and live-verified)"
+    source_version: UNDECLARED
+    source_license_class: L0
+    source_coverage: "68.9% of the 12,765-match corpus derivable (VERIFIED 8,799)"
+    historical_window: "full corpus"
+    prediction_cutoff: "pre-kickoff forecast"
+    dataset_version: "reports/research/portfolio-f-venue-location-manifest.json"
+    feature_version: null
+    representation_version: "not built - blocked at Gate G1"
+    model_version: null
+    parameters: null
+    seed: null
+    training_window: null
+    validation_windows: null
+    final_holdout: null
+    baseline_models: []
+    market_baseline: null
+    primary_metrics: [RPS]
+    secondary_metrics: []
+    bootstrap_method: null
+    statistical_test: null
+    multiple_testing_family: null
+    effect_size: null
+    confidence_interval: null
+    sample_size: null
+    result: "Gate G1 FAIL at 68.9% against the 85% bar used elsewhere in this repo."
+    robustness: null
+    failure_modes:
+      - "geocoding a club whose name is not its city is a guess, not a derivation"
+    compute: null
+    peak_rss: null
+    runtime: null
+    artifact_location: "reports/research/portfolio-f-venue-location-manifest.json"
+    provenance:
+      - "docs/DEBT.md#44"
+      - "reports/research/portfolio-f-weather-venue-location-qualification.md"
+    reviewer: "pending operator review of the place-name manifest"
+    certification_status: "not a candidate"
+    label_correction: >-
+      Filed as "Portfolio C" when written; corrected to Portfolio F on
+      2026-09-10. §7 Portfolio C is Event-Derived Team State; §10 Portfolio F
+      lists weather and stadium conditions explicitly. Commit 7be5bc3 still
+      carries the old label and cannot be corrected without rewriting merged
+      master history.
+
+  # =========================================================================
+  - experiment_id: E6
+    title: "Dynamic team state (state-space latent strength)"
+    portfolio: null
+    hypothesis: >-
+      Latent team strength changes faster than the incumbent Elo representation
+      tracks, so an adaptive-gain state-space model carries incremental signal.
+    migrated_retrospectively: true
+    state: CLOSED
+    decision: REJECT
+    decision_detail: >-
+      H1 was published as HOLD, then REATTRIBUTED to REJECT by its own 2x2
+      ablation. The adaptive gain is neutral-to-slightly-harmful in BOTH
+      carryover settings (+0.00024 with carryover on, +0.00014 off) - two
+      independent looks, same sign and magnitude, which is replicated absence
+      rather than an underpowered null. Everything that moved came from
+      removing Elo's 50% season-boundary pull toward the league mean. H2
+      (uncertainty channel) REJECT; H3 (beyond the market) REJECT on a tight
+      null on the wrong side.
+    information_source: "none - re-representation of existing Elo inputs"
+    source_version: null
+    source_license_class: null
+    source_coverage: null
+    historical_window: "corpus seasons through 2425"
+    prediction_cutoff: "pre-kickoff"
+    dataset_version: "reports/research/e6-ablation-2x2.json"
+    feature_version: "dynamic team state (not in any served contract)"
+    representation_version: "adaptive-gain state-space replay vs fixed-K Elo"
+    model_version: "DynamicTeamStateReplay / FastEloReplay"
+    parameters: "2x2: {fixed, adaptive} gain x {carryover on, off}"
+    seed: UNDECLARED
+    training_window: UNDECLARED
+    validation_windows: "single holdout, reused across E6 and its ablation"
+    final_holdout: "test season 2425 (n=1,752)"
+    baseline_models: ["incumbent Elo (fixed K + 50% season carryover)"]
+    market_baseline: "de-vigged market rps=0.19463"
+    primary_metrics: [RPS]
+    secondary_metrics: [uncertainty_channel]
+    bootstrap_method: "block bootstrap"
+    statistical_test: "paired per-fixture RPS difference"
+    multiple_testing_family: "4 ablation cells + 3 hypotheses"
+    effect_size: >-
+      Cell A 0.20249 (incumbent) / B 0.20273 / C 0.20121 (best) / D 0.20135
+      (E6's candidate). Adaptive-gain main effect +0.0002; carryover-removal
+      main effect -0.0013; interaction ~0.
+    confidence_interval: "C-A 95% [-0.0028, +0.0002]; D-A 95% [-0.0025, 0.0000]"
+    sample_size: 1752
+    result: >-
+      Plain incumbent Elo with the season-carryover rule switched off (cell C)
+      is the best of the four and marginally beats E6's own state-space
+      candidate. The best cell is still +0.0066 behind the de-vigged market -
+      roughly five times the largest effect in the table.
+    robustness: >-
+      Main effects replicate across both conditions; interaction is
+      approximately zero (additive).
+    failure_modes:
+      - "E6 changed two things at once, so its own improvement was misattributed"
+      - "the ablation is substitution, not incremental - deltas are NOT on the same footing as E6's H1"
+    compute: UNDECLARED
+    peak_rss: UNDECLARED
+    runtime: UNDECLARED
+    artifact_location: "reports/research/e6-ablation-2x2.json"
+    provenance:
+      - "docs/DEBT.md#74"
+      - "docs/DEBT.md#72"
+      - "reports/research/e6-ablation-2x2.md"
+      - "reports/research/e6-dynamic-team-state.md"
+    reviewer: UNDECLARED
+    certification_status: "no feature schema, artifact, or gate changed"
+    open_thread: >-
+      Removing Elo's season carryover is a SEPARATE, unactioned HOLD. Its CI
+      includes zero, it is a second pass over an already-spent holdout, and
+      EPL runs the other way (+0.0009). It has earned a pre-registered test on
+      fresh seasons and nothing more. FastEloReplay's carryover is live in the
+      training pipeline - do not change production rating maths on this.
+
+  # =========================================================================
+  - experiment_id: E7
+    title: "Distributional goal model (Bivariate Poisson draw overlay)"
+    portfolio: null
+    hypothesis: >-
+      Modelling the score distribution directly improves 1X2 probability
+      quality, specifically the draw class.
+    migrated_retrospectively: true
+    state: CLOSED
+    decision: REJECT
+    decision_detail: >-
+      REJECT on clean evidence. The overlay already existed, unwired, and was
+      circularly self-evaluated before this experiment fixed the evaluation.
+    information_source: "none - re-representation of existing goal data"
+    source_version: null
+    source_license_class: null
+    source_coverage: null
+    historical_window: UNDECLARED
+    prediction_cutoff: "pre-kickoff"
+    dataset_version: UNDECLARED
+    feature_version: null
+    representation_version: "BivariatePoissonDrawOverlay on top of the selected calibrator"
+    model_version: "v5_phase7 + overlay"
+    parameters: UNDECLARED
+    seed: UNDECLARED
+    training_window: UNDECLARED
+    validation_windows: UNDECLARED
+    final_holdout: UNDECLARED
+    baseline_models: ["selected calibrator without overlay"]
+    market_baseline: "de-vigged market"
+    primary_metrics: [RPS]
+    secondary_metrics: [draw_class_calibration]
+    bootstrap_method: UNDECLARED
+    statistical_test: "paired comparison on a non-circular holdout"
+    multiple_testing_family: UNDECLARED
+    effect_size: UNDECLARED
+    confidence_interval: UNDECLARED
+    sample_size: UNDECLARED
+    result: "REJECT once the circular self-evaluation was fixed."
+    robustness: UNDECLARED
+    failure_modes:
+      - "the overlay was evaluated against data it had informed (circularity), which flattered it before the fix"
+    compute: UNDECLARED
+    peak_rss: UNDECLARED
+    runtime: UNDECLARED
+    artifact_location: UNDECLARED
+    provenance: ["docs/DEBT.md#71"]
+    reviewer: UNDECLARED
+    certification_status: "no feature schema, artifact, or gate changed"

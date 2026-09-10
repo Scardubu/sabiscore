@@ -1,0 +1,210 @@
+{
+  "snapshot_id": "GROUND_TRUTH_SNAPSHOT_2026-09-10",
+  "directive": "Production Executive Directive v5",
+  "gate": "R0",
+  "phase": "Phase 0 - Ground Truth",
+  "captured_at_utc": "2026-09-10T16:39:30Z",
+  "captured_by": "backend/scripts/capture_ground_truth_snapshot.py",
+  "immutability_note": "Frozen for the duration of the v5 experiment cycle. Every field is either measured at capture time or explicitly null with a note. No value is carried forward from a previous snapshot.",
+  "offline_mode": false,
+  "repository": {
+    "source": "git (local working copy)",
+    "head_sha": "63c0dd1dfd5877658643188dce928642059f6001",
+    "head_sha_short": "63c0dd1",
+    "branch": "research/e6-dynamic-team-state",
+    "origin_master_sha_short": "b8b4b36",
+    "ahead_behind_origin_master": {
+      "ahead": 2,
+      "behind": 0
+    },
+    "working_tree_dirty": true,
+    "modified_tracked_files": 9,
+    "untracked_paths": [
+      "backend/scripts/capture_ground_truth_snapshot.py",
+      "reports/ground_truth/GROUND_TRUTH_SNAPSHOT_2026-09-10.json"
+    ],
+    "last_commit_subject": "research: E6's 2x2 ablation — the state-space gain did nothing, dropping Elo's summer regression did all of it"
+  },
+  "active_generation": {
+    "source": "backend/models/active_generation.json (hash-verified manifest)",
+    "generation": "v5_phase7-20260808",
+    "active_version": "v5_phase7",
+    "feature_schema_version": "phase7_68",
+    "feature_count": 68,
+    "feature_contract_sha256": null,
+    "served_head": "SoftmaxMetaModel",
+    "certification_state": "UNVERIFIED",
+    "certified_at": null,
+    "promotion_state": "ACTIVE_FAIL_CLOSED",
+    "artifact_count": 6,
+    "artifact_leagues": [
+      "bundesliga",
+      "epl",
+      "eredivisie",
+      "la_liga",
+      "ligue_1",
+      "serie_a"
+    ]
+  },
+  "certification_policy": {
+    "source": "backend/src/models/certification_policy.py (frozen, hashed)",
+    "policy_version": "1.1.1",
+    "policy_sha256": "f823648253fc2708fc676b5fe25da807d3393d25a62bf80a3085508f130908f8",
+    "gate_names": null
+  },
+  "candidate_under_evaluation": {
+    "source": "backend/models/candidate/comparison_report.json",
+    "candidate_schema": "apex_v5_66",
+    "holdout_season": "2526",
+    "promotion_permitted": false,
+    "gates": {
+      "valid_probability_simplex": {
+        "status": "PASS",
+        "evidence": "evaluate() rejected no candidate holdout probability row"
+      },
+      "input_responsiveness": {
+        "status": "PASS",
+        "minimum_responsive_features": 37
+      },
+      "coherent_price_perturbation": {
+        "status": "PASS"
+      },
+      "serving_feature_availability": {
+        "status": "FAIL",
+        "summary": {
+          "features": 66,
+          "training_defaulted_slots": 1,
+          "non_variable_training_slots": 5,
+          "serving_schema_misaligned_slots": 14,
+          "always_data_gap_slots": 4
+        }
+      },
+      "primary_metric_improvement": {
+        "status": "PASS",
+        "mean_rps_improvement": 0.0014593825649170898
+      },
+      "no_league_regression": {
+        "status": "FAIL",
+        "league_wins": 3,
+        "leagues_compared": 6
+      },
+      "market_baseline": {
+        "status": "FAIL",
+        "leagues_beating_market": 1
+      }
+    }
+  },
+  "deployment": {
+    "backend": {
+      "source": "GET https://sabiscore-api-bav1.onrender.com/health",
+      "probe_ok": true,
+      "probe_error": null,
+      "sha": "1870939",
+      "status": "healthy",
+      "uptime_seconds": 21619
+    },
+    "web": {
+      "source": "GET https://web-lac-theta-42.vercel.app/api/health",
+      "probe_ok": true,
+      "probe_error": null,
+      "sha": "1870939",
+      "backend_sha_seen": "1870939ca4f78fc5daa3cc334c5c180a7495f5e2",
+      "backend_status": "ok"
+    },
+    "parity_assessment": "DEPLOY PARITY — backend and web both serve 1870939; local HEAD is 63c0dd1 on branch 'research/e6-dynamic-team-state', which is expected to lead production and is not a divergence."
+  },
+  "database": {
+    "source": "GET https://sabiscore-api-bav1.onrender.com/health/ready",
+    "probe_ok": true,
+    "probe_error": null,
+    "engine": "postgresql",
+    "connection_status": "ready",
+    "alembic_head_applied": "0013_push_devices",
+    "alembic_head_expected_local": "0013_push_devices",
+    "migration_drift": "none",
+    "postgres_server_version": null,
+    "postgres_server_version_note": "Not exposed by /health/ready. Requires a direct DB connection, which this script deliberately does not open (docs/DEBT.md item 7).",
+    "elo_state": {
+      "rows": 25934,
+      "unique_teams": 210,
+      "last_match_date": "2026-09-09T19:00:00"
+    }
+  },
+  "runtime": {
+    "local_python": "3.14.6",
+    "local_python_role": "research/offline only",
+    "production_python": "3.11.9 (render.yaml PYTHON_VERSION)",
+    "production_python_note": "Read from configuration, not probed. /health does not expose the interpreter version.",
+    "runtime_requirement_lines": 78,
+    "training_requirement_lines": 18,
+    "dev_requirement_lines": 7,
+    "inference_latency_p95_ms": null,
+    "inference_latency_note": "Not measured. Requires a load probe against production, which spends free-tier capacity and is out of scope for a Gate R0 capture.",
+    "memory_ceiling_gb": 8,
+    "memory_ceiling_source": "directive §35 development target"
+  },
+  "providers": {
+    "source": "GET https://sabiscore-api-bav1.onrender.com/api/v1/providers/health",
+    "probe_ok": true,
+    "probe_error": null,
+    "total": 5,
+    "enabled": 5,
+    "configured": 5,
+    "per_provider_status": {
+      "espn": "CONFIGURED_UNVERIFIED",
+      "football_data_org": "CONFIGURED_UNVERIFIED",
+      "api_football": "CONFIGURED_UNVERIFIED",
+      "sportmonks": "CONFIGURED_UNVERIFIED",
+      "the_odds_api": "CONFIGURED_UNVERIFIED"
+    },
+    "live_verification_note": "CONFIGURED_UNVERIFIED means the flag is on and a key string is present. PROVIDER_LIVE_TESTS=false in production, so this is not evidence the upstream contract works."
+  },
+  "evidence": {
+    "settled_predictions": 60,
+    "settled_predictions_source": "GET https://sabiscore-api-bav1.onrender.com/api/v1/model-performance",
+    "probe_ok": true,
+    "probe_error": null,
+    "model_version_scoping": "v5_phase7",
+    "walk_forward": {
+      "skipped": false,
+      "n_splits": 5,
+      "total_records": 60,
+      "rps_overall": 0.22040523476785712,
+      "accuracy_overall": 0.47857142857142854,
+      "brier_overall": 0.6255340899285714
+    },
+    "calibration": {
+      "probe_ok": true,
+      "probe_error": null,
+      "sample_size": 60,
+      "meets_sample_floor": true,
+      "ece_mean": 0.1297,
+      "ece_per_class": {
+        "class_0": 0.1083,
+        "class_1": 0.1493,
+        "class_2": 0.1315
+      },
+      "brier_decomposition_mean": {
+        "brier_score": 0.2071,
+        "reliability": 0.0318,
+        "resolution": 0.0413,
+        "uncertainty": 0.2154
+      },
+      "brier_decomposition_convention": "mean over one-vs-rest per-class Brier; identity is Brier = Reliability - Resolution + Uncertainty"
+    },
+    "model_market_belief_differential": {
+      "n": 34,
+      "mean": 0.017304979908247663,
+      "positive_rate": 0.6470588235294118,
+      "skipped": false,
+      "naming_warning": "The backend field is named 'clv' but measures model belief minus closing implied probability, which directive §28 says must not be called CLV. Reported here under its true name."
+    }
+  },
+  "gate_r0_assessment": {
+    "result": "PASS",
+    "probes_attempted": 5,
+    "probes_succeeded": 5,
+    "failed_probes": [],
+    "interpretation": "PASS means every §3 field this script can measure was measured. PARTIAL means one or more live probes failed and those fields are null -- it does not mean the system is unhealthy, and the null must not be replaced with a previous cycle's value."
+  }
+}

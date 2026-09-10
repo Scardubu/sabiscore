@@ -1,5 +1,74 @@
 # SabiScore Debt Ledger
 
+## 75. Directive procedural debt closed — §3 ground-truth snapshot is reproducible, §38 registry exists, portfolio mislabel corrected — 2026-09-10
+
+**Tier:** `RESOLVED` — three procedural items the directive requires and the
+repository did not have.
+Registry: `reports/research/experiment_registry.yaml` (10 migrated experiments).
+Snapshot: `reports/ground_truth/GROUND_TRUTH_SNAPSHOT_2026-09-10.json`.
+
+### Procedural debt
+
+**§3 ground truth is now reproducible.** The 2026-09-08 snapshot was assembled
+by hand, so it could not be re-cut at the start of the next cycle — which is
+the one thing §3 actually asks for.
+`backend/scripts/capture_ground_truth_snapshot.py` now measures it: 5/5 live
+probes, Gate R0 `PASS`, written to
+`reports/ground_truth/GROUND_TRUTH_SNAPSHOT_2026-09-10.json`. Every field is
+either measured at capture time or explicitly `null` with a sibling note; no
+value is carried forward from a previous snapshot.
+
+⚠️ **Writing it surfaced four extraction bugs in my own first draft**, each of
+which would have recorded a `null` for a field the API was in fact serving:
+`clv.mean` is spelled `mean_clv`; ECE lives at `ece.mean` not `ece_mean`;
+`brier_decomposition.mean` not `brier_decomposition_mean`; and `model_version`
+is returned by `/calibration`, not by `/model-performance`. A snapshot that
+silently nulls live data is worse than no snapshot, because everything
+downstream cites it. Fixed and re-verified against the live responses.
+
+A fifth defect was a false alarm the script would have raised forever: parity
+originally compared local HEAD against both deployed surfaces, so any research
+branch read as `DIVERGENT`. Parity is backend-vs-web; local HEAD leading
+production on a feature branch is expected, and is now reported as such.
+
+**Portfolio mislabel corrected.** The weather/venue-location study was filed as
+"Portfolio C". §7 Portfolio C is *Event-Derived Team State* (shots, xG,
+passes); §10 Portfolio F is *Contextual State* and names weather and stadium
+conditions explicitly. Two files renamed
+(`portfolio-c-*` → `portfolio-f-*`) and ten references corrected across
+`docs/DEBT.md`, three research reports and two scripts.
+
+⚠️ **A second, different mislabel was found while fixing the first:**
+`train_on_real_matches.py:1155` described the Bivariate Poisson overlay as
+"directive Portfolio C / Experiment E7". E7 is a standalone §43 experiment and
+carries no portfolio letter. Corrected in place.
+
+⚠️ **Commit `7be5bc3`'s message still carries the old label and was NOT
+changed.** Rewriting a merged `master` commit means a force-push over shared
+history; the files, the ledger and the registry are the durable record, and
+they are now right.
+
+**§38 experiment registry now exists.** `reports/research/experiment_registry.yaml`
+holds all 12 experiments (E0–E7, F1, F2, S1, U1) against §38's full 37-field
+schema and §39's state machine. Fields the pre-registry studies never recorded
+(`seed`, `peak_rss`, `runtime`, `compute`) carry the literal `UNDECLARED`,
+matching `feature_contract.json`'s existing convention — back-filling one with
+a plausible reconstruction would be fabrication.
+
+`backend/scripts/validate_experiment_registry.py` enforces it, and **every
+guard was watched failing on an injected defect before being trusted**: a stale
+provenance path (the exact Portfolio C defect — it named the file), a
+nonexistent debt-item reference, a missing §38 field, an invalid §51 decision,
+and an empty-string field. A sixth case, a null registry, crashed instead of
+erroring cleanly; the guard was in `validate()` but `main()` had the same
+unguarded `.get()` one line later — same shape, second call site.
+
+**Blast radius:** none. Documentation, research tooling and a reproducible
+snapshot script — no feature contract, model artifact, promotion gate or
+serving path touched.
+
+---
+
 ## 74. The E6 ablation reattributes item 72's HOLD: the state-space gain did nothing, dropping Elo's summer regression did all of it — 2026-09-10
 
 **Tier:** state-space **gain** → `REJECT` (reattributed from item 72's H1
@@ -550,7 +619,7 @@ exactly the two leakage tests go red; restoring makes them green.
 club playing Thursday Europa League registers as fully rested. The rejection
 is sound for domestic-schedule congestion and understated for true fixture
 load. Reopening (§42) needs genuinely different information — travel distance
-(blocked behind Portfolio C's venue-location `HOLD`), referee data for the
+(blocked behind Portfolio F's own venue-location `HOLD`, item 44), referee data for the
 other four leagues, or a cup-inclusive fixture list.
 
 **No production code, feature schema, or model artifact changed.**
@@ -3813,7 +3882,7 @@ located well enough to ask it. The unblock is bounded and enumerated: **44 clubs
 coordinate, so the geocoder still derives the position and every stored value
 stays reproducible from an auditable input, exactly as
 `team_identity._AUDITED_ALIASES` does for corpus spellings. Each of the 44 is
-listed in `reports/research/portfolio-c-venue-location-manifest.json` with the
+listed in `reports/research/portfolio-f-venue-location-manifest.json` with the
 queries attempted and candidates returned, so the review is a confirmation task
 against real evidence rather than a recall exercise.
 
@@ -3822,7 +3891,7 @@ whether these 44 reviews are worth doing depends on a question still unanswered
 — whether weather carries incremental information at all, which is Stage 3 and
 cannot run until G1 passes.
 
-Full study: `reports/research/portfolio-c-weather-venue-location-qualification.md`.
+Full study: `reports/research/portfolio-f-weather-venue-location-qualification.md`.
 Classifier pinned by `backend/tests/unit/test_venue_location_qualification.py`
 (19 tests); every guard was watched failing on a reverted rule before being
 trusted.

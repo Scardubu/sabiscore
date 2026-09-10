@@ -1,4 +1,4 @@
-"""Gate G1 (fixture coverage) for Portfolio C — can we locate the corpus at all?
+"""Gate G1 (fixture coverage) for Portfolio F — can we locate the corpus at all?
 
 `docs/DEBT.md` item 44 ships Open-Meteo acquisition and then gates the feature
 work behind three prerequisites, the first of which is:
