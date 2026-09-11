@@ -118,6 +118,81 @@ experiments:
     certification_status: "not a promotion candidate - calibration layer only"
 
   # =========================================================================
+  - experiment_id: E0b
+    title: "Vector scaling on the served head, all leagues, with paired CIs"
+    portfolio: "A"
+    hypothesis: >-
+      Vector scaling improves proper scoring on the probabilities production
+      actually serves, in every league, by a margin whose paired confidence
+      interval excludes zero.
+    migrated_retrospectively: false
+    state: OUT_OF_SAMPLE_EVALUATION
+    decision: HOLD
+    decision_detail: >-
+      BLOCKED, not measured. Two defects in E0's setup motivated this
+      extension: (1) E0 decided on point estimates - its own entry records
+      bootstrap_method, confidence_interval and effect_size as UNDECLARED,
+      which §9 forbids as a basis for decision; (2) E0's cascade calibrates the
+      META-MODEL, while the request path
+      (PredictionEngine._ensemble_predict_dict) is an equal-weight base-learner
+      average that never touches meta_model - the same defect class commit
+      d4e1c0b fixed for conformal. Building the corrected evaluation surfaced a
+      third and larger problem that blocks it: the served v5_phase7 artifacts
+      declare holdout_season 2425 but score season 2526 with an in-sample
+      signature. A calibrator needs a clean season to fit on AND a clean season
+      to be judged on; these artifacts have exactly one clean season, so no
+      valid split exists. The evaluator now refuses the contaminated split
+      rather than reporting the large, confident, spurious degradation it
+      produces. Not REJECT - nothing here says vector scaling lacks value; the
+      instrument to test it cannot be assembled until the artifacts are
+      retrained on a clean temporal split.
+    information_source: "none - no new external source"
+    source_version: null
+    source_license_class: null
+    source_coverage: null
+    historical_window: "corpus 1920-2526; only 2425 is out-of-sample for the served artifacts"
+    prediction_cutoff: null
+    dataset_version: "backend/data/processed/served_ensemble_predictions_holdout.parquet"
+    feature_version: "CANONICAL_FEATURES_68 (legacy block the served artifacts were built on)"
+    representation_version: "per-class scale+bias on centred log-odds, NLL + L2 (lambda=1e-3)"
+    model_version: "v5_phase7-20260808"
+    parameters: "L-BFGS-B, w in [1e-3, 10], b in [-5, 5]"
+    seed: 42
+    training_window: "season 2425 (intended calibration split)"
+    validation_windows: "season 2526 (intended test split) - REJECTED as contaminated"
+    final_holdout: null
+    baseline_models: ["uncalibrated served base-learner average"]
+    market_baseline: "not applicable - calibration is not a market-edge claim (§5)"
+    primary_metrics: [RPS, Brier, ECE]
+    secondary_metrics: []
+    bootstrap_method: "paired non-overlapping block bootstrap (Künsch 1989), 2000 replicates, block_size 10"
+    statistical_test: "95% CI for mean paired loss difference must exclude zero"
+    multiple_testing_family: "5 leagues x 1 candidate"
+    effect_size: null
+    confidence_interval: null
+    sample_size: null
+    result: >-
+      No valid measurement. All 5 scoreable leagues returned
+      BLOCKED_CONTAMINATED_SPLIT. Per-league base-learner-average RPS on the
+      declared holdout 2425 is 0.2161-0.2335; on 2526 it is 0.1475-0.1706,
+      against a market baseline of 0.1908-0.2054 on the same 2526 rows.
+    robustness: null
+    failure_modes:
+      - "served artifacts were trained on season 2526, the holdout every candidate comparison scores against"
+      - "only one uncontaminated season exists, so no clean calibrate/test pair can be formed"
+    compute: "numpy + polars + scipy; no GPU, well under the 8 GB ceiling"
+    peak_rss: UNDECLARED
+    runtime: UNDECLARED
+    artifact_location: "reports/research/e0_multileague_vector_scaling_results.json"
+    provenance:
+      - "docs/DEBT.md#79"
+      - "docs/DEBT.md#81"
+      - "backend/scripts/evaluate_e0_vector_scaling_multileague.py"
+      - "backend/tests/unit/test_e0_temporal_integrity_and_harvest.py"
+    reviewer: UNDECLARED
+    certification_status: "not a candidate"
+
+  # =========================================================================
   - experiment_id: E1
     title: "Player availability delta (roster injury/suspension)"
     portfolio: "B"
@@ -263,10 +338,26 @@ experiments:
     peak_rss: null
     runtime: "1 live request spent on the feasibility probe"
     artifact_location: "reports/research/e2-lineup-availability-probe.json"
+    scoped_harvest:
+      status: "CONTRACT DEFINED, NOT YET HARVESTED"
+      contract: "contracts/lineup_harvest_epl_contract.yaml"
+      harvester: "backend/scripts/harvest_epl_e2_lineups.py"
+      scope: "EPL 2024/2025 only - 380 fixtures, ~4 days of free quota vs 17.5 for five leagues"
+      g5_answerable_from_this_harvest: false
+      g5_blocker: >-
+        /fixtures/lineups publishes NO announcement timestamp (measured:
+        e2-lineup-availability-probe.json sample_record_keys carries no temporal
+        field), so lead_time_minutes is not derivable and every harvested row
+        records servable_at_cutoff=UNKNOWN. The harvest yields lineup CONTENT
+        for continuity features; it cannot answer prediction-time availability.
+        Gate G5 for lineups is answerable only by a PROSPECTIVE probe that polls
+        upcoming fixtures at the T-20m cutoff - designed in the contract, not built.
     provenance:
       - "docs/DEBT.md#65"
+      - "docs/DEBT.md#80"
       - "reports/research/portfolio-b-player-availability-source-qualification.md §2b"
       - "reports/research/e2-lineup-availability-probe.json"
+      - "contracts/lineup_harvest_epl_contract.yaml"
       - "backend/scripts/probe_lineup_availability.py"
     reviewer: UNDECLARED
     certification_status: "not a candidate"
@@ -402,6 +493,7 @@ experiments:
       G5 FAIL (0.00%), G6 FAIL (100% default rate); D2 PASS.
     robustness: null
     failure_modes:
+      - "Failed Gate G5 (0.00% servable in production corpus); StatsBomb Open releases lag active season."
       - "no open event source covers the season being served (G5 = 0.00%)"
       - "in-window data is curated single-club subsets, not domestic-league feeds"
       - "EREDIVISIE has never been published by StatsBomb Open in any season"

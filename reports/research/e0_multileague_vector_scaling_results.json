@@ -1,0 +1,320 @@
+{
+  "experiment_id": "E0-VECTOR-MULTILEAGUE",
+  "directive": "v5 \u00a79, \u00a718, \u00a719, \u00a720 B2/B3",
+  "target": "served base-learner average (PredictionEngine._ensemble_predict_dict), not the meta-model",
+  "calibration_season": "2425",
+  "test_season": "2526",
+  "bootstrap": {
+    "method": "paired non-overlapping block bootstrap (K\u00fcnsch 1989)",
+    "n_bootstrap": 2000,
+    "block_size": 10,
+    "seed": 42
+  },
+  "promotion_rule": "95% CI upper bound for \u0394RPS strictly < 0 and no Brier regression",
+  "leagues_promotable": [],
+  "leagues_blocked_contaminated_split": [
+    "BUNDESLIGA",
+    "EPL",
+    "LA_LIGA",
+    "LIGUE_1",
+    "SERIE_A"
+  ],
+  "results": [
+    {
+      "league": "BUNDESLIGA",
+      "status": "BLOCKED_CONTAMINATED_SPLIT",
+      "blocking_seasons": [
+        "2526"
+      ],
+      "temporal_integrity": {
+        "declared_holdout_season": "2425",
+        "per_season": {
+          "1920": {
+            "n": 261,
+            "rps": 0.150697,
+            "in_sample_signature": true
+          },
+          "2021": {
+            "n": 296,
+            "rps": 0.145159,
+            "in_sample_signature": true
+          },
+          "2122": {
+            "n": 296,
+            "rps": 0.156827,
+            "in_sample_signature": true
+          },
+          "2223": {
+            "n": 306,
+            "rps": 0.148771,
+            "in_sample_signature": true
+          },
+          "2324": {
+            "n": 296,
+            "rps": 0.13986,
+            "in_sample_signature": true
+          },
+          "2425": {
+            "n": 296,
+            "rps": 0.233469,
+            "in_sample_signature": false
+          },
+          "2526": {
+            "n": 301,
+            "rps": 0.14746,
+            "in_sample_signature": true
+          }
+        },
+        "seasons_with_in_sample_signature": [
+          "1920",
+          "2021",
+          "2122",
+          "2223",
+          "2324",
+          "2526"
+        ],
+        "seasons_usable_as_out_of_sample": [
+          "2425"
+        ]
+      }
+    },
+    {
+      "league": "EPL",
+      "status": "BLOCKED_CONTAMINATED_SPLIT",
+      "blocking_seasons": [
+        "2526"
+      ],
+      "temporal_integrity": {
+        "declared_holdout_season": "2425",
+        "per_season": {
+          "1920": {
+            "n": 330,
+            "rps": 0.164498,
+            "in_sample_signature": true
+          },
+          "2021": {
+            "n": 366,
+            "rps": 0.178169,
+            "in_sample_signature": true
+          },
+          "2122": {
+            "n": 375,
+            "rps": 0.159939,
+            "in_sample_signature": true
+          },
+          "2223": {
+            "n": 375,
+            "rps": 0.157617,
+            "in_sample_signature": true
+          },
+          "2324": {
+            "n": 375,
+            "rps": 0.15591,
+            "in_sample_signature": true
+          },
+          "2425": {
+            "n": 375,
+            "rps": 0.230363,
+            "in_sample_signature": false
+          },
+          "2526": {
+            "n": 375,
+            "rps": 0.170264,
+            "in_sample_signature": true
+          }
+        },
+        "seasons_with_in_sample_signature": [
+          "1920",
+          "2021",
+          "2122",
+          "2223",
+          "2324",
+          "2526"
+        ],
+        "seasons_usable_as_out_of_sample": [
+          "2425"
+        ]
+      }
+    },
+    {
+      "league": "EREDIVISIE",
+      "status": "SKIPPED",
+      "n_cal": 0,
+      "n_test": 260
+    },
+    {
+      "league": "LA_LIGA",
+      "status": "BLOCKED_CONTAMINATED_SPLIT",
+      "blocking_seasons": [
+        "2526"
+      ],
+      "temporal_integrity": {
+        "declared_holdout_season": "2425",
+        "per_season": {
+          "1920": {
+            "n": 330,
+            "rps": 0.163528,
+            "in_sample_signature": true
+          },
+          "2021": {
+            "n": 367,
+            "rps": 0.156675,
+            "in_sample_signature": true
+          },
+          "2122": {
+            "n": 375,
+            "rps": 0.156666,
+            "in_sample_signature": true
+          },
+          "2223": {
+            "n": 370,
+            "rps": 0.160374,
+            "in_sample_signature": true
+          },
+          "2324": {
+            "n": 375,
+            "rps": 0.147281,
+            "in_sample_signature": true
+          },
+          "2425": {
+            "n": 380,
+            "rps": 0.219374,
+            "in_sample_signature": false
+          },
+          "2526": {
+            "n": 375,
+            "rps": 0.157399,
+            "in_sample_signature": true
+          }
+        },
+        "seasons_with_in_sample_signature": [
+          "1920",
+          "2021",
+          "2122",
+          "2223",
+          "2324",
+          "2526"
+        ],
+        "seasons_usable_as_out_of_sample": [
+          "2425"
+        ]
+      }
+    },
+    {
+      "league": "LIGUE_1",
+      "status": "BLOCKED_CONTAMINATED_SPLIT",
+      "blocking_seasons": [
+        "2526"
+      ],
+      "temporal_integrity": {
+        "declared_holdout_season": "2425",
+        "per_season": {
+          "1920": {
+            "n": 229,
+            "rps": 0.162722,
+            "in_sample_signature": true
+          },
+          "2021": {
+            "n": 370,
+            "rps": 0.166054,
+            "in_sample_signature": true
+          },
+          "2122": {
+            "n": 371,
+            "rps": 0.160547,
+            "in_sample_signature": true
+          },
+          "2223": {
+            "n": 370,
+            "rps": 0.15035,
+            "in_sample_signature": true
+          },
+          "2324": {
+            "n": 301,
+            "rps": 0.171427,
+            "in_sample_signature": true
+          },
+          "2425": {
+            "n": 306,
+            "rps": 0.22905,
+            "in_sample_signature": false
+          },
+          "2526": {
+            "n": 301,
+            "rps": 0.15706,
+            "in_sample_signature": true
+          }
+        },
+        "seasons_with_in_sample_signature": [
+          "1920",
+          "2021",
+          "2122",
+          "2223",
+          "2324",
+          "2526"
+        ],
+        "seasons_usable_as_out_of_sample": [
+          "2425"
+        ]
+      }
+    },
+    {
+      "league": "SERIE_A",
+      "status": "BLOCKED_CONTAMINATED_SPLIT",
+      "blocking_seasons": [
+        "2526"
+      ],
+      "temporal_integrity": {
+        "declared_holdout_season": "2425",
+        "per_season": {
+          "1920": {
+            "n": 330,
+            "rps": 0.150503,
+            "in_sample_signature": true
+          },
+          "2021": {
+            "n": 363,
+            "rps": 0.150607,
+            "in_sample_signature": true
+          },
+          "2122": {
+            "n": 365,
+            "rps": 0.163217,
+            "in_sample_signature": true
+          },
+          "2223": {
+            "n": 370,
+            "rps": 0.162871,
+            "in_sample_signature": true
+          },
+          "2324": {
+            "n": 375,
+            "rps": 0.157369,
+            "in_sample_signature": true
+          },
+          "2425": {
+            "n": 375,
+            "rps": 0.216109,
+            "in_sample_signature": false
+          },
+          "2526": {
+            "n": 375,
+            "rps": 0.168615,
+            "in_sample_signature": true
+          }
+        },
+        "seasons_with_in_sample_signature": [
+          "1920",
+          "2021",
+          "2122",
+          "2223",
+          "2324",
+          "2526"
+        ],
+        "seasons_usable_as_out_of_sample": [
+          "2425"
+        ]
+      }
+    }
+  ]
+}
