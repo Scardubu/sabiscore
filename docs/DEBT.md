@@ -1,5 +1,154 @@
 # SabiScore Debt Ledger
 
+## 84. Portfolio F weather: the historical-forecast API silently serves reanalysis before 2022, and three of seven corpus seasons fall in that hole — 2026-09-11
+
+**Tier:** `RESEARCH`. Registry entry `F3` (`SOURCE_QUALIFIED` / `HOLD`).
+Script: `backend/scripts/ingest_openmeteo_weather.py`.
+Report: `reports/research/portfolio-f-weather-forecast-gates.json`.
+Data: `backend/data/cache/weather_forecasts_f1.parquet`.
+
+**Numbering note:** this was commissioned as "F1", but `F1` is taken
+(*Contextual state — rest, congestion, referee*, `CLOSED`/`REJECT`) and `F2` is
+taken by this portfolio's own venue-location prerequisite. Registered as `F3`.
+
+⚠️ **The finding, and it is the reason this item exists.** The directive was
+right that training on *actual* weather leaks post-match knowledge, and right
+that the fix is archived **forecasts**. What it could not know is that
+Open-Meteo's Historical Forecast API **falls back to ERA5 reanalysis before its
+own archive begins, returning HTTP 200 with no warning**. Probed hour-by-hour
+at Liverpool (53.41/-2.98) against `archive-api`:
+
+| date | vs reanalysis | max diff |
+|---|---|---|
+| 2019-08-09 | identical | 0.00 °C |
+| 2021-08-01 | identical | 0.00 |
+| 2021-12-01 | identical | 0.00 |
+| 2022-01-01 | identical | 0.00 |
+| **2022-03-01** | **differs** | **2.50** |
+| 2022-06-01 | differs | 3.60 |
+| 2024-08-17 | differs | 2.50 |
+| 2025-08-16 | differs | 3.10 |
+
+The real archive boundary is between 2022-01-01 and 2022-03-01. **A naive
+backfill over the corpus would therefore have trained three of seven seasons on
+post-hoc actuals while believing they were forecasts** — the exact Rule 3 leak,
+and undetectable from the response, which is well-formed every time.
+`_FORECAST_ARCHIVE_START = 2022-03-01` is a hard cutoff on the conservative side
+of the measured boundary; a fixture before it is recorded as
+`NO_ARCHIVED_FORECAST` and never filled from reanalysis.
+
+⚠️ **Coordinates were NOT authored.** The commission asked for "a static stadium
+coordinate mapping". Item 44 already rejected exactly that — *"Hand-entered or
+model-recalled coordinates are invented reference data, and wrong ones produce
+confidently wrong weather, which is worse than no weather"* — and writing one
+from memory would be a Rule 5 fabrication. The script reads the geocoded,
+auditable manifest `qualify_venue_locations.py` produced and uses **VERIFIED
+clubs only** (116 of 160). `REQUIRES_REVIEW` (17) and `UNKNOWN` (27) are skipped
+and counted, still pending item 44's bounded operator review.
+
+**Gate result.** Two ceilings multiply, and neither is the weather API's fault:
+
+| gap | fixtures | share of corpus |
+|---|---|---|
+| `VENUE_NOT_VERIFIED` | 3,966 | 31.1% |
+| `NO_ARCHIVED_FORECAST` | 3,334 | 26.1% |
+
+leaving at most 5,465 of 12,765 reachable before a single request is made.
+
+**Measured, full run (106 venue requests, 5,465 rows written):**
+
+| gate | value | bar |
+|---|---|---|
+| G1, whole corpus | **42.81%** | 85% |
+| G1, within the forecast window (7,959 fixtures) | **68.66%** | 85% |
+
+Gate G1 **FAILS** either way. The report records it twice on purpose: the
+second number says whether the *source* is viable, as distinct from the corpus
+being older than the archive.
+
+⚠️ **Zero fetch failures and zero missing forecast hours.** Every one of the
+5,465 eligible fixtures resolved to a real T-2h forecast. The ceiling is
+entirely venue coverage plus archive start — **the source itself is completely
+reliable inside its window**, which is why this is a coverage finding and not a
+quality one. Coverage spans seasons 2021/22–2025/26.
+
+**Gate G5 is the honest bright spot** and is why this is `HOLD`, not `REJECT`:
+the same endpoint family serves a 16-day forward forecast, so an upcoming
+fixture *is* answerable at the same T-2h cutoff. Unlike StatsBomb (item 78,
+G5 = 0.00%), the prediction-time half of this source is structurally sound. It
+is the *historical* half that is short. Marked structurally-satisfied, **not
+measured** — that needs a prospective probe against live fixtures, which is not
+built.
+
+⚠️ **One declared, unverified assumption.** The corpus `Time` column is compared
+against `timezone=auto` (venue-local) responses, i.e. football-data.co.uk
+kickoff times are assumed venue-local. If any division publishes UK time
+instead, the T-2h hour is off by the UTC offset — bounded, but real. The raw
+clock, the resolved local kickoff, the cutoff timestamp and the timezone mode
+are all written into the parquet so a consumer can audit or correct it rather
+than inherit a silent error.
+
+**Unblocked by**, in order of leverage: (1) item 44's operator review of the 44
+non-VERIFIED clubs, which alone would lift the reachable ceiling from ~43% to
+~69%; (2) accepting a shorter training window (2022/23 onward, ~4 seasons) and
+scoping the feature to it; (3) a source with archived forecasts predating 2022.
+
+---
+
+## 83. The inference path has no calibrator serialisation wiring — 2026-09-11
+
+**Tier:** `HOLD`. Blocks `E0b`'s only positive result from ever shipping.
+
+**Numbering note:** commissioned as "item 82", which is taken (the
+baseline-remediation record from earlier the same day). Filed as 83.
+
+`PredictionEngine` applies a `FittedCalibrator` only when the loaded artifact
+carries a `calibrator` key:
+
+```python
+if _CAL_AVAILABLE and bundle.calibrator is not None:   # models/prediction.py
+```
+
+**No artifact this repository ships carries one.** The served
+`v5_phase7` bundles hold exactly
+`['feature_columns', 'is_trained', 'meta_model', 'model_metadata', 'models']`,
+and so do the new `v11_clean2526` evaluation-baseline artifacts. So
+`calibration_method` is `"none"` and `calibration_applied` is `False` on every
+live prediction — **production currently applies no post-hoc calibration at
+all.**
+
+⚠️ **The gap is not a missing config flag, it is a missing caller.** The two
+functions that construct the `FittedCalibrator` serving would apply —
+`run_league_calibration` and `compare_calibration_methods`
+(`src/models/calibration.py`) — have **zero callers anywhere in `backend/src`
+or `backend/scripts`**. The only writer of a `"calibrator"` artifact key is
+`enhanced_training.py`, a training path that produced none of the shipped
+generations.
+
+⚠️ **Separately, E0's calibration cascade calibrates the wrong object.**
+`_select_calibrator` (`scripts/train_on_real_matches.py`) wraps the
+**meta-model**, but the request path is `_ensemble_predict_dict` — an
+equal-weight base-learner average that never touches `meta_model`. So even the
+temperature/vector scaling E0 selected sits on a head production does not
+execute. This is the same defect class commit `d4e1c0b` fixed for conformal
+("conformal evaluation wrapped the stacking head, which production never
+serves"), one layer over.
+
+**Consequence for `E0b`:** its one family-wise-significant result (SERIE_A,
+ΔRPS −0.00431, Bonferroni 99% CI [−0.00706, −0.00187]) cannot ship. Not because
+the statistics are weak, but because there is no path from a fitted calibrator
+to a served probability.
+
+**Blocked pending a candidate model passing promotion gates** — building the
+wiring before anything is promotable would be infrastructure ahead of evidence,
+which §53 forbids. When a candidate does pass, three things must land together:
+a caller that fits a `FittedCalibrator` on the served base-learner average,
+serialisation of it into the artifact under the `calibrator` key, and a
+train/serve parity test proving the fitted object and the applied object are
+the same one.
+
+---
+
 ## 82. Baseline remediated — generation `v11_clean2526` holds 2526 out, and E0b's real answer is "one league, not five" — 2026-09-11
 
 **Tier:** `RESOLVED` for the contamination (item 81); `RESEARCH` for E0b.
@@ -73,11 +222,10 @@ The contaminated artifacts keep their own filenames, so item 81's finding stays
 re-verifiable. `certification_state` remains `UNVERIFIED`; nothing was certified
 or promoted. **Serving behaviour is byte-identical to before this session.**
 
-⚠️ **Still open, and now explicit:** `compare_candidate_vs_incumbent.py` still
-scores against the contaminated `active_generation.json` incumbent. Repointing
-it at `models/evaluation_baseline/` is the follow-up that actually retires item
-81's consequence for the promotion gate — not done here, because it changes
-what every promotion decision is measured against and deserves its own change.
+✅ **Closed 2026-09-11 (same day, next change):**
+`compare_candidate_vs_incumbent.py` now defaults to
+`models/evaluation_baseline/manifest.json` and fails closed on a temporal
+mismatch on either side. Item 81 is fully resolved.
 
 **E0b, now measurable.** The contamination guard fires for no league. Vector
 scaling on the served base-learner average, 2425 → 2526, paired Künsch block
@@ -125,12 +273,26 @@ previous session and never executed because the harvest never ran.
 
 ## 81. The served artifacts were trained on season 2526 — the holdout every candidate comparison scores against — 2026-09-11
 
-> **RESOLVED 2026-09-11 by item 82** — generation `v11_clean2526` retrains with
-> 2526 strictly held out and the in-sample signature is gone. The incident
-> record below stands; the contaminated artifacts are preserved under their
-> own filenames so it stays re-verifiable.
+> **FULLY RESOLVED 2026-09-11.** Two halves, both now done:
+> **(1)** item 82 retrained a clean-split baseline (`v11_clean2526`, 2526 held
+> out strictly) and the in-sample signature is gone;
+> **(2)** `compare_candidate_vs_incumbent.py` now defaults its incumbent to
+> `models/evaluation_baseline/manifest.json` rather than the contaminated
+> serving manifest, so the promotion gate no longer measures candidates against
+> a baseline that memorised the test set.
+>
+> The gate additionally **fails closed on temporal mismatch in both
+> directions**, which is what stops this recurring rather than merely being
+> corrected once: an incumbent manifest that does not declare holdout `2526`
+> raises `ValueError`, and so does a candidate whose `training_manifest.json`
+> declares a different holdout. Pointing it back at `active_generation.json` is
+> now an error, not a silent regression — verified by doing exactly that and
+> watching it refuse.
+>
+> The incident record below stands; the contaminated artifacts keep their own
+> filenames so it remains re-verifiable.
 
-**Tier:** `RESOLVED`. Blocks `E0b`, and calls every incumbent-vs-candidate
+**Tier:** `RESOLVED`. Blocked `E0b`, and called every incumbent-vs-candidate
 comparison in this repo into question. Found while building the E0 multi-league
 calibration evaluator (item 79), not by a test.
 
