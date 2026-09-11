@@ -1,0 +1,1125 @@
+{
+  "experiment_id": "E4",
+  "audit_date": "2026-09-11",
+  "directive": "v5 \u00a715 G1-G6, \u00a723 D1-D2, \u00a740 R1",
+  "source": "StatsBomb Open Data (github.com/statsbomb/open-data)",
+  "source_license_class": "L0",
+  "corpus": {
+    "path": "data\\cache",
+    "fixtures": 12765,
+    "seasons": [
+      "2019/2020",
+      "2020/2021",
+      "2021/2022",
+      "2022/2023",
+      "2023/2024",
+      "2024/2025",
+      "2025/2026"
+    ],
+    "leagues": [
+      "EPL",
+      "LA_LIGA",
+      "SERIE_A",
+      "BUNDESLIGA",
+      "LIGUE_1",
+      "EREDIVISIE"
+    ]
+  },
+  "statsbomb_competition_index": [
+    {
+      "competition_id": 9,
+      "competition_name": "1. Bundesliga",
+      "country_name": "Germany",
+      "season_id": 281,
+      "season_name": "2023/2024",
+      "league": "BUNDESLIGA"
+    },
+    {
+      "competition_id": 9,
+      "competition_name": "1. Bundesliga",
+      "country_name": "Germany",
+      "season_id": 27,
+      "season_name": "2015/2016",
+      "league": "BUNDESLIGA"
+    },
+    {
+      "competition_id": 1267,
+      "competition_name": "African Cup of Nations",
+      "country_name": "Africa",
+      "season_id": 107,
+      "season_name": "2023",
+      "league": null
+    },
+    {
+      "competition_id": 16,
+      "competition_name": "Champions League",
+      "country_name": "Europe",
+      "season_id": 4,
+      "season_name": "2018/2019",
+      "league": "UCL"
+    },
+    {
+      "competition_id": 16,
+      "competition_name": "Champions League",
+      "country_name": "Europe",
+      "season_id": 1,
+      "season_name": "2017/2018",
+      "league": "UCL"
+    },
+    {
+      "competition_id": 16,
+      "competition_name": "Champions League",
+      "country_name": "Europe",
+      "season_id": 2,
+      "season_name": "2016/2017",
+      "league": "UCL"
+    },
+    {
+      "competition_id": 16,
+      "competition_name": "Champions League",
+      "country_name": "Europe",
+      "season_id": 27,
+      "season_name": "2015/2016",
+      "league": "UCL"
+    },
+    {
+      "competition_id": 16,
+      "competition_name": "Champions League",
+      "country_name": "Europe",
+      "season_id": 26,
+      "season_name": "2014/2015",
+      "league": "UCL"
+    },
+    {
+      "competition_id": 16,
+      "competition_name": "Champions League",
+      "country_name": "Europe",
+      "season_id": 25,
+      "season_name": "2013/2014",
+      "league": "UCL"
+    },
+    {
+      "competition_id": 16,
+      "competition_name": "Champions League",
+      "country_name": "Europe",
+      "season_id": 24,
+      "season_name": "2012/2013",
+      "league": "UCL"
+    },
+    {
+      "competition_id": 16,
+      "competition_name": "Champions League",
+      "country_name": "Europe",
+      "season_id": 23,
+      "season_name": "2011/2012",
+      "league": "UCL"
+    },
+    {
+      "competition_id": 16,
+      "competition_name": "Champions League",
+      "country_name": "Europe",
+      "season_id": 22,
+      "season_name": "2010/2011",
+      "league": "UCL"
+    },
+    {
+      "competition_id": 16,
+      "competition_name": "Champions League",
+      "country_name": "Europe",
+      "season_id": 21,
+      "season_name": "2009/2010",
+      "league": "UCL"
+    },
+    {
+      "competition_id": 16,
+      "competition_name": "Champions League",
+      "country_name": "Europe",
+      "season_id": 41,
+      "season_name": "2008/2009",
+      "league": "UCL"
+    },
+    {
+      "competition_id": 16,
+      "competition_name": "Champions League",
+      "country_name": "Europe",
+      "season_id": 39,
+      "season_name": "2006/2007",
+      "league": "UCL"
+    },
+    {
+      "competition_id": 16,
+      "competition_name": "Champions League",
+      "country_name": "Europe",
+      "season_id": 37,
+      "season_name": "2004/2005",
+      "league": "UCL"
+    },
+    {
+      "competition_id": 16,
+      "competition_name": "Champions League",
+      "country_name": "Europe",
+      "season_id": 44,
+      "season_name": "2003/2004",
+      "league": "UCL"
+    },
+    {
+      "competition_id": 16,
+      "competition_name": "Champions League",
+      "country_name": "Europe",
+      "season_id": 76,
+      "season_name": "1999/2000",
+      "league": "UCL"
+    },
+    {
+      "competition_id": 16,
+      "competition_name": "Champions League",
+      "country_name": "Europe",
+      "season_id": 277,
+      "season_name": "1972/1973",
+      "league": "UCL"
+    },
+    {
+      "competition_id": 16,
+      "competition_name": "Champions League",
+      "country_name": "Europe",
+      "season_id": 71,
+      "season_name": "1971/1972",
+      "league": "UCL"
+    },
+    {
+      "competition_id": 16,
+      "competition_name": "Champions League",
+      "country_name": "Europe",
+      "season_id": 276,
+      "season_name": "1970/1971",
+      "league": "UCL"
+    },
+    {
+      "competition_id": 223,
+      "competition_name": "Copa America",
+      "country_name": "South America",
+      "season_id": 282,
+      "season_name": "2024",
+      "league": null
+    },
+    {
+      "competition_id": 87,
+      "competition_name": "Copa del Rey",
+      "country_name": "Spain",
+      "season_id": 84,
+      "season_name": "1983/1984",
+      "league": null
+    },
+    {
+      "competition_id": 87,
+      "competition_name": "Copa del Rey",
+      "country_name": "Spain",
+      "season_id": 268,
+      "season_name": "1982/1983",
+      "league": null
+    },
+    {
+      "competition_id": 87,
+      "competition_name": "Copa del Rey",
+      "country_name": "Spain",
+      "season_id": 279,
+      "season_name": "1977/1978",
+      "league": null
+    },
+    {
+      "competition_id": 37,
+      "competition_name": "FA Women's Super League",
+      "country_name": "England",
+      "season_id": 281,
+      "season_name": "2023/2024",
+      "league": null
+    },
+    {
+      "competition_id": 37,
+      "competition_name": "FA Women's Super League",
+      "country_name": "England",
+      "season_id": 90,
+      "season_name": "2020/2021",
+      "league": null
+    },
+    {
+      "competition_id": 37,
+      "competition_name": "FA Women's Super League",
+      "country_name": "England",
+      "season_id": 42,
+      "season_name": "2019/2020",
+      "league": null
+    },
+    {
+      "competition_id": 37,
+      "competition_name": "FA Women's Super League",
+      "country_name": "England",
+      "season_id": 4,
+      "season_name": "2018/2019",
+      "league": null
+    },
+    {
+      "competition_id": 1470,
+      "competition_name": "FIFA U20 World Cup",
+      "country_name": "International",
+      "season_id": 274,
+      "season_name": "1979",
+      "league": null
+    },
+    {
+      "competition_id": 43,
+      "competition_name": "FIFA World Cup",
+      "country_name": "International",
+      "season_id": 106,
+      "season_name": "2022",
+      "league": null
+    },
+    {
+      "competition_id": 43,
+      "competition_name": "FIFA World Cup",
+      "country_name": "International",
+      "season_id": 3,
+      "season_name": "2018",
+      "league": null
+    },
+    {
+      "competition_id": 43,
+      "competition_name": "FIFA World Cup",
+      "country_name": "International",
+      "season_id": 55,
+      "season_name": "1990",
+      "league": null
+    },
+    {
+      "competition_id": 43,
+      "competition_name": "FIFA World Cup",
+      "country_name": "International",
+      "season_id": 54,
+      "season_name": "1986",
+      "league": null
+    },
+    {
+      "competition_id": 43,
+      "competition_name": "FIFA World Cup",
+      "country_name": "International",
+      "season_id": 51,
+      "season_name": "1974",
+      "league": null
+    },
+    {
+      "competition_id": 43,
+      "competition_name": "FIFA World Cup",
+      "country_name": "International",
+      "season_id": 272,
+      "season_name": "1970",
+      "league": null
+    },
+    {
+      "competition_id": 43,
+      "competition_name": "FIFA World Cup",
+      "country_name": "International",
+      "season_id": 270,
+      "season_name": "1962",
+      "league": null
+    },
+    {
+      "competition_id": 43,
+      "competition_name": "FIFA World Cup",
+      "country_name": "International",
+      "season_id": 269,
+      "season_name": "1958",
+      "league": null
+    },
+    {
+      "competition_id": 135,
+      "competition_name": "Frauen Bundesliga",
+      "country_name": "Germany",
+      "season_id": 281,
+      "season_name": "2023/2024",
+      "league": null
+    },
+    {
+      "competition_id": 1238,
+      "competition_name": "Indian Super league",
+      "country_name": "India",
+      "season_id": 108,
+      "season_name": "2021/2022",
+      "league": null
+    },
+    {
+      "competition_id": 11,
+      "competition_name": "La Liga",
+      "country_name": "Spain",
+      "season_id": 90,
+      "season_name": "2020/2021",
+      "league": "LA_LIGA"
+    },
+    {
+      "competition_id": 11,
+      "competition_name": "La Liga",
+      "country_name": "Spain",
+      "season_id": 42,
+      "season_name": "2019/2020",
+      "league": "LA_LIGA"
+    },
+    {
+      "competition_id": 11,
+      "competition_name": "La Liga",
+      "country_name": "Spain",
+      "season_id": 4,
+      "season_name": "2018/2019",
+      "league": "LA_LIGA"
+    },
+    {
+      "competition_id": 11,
+      "competition_name": "La Liga",
+      "country_name": "Spain",
+      "season_id": 1,
+      "season_name": "2017/2018",
+      "league": "LA_LIGA"
+    },
+    {
+      "competition_id": 11,
+      "competition_name": "La Liga",
+      "country_name": "Spain",
+      "season_id": 2,
+      "season_name": "2016/2017",
+      "league": "LA_LIGA"
+    },
+    {
+      "competition_id": 11,
+      "competition_name": "La Liga",
+      "country_name": "Spain",
+      "season_id": 27,
+      "season_name": "2015/2016",
+      "league": "LA_LIGA"
+    },
+    {
+      "competition_id": 11,
+      "competition_name": "La Liga",
+      "country_name": "Spain",
+      "season_id": 26,
+      "season_name": "2014/2015",
+      "league": "LA_LIGA"
+    },
+    {
+      "competition_id": 11,
+      "competition_name": "La Liga",
+      "country_name": "Spain",
+      "season_id": 25,
+      "season_name": "2013/2014",
+      "league": "LA_LIGA"
+    },
+    {
+      "competition_id": 11,
+      "competition_name": "La Liga",
+      "country_name": "Spain",
+      "season_id": 24,
+      "season_name": "2012/2013",
+      "league": "LA_LIGA"
+    },
+    {
+      "competition_id": 11,
+      "competition_name": "La Liga",
+      "country_name": "Spain",
+      "season_id": 23,
+      "season_name": "2011/2012",
+      "league": "LA_LIGA"
+    },
+    {
+      "competition_id": 11,
+      "competition_name": "La Liga",
+      "country_name": "Spain",
+      "season_id": 22,
+      "season_name": "2010/2011",
+      "league": "LA_LIGA"
+    },
+    {
+      "competition_id": 11,
+      "competition_name": "La Liga",
+      "country_name": "Spain",
+      "season_id": 21,
+      "season_name": "2009/2010",
+      "league": "LA_LIGA"
+    },
+    {
+      "competition_id": 11,
+      "competition_name": "La Liga",
+      "country_name": "Spain",
+      "season_id": 41,
+      "season_name": "2008/2009",
+      "league": "LA_LIGA"
+    },
+    {
+      "competition_id": 11,
+      "competition_name": "La Liga",
+      "country_name": "Spain",
+      "season_id": 40,
+      "season_name": "2007/2008",
+      "league": "LA_LIGA"
+    },
+    {
+      "competition_id": 11,
+      "competition_name": "La Liga",
+      "country_name": "Spain",
+      "season_id": 39,
+      "season_name": "2006/2007",
+      "league": "LA_LIGA"
+    },
+    {
+      "competition_id": 11,
+      "competition_name": "La Liga",
+      "country_name": "Spain",
+      "season_id": 38,
+      "season_name": "2005/2006",
+      "league": "LA_LIGA"
+    },
+    {
+      "competition_id": 11,
+      "competition_name": "La Liga",
+      "country_name": "Spain",
+      "season_id": 37,
+      "season_name": "2004/2005",
+      "league": "LA_LIGA"
+    },
+    {
+      "competition_id": 11,
+      "competition_name": "La Liga",
+      "country_name": "Spain",
+      "season_id": 278,
+      "season_name": "1973/1974",
+      "league": "LA_LIGA"
+    },
+    {
+      "competition_id": 182,
+      "competition_name": "Liga F",
+      "country_name": "Spain",
+      "season_id": 281,
+      "season_name": "2023/2024",
+      "league": null
+    },
+    {
+      "competition_id": 81,
+      "competition_name": "Liga Profesional",
+      "country_name": "Argentina",
+      "season_id": 48,
+      "season_name": "1997/1998",
+      "league": null
+    },
+    {
+      "competition_id": 81,
+      "competition_name": "Liga Profesional",
+      "country_name": "Argentina",
+      "season_id": 275,
+      "season_name": "1981",
+      "league": null
+    },
+    {
+      "competition_id": 7,
+      "competition_name": "Ligue 1",
+      "country_name": "France",
+      "season_id": 235,
+      "season_name": "2022/2023",
+      "league": "LIGUE_1"
+    },
+    {
+      "competition_id": 7,
+      "competition_name": "Ligue 1",
+      "country_name": "France",
+      "season_id": 108,
+      "season_name": "2021/2022",
+      "league": "LIGUE_1"
+    },
+    {
+      "competition_id": 7,
+      "competition_name": "Ligue 1",
+      "country_name": "France",
+      "season_id": 27,
+      "season_name": "2015/2016",
+      "league": "LIGUE_1"
+    },
+    {
+      "competition_id": 44,
+      "competition_name": "Major League Soccer",
+      "country_name": "United States of America",
+      "season_id": 107,
+      "season_name": "2023",
+      "league": null
+    },
+    {
+      "competition_id": 116,
+      "competition_name": "North American League",
+      "country_name": "North and Central America",
+      "season_id": 68,
+      "season_name": "1977",
+      "league": null
+    },
+    {
+      "competition_id": 49,
+      "competition_name": "NWSL",
+      "country_name": "United States of America",
+      "season_id": 107,
+      "season_name": "2023",
+      "league": null
+    },
+    {
+      "competition_id": 49,
+      "competition_name": "NWSL",
+      "country_name": "United States of America",
+      "season_id": 3,
+      "season_name": "2018",
+      "league": null
+    },
+    {
+      "competition_id": 2,
+      "competition_name": "Premier League",
+      "country_name": "England",
+      "season_id": 27,
+      "season_name": "2015/2016",
+      "league": "EPL"
+    },
+    {
+      "competition_id": 2,
+      "competition_name": "Premier League",
+      "country_name": "England",
+      "season_id": 44,
+      "season_name": "2003/2004",
+      "league": "EPL"
+    },
+    {
+      "competition_id": 12,
+      "competition_name": "Serie A",
+      "country_name": "Italy",
+      "season_id": 27,
+      "season_name": "2015/2016",
+      "league": "SERIE_A"
+    },
+    {
+      "competition_id": 12,
+      "competition_name": "Serie A",
+      "country_name": "Italy",
+      "season_id": 86,
+      "season_name": "1986/1987",
+      "league": "SERIE_A"
+    },
+    {
+      "competition_id": 131,
+      "competition_name": "Serie A Women",
+      "country_name": "Italy",
+      "season_id": 281,
+      "season_name": "2023/2024",
+      "league": null
+    },
+    {
+      "competition_id": 55,
+      "competition_name": "UEFA Euro",
+      "country_name": "Europe",
+      "season_id": 282,
+      "season_name": "2024",
+      "league": null
+    },
+    {
+      "competition_id": 55,
+      "competition_name": "UEFA Euro",
+      "country_name": "Europe",
+      "season_id": 43,
+      "season_name": "2020",
+      "league": null
+    },
+    {
+      "competition_id": 35,
+      "competition_name": "UEFA Europa League",
+      "country_name": "Europe",
+      "season_id": 75,
+      "season_name": "1988/1989",
+      "league": null
+    },
+    {
+      "competition_id": 53,
+      "competition_name": "UEFA Women's Euro",
+      "country_name": "Europe",
+      "season_id": 315,
+      "season_name": "2025",
+      "league": null
+    },
+    {
+      "competition_id": 53,
+      "competition_name": "UEFA Women's Euro",
+      "country_name": "Europe",
+      "season_id": 106,
+      "season_name": "2022",
+      "league": null
+    },
+    {
+      "competition_id": 72,
+      "competition_name": "Women's World Cup",
+      "country_name": "International",
+      "season_id": 107,
+      "season_name": "2023",
+      "league": null
+    },
+    {
+      "competition_id": 72,
+      "competition_name": "Women's World Cup",
+      "country_name": "International",
+      "season_id": 30,
+      "season_name": "2019",
+      "league": null
+    }
+  ],
+  "D1_identity_crosswalk": {
+    "statsbomb_team_keys_total": 157,
+    "resolved": 103,
+    "resolution_rate_pct": 65.61,
+    "unresolved_by_league": {
+      "BUNDESLIGA": [
+        "Borussia M\u00f6nchengladbach",
+        "Hannover 96",
+        "Ingolstadt"
+      ],
+      "UCL": [
+        "AC Milan",
+        "AS Monaco",
+        "Ajax",
+        "Atl\u00e9tico Madrid",
+        "Barcelona",
+        "Bayern Munich",
+        "Borussia Dortmund",
+        "Chelsea",
+        "FC Porto",
+        "Fiorentina",
+        "Inter Milan",
+        "Juventus",
+        "Liverpool",
+        "Manchester United",
+        "Panathinaikos",
+        "Real Madrid",
+        "Tottenham Hotspur"
+      ],
+      "LA_LIGA": [
+        "Albacete",
+        "Athletic Club",
+        "Atl\u00e9tico Madrid",
+        "CD Numancia de Soria",
+        "C\u00f3rdoba CF",
+        "Espanyol",
+        "Gimn\u00e0stic Tarragona",
+        "H\u00e9rcules",
+        "M\u00e1laga",
+        "RC Deportivo La Coru\u00f1a",
+        "Racing Santander",
+        "Real Murcia CF",
+        "Real Zaragoza",
+        "Recreativo Huelva",
+        "Sporting Gij\u00f3n",
+        "Tenerife",
+        "Xerez"
+      ],
+      "LIGUE_1": [
+        "Bastia",
+        "Guingamp",
+        "Saint-\u00c9tienne",
+        "Stade Malherbe Caen"
+      ],
+      "EPL": [
+        "Birmingham City",
+        "Blackburn Rovers",
+        "Bolton Wanderers",
+        "Charlton Athletic",
+        "Middlesbrough",
+        "Portsmouth",
+        "Stoke City",
+        "Swansea City",
+        "Wolverhampton Wanderers"
+      ],
+      "SERIE_A": [
+        "Carpi",
+        "Chievo",
+        "Palermo"
+      ]
+    },
+    "ambiguous_by_league": {
+      "SERIE_A": [
+        "Inter Milan -> ['inter', 'milan']"
+      ]
+    }
+  },
+  "D2_event_completeness": {
+    "eligible_matches_in_corpus_window": 160,
+    "sampled": 12,
+    "fetch_failures": 0,
+    "mean_events_per_match": 3916.9,
+    "total_malformed_events": 0,
+    "matches_with_pressure_events": 12,
+    "matches_with_carry_events": 12,
+    "matches_not_reporting_exactly_two_teams": 0,
+    "detail": [
+      {
+        "match_id": 3895052,
+        "league": "BUNDESLIGA",
+        "season": "2023/2024",
+        "events": 3739,
+        "malformed_events": 0,
+        "distinct_event_types": 29,
+        "events_with_location": 3706,
+        "distinct_teams": 2,
+        "distinct_players": 31,
+        "has_pressure_events": true,
+        "has_carry_events": true,
+        "has_shot_events": true
+      },
+      {
+        "match_id": 3895167,
+        "league": "BUNDESLIGA",
+        "season": "2023/2024",
+        "events": 4219,
+        "malformed_events": 0,
+        "distinct_event_types": 29,
+        "events_with_location": 4187,
+        "distinct_teams": 2,
+        "distinct_players": 30,
+        "has_pressure_events": true,
+        "has_carry_events": true,
+        "has_shot_events": true
+      },
+      {
+        "match_id": 3895286,
+        "league": "BUNDESLIGA",
+        "season": "2023/2024",
+        "events": 3894,
+        "malformed_events": 0,
+        "distinct_event_types": 28,
+        "events_with_location": 3867,
+        "distinct_teams": 2,
+        "distinct_players": 30,
+        "has_pressure_events": true,
+        "has_carry_events": true,
+        "has_shot_events": true
+      },
+      {
+        "match_id": 303504,
+        "league": "LA_LIGA",
+        "season": "2019/2020",
+        "events": 3805,
+        "malformed_events": 0,
+        "distinct_event_types": 25,
+        "events_with_location": 3784,
+        "distinct_teams": 2,
+        "distinct_players": 28,
+        "has_pressure_events": true,
+        "has_carry_events": true,
+        "has_shot_events": true
+      },
+      {
+        "match_id": 303377,
+        "league": "LA_LIGA",
+        "season": "2019/2020",
+        "events": 3453,
+        "malformed_events": 0,
+        "distinct_event_types": 27,
+        "events_with_location": 3432,
+        "distinct_teams": 2,
+        "distinct_players": 28,
+        "has_pressure_events": true,
+        "has_carry_events": true,
+        "has_shot_events": true
+      },
+      {
+        "match_id": 303634,
+        "league": "LA_LIGA",
+        "season": "2019/2020",
+        "events": 3758,
+        "malformed_events": 0,
+        "distinct_event_types": 25,
+        "events_with_location": 3727,
+        "distinct_teams": 2,
+        "distinct_players": 32,
+        "has_pressure_events": true,
+        "has_carry_events": true,
+        "has_shot_events": true
+      },
+      {
+        "match_id": 3773523,
+        "league": "LA_LIGA",
+        "season": "2020/2021",
+        "events": 3609,
+        "malformed_events": 0,
+        "distinct_event_types": 25,
+        "events_with_location": 3587,
+        "distinct_teams": 2,
+        "distinct_players": 30,
+        "has_pressure_events": true,
+        "has_carry_events": true,
+        "has_shot_events": true
+      },
+      {
+        "match_id": 3773369,
+        "league": "LA_LIGA",
+        "season": "2020/2021",
+        "events": 4806,
+        "malformed_events": 0,
+        "distinct_event_types": 23,
+        "events_with_location": 4780,
+        "distinct_teams": 2,
+        "distinct_players": 32,
+        "has_pressure_events": true,
+        "has_carry_events": true,
+        "has_shot_events": true
+      },
+      {
+        "match_id": 3802809,
+        "league": "LIGUE_1",
+        "season": "2021/2022",
+        "events": 3568,
+        "malformed_events": 0,
+        "distinct_event_types": 29,
+        "events_with_location": 3542,
+        "distinct_teams": 2,
+        "distinct_players": 29,
+        "has_pressure_events": true,
+        "has_carry_events": true,
+        "has_shot_events": true
+      },
+      {
+        "match_id": 3802709,
+        "league": "LIGUE_1",
+        "season": "2021/2022",
+        "events": 3767,
+        "malformed_events": 0,
+        "distinct_event_types": 26,
+        "events_with_location": 3744,
+        "distinct_teams": 2,
+        "distinct_players": 31,
+        "has_pressure_events": true,
+        "has_carry_events": true,
+        "has_shot_events": true
+      },
+      {
+        "match_id": 3837662,
+        "league": "LIGUE_1",
+        "season": "2022/2023",
+        "events": 3991,
+        "malformed_events": 0,
+        "distinct_event_types": 25,
+        "events_with_location": 3968,
+        "distinct_teams": 2,
+        "distinct_players": 31,
+        "has_pressure_events": true,
+        "has_carry_events": true,
+        "has_shot_events": true
+      },
+      {
+        "match_id": 3837839,
+        "league": "LIGUE_1",
+        "season": "2022/2023",
+        "events": 4394,
+        "malformed_events": 0,
+        "distinct_event_types": 27,
+        "events_with_location": 4369,
+        "distinct_teams": 2,
+        "distinct_players": 30,
+        "has_pressure_events": true,
+        "has_carry_events": true,
+        "has_shot_events": true
+      }
+    ]
+  },
+  "gates": {
+    "G1_fixture_coverage": {
+      "threshold_pct": 85.0,
+      "corpus_fixtures_total": 12765,
+      "statsbomb_fixtures_inside_corpus_window": 160,
+      "matched_fixtures_total": 147,
+      "coverage_pct": 1.15,
+      "verdict": "FAIL",
+      "per_league": {
+        "EPL": {
+          "corpus_fixtures": 2660,
+          "statsbomb_fixtures_in_window": 0,
+          "matched_fixtures": 0,
+          "coverage_pct": 0.0
+        },
+        "LA_LIGA": {
+          "corpus_fixtures": 2660,
+          "statsbomb_fixtures_in_window": 68,
+          "matched_fixtures": 59,
+          "coverage_pct": 2.22
+        },
+        "SERIE_A": {
+          "corpus_fixtures": 2660,
+          "statsbomb_fixtures_in_window": 0,
+          "matched_fixtures": 0,
+          "coverage_pct": 0.0
+        },
+        "BUNDESLIGA": {
+          "corpus_fixtures": 2142,
+          "statsbomb_fixtures_in_window": 34,
+          "matched_fixtures": 32,
+          "coverage_pct": 1.49
+        },
+        "LIGUE_1": {
+          "corpus_fixtures": 2337,
+          "statsbomb_fixtures_in_window": 58,
+          "matched_fixtures": 56,
+          "coverage_pct": 2.4
+        },
+        "EREDIVISIE": {
+          "corpus_fixtures": 306,
+          "statsbomb_fixtures_in_window": 0,
+          "matched_fixtures": 0,
+          "coverage_pct": 0.0
+        }
+      }
+    },
+    "G2_historical_depth": {
+      "EPL": {
+        "corpus_seasons": [
+          "2019/2020",
+          "2020/2021",
+          "2021/2022",
+          "2022/2023",
+          "2023/2024",
+          "2024/2025",
+          "2025/2026"
+        ],
+        "statsbomb_seasons_all_time": [
+          "2003/2004",
+          "2015/2016"
+        ],
+        "statsbomb_seasons_inside_corpus_window": []
+      },
+      "LA_LIGA": {
+        "corpus_seasons": [
+          "2019/2020",
+          "2020/2021",
+          "2021/2022",
+          "2022/2023",
+          "2023/2024",
+          "2024/2025",
+          "2025/2026"
+        ],
+        "statsbomb_seasons_all_time": [
+          "1973/1974",
+          "2004/2005",
+          "2005/2006",
+          "2006/2007",
+          "2007/2008",
+          "2008/2009",
+          "2009/2010",
+          "2010/2011",
+          "2011/2012",
+          "2012/2013",
+          "2013/2014",
+          "2014/2015",
+          "2015/2016",
+          "2016/2017",
+          "2017/2018",
+          "2018/2019",
+          "2019/2020",
+          "2020/2021"
+        ],
+        "statsbomb_seasons_inside_corpus_window": [
+          "2019/2020",
+          "2020/2021"
+        ]
+      },
+      "SERIE_A": {
+        "corpus_seasons": [
+          "2019/2020",
+          "2020/2021",
+          "2021/2022",
+          "2022/2023",
+          "2023/2024",
+          "2024/2025",
+          "2025/2026"
+        ],
+        "statsbomb_seasons_all_time": [
+          "1986/1987",
+          "2015/2016"
+        ],
+        "statsbomb_seasons_inside_corpus_window": []
+      },
+      "BUNDESLIGA": {
+        "corpus_seasons": [
+          "2019/2020",
+          "2020/2021",
+          "2021/2022",
+          "2022/2023",
+          "2023/2024",
+          "2024/2025",
+          "2025/2026"
+        ],
+        "statsbomb_seasons_all_time": [
+          "2015/2016",
+          "2023/2024"
+        ],
+        "statsbomb_seasons_inside_corpus_window": [
+          "2023/2024"
+        ]
+      },
+      "LIGUE_1": {
+        "corpus_seasons": [
+          "2019/2020",
+          "2020/2021",
+          "2021/2022",
+          "2022/2023",
+          "2023/2024",
+          "2024/2025",
+          "2025/2026"
+        ],
+        "statsbomb_seasons_all_time": [
+          "2015/2016",
+          "2021/2022",
+          "2022/2023"
+        ],
+        "statsbomb_seasons_inside_corpus_window": [
+          "2021/2022",
+          "2022/2023"
+        ]
+      },
+      "EREDIVISIE": {
+        "corpus_seasons": [
+          "2025/2026"
+        ],
+        "statsbomb_seasons_all_time": [],
+        "statsbomb_seasons_inside_corpus_window": []
+      }
+    },
+    "G3_cross_season_stability": {
+      "BUNDESLIGA::2023/2024": 32,
+      "LA_LIGA::2019/2020": 28,
+      "LA_LIGA::2020/2021": 31,
+      "LIGUE_1::2021/2022": 24,
+      "LIGUE_1::2022/2023": 32
+    },
+    "G4_cross_league_portability": {
+      "leagues_total": 6,
+      "leagues_clearing_threshold": [],
+      "leagues_with_zero_coverage": [
+        "EPL",
+        "SERIE_A",
+        "EREDIVISIE"
+      ],
+      "verdict": "FAIL"
+    },
+    "G5_prediction_time_availability": {
+      "serving_season": "2025/2026",
+      "servable_fixtures": 2058,
+      "servable_fixtures_with_statsbomb_events": 0,
+      "prediction_time_availability_pct": 0.0,
+      "statsbomb_newest_season_by_league": {
+        "EPL": "2015/2016",
+        "LA_LIGA": "2020/2021",
+        "SERIE_A": "2015/2016",
+        "BUNDESLIGA": "2023/2024",
+        "LIGUE_1": "2022/2023",
+        "EREDIVISIE": null
+      },
+      "verdict": "FAIL"
+    },
+    "G6_production_default_rate": {
+      "implied_default_rate_pct": 100.0,
+      "verdict": "FAIL"
+    }
+  }
+}
