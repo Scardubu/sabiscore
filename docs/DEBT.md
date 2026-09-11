@@ -1,5 +1,561 @@
 # SabiScore Debt Ledger
 
+## 84. Portfolio F weather: the historical-forecast API silently serves reanalysis before 2022, and three of seven corpus seasons fall in that hole — 2026-09-11
+
+**Tier:** `RESEARCH`. Registry entry `F3` (`SOURCE_QUALIFIED` / `HOLD`).
+Script: `backend/scripts/ingest_openmeteo_weather.py`.
+Report: `reports/research/portfolio-f-weather-forecast-gates.json`.
+Data: `backend/data/cache/weather_forecasts_f1.parquet`.
+
+**Numbering note:** this was commissioned as "F1", but `F1` is taken
+(*Contextual state — rest, congestion, referee*, `CLOSED`/`REJECT`) and `F2` is
+taken by this portfolio's own venue-location prerequisite. Registered as `F3`.
+
+⚠️ **The finding, and it is the reason this item exists.** The directive was
+right that training on *actual* weather leaks post-match knowledge, and right
+that the fix is archived **forecasts**. What it could not know is that
+Open-Meteo's Historical Forecast API **falls back to ERA5 reanalysis before its
+own archive begins, returning HTTP 200 with no warning**. Probed hour-by-hour
+at Liverpool (53.41/-2.98) against `archive-api`:
+
+| date | vs reanalysis | max diff |
+|---|---|---|
+| 2019-08-09 | identical | 0.00 °C |
+| 2021-08-01 | identical | 0.00 |
+| 2021-12-01 | identical | 0.00 |
+| 2022-01-01 | identical | 0.00 |
+| **2022-03-01** | **differs** | **2.50** |
+| 2022-06-01 | differs | 3.60 |
+| 2024-08-17 | differs | 2.50 |
+| 2025-08-16 | differs | 3.10 |
+
+The real archive boundary is between 2022-01-01 and 2022-03-01. **A naive
+backfill over the corpus would therefore have trained three of seven seasons on
+post-hoc actuals while believing they were forecasts** — the exact Rule 3 leak,
+and undetectable from the response, which is well-formed every time.
+`_FORECAST_ARCHIVE_START = 2022-03-01` is a hard cutoff on the conservative side
+of the measured boundary; a fixture before it is recorded as
+`NO_ARCHIVED_FORECAST` and never filled from reanalysis.
+
+⚠️ **Coordinates were NOT authored.** The commission asked for "a static stadium
+coordinate mapping". Item 44 already rejected exactly that — *"Hand-entered or
+model-recalled coordinates are invented reference data, and wrong ones produce
+confidently wrong weather, which is worse than no weather"* — and writing one
+from memory would be a Rule 5 fabrication. The script reads the geocoded,
+auditable manifest `qualify_venue_locations.py` produced and uses **VERIFIED
+clubs only** (116 of 160). `REQUIRES_REVIEW` (17) and `UNKNOWN` (27) are skipped
+and counted, still pending item 44's bounded operator review.
+
+**Gate result.** Two ceilings multiply, and neither is the weather API's fault:
+
+| gap | fixtures | share of corpus |
+|---|---|---|
+| `VENUE_NOT_VERIFIED` | 3,966 | 31.1% |
+| `NO_ARCHIVED_FORECAST` | 3,334 | 26.1% |
+
+leaving at most 5,465 of 12,765 reachable before a single request is made.
+
+**Measured, full run (106 venue requests, 5,465 rows written):**
+
+| gate | value | bar |
+|---|---|---|
+| G1, whole corpus | **42.81%** | 85% |
+| G1, within the forecast window (7,959 fixtures) | **68.66%** | 85% |
+
+Gate G1 **FAILS** either way. The report records it twice on purpose: the
+second number says whether the *source* is viable, as distinct from the corpus
+being older than the archive.
+
+⚠️ **Zero fetch failures and zero missing forecast hours.** Every one of the
+5,465 eligible fixtures resolved to a real T-2h forecast. The ceiling is
+entirely venue coverage plus archive start — **the source itself is completely
+reliable inside its window**, which is why this is a coverage finding and not a
+quality one. Coverage spans seasons 2021/22–2025/26.
+
+**Gate G5 is the honest bright spot** and is why this is `HOLD`, not `REJECT`:
+the same endpoint family serves a 16-day forward forecast, so an upcoming
+fixture *is* answerable at the same T-2h cutoff. Unlike StatsBomb (item 78,
+G5 = 0.00%), the prediction-time half of this source is structurally sound. It
+is the *historical* half that is short. Marked structurally-satisfied, **not
+measured** — that needs a prospective probe against live fixtures, which is not
+built.
+
+⚠️ **One declared, unverified assumption.** The corpus `Time` column is compared
+against `timezone=auto` (venue-local) responses, i.e. football-data.co.uk
+kickoff times are assumed venue-local. If any division publishes UK time
+instead, the T-2h hour is off by the UTC offset — bounded, but real. The raw
+clock, the resolved local kickoff, the cutoff timestamp and the timezone mode
+are all written into the parquet so a consumer can audit or correct it rather
+than inherit a silent error.
+
+**Unblocked by**, in order of leverage: (1) item 44's operator review of the 44
+non-VERIFIED clubs, which alone would lift the reachable ceiling from ~43% to
+~69%; (2) accepting a shorter training window (2022/23 onward, ~4 seasons) and
+scoping the feature to it; (3) a source with archived forecasts predating 2022.
+
+---
+
+## 83. The inference path has no calibrator serialisation wiring — 2026-09-11
+
+**Tier:** `HOLD`. Blocks `E0b`'s only positive result from ever shipping.
+
+**Numbering note:** commissioned as "item 82", which is taken (the
+baseline-remediation record from earlier the same day). Filed as 83.
+
+`PredictionEngine` applies a `FittedCalibrator` only when the loaded artifact
+carries a `calibrator` key:
+
+```python
+if _CAL_AVAILABLE and bundle.calibrator is not None:   # models/prediction.py
+```
+
+**No artifact this repository ships carries one.** The served
+`v5_phase7` bundles hold exactly
+`['feature_columns', 'is_trained', 'meta_model', 'model_metadata', 'models']`,
+and so do the new `v11_clean2526` evaluation-baseline artifacts. So
+`calibration_method` is `"none"` and `calibration_applied` is `False` on every
+live prediction — **production currently applies no post-hoc calibration at
+all.**
+
+⚠️ **The gap is not a missing config flag, it is a missing caller.** The two
+functions that construct the `FittedCalibrator` serving would apply —
+`run_league_calibration` and `compare_calibration_methods`
+(`src/models/calibration.py`) — have **zero callers anywhere in `backend/src`
+or `backend/scripts`**. The only writer of a `"calibrator"` artifact key is
+`enhanced_training.py`, a training path that produced none of the shipped
+generations.
+
+⚠️ **Separately, E0's calibration cascade calibrates the wrong object.**
+`_select_calibrator` (`scripts/train_on_real_matches.py`) wraps the
+**meta-model**, but the request path is `_ensemble_predict_dict` — an
+equal-weight base-learner average that never touches `meta_model`. So even the
+temperature/vector scaling E0 selected sits on a head production does not
+execute. This is the same defect class commit `d4e1c0b` fixed for conformal
+("conformal evaluation wrapped the stacking head, which production never
+serves"), one layer over.
+
+**Consequence for `E0b`:** its one family-wise-significant result (SERIE_A,
+ΔRPS −0.00431, Bonferroni 99% CI [−0.00706, −0.00187]) cannot ship. Not because
+the statistics are weak, but because there is no path from a fitted calibrator
+to a served probability.
+
+**Blocked pending a candidate model passing promotion gates** — building the
+wiring before anything is promotable would be infrastructure ahead of evidence,
+which §53 forbids. When a candidate does pass, three things must land together:
+a caller that fits a `FittedCalibrator` on the served base-learner average,
+serialisation of it into the artifact under the `calibrator` key, and a
+train/serve parity test proving the fitted object and the applied object are
+the same one.
+
+---
+
+## 82. Baseline remediated — generation `v11_clean2526` holds 2526 out, and E0b's real answer is "one league, not five" — 2026-09-11
+
+**Tier:** `RESOLVED` for the contamination (item 81); `RESEARCH` for E0b.
+Registry: `E0b` → `STATISTICAL_REVIEW` / `RESEARCH`, `E2` → `SHADOW`.
+Artifacts: `backend/models/*_ensemble_v11_clean2526.pkl` + metadata.
+Result: `reports/research/e0b_clean_baseline_results.json`.
+Promotion step: `backend/scripts/promote_clean_generation.py` (built, exercised,
+then deliberately not applied to the serving manifest — see below).
+
+**Retrain.** `train_on_real_matches.py --holdout-season 2526 --schema apex_v1_68`
+gives exactly the split item 81 required — `train_league` derives
+calibration as the last pre-holdout season, so core ≤2324, calibration 2425,
+holdout 2526 — and its "holdout is not the latest season" guard passes because
+2526 *is* the latest. **The in-sample signature is gone:**
+
+| League | contaminated (2526) | **clean (2526)** | market (2526) |
+|---|---|---|---|
+| BUNDESLIGA | 0.1475 | **0.1998** | 0.1908 |
+| EPL | 0.1703 | **0.2060** | 0.2054 |
+| LA_LIGA | 0.1574 | **0.1992** | 0.1963 |
+| LIGUE_1 | 0.1571 | **0.1991** | 0.1991 |
+| SERIE_A | 0.1686 | **0.2059** | 0.1971 |
+
+The clean baseline lands at or just above market in every league — **0 of 5
+beat the market**, which is what item 62 measured independently and is the
+honest shape. The old 0.147–0.171 band was memorisation.
+
+⚠️ **The retrain is NOT like-for-like, and the difference forced an
+architectural decision the directive did not anticipate.** The instruction was
+to retrain "the exact current architecture (legacy 68-block)". **No schema in
+`train_on_real_matches._SCHEMAS` still produces `CANONICAL_FEATURES_68`** —
+`apex_v1_68` writes the `v5_phase7` *suffix* but trains `APEX_FEATURES_68`,
+which differs at exactly the 11 slots (indices 20–30) items 37/49 document. The
+served legacy generation is **no longer reproducible by the current trainer**.
+
+⚠️ **Promoting the clean generation to `active_generation.json` was attempted,
+measured, and REVERTED.** It passed the build gate, then broke **41 tests**
+across artifact loading, feature-transformer, vector-parity, promotion-evidence
+and settlement. The decisive one is `test_default_schema_version_is_unchanged`,
+whose own docstring reads: *"item 37's serving wire-up must be inert for every
+existing caller — this is the load-bearing safety proof that today's active
+generation is untouched."* **That guard exists precisely to catch this flip.**
+Moving serving from the legacy to the apex market block is the item 37/49
+schema transition — a separately-gated architectural decision — and doing it as
+a side effect of baseline remediation is exactly what the guard forbids.
+
+**Resolution: the two roles are now separate, which is what the situation
+actually needed.**
+
+| | path | generation | schema |
+|---|---|---|---|
+| **Serving** | `models/active_generation.json` | v5_phase7-20260808 | phase7_68 (legacy) |
+| **Evaluation** | `models/evaluation_baseline/manifest.json` | v11_clean2526 | apex_v1_68 |
+
+`active_generation.json` and `feature_contract.json` are **unchanged**; all 41
+tests pass again. The evaluator takes `--models-dir` and defaults to the
+evaluation baseline. The stated purpose of the remediation — *"the repository
+cannot evaluate new models if the incumbent baseline has memorized the final
+untouched holdout"* — is fully met, because it is the **evaluation** baseline
+that had to be clean.
+
+⚠️ **A second tradeoff the directive did not name, and the reason this
+separation is right rather than merely convenient: the clean baseline trains on
+LESS data.** EPL core drops 2196 → 1821 rows because 2526 is withheld. For
+evaluation that is mandatory. For *serving* 2026/27 fixtures it is strictly
+worse — a season of recent history discarded. An evaluation baseline must hold
+2526 out; a serving model should be refit on everything. They cannot be the
+same artifact, and now they are not.
+
+The contaminated artifacts keep their own filenames, so item 81's finding stays
+re-verifiable. `certification_state` remains `UNVERIFIED`; nothing was certified
+or promoted. **Serving behaviour is byte-identical to before this session.**
+
+✅ **Closed 2026-09-11 (same day, next change):**
+`compare_candidate_vs_incumbent.py` now defaults to
+`models/evaluation_baseline/manifest.json` and fails closed on a temporal
+mismatch on either side. Item 81 is fully resolved.
+
+**E0b, now measurable.** The contamination guard fires for no league. Vector
+scaling on the served base-learner average, 2425 → 2526, paired Künsch block
+bootstrap (2,000 replicates):
+
+| League | ΔRPS | 95% CI | Bonferroni 99% CI | verdict |
+|---|---|---|---|---|
+| BUNDESLIGA | +0.00173 | [−0.00665, +0.01116] | [−0.00924, +0.01479] | no effect |
+| EPL | −0.00266 | [−0.00883, +0.00249] | [−0.01032, +0.00380] | no effect |
+| LA_LIGA | −0.00201 | [−0.00522, +0.00161] | [−0.00641, +0.00288] | no effect |
+| LIGUE_1 | −0.00373 | [−0.00947, +0.00237] | [−0.01120, +0.00420] | no effect |
+| **SERIE_A** | **−0.00431** | **[−0.00651, −0.00250]** | **[−0.00706, −0.00187]** | **improves** |
+
+§18 requires a multiple-testing protocol, and the `multiple_testing_family`
+("5 leagues × 1 candidate") was declared in the registry **before** these
+results existed, so applying Bonferroni is following the pre-registered rule,
+not moving a goalpost. With 5 tests, one nominally-significant result is
+roughly what chance alone produces (~12%); Serie A survives correction anyway.
+The other four straddle zero at both levels — mostly favourable in direction,
+none distinguishable from noise. **The hypothesis was "in every league"; the
+answer is no.**
+
+⚠️ **Serie A is not shippable, for a reason unrelated to its statistics.** The
+request path applies **no calibrator at all**: the artifacts carry no
+`calibrator` key, and `run_league_calibration` / `compare_calibration_methods`
+— the two functions that build the `FittedCalibrator` serving would apply —
+have **zero callers repo-wide**. Shipping this requires building that wiring,
+not flipping a setting. Recorded as the blocking condition on `E0b`.
+
+⚠️ **Robustness is unmeasured, by construction.** §18 wants improvement to
+survive multiple temporal folds. There is exactly one clean holdout season, so
+cross-period robustness cannot be evaluated until 2627 data exists. A single
+fold is not robustness evidence, and Serie A should not be treated as settled.
+
+**Also fixed while here:** the E0b evaluator hardcoded
+`CANONICAL_FEATURES_68`, which would have silently skipped every league the
+moment the manifest moved to apex. It now resolves the serving contract from
+the manifest via `resolve_feature_schema()` and asserts each artifact's own
+`feature_columns` against it. And `harvest_epl_e2_lineups.py` called
+`provider.lineups(fixture=...)` where the real signature is keyword
+`fixture_id` — a `TypeError` on every call, the vΩ.32 shape, introduced in the
+previous session and never executed because the harvest never ran.
+
+---
+
+## 81. The served artifacts were trained on season 2526 — the holdout every candidate comparison scores against — 2026-09-11
+
+> **FULLY RESOLVED 2026-09-11.** Two halves, both now done:
+> **(1)** item 82 retrained a clean-split baseline (`v11_clean2526`, 2526 held
+> out strictly) and the in-sample signature is gone;
+> **(2)** `compare_candidate_vs_incumbent.py` now defaults its incumbent to
+> `models/evaluation_baseline/manifest.json` rather than the contaminated
+> serving manifest, so the promotion gate no longer measures candidates against
+> a baseline that memorised the test set.
+>
+> The gate additionally **fails closed on temporal mismatch in both
+> directions**, which is what stops this recurring rather than merely being
+> corrected once: an incumbent manifest that does not declare holdout `2526`
+> raises `ValueError`, and so does a candidate whose `training_manifest.json`
+> declares a different holdout. Pointing it back at `active_generation.json` is
+> now an error, not a silent regression — verified by doing exactly that and
+> watching it refuse.
+>
+> The incident record below stands; the contaminated artifacts keep their own
+> filenames so it remains re-verifiable.
+
+**Tier:** `RESOLVED`. Blocked `E0b`, and called every incumbent-vs-candidate
+comparison in this repo into question. Found while building the E0 multi-league
+calibration evaluator (item 79), not by a test.
+
+**Each served `v5_phase7` artifact declares `holdout_season: 2425` in its own
+metadata. Scored per season, only 2425 behaves like out-of-sample data:**
+
+| League | 2223 | 2324 | **2425 (declared holdout)** | **2526** | market on 2526 |
+|---|---|---|---|---|---|
+| BUNDESLIGA | 0.1488 | 0.1399 | **0.2335** | **0.1475** | 0.1908 |
+| EPL | 0.1576 | 0.1559 | **0.2304** | **0.1703** | 0.2054 |
+| LA_LIGA | 0.1604 | 0.1473 | **0.2194** | **0.1574** | 0.1963 |
+| LIGUE_1 | 0.1503 | 0.1714 | **0.2291** | **0.1571** | 0.1991 |
+| SERIE_A | 0.1629 | 0.1574 | **0.2161** | **0.1686** | 0.1971 |
+
+(RPS, base-learner average — the request path. Lower is better.)
+
+Every season except 2425 sits at 0.14–0.17. The one declared holdout sits at
+0.22–0.23. **2526 carries the in-sample signature**, and on 2526 the model
+"beats" the de-vigged market by up to 0.043 RPS — an edge this platform has
+never demonstrated and whose absence is documented in `docs/DEBT.md` item 62
+(0 of 6 leagues, CI excluding zero). A model that memorised the season is the
+parsimonious explanation; a genuine 0.04 RPS market edge appearing in exactly
+the season that was not held out is not.
+
+⚠️ **`compare_candidate_vs_incumbent.py` scores on `holdout_season: 2526`.**
+The incumbent has that season in training; every retrained candidate correctly
+holds it out. So the comparison is **structurally biased toward the incumbent**,
+and `no_league_regression` — which has failed across the v3, v4, v5, v8 and v10
+candidate generations — has been measuring candidates against a baseline that
+memorised the test set. This does not prove any candidate would win. It means
+**the comparison as run cannot answer the question**, and the promotion gate's
+headline failure mode is not trustworthy evidence until it is re-run against a
+cleanly-held-out incumbent.
+
+**Not a current code defect.** `train_league` now raises
+`"holdout season {x} is not the latest season"` when any row post-dates the
+holdout, which is exactly this situation. The shipped artifacts
+(`trained_at: 2026-08-08`) predate that guard, or were produced before the 2526
+corpus files were added. The guard prevents recurrence; it does not repair the
+artifacts already serving.
+
+⚠️ **Two further contradictions surfaced in the same investigation and are NOT
+resolved here.** (1) `active_generation.json` declares
+`served_head: "SoftmaxMetaModel"` and `compare_candidate_vs_incumbent.py`
+scores through `meta_model` with `served_head: True` — but the request path,
+`PredictionEngine._ensemble_predict_dict`, is an equal-weight base-learner
+average that never touches `meta_model`. Three places, two different answers to
+"what is the served head". (2) The `FittedCalibrator` the serving path applies
+is produced by `run_league_calibration` / `compare_calibration_methods`, which
+have **zero callers** repo-wide; the only writer of a `"calibrator"` artifact
+key is `enhanced_training.py`, a different training path. The shipped artifacts
+carry keys `['feature_columns', 'is_trained', 'meta_model', 'model_metadata',
+'models']` — **no `calibrator`** — so `bundle.calibrator is None` and live
+predictions apply no calibration at all. E0's shipped calibration decisions
+therefore sit on a layer the request path does not execute.
+
+**Fix path** (none applied — retraining and promotion are Class C decisions):
+retrain the generation with 2526 genuinely held out, re-run
+`compare_candidate_vs_incumbent.py`, and re-read `no_league_regression` and
+`market_baseline` against the corrected incumbent. Then reconcile the
+served-head contradiction before any calibration work resumes.
+
+---
+
+## 80. E2 lineup harvest is scoped to EPL, and cannot answer Gate G5 — 2026-09-11
+
+> **SUPERSEDED 2026-09-11 by item 82.** The historical harvest is SUSPENDED and
+> Gate G5 is now measured prospectively by `shadow_monitor_e2_lineups.py`
+> (registry `E2` → `SHADOW`). The analysis below is why.
+
+**Tier:** `RESEARCH`. Registry entry `E2` (state unchanged: `SOURCE_QUALIFIED` /
+`HOLD`). Contract: `contracts/lineup_harvest_epl_contract.yaml`. Harvester:
+`backend/scripts/harvest_epl_e2_lineups.py`.
+
+**Scope reduction, as intended.** Portfolio B measured the five-league cost at
+1,752 requests = 17.5 days of free quota (`/fixtures/lineups` accepts only a
+`fixture` parameter — no league-season bulk form; measured, not assumed).
+Scoping to EPL 2024/2025 is 380 fixtures ≈ 4 days at a 95-call batch against
+the 100-call daily limit. The harvester checkpoints to
+`data/cache/lineup_harvest_epl.jsonl` before each next request, so an
+interrupted or quota-exhausted run resumes without re-spending quota, and
+re-running is idempotent.
+
+⚠️ **The harvest cannot deliver the Gate G5 measurement it was scoped to
+deliver, and this was measured rather than assumed.** The commissioning spec
+defines `lead_time_minutes = (kickoff_time_utc - lineup_announced_utc) / 60`.
+**API-Football `/fixtures/lineups` publishes no announcement timestamp.** The
+real captured response in `reports/research/e2-lineup-availability-probe.json`
+has record keys exactly: `provider, fixture_id, team_id, team_name, formation,
+player_id, player_name, role, coherent, rejection_reason`. No `announced_at`,
+no `updated_at`. For a historical fixture the endpoint returns the final
+confirmed lineup as it stands now.
+
+Under §4 that makes announcement timing **Category D — post-match archival
+state**, even though the lineup *content* is Category A and is legitimate input
+for E2's continuity features. Per §5 the contract therefore declares
+`lineup_announced_utc` as `UNAVAILABLE_FROM_SOURCE` rather than as a nullable
+field that would be null on all 380 rows, and every harvested row records
+`servable_at_cutoff: "UNKNOWN"`. The harvester does not infer a lead time it
+cannot observe.
+
+**Gate G5 for lineups is answerable only prospectively**: poll upcoming
+fixtures at the intended T-20m cutoff and record whether a lineup exists at
+that moment. One request per fixture, directly answers "is this available at
+prediction time". Designed in the contract's `prospective_g5_probe` block;
+**not built** — it needs a live upcoming-fixture window and a scheduled runner.
+
+⚠️ Spending ~4 days of quota on the historical harvest buys continuity-feature
+raw material, **not** G5 evidence. Decide that trade deliberately.
+
+---
+
+## 79. E0 multi-league vector scaling: evaluator built, measurement blocked — 2026-09-11
+
+> **UNBLOCKED 2026-09-11 by item 82.** The measurement ran on the clean
+> baseline: 1 of 5 leagues (SERIE_A) improves after family-wise correction.
+> The void pre-remediation numbers below are retained as the record of the
+> blocked state.
+
+**Tier:** `RESEARCH`. Registry entry `E0b` (`OUT_OF_SAMPLE_EVALUATION` /
+`HOLD`). Script: `backend/scripts/evaluate_e0_vector_scaling_multileague.py`.
+Artifact: `reports/research/e0_multileague_vector_scaling_results.json`.
+
+**The commissioning premise was wrong in two ways, both checkable against the
+repo.** It stated "vector scaling is certified and shipped for Ligue 1 …
+evaluate whether it generalises across the remaining four leagues". In fact:
+(1) E0's registry entry records `multiple_testing_family: "6 leagues x 4
+candidates"` — vector scaling was already evaluated in all six leagues and
+failed the held-out persistence check in five, so "does it generalise" is
+answered; (2) nothing is **certified** — `active_generation.json` reads
+`certification_state: "UNVERIFIED"`, `promotion_state: "ACTIVE_FAIL_CLOSED"`,
+and the vector-scaled selection lives in a candidate generation whose
+`promotion_permitted` is `false`. The active generation is
+`v5_phase7-20260808`, whose artifacts carry a `SoftmaxMetaModel` and **no
+calibrator key at all**.
+
+**What was genuinely open, and is what this script measures.** E0's own entry
+records `bootstrap_method: UNDECLARED`, `confidence_interval: UNDECLARED`,
+`effect_size: UNDECLARED` — its cascade compares Murphy reliability and
+resolution as bare point estimates, which §9 forbids as a basis for decision
+and §18 requires a paired CI for. And E0 calibrates the **meta-model**, while
+the request path averages base learners (see item 81). So the corrected
+question is: does vector scaling help *the probabilities production actually
+serves*, with a paired interval?
+
+**Result: no valid measurement — all 5 scoreable leagues returned
+`BLOCKED_CONTAMINATED_SPLIT`.** A calibrator needs a clean season to fit on and
+a clean season to be judged on. Per item 81 the served artifacts have exactly
+one clean season (2425), so no valid split exists. The first run of this
+evaluator, before the gate existed, reported ΔRPS of **+0.016 to +0.033 with
+95% CIs excluding zero in all five leagues** — a large, confident result that
+is entirely an artifact of fitting on a clean season (RPS ≈ 0.23) and scoring
+on a memorised one (RPS ≈ 0.15). Those numbers are **void** and are recorded
+here only so they are not rediscovered and believed.
+
+The evaluator now runs a temporal-integrity check first and refuses the split,
+per §34 fail-closed. Pinned by
+`backend/tests/unit/test_e0_temporal_integrity_and_harvest.py`; the gate was
+**watched failing** — with it reverted, the contaminated split is happily
+`EVALUATED` and reports a spurious delta.
+
+**Four corrections to the commissioned script, all reusing what the repo
+already pins:** `canonical_league_id` instead of a hand-rolled league map (the
+five-time defect class this repo polices with a contract test); RPS/Brier from
+`train_on_real_matches` and ECE from `models.evaluation.metrics`, so numbers
+stay comparable to E0's and to `metric-contract.json`; a **paired block**
+bootstrap (Künsch, matching `metrics.block_bootstrap_ci`) rather than the
+specified iid resample, because consecutive matches within a season are
+temporally dependent and iid would understate the interval; and
+`X_incumbent` rather than `X`, because the served artifacts are built on the
+legacy `CANONICAL_FEATURES_68` block (items 37/49), asserted fail-closed
+against each artifact's own `feature_columns`.
+
+**Unblocked by:** retraining with 2526 genuinely held out (item 81), after
+which this evaluator runs unchanged.
+
+---
+
+## 78. StatsBomb Open killed at Gate R1 — the blocker is the served season, not coverage in general — 2026-09-11
+
+**Tier:** `REJECT` for production integration; `RESEARCH-ONLY` retained.
+Registry entry `E4` (moved `HOLD` → `REJECT`).
+Study: `reports/research/e4-statsbomb-open-source-qualification.md`.
+Artifact: `backend/reports/evaluation/e4-statsbomb-source-qualification.json`.
+Reproduce: `cd backend && PYTHONPATH=. python scripts/audit_statsbomb_e4_coverage.py`.
+
+**The previous HOLD rested on a borrowed measurement, and the borrowed number
+was ~20× too generous.** E4's own registry entry admitted it: *"No new audit was
+run because the existing measurement already answers it."* The measurement it
+borrowed — **23.58%** — comes from `audit_statsbomb_coverage.py`, which
+measures StatsBomb against the **Understat parquet corpus** to decide Path A/B
+for two feature slots. Correct for that question; wrong denominator for E4.
+
+Measured against the corpus SabiScore actually trains and serves on
+(`backend/data/cache/fd_*.csv`, 12,765 fixtures, 2019/2020–2025/2026):
+
+| Gate | Result | Bar |
+|---|---|---|
+| G1 fixture coverage | **1.15%** (147/12,765) | ≥85% |
+| G4 cross-league portability | 0 of 6 leagues clear; EPL, SERIE_A, EREDIVISIE at **zero** | all |
+| **G5 prediction-time availability** | **0.00%** — 0 of 2,058 servable 2025/2026 fixtures | ≥85% |
+| G6 production default rate | **100.0%** | ≤15% |
+| D2 event completeness | **PASS** | — |
+
+⚠️ **G5 had never been measured for this source, and it is the one that
+decides.** The newest domestic-league season StatsBomb Open publishes for *any*
+SabiScore league is **2023/2024**; SabiScore serves **2025/2026**. Eredivisie has
+never been published at all. The five in-window league-seasons that do exist are
+curated single-club releases (24–32 matched fixtures), not domestic feeds — the
+full-season open releases (EPL/Serie A/Ligue 1/La Liga 2015/16, ~380 each) all
+predate the training window. This is structural: no sample size, model, or
+representation moves a number that is zero because the data does not exist yet.
+
+⚠️ **The kill is availability — NOT quality and NOT legality.** StatsBomb is
+`L0`, and D2 passes cleanly: 12 sampled in-window matches, **0 malformed
+events**, 3,917 events/match, `Pressure` and `Carry` present in 12/12, exactly
+two teams in 12/12. That distinction sets the reopening condition: a *richer
+archive is worth nothing here*. Only **current-season coverage** reopens it.
+
+**SPADL / xT / VAEP were NOT built, and `kloppy` / `socceraction` / `duckdb`
+were NOT installed.** Four independent directive clauses block that escalation
+on this evidence: §23 D5 (simple aggregates must survive first — the two
+StatsBomb-derived aggregates are already permanently relegated to
+`PHASE7_FEATURES_ALWAYS_DATA_GAP`), §47 Action 6 ("do not authorize VAEP/xT
+merely because the libraries are available"), §15 G6 (100% default rate), and
+§44. A VAEP feature built now would be a registry default on 100% of live
+requests — §34 State C/D on every prediction.
+
+⚠️ **A crosswalk defect was found by building Gate D1, and it produced a
+plausible wrong answer rather than an error.** The corpus speaks
+football-data.co.uk abbreviations; StatsBomb speaks full legal names. A bare
+token-subset rule resolved `"Paris Saint-Germain"` → `{paris, saint, germain}`
+against corpus `"Paris"` (Paris FC, key `{paris}`, **is** a subset) instead of
+`"Paris SG"` (key `{paris, sg}`, **not** a subset) — silently handing PSG's
+fixtures to a different club and reporting **LIGUE_1 as 0 matched out of 58**.
+Read at face value that zero says "StatsBomb has no usable Ligue 1 data." This is
+the same collision `services/team_identity.py` already guards on the
+market-matching side, reintroduced in a new file — **the fourth recurrence of the
+two-vocabulary class in this repo.** Fixed with a containment *score* (how much
+of the StatsBomb name a corpus key accounts for) requiring a unique strict
+maximum: `paris sg` scores 3, `paris` scores 1. Ties are left unresolved, never
+guessed. Effect: G1 0.70% → 1.15%, zero-coverage leagues 4 → 3, D1 resolution
+61.78% → 65.61%; **G5 stayed 0.00%**, as it must. Pinned by
+`backend/tests/unit/test_statsbomb_e4_crosswalk.py` (9 tests), **watched failing**
+against the reverted rule before being trusted.
+
+**Reopening conditions (§42)** — re-running this audit against the same archive
+is not one of them:
+
+1. StatsBomb Open publishes a **current-season** domestic feed for a SabiScore
+   league (the reproduce command above answers this in one run).
+2. A commercial StatsBomb licence is authorized.
+3. A different `L0`/`L1` event source clears **G1 and G5**.
+
+**What this narrows (§10).** Portfolio C (event-derived team state) and Portfolio
+D (tactical interaction) are not two independent chances — they share one
+upstream dependency, and it is empty at prediction time. With `D1` (FBref, killed
+`L3`) and `E3` (Understat, `REJECT`), all three qualified open event-data avenues
+now fail, on legal, information, and availability grounds respectively. Do not
+re-enter Portfolio C/D through another archive-shaped source.
+
+---
+
 ## 77. FBref (Tier 0 data roadmap) killed at Gate R1 on legal grounds — soccerdata's reader defeats bot detection — 2026-09-10
 
 **Tier:** `REJECT` (§41 Legal failure). Registry entry `D1`.

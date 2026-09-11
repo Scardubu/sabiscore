@@ -1,0 +1,171 @@
+# E2 — EPL-scoped lineup harvest contract
+#
+# Directive v5 §3 (Rule 3: pre-match information is the unit of truth),
+# §4 (Rule 4: historical availability must be reconstructable),
+# §15 Gate G5, §32 (raw data rules), §33 (feature lineage), §34 (failure semantics).
+#
+# Scope: EPL 2024/2025 only. Portfolio B's own probe measured the full
+# five-league cost at 1,752 requests = 17.5 days of free quota
+# (reports/research/e2-lineup-availability-probe.json). One league is ~4 days.
+#
+# ---------------------------------------------------------------------------
+# ⚠️ MEASURED CONSTRAINT — READ BEFORE USING THIS FOR GATE G5
+# ---------------------------------------------------------------------------
+# API-Football `/fixtures/lineups` returns NO announcement timestamp. The probe
+# above captured a real response; its record keys are exactly:
+#   provider, fixture_id, team_id, team_name, formation, player_id,
+#   player_name, role, coherent, rejection_reason
+# There is no `announced_at`, no `updated_at`, no publication time. For a
+# historical fixture the endpoint returns the FINAL confirmed lineup as it
+# stands now.
+#
+# Consequence, stated plainly: `lead_time_minutes` CANNOT be derived from this
+# source, so this harvest CANNOT answer Gate G5 (prediction-time availability).
+# Under §4 this data is Category D — post-match archival state — with respect
+# to announcement timing, even though the lineup CONTENT is Category A and is
+# legitimate input for E2's continuity features.
+#
+# Per §5 (no fabricated data) the field is therefore declared UNAVAILABLE
+# rather than nullable-and-always-null, and the harvester records
+# `servable_at_cutoff: UNKNOWN` instead of inferring a lead time it cannot see.
+#
+# Gate G5 for lineups is answerable ONLY prospectively: poll UPCOMING fixtures
+# at the intended cutoff and record whether a lineup exists at that moment.
+# See `prospective_g5_probe` below.
+# ---------------------------------------------------------------------------
+
+schema_version: "1.2.0"
+experiment_id: "E2-LINEUP-CONTINUITY-EPL"
+supersedes: >-
+  1.1.0 — which still made the historical harvest the primary architecture.
+  1.0.0 — which declared lineup_announced_utc as a nullable field the source
+  cannot populate.
+
+# ---------------------------------------------------------------------------
+# ARCHITECTURE, as of 1.2.0: PROSPECTIVE SHADOW MONITORING IS PRIMARY
+# ---------------------------------------------------------------------------
+# Gate G5 is not answerable retrospectively (see the header above), so the
+# historical batch harvest is SUSPENDED and the 100-call daily quota is
+# reserved for `backend/scripts/shadow_monitor_e2_lineups.py`, which measures
+# G5 by standing at the cutoff and looking.
+#
+# The historical harvest is not deleted — lineup CONTENT is still the raw
+# material E2's continuity features need, and the harvester remains resumable.
+# It is gated behind an explicit override flag so it cannot silently race the
+# monitor for quota.
+# ---------------------------------------------------------------------------
+
+harvest_mode:
+  primary: "PROSPECTIVE_SHADOW_MONITOR"
+  historical_batch: "SUSPENDED"
+  historical_batch_override_flag: "--i-understand-this-does-not-answer-g5"
+  suspension_reason: >-
+    The 100-call/day quota is shared. The historical harvest cannot answer
+    Gate G5 and the prospective monitor can, so the monitor has priority.
+  registry_state: "SHADOW"
+
+target_competition:
+  canonical_league_id: "EPL"   # canonical vocabulary; never a display form
+  season: "2024/2025"
+  corpus_season_code: "2425"   # matches backend/data/cache/fd_E0_2425.csv
+  fixture_count: 380
+
+rate_limit_policy:
+  provider: "API-Football"
+  endpoint: "/fixtures/lineups"
+  accepts_bulk_league_season_query: false   # measured, not assumed
+  requests_per_fixture: 1
+  daily_call_limit: 100
+  harvest_batch_size: 95                    # 5-call safety margin
+  throttle_sleep_seconds: 1.2
+  estimated_harvest_days: 4
+
+cutoff_and_lineup_semantics:
+  target_cutoff_minutes_pre_kickoff: 20
+  allowed_staleness_minutes: 60
+  fail_closed_threshold_minutes: 15
+  null_imputation_permitted: false
+  announcement_timestamp_available: false
+  announcement_timestamp_evidence: "reports/research/e2-lineup-availability-probe.json — sample_record_keys carries no temporal field"
+  g5_answerable_from_this_harvest: false
+
+schema_fields:
+  - name: "fixture_id"
+    type: "INTEGER"
+    nullable: false
+  - name: "kickoff_time_utc"
+    type: "TIMESTAMP"
+    nullable: false
+    source: "corpus fixture calendar, not the lineups endpoint"
+  - name: "lineup_announced_utc"
+    type: "TIMESTAMP"
+    availability: "UNAVAILABLE_FROM_SOURCE"
+    note: "Declared for lineage completeness. No value is ever written; see the header."
+  - name: "lead_time_minutes"
+    type: "FLOAT"
+    availability: "UNAVAILABLE_FROM_SOURCE"
+    derivation: "(kickoff_time_utc - lineup_announced_utc) / 60 — undefined while the minuend is unavailable"
+  - name: "servable_at_cutoff"
+    type: "ENUM[TRUE, FALSE, UNKNOWN]"
+    nullable: false
+    default: "UNKNOWN"
+    note: "UNKNOWN until a prospective probe measures it. Never inferred."
+  - name: "is_confirmed"
+    type: "BOOLEAN"
+    nullable: false
+  - name: "home_starters"
+    type: "ARRAY[INTEGER]"
+    nullable: true
+  - name: "away_starters"
+    type: "ARRAY[INTEGER]"
+    nullable: true
+  - name: "home_formation"
+    type: "VARCHAR(10)"
+    nullable: true
+  - name: "away_formation"
+    type: "VARCHAR(10)"
+    nullable: true
+  - name: "acquired_at_utc"
+    type: "TIMESTAMP"
+    nullable: false
+    note: "§32 — fetch time is the only timestamp this source genuinely supplies"
+
+derived_features:
+  - name: "home_starter_continuity_l5"
+    formula: "intersection(home_starters, home_starters_l5) / 11.0"
+    missing_value_handling: "NULL"
+  - name: "away_starter_continuity_l5"
+    formula: "intersection(away_starters, away_starters_l5) / 11.0"
+    missing_value_handling: "NULL"
+
+# The only design that can answer Gate G5 for this source — now BUILT and the
+# primary architecture (see `harvest_mode` above).
+prospective_g5_probe:
+  status: "BUILT"
+  implementation: "backend/scripts/shadow_monitor_e2_lineups.py"
+  registry_state: "SHADOW"
+  method: "poll /fixtures/lineups for UPCOMING fixtures at T-20m and record presence/absence"
+  cost_per_fixture: 1
+  answers: "what fraction of fixtures have a published lineup at the prediction cutoff"
+  log_path: "backend/data/cache/lineup_g5_prospective_log.jsonl"
+
+  # A scheduled sweep, not a process that sleeps until a timestamp: a sleeping
+  # daemon loses every pending fixture on restart, and redeploys are routine.
+  # The sweep is idempotent and crash-safe.
+  scheduling:
+    shape: "run every few minutes from cron/scheduler; polls whatever is inside the window"
+    poll_window_minutes_pre_kickoff: [20, 15]   # [upper, lower] — band closes at fail_closed
+    max_polls_per_sweep: 40
+    idempotent: true
+    resumable: true
+
+  # Four terminal states, deliberately never collapsed to TRUE/FALSE. Recording
+  # our own outage as FALSE would manufacture G5 evidence out of a failed
+  # request — the "inability to confirm is not an outage" principle this
+  # codebase already applies to its keep-alive and capability probes.
+  terminal_states:
+    TRUE: "provider answered and a coherent lineup was present — G5 evidence"
+    FALSE: "provider answered and no lineup was published yet — G5 evidence"
+    POLL_FAILED: "provider did not answer (error/circuit/auth/timeout) — NOT G5 evidence"
+    MISSED_WINDOW: "kickoff passed without the fixture being polled — NOT G5 evidence"
+  g5_rate_denominator: "TRUE + FALSE only; POLL_FAILED and MISSED_WINDOW are excluded"

@@ -1,0 +1,38 @@
+{
+  "generation": "v11_clean2526",
+  "league": "LIGUE_1",
+  "feature_count": 68,
+  "feature_schema_version": "apex_v1_68",
+  "data_source": "football-data.co.uk (real matches)",
+  "trained_at": "2026-09-11T10:31:13.015283+00:00",
+  "temporal_split": {
+    "train_seasons": "1920-2324 (core, disjoint from the calibration season)",
+    "calibration_season": "2425",
+    "holdout_season": "2526",
+    "rule": "chronological; holdout is the most recent season, never random",
+    "calibration_rule": "latest pre-holdout season, disjoint from core training rows"
+  },
+  "holdout_season": "2526",
+  "calibration_season": "2425",
+  "holdout_samples": 301,
+  "rps": 0.19910235117996755,
+  "brier_score": 0.5903327374042928,
+  "log_loss": 0.9882541612372636,
+  "accuracy": 0.5149501661129569,
+  "calibration_error": 0.05349692508504043,
+  "pooled_model": false,
+  "pooled_reason": null,
+  "in_artifact_calibrator": false,
+  "in_artifact_calibrator_note": "No 'calibrator' key is written by this training path. PredictionEngine applies a FittedCalibrator only when the artifact carries one, so live predictions apply no post-hoc calibration. The VectorScaledMetaModel wrapper sits on the stacking head, which the request path (_ensemble_predict_dict, an equal-weight base-learner average) does not execute.",
+  "served_head": "base_learner_average",
+  "stacking_head_present": "VectorScaledMetaModel",
+  "artifact_keys": [
+    "feature_columns",
+    "is_trained",
+    "meta_model",
+    "model_metadata",
+    "models"
+  ],
+  "reproducibility_sha256": "46c5d2fd44638d537ae461eda11d97dfe2be35a15cd33b48c3c9d79539e416fb",
+  "training_command": "PYTHONPATH=. python scripts/train_on_real_matches.py --holdout-season 2526 --schema apex_v1_68 --out-dir models/candidate_clean2526"
+}

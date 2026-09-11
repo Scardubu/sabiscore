@@ -1,0 +1,74 @@
+{
+  "role": "EVALUATION_BASELINE",
+  "purpose": "Clean-split incumbent for candidate comparison and calibration research. NOT the serving manifest: backend/models/active_generation.json is unchanged and still declares v5_phase7-20260808 / phase7_68.",
+  "generation": "v11_clean2526",
+  "feature_schema_version": "apex_v1_68",
+  "served_head": "base_learner_average",
+  "temporal_split": {
+    "train_seasons": "1920-2324",
+    "calibration_season": "2425",
+    "holdout_season": "2526",
+    "rule": "chronological; holdout is the most recent season, never random"
+  },
+  "supersedes_for_evaluation": "v5_phase7-20260808",
+  "supersedes_reason": "v5_phase7-20260808 trained on season 2526 while declaring holdout 2425, so it memorised the holdout every candidate comparison scores against (docs/DEBT.md item 81).",
+  "certification_state": "UNVERIFIED",
+  "reproducibility_sha256": "46c5d2fd44638d537ae461eda11d97dfe2be35a15cd33b48c3c9d79539e416fb",
+  "training_command": "PYTHONPATH=. python scripts/train_on_real_matches.py --holdout-season 2526 --schema apex_v1_68 --out-dir models/candidate_clean2526",
+  "artifacts": {
+    "bundesliga": {
+      "artifact": "bundesliga_ensemble_v11_clean2526.pkl",
+      "artifact_sha256": "d35bdbe20df27c1fea9a722cbf3f7da2ea5358159d61b7a67ebe5ef187dd0029",
+      "metadata": "bundesliga_ensemble_v11_clean2526_metadata.json",
+      "metadata_sha256": "f8293f42e759f921beb0da99cc0f2e8de53965556f4d6c8d0e57786f44ebb6b8",
+      "league": "BUNDESLIGA",
+      "rps": 0.19982636981453486,
+      "holdout_season": "2526"
+    },
+    "epl": {
+      "artifact": "epl_ensemble_v11_clean2526.pkl",
+      "artifact_sha256": "b3a2782e4d40c60862cb95189b6d0eb656c917ee98b8b0d53eaef422e8ae729e",
+      "metadata": "epl_ensemble_v11_clean2526_metadata.json",
+      "metadata_sha256": "69dcfb76f068afec157b7e2d18b603062974d670f886c3d71d9e912974ad2cd8",
+      "league": "EPL",
+      "rps": 0.20602679613172203,
+      "holdout_season": "2526"
+    },
+    "eredivisie": {
+      "artifact": "eredivisie_ensemble_v11_clean2526.pkl",
+      "artifact_sha256": "cd785a464e9cd2ff25abcbca6a2b6198ff264fbd51b7f91e38c7369ed9516b98",
+      "metadata": "eredivisie_ensemble_v11_clean2526_metadata.json",
+      "metadata_sha256": "551177385c637cf051b7ed749a10c66b7fefd8073ac0481d0c2844c36a904eda",
+      "league": "EREDIVISIE",
+      "rps": 0.2002131951853337,
+      "holdout_season": "2526"
+    },
+    "la_liga": {
+      "artifact": "la_liga_ensemble_v11_clean2526.pkl",
+      "artifact_sha256": "59d9484e2a8ef379a6dec1e3196adf1e21f5e41f69d4d050d485c809dff2c5a9",
+      "metadata": "la_liga_ensemble_v11_clean2526_metadata.json",
+      "metadata_sha256": "daae21580ea84154108499f8d9f6a716326c197e7970594543c6cc3ae69f2252",
+      "league": "LA_LIGA",
+      "rps": 0.1991582956242943,
+      "holdout_season": "2526"
+    },
+    "ligue_1": {
+      "artifact": "ligue_1_ensemble_v11_clean2526.pkl",
+      "artifact_sha256": "5b768290e695504980484ff66835f6685b0e325fe8af3f94c96ed72713777c79",
+      "metadata": "ligue_1_ensemble_v11_clean2526_metadata.json",
+      "metadata_sha256": "a4a10a31322330935741903e00399c52431cf32d24697ffed821f7559d70b0e6",
+      "league": "LIGUE_1",
+      "rps": 0.19910235117996755,
+      "holdout_season": "2526"
+    },
+    "serie_a": {
+      "artifact": "serie_a_ensemble_v11_clean2526.pkl",
+      "artifact_sha256": "1306be3ba68fd4617b314b12cb5d1dbc53b5f8ac3f79b4479b4135480d8f82b1",
+      "metadata": "serie_a_ensemble_v11_clean2526_metadata.json",
+      "metadata_sha256": "7fb71182126272dac514604d26963ab961f90a103f251d187bee6f4f178da79f",
+      "league": "SERIE_A",
+      "rps": 0.2058914192638688,
+      "holdout_season": "2526"
+    }
+  }
+}
