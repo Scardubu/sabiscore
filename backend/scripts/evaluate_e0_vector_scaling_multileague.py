@@ -79,7 +79,10 @@ sys.path.insert(0, str(_REPO_ROOT / "scripts"))
 
 from src.core.league_policy import canonical_league_id  # noqa: E402
 from src.models.evaluation.metrics import expected_calibration_error  # noqa: E402
-from src.models.feature_registry import CANONICAL_FEATURES_68  # noqa: E402
+from src.models.feature_registry import (  # noqa: E402
+    CANONICAL_FEATURES_68,
+    resolve_feature_schema,
+)
 from train_on_real_matches import (  # noqa: E402
     build_dataset,
     load_matches,
@@ -95,14 +98,25 @@ L2_REG = 1e-3
 N_BOOTSTRAP = 2000
 BLOCK_SIZE = 10
 RNG_SEED = 42
+# §18 multiple-testing family, declared in the registry before any result
+# existed: the 5 scoreable leagues, one candidate.
+FAMILY_SIZE = 5
+FAMILY_ALPHA = 0.05
 
 CALIBRATION_SEASON = "2425"
 TEST_SEASON = "2526"
 
 _CORPUS_DIR = _REPO_ROOT / "data" / "cache"
 _MODELS_DIR = _REPO_ROOT / "models"
+# The EVALUATION baseline, deliberately distinct from the SERVING manifest.
+# active_generation.json still declares v5_phase7-20260808 / phase7_68, which
+# memorised the 2526 holdout (docs/DEBT.md item 81); flipping serving to the
+# clean apex generation is the item 37/49 schema transition and is separately
+# gated (test_default_schema_version_is_unchanged exists to catch exactly that
+# flip). Calibration research needs a clean baseline, not a serving change.
+_EVAL_BASELINE_DIR = _REPO_ROOT / "models" / "evaluation_baseline"
 _PRED_CACHE = _REPO_ROOT / "data" / "processed" / "served_ensemble_predictions_holdout.parquet"
-_REPORT_PATH = _REPO_ROOT.parent / "reports" / "research" / "e0_multileague_vector_scaling_results.json"
+_REPORT_PATH = _REPO_ROOT.parent / "reports" / "research" / "e0b_clean_baseline_results.json"
 
 
 # ---------------------------------------------------------------------------
@@ -127,38 +141,51 @@ def _served_probabilities(models_dict: Dict[str, Any], X: np.ndarray) -> np.ndar
     return np.mean(all_probs, axis=0)
 
 
-def build_prediction_table(force: bool = False) -> pl.DataFrame:
-    """Run the served ensemble over the corpus and cache the result."""
+def build_prediction_table(force: bool = False, models_dir: Path | None = None) -> pl.DataFrame:
+    """Run the baseline ensemble over the corpus and cache the result."""
     if _PRED_CACHE.exists() and not force:
-        logger.info("Reusing cached served predictions: %s", _PRED_CACHE)
+        logger.info("Reusing cached baseline predictions: %s", _PRED_CACHE)
         return pl.read_parquet(_PRED_CACHE)
 
     import joblib
 
-    manifest = json.loads((_MODELS_DIR / "active_generation.json").read_text(encoding="utf-8"))
+    root = models_dir or _EVAL_BASELINE_DIR
+    manifest_path = root / ("manifest.json" if root != _MODELS_DIR else "active_generation.json")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     logger.info(
-        "Active generation %s (%s), served head %s",
-        manifest["generation"], manifest["active_version"], manifest.get("served_head"),
+        "Baseline %s (%s), head %s — from %s",
+        manifest["generation"], manifest.get("role", "SERVING"),
+        manifest.get("served_head"), manifest_path.relative_to(_REPO_ROOT),
+    )
+
+    # Which 68-block the ACTIVE generation is built on is a manifest fact, not a
+    # constant. v5_phase7-20260808 was legacy (CANONICAL_FEATURES_68);
+    # v11_clean2526 is apex. Hardcoding either silently scores the artifacts on a
+    # vector they were not trained on — the schema-mismatch class
+    # PredictionEngine already refuses to zero-pad around.
+    schema_version = str(manifest.get("feature_schema_version") or "")
+    serving_columns = resolve_feature_schema(schema_version)
+    uses_legacy_block = list(serving_columns) == list(CANONICAL_FEATURES_68)
+    logger.info(
+        "Serving contract: %s (%d features, %s block)",
+        schema_version, len(serving_columns), "legacy" if uses_legacy_block else "apex",
     )
 
     matches = load_matches(_CORPUS_DIR)
-    # The served v5_phase7 artifacts are built on the LEGACY CANONICAL_FEATURES_68
-    # block, not the apex block the candidate schemas emit (docs/DEBT.md items
-    # 37/49 — the standing schema deadlock). `build_dataset` emits that legacy
-    # vector alongside the candidate one as `X_incumbent`, which is what
-    # `compare_candidate_vs_incumbent.py` also feeds the incumbent. The `schema`
-    # argument therefore only selects the unused candidate vector here.
-    dataset = build_dataset(matches, schema="apex_v1_68")
+    # `build_dataset` emits the schema vector as `X` and the legacy 68-block as
+    # `X_incumbent`; pick whichever the active generation actually declares.
+    dataset = build_dataset(matches, schema=schema_version if not uses_legacy_block else "apex_v1_68")
+    vector_key = "X_incumbent" if uses_legacy_block else "X"
 
     rows: List[Dict[str, Any]] = []
     for slug, entry in manifest["artifacts"].items():
         league = canonical_league_id(slug)
         data = dataset.get(league)
-        if not data or not data["X_incumbent"]:
+        if not data or not data[vector_key]:
             logger.warning("No corpus rows for %s — skipping", league)
             continue
 
-        artifact = _MODELS_DIR / entry["artifact"]
+        artifact = root / entry["artifact"]
         if not artifact.exists():
             logger.warning("Artifact missing for %s: %s — skipping", league, artifact)
             continue
@@ -167,23 +194,22 @@ def build_prediction_table(force: bool = False) -> pl.DataFrame:
             logger.warning("%s: artifact is not a base-learner dict — skipping", league)
             continue
 
-        # Fail closed rather than score a vector the artifact was not built on.
-        # A future apex-schema generation must not be silently fed the legacy
-        # block; that is the schema-mismatch class `PredictionEngine` already
-        # refuses to zero-pad around.
+        # Fail closed rather than score a vector the artifact was not built on;
+        # that is the schema-mismatch class `PredictionEngine` already refuses
+        # to zero-pad around.
         columns = list(raw.get("feature_columns") or [])
-        if columns != list(CANONICAL_FEATURES_68):
+        if columns != list(serving_columns):
             logger.error(
-                "%s: artifact feature_columns (%d) are not CANONICAL_FEATURES_68 — "
-                "refusing to score it on the legacy vector",
-                league, len(columns),
+                "%s: artifact feature_columns (%d) do not match the manifest's "
+                "declared %s contract (%d) — refusing to score it",
+                league, len(columns), schema_version, len(serving_columns),
             )
             continue
 
-        metadata = json.loads((_MODELS_DIR / entry["metadata"]).read_text(encoding="utf-8"))
+        metadata = json.loads((root / entry["metadata"]).read_text(encoding="utf-8"))
         declared_holdout = str(metadata.get("holdout_season") or "")
 
-        X = np.asarray(data["X_incumbent"], dtype=np.float32)
+        X = np.asarray(data[vector_key], dtype=np.float32)
         y = np.asarray(data["y"], dtype=np.int64)
         seasons = np.asarray(data["seasons"])
 
@@ -318,10 +344,24 @@ def paired_block_bootstrap_ci(
         idx = (starts[chosen][:, None] + np.arange(block_size)[None, :]).ravel()[:n]
         replicates[i] = np.mean(diff[idx])
 
+    # §18 requires a pre-declared multiple-testing protocol. The family is the
+    # 5 scoreable leagues (declared in the registry's `multiple_testing_family`
+    # before any of these results existed), so the nominal 95% interval is
+    # accompanied by a Bonferroni family-wise interval at
+    # alpha_family / FAMILY_SIZE. Promotion keys off the CORRECTED bound:
+    # with 5 tests, one nominally-significant result is roughly what chance
+    # alone produces (~12% of the time).
+    alpha_corrected = FAMILY_ALPHA / FAMILY_SIZE
+    lo_pct, hi_pct = 100.0 * alpha_corrected / 2.0, 100.0 * (1.0 - alpha_corrected / 2.0)
     return {
         "mean_delta": round(point, 6),
         "ci_lower": round(float(np.percentile(replicates, 2.5)), 6),
         "ci_upper": round(float(np.percentile(replicates, 97.5)), 6),
+        "ci_level": 0.95,
+        "ci_lower_bonferroni": round(float(np.percentile(replicates, lo_pct)), 6),
+        "ci_upper_bonferroni": round(float(np.percentile(replicates, hi_pct)), 6),
+        "ci_level_bonferroni": round(1.0 - alpha_corrected, 4),
+        "family_size": FAMILY_SIZE,
         "n": n,
         "n_bootstrap": n_bootstrap,
         "block_size": block_size,
@@ -428,8 +468,15 @@ def evaluate_league(df: pl.DataFrame, league: str) -> Dict[str, Any]:
         _brier_per_fixture(test_probs, test_y), _brier_per_fixture(cal_probs, test_y)
     )
 
-    # §19: statistically detectable AND not a regression on the sibling metric.
-    rps_improves = rps_ci["ci_upper"] is not None and rps_ci["ci_upper"] < 0.0
+    # §19: statistically detectable after family-wise correction, AND not a
+    # regression on the sibling metric. The nominal bound is reported too, so
+    # the gap between "nominally significant" and "survives correction" stays
+    # visible rather than being quietly resolved one way.
+    rps_improves_nominal = rps_ci["ci_upper"] is not None and rps_ci["ci_upper"] < 0.0
+    rps_improves = (
+        rps_ci.get("ci_upper_bonferroni") is not None
+        and rps_ci["ci_upper_bonferroni"] < 0.0
+    )
     brier_no_regress = brier_ci["ci_lower"] is not None and brier_ci["ci_lower"] < 0.0 or cand_brier <= base_brier
 
     return {
@@ -451,17 +498,20 @@ def evaluate_league(df: pl.DataFrame, league: str) -> Dict[str, Any]:
         "weights": [round(w, 6) for w in calibrator.weights.tolist()],
         "bias": [round(b, 6) for b in calibrator.bias.tolist()],
         "optimiser_converged": calibrator.converged,
-        "improves_rps_ci_excludes_zero": bool(rps_improves),
+        "improves_rps_ci_excludes_zero_nominal": bool(rps_improves_nominal),
+        "improves_rps_ci_excludes_zero_bonferroni": bool(rps_improves),
         "promotable": bool(rps_improves and brier_no_regress),
     }
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--regenerate", action="store_true", help="rebuild the served-prediction cache")
+    parser.add_argument("--regenerate", action="store_true", help="rebuild the prediction cache")
+    parser.add_argument("--models-dir", type=Path, default=None,
+                        help="baseline directory (default: models/evaluation_baseline)")
     args = parser.parse_args()
 
-    df = build_prediction_table(force=args.regenerate)
+    df = build_prediction_table(force=args.regenerate, models_dir=args.models_dir)
     if df.height == 0:
         logger.error("No served predictions produced; cannot evaluate.")
         return 1
@@ -480,7 +530,8 @@ def main() -> int:
     report = {
         "experiment_id": "E0-VECTOR-MULTILEAGUE",
         "directive": "v5 §9, §18, §19, §20 B2/B3",
-        "target": "served base-learner average (PredictionEngine._ensemble_predict_dict), not the meta-model",
+        "target": "base-learner average (PredictionEngine._ensemble_predict_dict shape), not the meta-model",
+        "baseline": "models/evaluation_baseline (v11_clean2526) — NOT the serving manifest",
         "calibration_season": CALIBRATION_SEASON,
         "test_season": TEST_SEASON,
         "bootstrap": {
@@ -489,7 +540,10 @@ def main() -> int:
             "block_size": BLOCK_SIZE,
             "seed": RNG_SEED,
         },
-        "promotion_rule": "95% CI upper bound for ΔRPS strictly < 0 and no Brier regression",
+        "promotion_rule": (
+            "Bonferroni family-wise CI upper bound for ΔRPS strictly < 0 "
+            "(alpha 0.05 over 5 leagues) and no Brier regression"
+        ),
         "leagues_promotable": promotable,
         "leagues_blocked_contaminated_split": blocked,
         "results": results,
@@ -503,9 +557,11 @@ def main() -> int:
         if r["status"] == "EVALUATED":
             ci = r["delta_rps"]
             logger.info(
-                "  %-11s ΔRPS %+.5f  CI95 [%+.5f, %+.5f]  %s",
+                "  %-11s ΔRPS %+.5f  CI95 [%+.5f, %+.5f]  CI99 [%+.5f, %+.5f]  %s",
                 r["league"], ci["mean_delta"], ci["ci_lower"], ci["ci_upper"],
-                "PROMOTABLE" if r["promotable"] else "no",
+                ci["ci_lower_bonferroni"], ci["ci_upper_bonferroni"],
+                "PROMOTABLE" if r["promotable"] else
+                ("nominal only" if r["improves_rps_ci_excludes_zero_nominal"] else "no"),
             )
         elif r["status"] == "BLOCKED_CONTAMINATED_SPLIT":
             ps = r["temporal_integrity"]["per_season"]

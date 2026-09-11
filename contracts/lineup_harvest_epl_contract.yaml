@@ -34,9 +34,35 @@
 # See `prospective_g5_probe` below.
 # ---------------------------------------------------------------------------
 
-schema_version: "1.1.0"
+schema_version: "1.2.0"
 experiment_id: "E2-LINEUP-CONTINUITY-EPL"
-supersedes: "1.0.0 — which declared lineup_announced_utc as a nullable field the source cannot populate"
+supersedes: >-
+  1.1.0 — which still made the historical harvest the primary architecture.
+  1.0.0 — which declared lineup_announced_utc as a nullable field the source
+  cannot populate.
+
+# ---------------------------------------------------------------------------
+# ARCHITECTURE, as of 1.2.0: PROSPECTIVE SHADOW MONITORING IS PRIMARY
+# ---------------------------------------------------------------------------
+# Gate G5 is not answerable retrospectively (see the header above), so the
+# historical batch harvest is SUSPENDED and the 100-call daily quota is
+# reserved for `backend/scripts/shadow_monitor_e2_lineups.py`, which measures
+# G5 by standing at the cutoff and looking.
+#
+# The historical harvest is not deleted — lineup CONTENT is still the raw
+# material E2's continuity features need, and the harvester remains resumable.
+# It is gated behind an explicit override flag so it cannot silently race the
+# monitor for quota.
+# ---------------------------------------------------------------------------
+
+harvest_mode:
+  primary: "PROSPECTIVE_SHADOW_MONITOR"
+  historical_batch: "SUSPENDED"
+  historical_batch_override_flag: "--i-understand-this-does-not-answer-g5"
+  suspension_reason: >-
+    The 100-call/day quota is shared. The historical harvest cannot answer
+    Gate G5 and the prospective monitor can, so the monitor has priority.
+  registry_state: "SHADOW"
 
 target_competition:
   canonical_league_id: "EPL"   # canonical vocabulary; never a display form
@@ -112,10 +138,34 @@ derived_features:
     formula: "intersection(away_starters, away_starters_l5) / 11.0"
     missing_value_handling: "NULL"
 
-# The only design that can answer Gate G5 for this source. Not part of the
-# historical harvest; recorded here so the gate is not quietly dropped.
+# The only design that can answer Gate G5 for this source — now BUILT and the
+# primary architecture (see `harvest_mode` above).
 prospective_g5_probe:
+  status: "BUILT"
+  implementation: "backend/scripts/shadow_monitor_e2_lineups.py"
+  registry_state: "SHADOW"
   method: "poll /fixtures/lineups for UPCOMING fixtures at T-20m and record presence/absence"
   cost_per_fixture: 1
   answers: "what fraction of fixtures have a published lineup at the prediction cutoff"
-  status: "NOT BUILT — requires a live upcoming-fixture window and a scheduled runner"
+  log_path: "backend/data/cache/lineup_g5_prospective_log.jsonl"
+
+  # A scheduled sweep, not a process that sleeps until a timestamp: a sleeping
+  # daemon loses every pending fixture on restart, and redeploys are routine.
+  # The sweep is idempotent and crash-safe.
+  scheduling:
+    shape: "run every few minutes from cron/scheduler; polls whatever is inside the window"
+    poll_window_minutes_pre_kickoff: [20, 15]   # [upper, lower] — band closes at fail_closed
+    max_polls_per_sweep: 40
+    idempotent: true
+    resumable: true
+
+  # Four terminal states, deliberately never collapsed to TRUE/FALSE. Recording
+  # our own outage as FALSE would manufacture G5 evidence out of a failed
+  # request — the "inability to confirm is not an outage" principle this
+  # codebase already applies to its keep-alive and capability probes.
+  terminal_states:
+    TRUE: "provider answered and a coherent lineup was present — G5 evidence"
+    FALSE: "provider answered and no lineup was published yet — G5 evidence"
+    POLL_FAILED: "provider did not answer (error/circuit/auth/timeout) — NOT G5 evidence"
+    MISSED_WINDOW: "kickoff passed without the fixture being polled — NOT G5 evidence"
+  g5_rate_denominator: "TRUE + FALSE only; POLL_FAILED and MISSED_WINDOW are excluded"

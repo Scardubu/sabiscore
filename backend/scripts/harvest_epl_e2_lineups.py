@@ -164,14 +164,43 @@ def fixtures_to_harvest(state: HarvestState, fixture_ids: List[int], batch: int)
     return pending[:batch]
 
 
+# ---------------------------------------------------------------------------
+# SUSPENDED 2026-09-11 — quota is reserved for the prospective G5 monitor.
+#
+# This harvest yields lineup CONTENT for continuity features but provably
+# cannot answer Gate G5 (no announcement timestamp; see the module docstring).
+# `shadow_monitor_e2_lineups.py` measures G5 prospectively and needs the same
+# 100-call daily budget, so the historical batch is halted rather than allowed
+# to race it for quota. Re-enable with --i-understand-this-does-not-answer-g5
+# once G5 is settled or a paid plan lifts the quota.
+# ---------------------------------------------------------------------------
+SUSPENDED = True
+SUSPENSION_REASON = (
+    "suspended 2026-09-11: the 100-call/day quota is reserved for "
+    "shadow_monitor_e2_lineups.py, which measures Gate G5 prospectively. "
+    "This harvest cannot answer G5 (docs/DEBT.md item 80)."
+)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true",
                         help="report the plan and spend no quota")
+    parser.add_argument(
+        "--i-understand-this-does-not-answer-g5", action="store_true",
+        dest="override_suspension",
+        help="resume the suspended historical harvest and spend quota on it",
+    )
     parser.add_argument("--batch-size", type=int, default=HARVEST_BATCH_SIZE)
     parser.add_argument("--fixture-ids", type=Path, default=None,
                         help="JSON list of provider fixture ids for EPL 2024/2025")
     args = parser.parse_args()
+
+    if SUSPENDED and not args.override_suspension and not args.dry_run:
+        logger.error("HALTED — %s", SUSPENSION_REASON)
+        print(json.dumps({"status": "SUSPENDED", "reason": SUSPENSION_REASON,
+                          "requests_spent": 0}, indent=2))
+        return 0
 
     contract = load_contract()
     if args.batch_size > DAILY_CALL_LIMIT - 5:
@@ -231,7 +260,9 @@ def main() -> int:
         spent = 0
         for fixture_id in todo:
             try:
-                result = await provider.lineups(fixture=fixture_id)
+                # Keyword name is `fixture_id`, not `fixture` — a mismatch here
+                # is a TypeError on every call, the vΩ.32 defect shape.
+                result = await provider.lineups(fixture_id=fixture_id)
             except Exception as exc:  # noqa: BLE001
                 # §34 State D: record the failure, never a fabricated lineup.
                 logger.error("fixture %s: %s — not written", fixture_id, exc)

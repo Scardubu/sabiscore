@@ -163,3 +163,96 @@ class TestHarvestNeverFabricatesLeadTime:
         ]
         assert _normalise_lineup(1, None, full)["is_confirmed"] is True
         assert _normalise_lineup(1, None, full[:-1])["is_confirmed"] is False
+
+
+# ---------------------------------------------------------------------------
+# E2 prospective Gate G5 monitor
+# ---------------------------------------------------------------------------
+
+from datetime import timedelta, timezone  # noqa: E402
+from datetime import datetime as _dt  # noqa: E402
+
+from shadow_monitor_e2_lineups import (  # noqa: E402
+    STATE_FALSE,
+    STATE_MISSED_WINDOW,
+    STATE_POLL_FAILED,
+    STATE_TRUE,
+    classify_fixture,
+    classify_result,
+    summarise,
+)
+
+_NOW = _dt(2026, 9, 11, 12, 0, tzinfo=timezone.utc)
+
+
+class TestCutoffWindow:
+    @pytest.mark.parametrize(
+        ("minutes_to_kickoff", "expected"),
+        [
+            (90, "WAIT"),           # far out
+            (21, "WAIT"),           # not yet at the cutoff
+            (20, "POLL"),           # exactly T-20m
+            (17, "POLL"),           # a late sweep still counts
+            (15, "POLL"),           # lower edge inclusive
+            (14, "MISSED_WINDOW"),  # past the fail-closed threshold
+            (-5, "MISSED_WINDOW"),  # kickoff already happened
+        ],
+    )
+    def test_band_boundaries(self, minutes_to_kickoff: int, expected: str) -> None:
+        kickoff = _NOW + timedelta(minutes=minutes_to_kickoff)
+        assert classify_fixture(kickoff, _NOW, None) == expected
+
+    def test_an_already_recorded_fixture_is_never_repolled(self) -> None:
+        kickoff = _NOW + timedelta(minutes=18)
+        assert classify_fixture(kickoff, _NOW, STATE_TRUE) == "DONE"
+        assert classify_fixture(kickoff, _NOW, STATE_FALSE) == "DONE"
+
+    def test_a_failed_poll_is_retried_rather_than_left_unmeasured(self) -> None:
+        kickoff = _NOW + timedelta(minutes=18)
+        assert classify_fixture(kickoff, _NOW, STATE_POLL_FAILED) == "POLL"
+
+
+class TestResultClassificationNeverFabricatesAbsence:
+    def test_verified_with_starters_is_true(self) -> None:
+        records = [{"role": "starting", "player_id": 1}]
+        assert classify_result("VERIFIED", records, None) == STATE_TRUE
+
+    def test_verified_with_no_lineup_is_false(self) -> None:
+        """A provider that answered and published nothing IS G5 evidence."""
+        assert classify_result("VERIFIED", [], None) == STATE_FALSE
+
+    @pytest.mark.parametrize("status", ["UNAVAILABLE", "CIRCUIT_OPEN", "INVALID", "PARTIAL"])
+    def test_a_non_verified_status_is_poll_failed_not_false(self, status: str) -> None:
+        """Our outage must never be recorded as the provider's absence."""
+        assert classify_result(status, [], None) == STATE_POLL_FAILED
+
+    def test_an_error_code_on_a_verified_status_is_still_poll_failed(self) -> None:
+        assert classify_result("VERIFIED", [], "RATE_LIMITED") == STATE_POLL_FAILED
+
+
+class TestG5RateExcludesOperationalStates:
+    def test_rate_uses_only_true_and_false(self, tmp_path: Path) -> None:
+        log = tmp_path / "g5.jsonl"
+        rows = [
+            (1, STATE_TRUE), (2, STATE_TRUE), (3, STATE_FALSE),
+            (4, STATE_POLL_FAILED), (5, STATE_MISSED_WINDOW),
+        ]
+        log.write_text(
+            "\n".join(
+                json.dumps({"fixture_id": i, "servable_at_20m_cutoff": s}) for i, s in rows
+            ) + "\n",
+            encoding="utf-8",
+        )
+        result = summarise(log)
+        # 2 TRUE of 3 evidence rows — the failed poll and missed window are not
+        # counted as "no lineup available".
+        assert result["g5_evidence_rows"] == 3
+        assert result["g5_servable_at_cutoff_pct"] == pytest.approx(66.67, abs=0.01)
+
+    def test_no_evidence_yields_null_rate_not_zero(self, tmp_path: Path) -> None:
+        log = tmp_path / "g5.jsonl"
+        log.write_text(
+            json.dumps({"fixture_id": 1, "servable_at_20m_cutoff": STATE_POLL_FAILED}) + "\n",
+            encoding="utf-8",
+        )
+        assert summarise(log)["g5_servable_at_cutoff_pct"] is None

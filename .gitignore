@@ -292,3 +292,5 @@ backend/.devin/
 
 # soccerdata FBref reader drops a chromedriver lock here (see docs/DEBT.md item 77)
 downloaded_files/
+backend/models/candidate_clean2526/
+backend/models/candidate_clean2526/

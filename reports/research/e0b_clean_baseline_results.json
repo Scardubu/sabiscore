@@ -1,0 +1,552 @@
+{
+  "experiment_id": "E0-VECTOR-MULTILEAGUE",
+  "directive": "v5 \u00a79, \u00a718, \u00a719, \u00a720 B2/B3",
+  "target": "base-learner average (PredictionEngine._ensemble_predict_dict shape), not the meta-model",
+  "baseline": "models/evaluation_baseline (v11_clean2526) \u2014 NOT the serving manifest",
+  "calibration_season": "2425",
+  "test_season": "2526",
+  "bootstrap": {
+    "method": "paired non-overlapping block bootstrap (K\u00fcnsch 1989)",
+    "n_bootstrap": 2000,
+    "block_size": 10,
+    "seed": 42
+  },
+  "promotion_rule": "Bonferroni family-wise CI upper bound for \u0394RPS strictly < 0 (alpha 0.05 over 5 leagues) and no Brier regression",
+  "leagues_promotable": [
+    "SERIE_A"
+  ],
+  "leagues_blocked_contaminated_split": [],
+  "results": [
+    {
+      "league": "BUNDESLIGA",
+      "status": "EVALUATED",
+      "n_cal": 296,
+      "n_test": 301,
+      "calibration_season": "2425",
+      "test_season": "2526",
+      "temporal_integrity": {
+        "declared_holdout_season": "2526",
+        "per_season": {
+          "1920": {
+            "n": 261,
+            "rps": 0.086605,
+            "in_sample_signature": true
+          },
+          "2021": {
+            "n": 296,
+            "rps": 0.08845,
+            "in_sample_signature": true
+          },
+          "2122": {
+            "n": 296,
+            "rps": 0.100926,
+            "in_sample_signature": true
+          },
+          "2223": {
+            "n": 306,
+            "rps": 0.095059,
+            "in_sample_signature": true
+          },
+          "2324": {
+            "n": 296,
+            "rps": 0.082462,
+            "in_sample_signature": true
+          },
+          "2425": {
+            "n": 296,
+            "rps": 0.209204,
+            "in_sample_signature": false
+          },
+          "2526": {
+            "n": 301,
+            "rps": 0.199826,
+            "in_sample_signature": false
+          }
+        },
+        "seasons_with_in_sample_signature": [
+          "1920",
+          "2021",
+          "2122",
+          "2223",
+          "2324"
+        ],
+        "seasons_usable_as_out_of_sample": [
+          "2425",
+          "2526"
+        ]
+      },
+      "base_rps": 0.199826,
+      "cal_rps": 0.201562,
+      "delta_rps": {
+        "mean_delta": 0.001735,
+        "ci_lower": -0.006646,
+        "ci_upper": 0.011156,
+        "ci_level": 0.95,
+        "ci_lower_bonferroni": -0.009242,
+        "ci_upper_bonferroni": 0.014794,
+        "ci_level_bonferroni": 0.99,
+        "family_size": 5,
+        "n": 301,
+        "n_bootstrap": 2000,
+        "block_size": 10
+      },
+      "base_brier": 0.594505,
+      "cal_brier": 0.585747,
+      "delta_brier": {
+        "mean_delta": -0.008758,
+        "ci_lower": -0.029306,
+        "ci_upper": 0.014761,
+        "ci_level": 0.95,
+        "ci_lower_bonferroni": -0.036313,
+        "ci_upper_bonferroni": 0.022307,
+        "ci_level_bonferroni": 0.99,
+        "family_size": 5,
+        "n": 301,
+        "n_bootstrap": 2000,
+        "block_size": 10
+      },
+      "base_ece": 0.0608,
+      "cal_ece": 0.055,
+      "weights": [
+        1.225122,
+        0.001,
+        0.449755
+      ],
+      "bias": [
+        -0.218616,
+        -0.071616,
+        0.290228
+      ],
+      "optimiser_converged": true,
+      "improves_rps_ci_excludes_zero_nominal": false,
+      "improves_rps_ci_excludes_zero_bonferroni": false,
+      "promotable": false
+    },
+    {
+      "league": "EPL",
+      "status": "EVALUATED",
+      "n_cal": 375,
+      "n_test": 375,
+      "calibration_season": "2425",
+      "test_season": "2526",
+      "temporal_integrity": {
+        "declared_holdout_season": "2526",
+        "per_season": {
+          "1920": {
+            "n": 330,
+            "rps": 0.10903,
+            "in_sample_signature": true
+          },
+          "2021": {
+            "n": 366,
+            "rps": 0.12124,
+            "in_sample_signature": true
+          },
+          "2122": {
+            "n": 375,
+            "rps": 0.103534,
+            "in_sample_signature": true
+          },
+          "2223": {
+            "n": 375,
+            "rps": 0.109724,
+            "in_sample_signature": true
+          },
+          "2324": {
+            "n": 375,
+            "rps": 0.097153,
+            "in_sample_signature": true
+          },
+          "2425": {
+            "n": 375,
+            "rps": 0.205445,
+            "in_sample_signature": false
+          },
+          "2526": {
+            "n": 375,
+            "rps": 0.206027,
+            "in_sample_signature": false
+          }
+        },
+        "seasons_with_in_sample_signature": [
+          "1920",
+          "2021",
+          "2122",
+          "2223",
+          "2324"
+        ],
+        "seasons_usable_as_out_of_sample": [
+          "2425",
+          "2526"
+        ]
+      },
+      "base_rps": 0.206027,
+      "cal_rps": 0.203362,
+      "delta_rps": {
+        "mean_delta": -0.002665,
+        "ci_lower": -0.00883,
+        "ci_upper": 0.002486,
+        "ci_level": 0.95,
+        "ci_lower_bonferroni": -0.010323,
+        "ci_upper_bonferroni": 0.003799,
+        "ci_level_bonferroni": 0.99,
+        "family_size": 5,
+        "n": 375,
+        "n_bootstrap": 2000,
+        "block_size": 10
+      },
+      "base_brier": 0.621183,
+      "cal_brier": 0.608011,
+      "delta_brier": {
+        "mean_delta": -0.013172,
+        "ci_lower": -0.027266,
+        "ci_upper": -0.001823,
+        "ci_level": 0.95,
+        "ci_lower_bonferroni": -0.031048,
+        "ci_upper_bonferroni": 0.001622,
+        "ci_level_bonferroni": 0.99,
+        "family_size": 5,
+        "n": 375,
+        "n_bootstrap": 2000,
+        "block_size": 10
+      },
+      "base_ece": 0.0802,
+      "cal_ece": 0.0386,
+      "weights": [
+        0.953975,
+        0.146395,
+        0.85702
+      ],
+      "bias": [
+        -0.118379,
+        -0.098751,
+        0.217132
+      ],
+      "optimiser_converged": true,
+      "improves_rps_ci_excludes_zero_nominal": false,
+      "improves_rps_ci_excludes_zero_bonferroni": false,
+      "promotable": false
+    },
+    {
+      "league": "EREDIVISIE",
+      "status": "SKIPPED",
+      "n_cal": 0,
+      "n_test": 260
+    },
+    {
+      "league": "LA_LIGA",
+      "status": "EVALUATED",
+      "n_cal": 380,
+      "n_test": 375,
+      "calibration_season": "2425",
+      "test_season": "2526",
+      "temporal_integrity": {
+        "declared_holdout_season": "2526",
+        "per_season": {
+          "1920": {
+            "n": 330,
+            "rps": 0.112414,
+            "in_sample_signature": true
+          },
+          "2021": {
+            "n": 367,
+            "rps": 0.104029,
+            "in_sample_signature": true
+          },
+          "2122": {
+            "n": 375,
+            "rps": 0.106309,
+            "in_sample_signature": true
+          },
+          "2223": {
+            "n": 370,
+            "rps": 0.109695,
+            "in_sample_signature": true
+          },
+          "2324": {
+            "n": 375,
+            "rps": 0.099962,
+            "in_sample_signature": true
+          },
+          "2425": {
+            "n": 380,
+            "rps": 0.20037,
+            "in_sample_signature": false
+          },
+          "2526": {
+            "n": 375,
+            "rps": 0.199158,
+            "in_sample_signature": false
+          }
+        },
+        "seasons_with_in_sample_signature": [
+          "1920",
+          "2021",
+          "2122",
+          "2223",
+          "2324"
+        ],
+        "seasons_usable_as_out_of_sample": [
+          "2425",
+          "2526"
+        ]
+      },
+      "base_rps": 0.199158,
+      "cal_rps": 0.197144,
+      "delta_rps": {
+        "mean_delta": -0.002014,
+        "ci_lower": -0.005218,
+        "ci_upper": 0.001614,
+        "ci_level": 0.95,
+        "ci_lower_bonferroni": -0.00641,
+        "ci_upper_bonferroni": 0.00288,
+        "ci_level_bonferroni": 0.99,
+        "family_size": 5,
+        "n": 375,
+        "n_bootstrap": 2000,
+        "block_size": 10
+      },
+      "base_brier": 0.581061,
+      "cal_brier": 0.573167,
+      "delta_brier": {
+        "mean_delta": -0.007894,
+        "ci_lower": -0.018589,
+        "ci_upper": 0.003808,
+        "ci_level": 0.95,
+        "ci_lower_bonferroni": -0.022505,
+        "ci_upper_bonferroni": 0.008629,
+        "ci_level_bonferroni": 0.99,
+        "family_size": 5,
+        "n": 375,
+        "n_bootstrap": 2000,
+        "block_size": 10
+      },
+      "base_ece": 0.0596,
+      "cal_ece": 0.0412,
+      "weights": [
+        1.027309,
+        0.175672,
+        0.537594
+      ],
+      "bias": [
+        0.00333,
+        -0.076958,
+        0.073629
+      ],
+      "optimiser_converged": true,
+      "improves_rps_ci_excludes_zero_nominal": false,
+      "improves_rps_ci_excludes_zero_bonferroni": false,
+      "promotable": false
+    },
+    {
+      "league": "LIGUE_1",
+      "status": "EVALUATED",
+      "n_cal": 306,
+      "n_test": 301,
+      "calibration_season": "2425",
+      "test_season": "2526",
+      "temporal_integrity": {
+        "declared_holdout_season": "2526",
+        "per_season": {
+          "1920": {
+            "n": 229,
+            "rps": 0.107022,
+            "in_sample_signature": true
+          },
+          "2021": {
+            "n": 370,
+            "rps": 0.10739,
+            "in_sample_signature": true
+          },
+          "2122": {
+            "n": 371,
+            "rps": 0.108299,
+            "in_sample_signature": true
+          },
+          "2223": {
+            "n": 370,
+            "rps": 0.101098,
+            "in_sample_signature": true
+          },
+          "2324": {
+            "n": 301,
+            "rps": 0.110515,
+            "in_sample_signature": true
+          },
+          "2425": {
+            "n": 306,
+            "rps": 0.210983,
+            "in_sample_signature": false
+          },
+          "2526": {
+            "n": 301,
+            "rps": 0.199102,
+            "in_sample_signature": false
+          }
+        },
+        "seasons_with_in_sample_signature": [
+          "1920",
+          "2021",
+          "2122",
+          "2223",
+          "2324"
+        ],
+        "seasons_usable_as_out_of_sample": [
+          "2425",
+          "2526"
+        ]
+      },
+      "base_rps": 0.199102,
+      "cal_rps": 0.195376,
+      "delta_rps": {
+        "mean_delta": -0.003727,
+        "ci_lower": -0.009467,
+        "ci_upper": 0.002367,
+        "ci_level": 0.95,
+        "ci_lower_bonferroni": -0.011203,
+        "ci_upper_bonferroni": 0.004196,
+        "ci_level_bonferroni": 0.99,
+        "family_size": 5,
+        "n": 301,
+        "n_bootstrap": 2000,
+        "block_size": 10
+      },
+      "base_brier": 0.590333,
+      "cal_brier": 0.578891,
+      "delta_brier": {
+        "mean_delta": -0.011442,
+        "ci_lower": -0.026921,
+        "ci_upper": 0.005021,
+        "ci_level": 0.95,
+        "ci_lower_bonferroni": -0.031891,
+        "ci_upper_bonferroni": 0.009732,
+        "ci_level_bonferroni": 0.99,
+        "family_size": 5,
+        "n": 301,
+        "n_bootstrap": 2000,
+        "block_size": 10
+      },
+      "base_ece": 0.0678,
+      "cal_ece": 0.047,
+      "weights": [
+        0.688806,
+        0.001,
+        0.690219
+      ],
+      "bias": [
+        0.297428,
+        -0.317706,
+        0.020278
+      ],
+      "optimiser_converged": true,
+      "improves_rps_ci_excludes_zero_nominal": false,
+      "improves_rps_ci_excludes_zero_bonferroni": false,
+      "promotable": false
+    },
+    {
+      "league": "SERIE_A",
+      "status": "EVALUATED",
+      "n_cal": 375,
+      "n_test": 375,
+      "calibration_season": "2425",
+      "test_season": "2526",
+      "temporal_integrity": {
+        "declared_holdout_season": "2526",
+        "per_season": {
+          "1920": {
+            "n": 330,
+            "rps": 0.102435,
+            "in_sample_signature": true
+          },
+          "2021": {
+            "n": 363,
+            "rps": 0.095586,
+            "in_sample_signature": true
+          },
+          "2122": {
+            "n": 365,
+            "rps": 0.107181,
+            "in_sample_signature": true
+          },
+          "2223": {
+            "n": 370,
+            "rps": 0.112046,
+            "in_sample_signature": true
+          },
+          "2324": {
+            "n": 375,
+            "rps": 0.099468,
+            "in_sample_signature": true
+          },
+          "2425": {
+            "n": 375,
+            "rps": 0.188902,
+            "in_sample_signature": false
+          },
+          "2526": {
+            "n": 375,
+            "rps": 0.205891,
+            "in_sample_signature": false
+          }
+        },
+        "seasons_with_in_sample_signature": [
+          "1920",
+          "2021",
+          "2122",
+          "2223",
+          "2324"
+        ],
+        "seasons_usable_as_out_of_sample": [
+          "2425",
+          "2526"
+        ]
+      },
+      "base_rps": 0.205891,
+      "cal_rps": 0.201579,
+      "delta_rps": {
+        "mean_delta": -0.004313,
+        "ci_lower": -0.006506,
+        "ci_upper": -0.002505,
+        "ci_level": 0.95,
+        "ci_lower_bonferroni": -0.007062,
+        "ci_upper_bonferroni": -0.001872,
+        "ci_level_bonferroni": 0.99,
+        "family_size": 5,
+        "n": 375,
+        "n_bootstrap": 2000,
+        "block_size": 10
+      },
+      "base_brier": 0.61355,
+      "cal_brier": 0.595668,
+      "delta_brier": {
+        "mean_delta": -0.017882,
+        "ci_lower": -0.027945,
+        "ci_upper": -0.010223,
+        "ci_level": 0.95,
+        "ci_lower_bonferroni": -0.030342,
+        "ci_upper_bonferroni": -0.006767,
+        "ci_level_bonferroni": 0.99,
+        "family_size": 5,
+        "n": 375,
+        "n_bootstrap": 2000,
+        "block_size": 10
+      },
+      "base_ece": 0.0618,
+      "cal_ece": 0.035,
+      "weights": [
+        0.857472,
+        0.11202,
+        1.051079
+      ],
+      "bias": [
+        -0.041698,
+        -0.018823,
+        0.06052
+      ],
+      "optimiser_converged": true,
+      "improves_rps_ci_excludes_zero_nominal": true,
+      "improves_rps_ci_excludes_zero_bonferroni": true,
+      "promotable": true
+    }
+  ]
+}

@@ -126,67 +126,95 @@ experiments:
       actually serves, in every league, by a margin whose paired confidence
       interval excludes zero.
     migrated_retrospectively: false
-    state: OUT_OF_SAMPLE_EVALUATION
-    decision: HOLD
+    state: STATISTICAL_REVIEW
+    decision: RESEARCH
     decision_detail: >-
-      BLOCKED, not measured. Two defects in E0's setup motivated this
-      extension: (1) E0 decided on point estimates - its own entry records
-      bootstrap_method, confidence_interval and effect_size as UNDECLARED,
-      which §9 forbids as a basis for decision; (2) E0's cascade calibrates the
-      META-MODEL, while the request path
-      (PredictionEngine._ensemble_predict_dict) is an equal-weight base-learner
-      average that never touches meta_model - the same defect class commit
-      d4e1c0b fixed for conformal. Building the corrected evaluation surfaced a
-      third and larger problem that blocks it: the served v5_phase7 artifacts
-      declare holdout_season 2425 but score season 2526 with an in-sample
-      signature. A calibrator needs a clean season to fit on AND a clean season
-      to be judged on; these artifacts have exactly one clean season, so no
-      valid split exists. The evaluator now refuses the contaminated split
-      rather than reporting the large, confident, spurious degradation it
-      produces. Not REJECT - nothing here says vector scaling lacks value; the
-      instrument to test it cannot be assembled until the artifacts are
-      retrained on a clean temporal split.
+      UNBLOCKED AND MEASURED, 2026-09-11, after the incumbent was retrained with
+      season 2526 strictly held out (generation v11_clean2526, docs/DEBT.md item
+      81). The contamination guard no longer fires for any league.
+      Result: vector scaling on the served base-learner average improves RPS in
+      exactly ONE of five leagues once the §18 family-wise correction is
+      applied. SERIE_A: dRPS -0.00431, 95% CI [-0.00651, -0.00250], Bonferroni
+      99% CI [-0.00706, -0.00187] - upper bound strictly negative at both
+      levels, and Brier does not regress. The other four straddle zero at both
+      levels (BUNDESLIGA +0.00173, EPL -0.00266, LA_LIGA -0.00201,
+      LIGUE_1 -0.00373), so the direction is mostly favourable but not
+      distinguishable from noise. The stated hypothesis was "in every league";
+      that is answered NO.
+      RESEARCH rather than PROMOTE because production readiness is incomplete
+      and that is not a close call: the request path applies NO calibrator at
+      all. The served artifacts carry no `calibrator` key, and the two
+      functions that build the FittedCalibrator serving would apply
+      (run_league_calibration, compare_calibration_methods) have zero callers
+      repo-wide. Shipping a Serie-A calibrator therefore requires wiring that
+      does not exist, not a config change.
+      RESEARCH rather than HOLD because the measurement is no longer
+      underpowered or blocked - it ran, on a clean split, with the interval §9
+      requires.
     information_source: "none - no new external source"
     source_version: null
     source_license_class: null
     source_coverage: null
-    historical_window: "corpus 1920-2526; only 2425 is out-of-sample for the served artifacts"
+    historical_window: "corpus 1920-2526; train <=2324, calibration 2425, holdout 2526"
     prediction_cutoff: null
     dataset_version: "backend/data/processed/served_ensemble_predictions_holdout.parquet"
-    feature_version: "CANONICAL_FEATURES_68 (legacy block the served artifacts were built on)"
+    feature_version: >-
+      APEX_FEATURES_68 (apex_v1_68) — the evaluation baseline's contract.
+      Serving remains on phase7_68/CANONICAL_FEATURES_68; flipping it is the
+      separately-gated item 37/49 transition and was reverted (docs/DEBT.md#82).
     representation_version: "per-class scale+bias on centred log-odds, NLL + L2 (lambda=1e-3)"
-    model_version: "v5_phase7-20260808"
+    model_version: "v11_clean2526 (models/evaluation_baseline — NOT the serving manifest)"
     parameters: "L-BFGS-B, w in [1e-3, 10], b in [-5, 5]"
     seed: 42
-    training_window: "season 2425 (intended calibration split)"
-    validation_windows: "season 2526 (intended test split) - REJECTED as contaminated"
-    final_holdout: null
+    training_window: "season 2425 (calibration split; out-of-sample for the base learners)"
+    validation_windows: "season 2526 (holdout; out-of-sample for the base learners)"
+    final_holdout: >-
+      none remaining - 2526 is the newest season in the corpus and is the
+      evaluation holdout. A genuinely sealed final period requires 2627 data.
     baseline_models: ["uncalibrated served base-learner average"]
     market_baseline: "not applicable - calibration is not a market-edge claim (§5)"
     primary_metrics: [RPS, Brier, ECE]
     secondary_metrics: []
     bootstrap_method: "paired non-overlapping block bootstrap (Künsch 1989), 2000 replicates, block_size 10"
-    statistical_test: "95% CI for mean paired loss difference must exclude zero"
+    statistical_test: >-
+      Bonferroni family-wise CI (alpha 0.05 over 5 leagues -> 99% interval) for
+      the mean paired loss difference must exclude zero; the nominal 95%
+      interval is reported alongside it.
     multiple_testing_family: "5 leagues x 1 candidate"
-    effect_size: null
-    confidence_interval: null
-    sample_size: null
+    effect_size: >-
+      SERIE_A dRPS -0.00431 on a base RPS of 0.2059 (~2.1% relative).
+      Others: BUNDESLIGA +0.00173, EPL -0.00266, LA_LIGA -0.00201, LIGUE_1 -0.00373.
+    confidence_interval: >-
+      SERIE_A 95% [-0.00651, -0.00250], Bonferroni 99% [-0.00706, -0.00187].
+      All four other leagues straddle zero at both levels.
+    sample_size: "n_test 301-375 per league; n_cal 296-380"
     result: >-
-      No valid measurement. All 5 scoreable leagues returned
-      BLOCKED_CONTAMINATED_SPLIT. Per-league base-learner-average RPS on the
-      declared holdout 2425 is 0.2161-0.2335; on 2526 it is 0.1475-0.1706,
-      against a market baseline of 0.1908-0.2054 on the same 2526 rows.
-    robustness: null
+      1 of 5 leagues (SERIE_A) shows a family-wise-significant RPS improvement
+      with no Brier regression. The other four are indistinguishable from zero.
+      The hypothesis as stated ("in every league") is answered NO.
+    robustness: >-
+      Survives Bonferroni correction over the declared 5-league family. NOT yet
+      tested across multiple temporal folds - there is only one clean holdout
+      season, so cross-period robustness (§18) is unmeasured.
     failure_modes:
-      - "served artifacts were trained on season 2526, the holdout every candidate comparison scores against"
-      - "only one uncontaminated season exists, so no clean calibrate/test pair can be formed"
+      - "vector scaling does not generalise; four of five leagues show no distinguishable effect"
+      - >-
+        production readiness blocked independently: the request path applies no
+        calibrator, and the FittedCalibrator builders have zero callers
+      - "single holdout season, so §18 cross-fold robustness cannot be evaluated"
     compute: "numpy + polars + scipy; no GPU, well under the 8 GB ceiling"
     peak_rss: UNDECLARED
     runtime: UNDECLARED
-    artifact_location: "reports/research/e0_multileague_vector_scaling_results.json"
+    artifact_location: "reports/research/e0b_clean_baseline_results.json"
+    superseded_artifacts:
+      - >-
+        reports/research/e0_multileague_vector_scaling_results.json - the
+        pre-remediation run, retained because it is the record of the
+        BLOCKED_CONTAMINATED_SPLIT state (docs/DEBT.md item 79)
     provenance:
       - "docs/DEBT.md#79"
       - "docs/DEBT.md#81"
+      - "docs/DEBT.md#82"
       - "backend/scripts/evaluate_e0_vector_scaling_multileague.py"
       - "backend/tests/unit/test_e0_temporal_integrity_and_harvest.py"
     reviewer: UNDECLARED
@@ -274,8 +302,24 @@ experiments:
       Lineup continuity and expected-XI state contribute incremental signal
       beyond roster availability alone.
     migrated_retrospectively: true
-    state: SOURCE_QUALIFIED
+    state: SHADOW
     decision: HOLD
+    shadow_detail: >-
+      Moved to SHADOW 2026-09-11. Gate G5 is not answerable retrospectively -
+      /fixtures/lineups publishes no announcement timestamp - so it is now
+      measured PROSPECTIVELY by backend/scripts/shadow_monitor_e2_lineups.py,
+      which polls upcoming fixtures inside the T-20m..T-15m band and records
+      whether a lineup exists at the cutoff. The historical EPL batch harvest is
+      SUSPENDED so it cannot race the monitor for the shared 100-call daily
+      quota; it is reachable only behind an explicit override flag.
+      The monitor records four terminal states and never collapses them:
+      TRUE/FALSE are G5 evidence; POLL_FAILED (our outage) and MISSED_WINDOW
+      (our scheduling) are operational facts excluded from the rate. Recording
+      a failed request as FALSE would manufacture G5 evidence out of our own
+      downtime.
+      SHADOW is the honest state: the instrument is built, live-shaped and
+      tested, but no production fixture has been observed yet, so there is zero
+      G5 evidence so far. Decision stays HOLD until evidence accumulates.
     decision_detail: >-
       HOLD on two independent gates, one structural and one operational.
       (1) SERVING, unchanged from Portfolio B: confirmed lineups publish 20-40
@@ -341,7 +385,9 @@ experiments:
     scoped_harvest:
       status: "CONTRACT DEFINED, NOT YET HARVESTED"
       contract: "contracts/lineup_harvest_epl_contract.yaml"
-      harvester: "backend/scripts/harvest_epl_e2_lineups.py"
+      harvester: "backend/scripts/harvest_epl_e2_lineups.py (SUSPENDED)"
+      prospective_monitor: "backend/scripts/shadow_monitor_e2_lineups.py"
+      prospective_log: "backend/data/cache/lineup_g5_prospective_log.jsonl"
       scope: "EPL 2024/2025 only - 380 fixtures, ~4 days of free quota vs 17.5 for five leagues"
       g5_answerable_from_this_harvest: false
       g5_blocker: >-

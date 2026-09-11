@@ -1,8 +1,136 @@
 # SabiScore Debt Ledger
 
+## 82. Baseline remediated — generation `v11_clean2526` holds 2526 out, and E0b's real answer is "one league, not five" — 2026-09-11
+
+**Tier:** `RESOLVED` for the contamination (item 81); `RESEARCH` for E0b.
+Registry: `E0b` → `STATISTICAL_REVIEW` / `RESEARCH`, `E2` → `SHADOW`.
+Artifacts: `backend/models/*_ensemble_v11_clean2526.pkl` + metadata.
+Result: `reports/research/e0b_clean_baseline_results.json`.
+Promotion step: `backend/scripts/promote_clean_generation.py` (built, exercised,
+then deliberately not applied to the serving manifest — see below).
+
+**Retrain.** `train_on_real_matches.py --holdout-season 2526 --schema apex_v1_68`
+gives exactly the split item 81 required — `train_league` derives
+calibration as the last pre-holdout season, so core ≤2324, calibration 2425,
+holdout 2526 — and its "holdout is not the latest season" guard passes because
+2526 *is* the latest. **The in-sample signature is gone:**
+
+| League | contaminated (2526) | **clean (2526)** | market (2526) |
+|---|---|---|---|
+| BUNDESLIGA | 0.1475 | **0.1998** | 0.1908 |
+| EPL | 0.1703 | **0.2060** | 0.2054 |
+| LA_LIGA | 0.1574 | **0.1992** | 0.1963 |
+| LIGUE_1 | 0.1571 | **0.1991** | 0.1991 |
+| SERIE_A | 0.1686 | **0.2059** | 0.1971 |
+
+The clean baseline lands at or just above market in every league — **0 of 5
+beat the market**, which is what item 62 measured independently and is the
+honest shape. The old 0.147–0.171 band was memorisation.
+
+⚠️ **The retrain is NOT like-for-like, and the difference forced an
+architectural decision the directive did not anticipate.** The instruction was
+to retrain "the exact current architecture (legacy 68-block)". **No schema in
+`train_on_real_matches._SCHEMAS` still produces `CANONICAL_FEATURES_68`** —
+`apex_v1_68` writes the `v5_phase7` *suffix* but trains `APEX_FEATURES_68`,
+which differs at exactly the 11 slots (indices 20–30) items 37/49 document. The
+served legacy generation is **no longer reproducible by the current trainer**.
+
+⚠️ **Promoting the clean generation to `active_generation.json` was attempted,
+measured, and REVERTED.** It passed the build gate, then broke **41 tests**
+across artifact loading, feature-transformer, vector-parity, promotion-evidence
+and settlement. The decisive one is `test_default_schema_version_is_unchanged`,
+whose own docstring reads: *"item 37's serving wire-up must be inert for every
+existing caller — this is the load-bearing safety proof that today's active
+generation is untouched."* **That guard exists precisely to catch this flip.**
+Moving serving from the legacy to the apex market block is the item 37/49
+schema transition — a separately-gated architectural decision — and doing it as
+a side effect of baseline remediation is exactly what the guard forbids.
+
+**Resolution: the two roles are now separate, which is what the situation
+actually needed.**
+
+| | path | generation | schema |
+|---|---|---|---|
+| **Serving** | `models/active_generation.json` | v5_phase7-20260808 | phase7_68 (legacy) |
+| **Evaluation** | `models/evaluation_baseline/manifest.json` | v11_clean2526 | apex_v1_68 |
+
+`active_generation.json` and `feature_contract.json` are **unchanged**; all 41
+tests pass again. The evaluator takes `--models-dir` and defaults to the
+evaluation baseline. The stated purpose of the remediation — *"the repository
+cannot evaluate new models if the incumbent baseline has memorized the final
+untouched holdout"* — is fully met, because it is the **evaluation** baseline
+that had to be clean.
+
+⚠️ **A second tradeoff the directive did not name, and the reason this
+separation is right rather than merely convenient: the clean baseline trains on
+LESS data.** EPL core drops 2196 → 1821 rows because 2526 is withheld. For
+evaluation that is mandatory. For *serving* 2026/27 fixtures it is strictly
+worse — a season of recent history discarded. An evaluation baseline must hold
+2526 out; a serving model should be refit on everything. They cannot be the
+same artifact, and now they are not.
+
+The contaminated artifacts keep their own filenames, so item 81's finding stays
+re-verifiable. `certification_state` remains `UNVERIFIED`; nothing was certified
+or promoted. **Serving behaviour is byte-identical to before this session.**
+
+⚠️ **Still open, and now explicit:** `compare_candidate_vs_incumbent.py` still
+scores against the contaminated `active_generation.json` incumbent. Repointing
+it at `models/evaluation_baseline/` is the follow-up that actually retires item
+81's consequence for the promotion gate — not done here, because it changes
+what every promotion decision is measured against and deserves its own change.
+
+**E0b, now measurable.** The contamination guard fires for no league. Vector
+scaling on the served base-learner average, 2425 → 2526, paired Künsch block
+bootstrap (2,000 replicates):
+
+| League | ΔRPS | 95% CI | Bonferroni 99% CI | verdict |
+|---|---|---|---|---|
+| BUNDESLIGA | +0.00173 | [−0.00665, +0.01116] | [−0.00924, +0.01479] | no effect |
+| EPL | −0.00266 | [−0.00883, +0.00249] | [−0.01032, +0.00380] | no effect |
+| LA_LIGA | −0.00201 | [−0.00522, +0.00161] | [−0.00641, +0.00288] | no effect |
+| LIGUE_1 | −0.00373 | [−0.00947, +0.00237] | [−0.01120, +0.00420] | no effect |
+| **SERIE_A** | **−0.00431** | **[−0.00651, −0.00250]** | **[−0.00706, −0.00187]** | **improves** |
+
+§18 requires a multiple-testing protocol, and the `multiple_testing_family`
+("5 leagues × 1 candidate") was declared in the registry **before** these
+results existed, so applying Bonferroni is following the pre-registered rule,
+not moving a goalpost. With 5 tests, one nominally-significant result is
+roughly what chance alone produces (~12%); Serie A survives correction anyway.
+The other four straddle zero at both levels — mostly favourable in direction,
+none distinguishable from noise. **The hypothesis was "in every league"; the
+answer is no.**
+
+⚠️ **Serie A is not shippable, for a reason unrelated to its statistics.** The
+request path applies **no calibrator at all**: the artifacts carry no
+`calibrator` key, and `run_league_calibration` / `compare_calibration_methods`
+— the two functions that build the `FittedCalibrator` serving would apply —
+have **zero callers repo-wide**. Shipping this requires building that wiring,
+not flipping a setting. Recorded as the blocking condition on `E0b`.
+
+⚠️ **Robustness is unmeasured, by construction.** §18 wants improvement to
+survive multiple temporal folds. There is exactly one clean holdout season, so
+cross-period robustness cannot be evaluated until 2627 data exists. A single
+fold is not robustness evidence, and Serie A should not be treated as settled.
+
+**Also fixed while here:** the E0b evaluator hardcoded
+`CANONICAL_FEATURES_68`, which would have silently skipped every league the
+moment the manifest moved to apex. It now resolves the serving contract from
+the manifest via `resolve_feature_schema()` and asserts each artifact's own
+`feature_columns` against it. And `harvest_epl_e2_lineups.py` called
+`provider.lineups(fixture=...)` where the real signature is keyword
+`fixture_id` — a `TypeError` on every call, the vΩ.32 shape, introduced in the
+previous session and never executed because the harvest never ran.
+
+---
+
 ## 81. The served artifacts were trained on season 2526 — the holdout every candidate comparison scores against — 2026-09-11
 
-**Tier:** `NEXT`. Blocks `E0b`, and calls every incumbent-vs-candidate
+> **RESOLVED 2026-09-11 by item 82** — generation `v11_clean2526` retrains with
+> 2526 strictly held out and the in-sample signature is gone. The incident
+> record below stands; the contaminated artifacts are preserved under their
+> own filenames so it stays re-verifiable.
+
+**Tier:** `RESOLVED`. Blocks `E0b`, and calls every incumbent-vs-candidate
 comparison in this repo into question. Found while building the E0 multi-league
 calibration evaluator (item 79), not by a test.
 
@@ -69,6 +197,10 @@ served-head contradiction before any calibration work resumes.
 
 ## 80. E2 lineup harvest is scoped to EPL, and cannot answer Gate G5 — 2026-09-11
 
+> **SUPERSEDED 2026-09-11 by item 82.** The historical harvest is SUSPENDED and
+> Gate G5 is now measured prospectively by `shadow_monitor_e2_lineups.py`
+> (registry `E2` → `SHADOW`). The analysis below is why.
+
 **Tier:** `RESEARCH`. Registry entry `E2` (state unchanged: `SOURCE_QUALIFIED` /
 `HOLD`). Contract: `contracts/lineup_harvest_epl_contract.yaml`. Harvester:
 `backend/scripts/harvest_epl_e2_lineups.py`.
@@ -112,6 +244,11 @@ raw material, **not** G5 evidence. Decide that trade deliberately.
 ---
 
 ## 79. E0 multi-league vector scaling: evaluator built, measurement blocked — 2026-09-11
+
+> **UNBLOCKED 2026-09-11 by item 82.** The measurement ran on the clean
+> baseline: 1 of 5 leagues (SERIE_A) improves after family-wise correction.
+> The void pre-remediation numbers below are retained as the record of the
+> blocked state.
 
 **Tier:** `RESEARCH`. Registry entry `E0b` (`OUT_OF_SAMPLE_EVALUATION` /
 `HOLD`). Script: `backend/scripts/evaluate_e0_vector_scaling_multileague.py`.
