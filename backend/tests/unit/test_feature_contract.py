@@ -166,6 +166,89 @@ def test_unanswerable_fields_are_literally_undeclared(schema_version: str) -> No
             assert record[field] == UNDECLARED, f"{record['feature_name']}.{field}"
 
 
+# ── lookahead_risk (Directive v7.3 P3) ──────────────────────────────────────
+# Same discipline as the disposition rule above: one mechanical string check
+# against training_source, not per-feature judgement. A feature this contract
+# cannot attribute to build_dataset() stays UNDECLARED for lookahead_risk too.
+
+
+def test_features_computed_inside_build_dataset_cite_the_leakage_test() -> None:
+    contract = build_feature_contract("phase7_68")
+    by_name = {f["feature_name"]: f for f in contract["features"]}
+
+    # last5-form, goals-gd, temporal, league, and combination groups are all
+    # attributed to scripts/train_on_real_matches.py:build_dataset() under
+    # this schema (see _training_source's own rules) — every one of them
+    # must therefore cite the leakage test, not sit at UNDECLARED.
+    covered_examples = [
+        "home_form_last5_home",   # last5-form
+        "home_goals_for_avg",     # goals-gd
+        "season_phase",           # temporal
+        "league_EPL",             # league one-hot
+        "combined_attack",        # combination
+        "elo_difference",         # elo-replay, wired into build_dataset()
+    ]
+    for name in covered_examples:
+        record = by_name[name]
+        assert "train_on_real_matches.py:build_dataset()" in record["training_source"], name
+        assert record["lookahead_risk"] == (
+            "COVERED_BY_WHOLE_VECTOR_LEAKAGE_TEST — "
+            "tests/unit/test_training_leakage_contract.py's "
+            "test_a_matchs_own_result_never_enters_its_own_features and "
+            "test_a_future_result_never_enters_an_earlier_rows_features assert "
+            "the entire build_dataset() feature row is byte-identical when "
+            "that match's own score, or a later match's score, is mutated. "
+            "This feature's training_source computes inside that same call, "
+            "so a leak into it would fail that row-level assertion. Not an "
+            "isolated per-feature test — a whole-vector proxy, the strongest "
+            "evidence this contract has today."
+        ), name
+
+
+def test_phase8_and_undeclared_training_sources_stay_undeclared_lookahead_risk() -> None:
+    """phase8_historical.py is a separate replay build_dataset() never calls.
+
+    Citing the build_dataset() leakage test for it would misattribute
+    evidence from one pipeline to a different one — exactly the fabrication
+    this contract exists to prevent. home_pi_attack only exists under
+    phase8_89 (it is not one of the 68 canonical slots); h2h_home_wins exists
+    under phase7_68 and has no training_source attribution at all.
+    """
+
+    phase8_contract = build_feature_contract("phase8_89")
+    phase8_by_name = {f["feature_name"]: f for f in phase8_contract["features"]}
+    record = phase8_by_name["home_pi_attack"]
+    assert "train_on_real_matches.py:build_dataset()" not in record["training_source"]
+    assert record["lookahead_risk"] == UNDECLARED
+
+    phase7_contract = build_feature_contract("phase7_68")
+    phase7_by_name = {f["feature_name"]: f for f in phase7_contract["features"]}
+    record = phase7_by_name["h2h_home_wins"]
+    assert record["training_source"] == UNDECLARED
+    assert record["lookahead_risk"] == UNDECLARED
+
+
+def test_lookahead_risk_is_never_a_hand_written_guess() -> None:
+    """Every non-UNDECLARED lookahead_risk must be reachable only via the one
+    mechanical rule — training_source literally naming build_dataset().
+    """
+
+    saw_a_covered_feature = False
+    for schema_version in sorted(FEATURE_SCHEMA_VERSIONS):
+        contract = build_feature_contract(schema_version)
+        for record in contract["features"]:
+            if record["lookahead_risk"] == UNDECLARED:
+                continue
+            saw_a_covered_feature = True
+            assert "train_on_real_matches.py:build_dataset()" in record["training_source"], (
+                record["feature_name"]
+            )
+    assert saw_a_covered_feature, (
+        "fixture assumption: at least one feature must resolve a real "
+        "lookahead_risk, or this test's else-branch never runs and proves nothing"
+    )
+
+
 def test_league_scope_is_derived_not_guessed() -> None:
     """Only the one-hot columns are league-scoped; everything else is ALL."""
 

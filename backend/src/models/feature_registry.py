@@ -1113,6 +1113,14 @@ def derive_market_interaction_features(
 # them would be fabrication on the exact surface this contract exists to
 # make trustworthy.
 #
+# P3 follow-up (Directive v7.3): lookahead_risk was one of those fields —
+# UNDECLARED for all 68 features — until tests/unit/test_training_leakage_contract.py
+# landed a real, decisive test of it (test_a_matchs_own_result_never_enters_
+# its_own_features / test_a_future_result_never_enters_an_earlier_rows_features,
+# both asserting the *whole* build_dataset() feature row is byte-identical
+# under mutation). _lookahead_risk() below now cites that test mechanically
+# for the feature groups that test's row-level equality actually covers.
+#
 # build_feature_contract() derives only what real code can answer and marks
 # everything else UNDECLARED. It is the single generator going forward:
 # scripts/generate_feature_contract.py writes its output to
@@ -1189,22 +1197,22 @@ _NAMED_FEATURE_GROUPS: List[Tuple[str, Sequence[str]]] = [
 # honest form of "not yet known": DEBT.md item 36 forbids inventing plausible
 # values for these on the exact surface Phase 3 exists to make trustworthy.
 #
-# `training_source` / `serving_source` / `shadow_source` are NOT in this list —
-# see _training_source() / _serving_source() / _shadow_source() below, which
-# resolve them per-feature-group where a real, grep-verified derivation
-# exists and fall back to UNDECLARED everywhere else. `source` (the generic,
-# pipeline-agnostic field) and `offline_backtest_source` stay here: `source`
-# would just restate one of the per-pipeline answers under an ambiguous name,
-# and `offline_backtest_source` is genuinely unanswerable for every feature —
-# walk_forward_validate() (models/model_registry.py) consumes pre-computed
-# {date, outcome, probs} records; it has no independent feature-computation
-# step to cite as a source. See docs/DEBT.md item 36.
+# `training_source` / `serving_source` / `shadow_source` / `lookahead_risk`
+# are NOT in this list — see _training_source() / _serving_source() /
+# _shadow_source() / _lookahead_risk() below, which resolve them per-feature-
+# group where a real, grep-verified derivation exists and fall back to
+# UNDECLARED everywhere else. `source` (the generic, pipeline-agnostic field)
+# and `offline_backtest_source` stay here: `source` would just restate one of
+# the per-pipeline answers under an ambiguous name, and `offline_backtest_source`
+# is genuinely unanswerable for every feature — walk_forward_validate()
+# (models/model_registry.py) consumes pre-computed {date, outcome, probs}
+# records; it has no independent feature-computation step to cite as a
+# source. See docs/DEBT.md item 36.
 _UNDECLARED_FIELDS: Tuple[str, ...] = (
     "semantic_definition",
     "source",
     "offline_backtest_source",
     "availability_time",
-    "lookahead_risk",
     "missingness_policy",
     "normalization",
     "expected_range",
@@ -1460,6 +1468,45 @@ def _serving_source(name: str, group: str, schema_version: str) -> str:
     return UNDECLARED
 
 
+# Substring, not a set of exact _TRAINING_SOURCE_* constants: every training
+# source that is actually computed inside build_dataset() names that function
+# literally in its own string (last5-form, goals-gd, temporal, league,
+# combination, apex-market, and elo-replay — the latter's own docstring says
+# "wired into scripts/train_on_real_matches.py:build_dataset()"). This is
+# mechanical and gets the phase8-resolved and UNDECLARED sources right for
+# free, without a second hardcoded list to drift from the first.
+_BUILD_DATASET_MARKER = "train_on_real_matches.py:build_dataset()"
+
+_LOOKAHEAD_RISK_COVERED = (
+    "COVERED_BY_WHOLE_VECTOR_LEAKAGE_TEST — "
+    "tests/unit/test_training_leakage_contract.py's "
+    "test_a_matchs_own_result_never_enters_its_own_features and "
+    "test_a_future_result_never_enters_an_earlier_rows_features assert the "
+    "entire build_dataset() feature row is byte-identical when that match's "
+    "own score, or a later match's score, is mutated. This feature's "
+    "training_source computes inside that same call, so a leak into it would "
+    "fail that row-level assertion. Not an isolated per-feature test — a "
+    "whole-vector proxy, the strongest evidence this contract has today."
+)
+
+
+def _lookahead_risk(training_source: str) -> str:
+    """Mechanically-derived `lookahead_risk` — UNDECLARED where untested.
+
+    docs/DEBT.md item 36 named this field genuinely unanswerable when the
+    contract was first built: no leakage test existed yet to answer it for
+    anything. tests/unit/test_training_leakage_contract.py closed that gap
+    for training_source values that resolve inside build_dataset() itself;
+    everything else (phase8_historical.py's separate replay, and every
+    feature training_source could not attribute at all) stays UNDECLARED —
+    a real, watched-failing-first rule, not a second guess layered on top of
+    the first.
+    """
+    if _BUILD_DATASET_MARKER in training_source:
+        return _LOOKAHEAD_RISK_COVERED
+    return UNDECLARED
+
+
 def _shadow_source(name: str) -> str:
     """Mechanically-derived `shadow_source` — the 15 resolved Phase 8 fields
     only. The 6 unresolved ones (market drift, match importance) are never
@@ -1507,6 +1554,7 @@ def build_feature_contract(schema_version: object) -> Dict[str, Any]:
     for index, name in enumerate(features):
         default_value = defaults.get(name)
         group = _feature_group(name)
+        training_source = _training_source(name, group, str(schema_version))
         record: Dict[str, Any] = {
             "index": index,
             "feature_name": name,
@@ -1529,9 +1577,10 @@ def build_feature_contract(schema_version: object) -> Dict[str, Any]:
             # Per-pipeline attribution: a real, grep-verified code path or the
             # literal UNDECLARED. Never a plausible-sounding guess — see each
             # resolver's docstring for exactly what it will and will not claim.
-            "training_source": _training_source(name, group, str(schema_version)),
+            "training_source": training_source,
             "serving_source": _serving_source(name, group, str(schema_version)),
             "shadow_source": _shadow_source(name),
+            "lookahead_risk": _lookahead_risk(training_source),
             "version": str(schema_version),
         }
         for field in _UNDECLARED_FIELDS:

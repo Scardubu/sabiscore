@@ -1,5 +1,66 @@
 # SabiScore Debt Ledger
 
+## 85. Production Vercel alias `web-lac-theta-42.vercel.app` returns platform-level `DEPLOYMENT_NOT_FOUND` despite correct alias assignment — 2026-09-12
+
+**Tier:** `NEXT`.
+**Owner:** unassigned.
+**Found:** 2026-09-12, during a Directive v7.3 P0 Ground Truth capture.
+
+CLAUDE.md has used `web-lac-theta-42.vercel.app` as the canonical production
+frontend URL since vΩ.20 (2026-07-24), and `capture_ground_truth_snapshot.py`'s
+`WEB_HEALTH` constant still probes it. It is now broken: 4/4 direct requests
+this session returned Vercel's platform-level `DEPLOYMENT_NOT_FOUND` (not an
+application 404), in 0.3–0.7s each — reproduced across three separate probe
+rounds minutes apart, not a one-off blip.
+
+**Confirmed as a routing/edge anomaly, not an app or deploy failure:**
+
+- Live Vercel API (`get_project`, `get_deployment` on `dpl_HKcLvZnzSN68pWY6K8aq7h9qZkEi`,
+  commit `18b007d`, target `production`, state `READY`) confirms the alias IS
+  correctly attached, with `aliasError: null`.
+- The other three aliases on the *identical* project/deployment —
+  `web-oversabis-projects.vercel.app`, `web-git-master-oversabis-projects.vercel.app`,
+  and the raw deployment URL `web-forpbypum-oversabis-projects.vercel.app` — all
+  returned HTTP 200 for the same `/api/health` path at the same moment.
+- `sabiscore.com` (the custom domain) remains separately unresolved at DNS —
+  pre-existing, tracked in CLAUDE.md's "Confirmed incomplete / next gates"
+  table, unrelated to this.
+
+Root cause is not establishable from outside the Vercel dashboard — plausibly
+stale edge-routing state specific to this one legacy alias hostname (it
+predates the project's current naming; the three working aliases are all
+newer/simpler forms derived from the current project/org name). No tool in
+this session's Vercel MCP surface can rewrite an alias or force
+re-propagation directly; triggering a brand-new production deployment
+(`deploy_to_vercel`) might incidentally fix it by re-issuing all aliases, but
+that is a real production action with its own risk, not a diagnostic one,
+and was deliberately not tried here.
+
+**Blast radius:** any internal tooling or documentation that hardcodes this
+alias as "the" canonical production URL (this project's own ground-truth
+capture script; CLAUDE.md's historical entries and its "Production alias
+promotion" gap row) silently reports a false partial/outage on every run,
+masking real backend/frontend health behind one dead hostname. No single
+point of failure was created for real users — three working aliases plus
+Vercel's own deployment-level access remain — but anyone who bookmarked or
+scripted against `web-lac-theta-42.vercel.app` directly is currently locked
+out, and CLAUDE.md's own "sha parity" verification procedure (compare
+`/api/health` across backend and this alias) is currently unusable as written.
+**Cost:** low to mitigate (repoint monitoring/docs at a working alias, e.g.
+`web-oversabis-projects.vercel.app`, confirmed working); unknown to fully
+root-cause (needs Vercel dashboard access or support this session's tools
+don't expose).
+**Impact:** low today, growing — every future ground-truth capture will
+report a spurious partial result on the `web_health` probe until either the
+alias is fixed or the monitoring target changes.
+**Priority:** medium. Recommended next action: repoint
+`capture_ground_truth_snapshot.py`'s `WEB_HEALTH` constant (and CLAUDE.md's
+canonical-URL references) at `web-oversabis-projects.vercel.app`; separately,
+have the operator check the alias in the Vercel dashboard or file Vercel
+support to restore `web-lac-theta-42.vercel.app` itself.
+
+---
+
 ## 84. Portfolio F weather: the historical-forecast API silently serves reanalysis before 2022, and three of seven corpus seasons fall in that hole — 2026-09-11
 
 **Tier:** `RESEARCH`. Registry entry `F3` (`SOURCE_QUALIFIED` / `HOLD`).
@@ -5206,6 +5267,25 @@ zero mojibake remaining across all production fixtures.
 **Found:** 2026-08-23, from a user screenshot of the live UI reading
 "Club Atl??tico de Madrid".
 
+> ⚠️ **Re-verified 2026-08-25's fixture-level claim still holds 2026-09-12; a
+> precise scope correction, not a regression.** Live query against
+> `sabiscore-db-v3`: `Team.name LIKE '%?%'` returns exactly **2** rows —
+> `fd-team-bundesliga:fc_bayern_m??nchen` and
+> `fd-team-bundesliga:borussia_m??nchengladbach`, both named in the original
+> 2026-08-23 list below. Confirmed harmless: **zero** rows in
+> `elo_rating_snapshots` reference either id, and **zero** `matches` rows
+> reference either as `home_team_id`/`away_team_id` (the real, clean,
+> history-bearing Bayern Munich row alone carries 243 matches). This is
+> exactly what the orphan-rebind executor's own documented scope predicts —
+> "Writes `Match.home_team_id`/`away_team_id` and nothing else — no Team, no
+> Elo snapshot" — so the corrupted *rows* were never going to disappear from
+> `teams`, only stop being *referenced*. "Zero mojibake remaining across all
+> production fixtures" is still true today and is the claim that matters
+> (nothing ever renders these two rows to a user); "zero mojibake in the
+> `teams` table" was never claimed and is not true. Deleting the two orphan
+> rows is optional hygiene with no functional upside — low priority, not
+> tracked as a separate item.
+
 Production `sabiscore_db_v3` holds team rows whose names and IDs carry literal
 ASCII `?` in place of every accented byte — `M??laga CF`,
 `fd-team-la_liga:m??laga_cf`, `FC Bayern M??nchen`, `Borussia M??nchengladbach`,
@@ -5832,6 +5912,36 @@ three-way artifact split is closed. What remains is *populating* fields no code
 can answer today, plus §7.3 vector parity.
 **Found:** 2026-08-21, while implementing the Phase 3 identity gate.
 **Partially resolved:** 2026-08-21, same day, by the generator described below.
+**Further resolved:** 2026-09-12 (Directive v7.3 P3) — one more previously
+`UNDECLARED` field, `lookahead_risk`, closed for real.
+
+> ⚠️ **2026-09-12 — `lookahead_risk` moved from UNDECLARED to mechanically
+> derived for 34 of 68 `phase7_68` features.** This item's own "14 fields
+> nothing in the repo can answer" framing was correct *at the time* — no
+> leakage test existed yet to answer it for anything. That changed with
+> `tests/unit/test_training_leakage_contract.py` (already in the repo,
+> unrelated original purpose — certification Stage 6 reproducibility), whose
+> `test_a_matchs_own_result_never_enters_its_own_features` and
+> `test_a_future_result_never_enters_an_earlier_rows_features` assert the
+> **entire** `build_dataset()` feature row is byte-identical when that
+> match's own score, or a later match's score, is mutated. New
+> `_lookahead_risk()` in `feature_registry.py` cites that test — mechanically,
+> via the same "one explicit rule, not per-feature judgement" discipline the
+> `disposition` rule already uses — for every feature whose `training_source`
+> names `build_dataset()` literally in its own string; everything else
+> (phase8_historical.py's separate replay, and every feature `training_source`
+> could not attribute at all) stays honestly `UNDECLARED`. `lookahead_risk` is
+> removed from `_UNDECLARED_FIELDS`, matching `test_feature_contract.py`'s own
+> pre-existing instruction: "If a real derivation for one of these lands
+> later, delete it from `_UNDECLARED_FIELDS` in the same change." Three new
+> tests, all watched failing against the reverted code first (one caught its
+> own wrong feature-name bug — `home_pi_rating`/`home_pi_attack` — before
+> being trusted, the exact value of watching rather than assuming green).
+> `feature_contract.json` regenerated (`contract_sha256` moves — attribution
+> is a hashed field); `scripts/verify_active_artifacts.py` build gate still
+> exits 0. 9 of the remaining 10 `_UNDECLARED_FIELDS` (`unit`,
+> `availability_time`, `monitoring_rule`, etc.) are unchanged — this closes
+> one field, not the item.
 
 ### What shipped
 
@@ -7711,12 +7821,46 @@ diagnosis; does not change the runbook above.
 
 ## 16. Release infrastructure and historical-secret gates remain partially closed
 
-**Tier:** `NEXT` — narrowed 2026-08-25 to exactly two open sub-items, both
-requiring something code cannot do (a credential owner's revocation evidence;
-an actual Docker build run). Was `FIX-NOW` / P0 "before merge or deployment",
-which is no longer an accurate description of what remains.
+**Tier:** `NEXT` — narrowed 2026-08-25 to two sub-items (credential
+revocation, Docker image proof); **CI dispatch billing lock re-opened
+2026-09-12** (see below), back to three open sub-items. Was `FIX-NOW` / P0
+"before merge or deployment", which is no longer an accurate description of
+what remains.
 **Verified:** 2026-08-10. **Re-verified and narrowed:** 2026-08-25.
+**Re-opened (CI dispatch):** 2026-09-12.
 
+> ⚠️ **RE-OPENED 2026-09-12 — the CI dispatch billing lock has recurred, a
+> third time.** The "CLOSED — deploy/CI dispatch" note below (2026-08-25,
+> PRs #95–#99) and the 2026-08-31 confirmation elsewhere in this file both
+> described a real state at the time, but neither held. Live `gh run
+> list`/`gh api .../jobs` against `master` confirms every workflow run in the
+> visible history — pushes for PRs #173–#177 *and* the unrelated scheduled
+> `Keep-alive ping` — fails in 3–6s with `runner_name:""`, `steps:0`, and the
+> identical annotation this item originally tracked:
+>
+> ```text
+> The job was not started because your account is locked due to a billing
+> issue.
+> ```
+>
+> Confirmed continuously active from `2026-09-11T21:06Z` through
+> `2026-09-12T20:54Z` (the full window `gh run list` returns), predating the
+> `.github/workflows/ci.yml` edit in PR #177 (visible on #174–#176 too, and
+> on the account-wide `Keep-alive ping` schedule, which no workflow-file edit
+> could explain) — this rules out a bad CI-config change as the cause and
+> confirms it is the same account-level lock as the original entry, not a new
+> failure mode. **Consequence: PRs #173–#177 merged to `master` with zero
+> executed CI** — per this repository's own INV-17, those checks were
+> `BLOCKED`, not `PASS`, and the merges were administrative overrides that
+> went unrecorded as such at the time. Not code-fixable from here; needs the
+> GitHub billing console (operator-only). **This is now the third time this
+> exact sub-item has been marked closed (2026-08-14, 2026-08-25, 2026-08-31)
+> and later found recurred (2026-09-09, 2026-09-12)** — a one-time clearance
+> keeps not holding, which suggests the durable fix is a payment-method or
+> spend-cap correction on the account itself, not just waiting for a given
+> incident to clear. Re-verify with `gh run list --branch master --limit 5`
+> before trusting any "closed" claim on this sub-item again.
+>
 > ✅ **Re-verified 2026-08-25 against live production and a full-history scan.**
 > The 2026-08-22 staleness warning below was correct; here is what the actual
 > checks return now.
