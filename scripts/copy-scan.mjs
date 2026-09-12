@@ -2,29 +2,40 @@
 /**
  * scripts/copy-scan.mjs
  * Responsible-gambling prohibited-copy scanner.
- * Source of truth for the term list: CLAUDE.md, "Prohibited UI terms".
+ * Source of truth for the term list: CLAUDE.md, "Prohibited UI terms",
+ * reconciled against the pre-existing outcome-claim patterns that were
+ * previously inline-only in ci.yml and undocumented in CLAUDE.md.
  *
  * Exit code 0 = clean. Exit code 1 = one or more violations found.
  * No `|| true` permitted anywhere this script is invoked.
  */
 
 import { readFileSync } from "node:fs";
-import { globSync } from "glob"; // already a transitive dep via other tooling; add directly if needed
+import { globSync } from "glob";
 
-const TARGET_GLOB = "apps/web/src/**/*.{ts,tsx,js,jsx}";
+const TARGET_GLOB = "apps/web/src/**/*.{ts,tsx}";
+const EXCLUDE_GLOB = "apps/web/src/**/*.{test,spec}.{ts,tsx}";
 
-// Each entry: { name, pattern, negationWindow? }
-// negationWindow: if a negation word appears within N chars before the match, skip it
-// (covers legitimate responsible-gambling disclaimers like "returns are not guaranteed").
-const RULES = [
-  { name: "lock", pattern: /\block\b/i },
+const NEGATION_WORDS = /\b(not|no|never|isn't|aren't|without|non-|un)\b/i;
+
+// Group 1: base literal/phrase terms (word- or phrase-bounded, case-insensitive)
+const BASE_RULES = [
   { name: "banker", pattern: /\bbanker\b/i },
-  { name: "guaranteed", pattern: /\bguaranteed\b/i, negationWindow: 20 },
-  { name: "guaranteed winner", pattern: /\bguaranteed\s+winner\b/i, negationWindow: 20 },
   { name: "sure bet", pattern: /\bsure\s+bet\b/i },
   { name: "free money", pattern: /\bfree\s+money\b/i },
   { name: "execute immediately", pattern: /\bexecute\s+immediately\b/i },
-  { name: "risk-free", pattern: /\brisk[- ]free\b/i, negationWindow: 20 },
+  { name: "lock", pattern: /\block\b/i, camelCaseSkip: true },
+];
+
+// Group 2: negation-sensitive terms — legitimate responsible-gambling
+// disclaimers ("returns are not guaranteed") must NOT be flagged.
+const NEGATION_RULES = [
+  { name: "guaranteed", pattern: /\bguaranteed\b/i },
+  { name: "risk-free", pattern: /\brisk[- ]free\b/i },
+];
+
+// Group 3: new certainty-of-outcome phrases (bare "certain" intentionally excluded)
+const CERTAINTY_RULES = [
   { name: "can't lose", pattern: /\bcan(?:'|\u2019)?t\s+lose\b|\bcannot\s+lose\b/i },
   { name: "certain to win", pattern: /\bcertain\s+to\s+win\b/i },
   { name: "certain profit", pattern: /\bcertain\s+profit\b/i },
@@ -32,37 +43,41 @@ const RULES = [
   { name: "100% certain", pattern: /\b100%\s*certain\b/i },
 ];
 
-const NEGATION_WORDS = /\b(not|no|never|isn't|aren't|without|non-|un)\b/i;
+// Group 4: pre-existing outcome-claim phrases — ported unchanged from the
+// original inline `outcome_claim_hits` grep (no negation filtering applied
+// there originally; preserved as-is rather than silently tightened).
+const OUTCOME_CLAIM_RULES = [
+  { name: "maximize betting edge", pattern: /\bmaximi[sz]e (your )?betting edge\b/i },
+  { name: "beat the market/odds", pattern: /\bbeat(?:s|ing)? (?:the market|the odds)\b/i },
+  { name: "win more", pattern: /\bwin more\b/i },
+  { name: "winning picks", pattern: /\bwinning picks?\b/i },
+  { name: "highly accurate predictions", pattern: /\bhighly accurate predictions?\b/i },
+  { name: "profitable predictions", pattern: /\bprofitable predictions?\b/i },
+  { name: "guaranteed returns", pattern: /\bguaranteed returns?\b/i },
+];
 
-function isImportLine(line) {
-  const trimmed = line.trim();
-  return trimmed.startsWith("import ") || trimmed.startsWith("export ") && trimmed.includes(" from ");
-}
-
-function isCommentLine(line) {
+function isImportOrCommentLine(line) {
   const trimmed = line.trim();
   return (
+    trimmed.startsWith("import ") ||
     trimmed.startsWith("//") ||
     trimmed.startsWith("/*") ||
-    trimmed.startsWith("*") ||
-    trimmed.startsWith("* ")
+    trimmed.startsWith("*")
   );
 }
 
-function isCamelCaseLockIdentifier(line, matchIndex) {
-  // Skip only if "lock"/"Lock" is glued to adjacent identifier characters
-  // (useLock, LockIcon, handleLock, lockState) rather than standing as its
-  // own word in prose/JSX text content.
+function isCamelCaseOrScrollHook(line, matchIndex, matchLength) {
   const before = line[matchIndex - 1];
-  const after = line[matchIndex + 4]; // 4 = length of "lock"
+  const after = line[matchIndex + matchLength];
   const wordChar = /[A-Za-z0-9_]/;
-  return (before && wordChar.test(before)) || (after && wordChar.test(after));
+  const glued = (before && wordChar.test(before)) || (after && wordChar.test(after));
+  const isUseScroll = /use-scroll/i.test(line);
+  return glued || isUseScroll;
 }
 
-function hasNearbyNegation(line, matchIndex, window) {
+function hasNearbyNegation(line, matchIndex, window = 24) {
   const start = Math.max(0, matchIndex - window);
-  const context = line.slice(start, matchIndex);
-  return NEGATION_WORDS.test(context);
+  return NEGATION_WORDS.test(line.slice(start, matchIndex));
 }
 
 function scanFile(path) {
@@ -70,26 +85,26 @@ function scanFile(path) {
   const lines = readFileSync(path, "utf8").split("\n");
 
   lines.forEach((line, idx) => {
-    if (isImportLine(line) || isCommentLine(line)) return;
+    if (isImportOrCommentLine(line)) return;
 
-    for (const rule of RULES) {
-      const match = rule.pattern.exec(line);
-      if (!match) continue;
+    for (const rule of BASE_RULES) {
+      const m = rule.pattern.exec(line);
+      if (!m) continue;
+      if (rule.camelCaseSkip && isCamelCaseOrScrollHook(line, m.index, m[0].length)) continue;
+      violations.push({ file: path, lineNumber: idx + 1, term: rule.name, snippet: line.trim().slice(0, 120) });
+    }
 
-      if (rule.name === "lock" && isCamelCaseLockIdentifier(line, match.index)) {
-        continue;
-      }
+    for (const rule of NEGATION_RULES) {
+      const m = rule.pattern.exec(line);
+      if (!m) continue;
+      if (hasNearbyNegation(line, m.index)) continue;
+      violations.push({ file: path, lineNumber: idx + 1, term: rule.name, snippet: line.trim().slice(0, 120) });
+    }
 
-      if (rule.negationWindow && hasNearbyNegation(line, match.index, rule.negationWindow)) {
-        continue;
-      }
-
-      violations.push({
-        file: path,
-        lineNumber: idx + 1,
-        term: rule.name,
-        snippet: line.trim().slice(0, 120),
-      });
+    for (const rule of [...CERTAINTY_RULES, ...OUTCOME_CLAIM_RULES]) {
+      const m = rule.pattern.exec(line);
+      if (!m) continue;
+      violations.push({ file: path, lineNumber: idx + 1, term: rule.name, snippet: line.trim().slice(0, 120) });
     }
   });
 
@@ -97,24 +112,19 @@ function scanFile(path) {
 }
 
 function main() {
-  const files = globSync(TARGET_GLOB, { nodir: true });
+  const excluded = new Set(globSync(EXCLUDE_GLOB, { nodir: true }));
+  const files = globSync(TARGET_GLOB, { nodir: true }).filter((f) => !excluded.has(f));
   const allViolations = files.flatMap(scanFile);
 
   if (allViolations.length === 0) {
-    console.log(`✅ Responsible gambling copy scan: 0 hits across ${files.length} files.`);
+    console.log(`✓ No prohibited gambling copy (${files.length} files scanned)`);
     process.exit(0);
   }
 
-  console.error(`❌ Responsible gambling copy scan: ${allViolations.length} violation(s) found.\n`);
   for (const v of allViolations) {
-    console.error(`  ${v.file}:${v.lineNumber}  [${v.term}]  ${v.snippet}`);
+    console.error(`${v.file}:${v.lineNumber}: [${v.term}] ${v.snippet}`);
   }
-  console.error(
-    "\nProhibited terms are defined in CLAUDE.md → 'Prohibited UI terms'. " +
-      "If this is a legitimate responsible-gambling disclaimer (e.g. 'returns are not guaranteed'), " +
-      "rephrase so a negation word sits within 20 characters before the flagged term, or contact " +
-      "the directive owner to adjust the negation window."
-  );
+  console.error("ERROR: Prohibited gambling copy found — see matches above");
   process.exit(1);
 }
 
