@@ -268,7 +268,7 @@ Always load `motion-performance-architect` first, then `motion-interaction-archi
 - CSP is set per-request in `apps/web/src/middleware.ts` with a `script-src` nonce + `'strict-dynamic'` — never move it back to a static `next.config.js` `headers()` value; Next.js's own inline bootstrap/RSC scripts require a per-request nonce to execute, which static config cannot provide (confirmed 2026-06-28: without the nonce, every page silently failed to hydrate under CSP enforcement — fixed this session)
 - Validate all proxy parameters with Zod before forwarding to backend
 - Language on the `/intelligence` page must remain quiet and analytical — no promotional betting copy
-- Prohibited UI terms: `lock`, `banker`, `guaranteed`, `sure bet`, `free money`, `execute immediately`
+- Prohibited UI terms: `lock`, `banker`, `guaranteed`, `guaranteed winner`, `sure bet`, `free money`, `execute immediately`, `risk-free`, `can't lose`, and certainty-of-outcome phrasing (`certain to win`, `certain profit`, `certain return`, `100% certain`) — bare `certain` is intentionally NOT banned; it is common non-promotional English (e.g. "in certain leagues") and would flood the CI scan with false positives
 
 ## TypeScript / Node.js Verticals (TaxBridge / SwarmX)
 
@@ -556,7 +556,7 @@ overrides all prior status docs — verify with a grep/read before acting.
 
 | Fixture sync unit tests (vΩ.7, 2026-07-07) | `backend/tests/unit/test_fixture_sync.py` — 3 tests added in vΩ.6 (commit 372035c), confirmed passing: idempotent re-sync (same data → 0 new rows), unsupported competition dropped (only 7-competition closed set accepted), malformed date skipped (valid neighbours still inserted). |
 
-| CI: Responsible gambling copy scan (vΩ.7, 2026-07-07) | `.github/workflows/ci.yml` `web-quality` job — new step "Responsible gambling copy scan" after lint. Scans `apps/web/src/` for CLAUDE.md prohibited terms (`lock`, `banker`, `guaranteed`, `sure bet`, `free money`, `execute immediately`). Filters: import lines, JSDoc/comment lines, camelCase Lock identifiers, and negated `guaranteed` contexts (required responsible gambling disclaimers). Both pattern sets locally verified: 0 hits on current codebase. No `|| true`. |
+| CI: Responsible gambling copy scan (vΩ.7, 2026-07-07; term list synchronized with directive vocabulary, 2026-09-12) | `.github/workflows/ci.yml` `web-quality` job — step "Responsible gambling copy scan" after lint. Scans `apps/web/src/` for CLAUDE.md prohibited terms: `lock`, `banker`, `guaranteed` (covers `guaranteed winner`), `sure bet`, `free money`, `execute immediately`, `risk-free`/`risk free`, `can't lose`/`cannot lose`, and phrase-anchored certainty claims (`certain to win`, `certain profit`, `certain return`, `100% certain`). Filters: import lines, JSDoc/comment lines, camelCase `Lock` identifiers, negated `guaranteed` contexts (required responsible gambling disclaimers), and negated `risk-free` contexts (e.g. "not risk-free" disclaimers). Bare `certain` is deliberately excluded — it is ordinary English, not promotional copy, and a blanket ban would be unenforceable noise. All pattern sets locally verified: 0 hits on current codebase. No `|| true`. |
 
 | CSP frame-src for Vercel toolbar (vΩ.8, 2026-07-13) | `apps/web/src/middleware.ts` CSP gains `frame-src 'self' https://vercel.live` — without it, `default-src 'self'` blocked the Vercel preview toolbar iframe. `frame-ancestors 'none'` unchanged (controls who embeds us; frame-src controls what we embed). |
 
