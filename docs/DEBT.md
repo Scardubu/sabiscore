@@ -1,5 +1,58 @@
 # SabiScore Debt Ledger
 
+## 86. `models/candidate/training_manifest.json` declares `apex_v1_68` for the same `v5_phase7` artifact_suffix the served generation declares as `phase7_68` — flagged for confirmation, not yet classified as a defect
+
+**Tier:** `NEXT` (documentation/confirmation only — no code change).
+**Owner:** unassigned.
+**Found:** 2026-09-13, during a Directive v7.3 P4 (Experiment & Model
+Governance) review.
+
+`backend/models/active_generation.json` — the certified, hash-pinned, **served**
+generation manifest — declares `"feature_schema_version": "phase7_68"`
+(`CANONICAL_FEATURES_68`, the legacy market block) for `"active_version":
+"v5_phase7"`. `backend/models/candidate/training_manifest.json`, regenerated
+this session through the now-patched `build_training_manifest()` from its
+own prior inputs (no retraining; see this file's item on
+`training_manifest.py`'s P4 field additions), carries `"training_config":
+{"artifact_suffix": "v5_phase7", ...}` **and** `"features":
+{"feature_schema_version": "apex_v1_68", ...}` (`APEX_FEATURES_68`, the newer
+apex market block) — the *same* artifact_suffix string naming two genuinely
+different, separately-registered 68-wide schemas (confirmed via
+`src/models/feature_registry.py:474-475`: `"phase7_68":
+CANONICAL_FEATURES_68` and `"apex_v1_68": APEX_FEATURES_68` are distinct
+entries, not aliases).
+
+**Plausible benign explanation, not yet confirmed as the actual intent:**
+`backend/models/` (root) is the certified, hash-pinned, served artifact set;
+`backend/models/candidate/` is a research/comparison sandbox that already
+holds multiple *rejected* candidates side by side (`*_v8_dense68.pkl`,
+`*_v9_gate7.pkl`, `*_v10_gate7_hpo.pkl`, per
+`scripts/compare_candidate_vs_incumbent.py`'s own evidence trail) — so a
+`*_v5_phase7.*` copy living there may simply be "the incumbent, re-derived
+under today's code for apples-to-apples comparison," and today's code
+defaults to the newer `apex_v1_68` schema. If so this is working as designed
+and requires no fix — directive v7.3 P4 explicitly permits "the incumbent
+retains its own declared feature contract" in a comparison.
+
+**Why this is flagged rather than silently assumed either way:** reusing the
+bare `"v5_phase7"` suffix across two different schema declarations is
+precisely the two-vocabulary naming-collision shape this repository has been
+bitten by repeatedly (league display-vs-canonical forms, the `odds_service`
+team-key normalizers, the `LIVE`-badge freshness-vs-match-state collision) —
+each time, the failure was invisible until someone checked the one case where
+the two vocabularies disagree. Recommend an explicit confirmation (and, if
+the sandbox-incumbent reading is correct, a renamed artifact_suffix such as
+`v5_phase7_incumbent_today` to remove the collision) before anything
+downstream — e.g. a future P8 candidate-comparison pass — reads
+`models/candidate/*_v5_phase7.*`'s schema version and assumes it describes
+the served generation.
+
+**Blast radius:** none today — nothing in the live serving path reads
+`models/candidate/`; only `compare_candidate_vs_incumbent.py` and this
+session's manifest refresh touch it. **Cost to resolve:** low (one naming
+decision plus a rename, or an explicit "working as designed" confirmation
+closing this item). **Priority:** low, non-blocking.
+
 ## 85. Production Vercel alias `web-lac-theta-42.vercel.app` returns platform-level `DEPLOYMENT_NOT_FOUND` despite correct alias assignment — 2026-09-12
 
 **Tier:** `NEXT`.
@@ -2047,6 +2100,33 @@ artifact under `backend/models/` (the served, certified root) was touched —
 only `backend/models/candidate/` (gitignored `.pkl`s; the tracked
 `training_report_real.json` and new `comparison_report_v5_phase7_isotonic_fix.json`
 carry the evidence trail). Nothing was committed or promoted this session.
+
+⚠️ **Addendum, directive v7.3 P4 review (2026-09-13):** the superseding
+`PRODUCTION_EXECUTIVE_DIRECTIVE.md` v7.3 (replacing the v5 "Data Intelligence"
+directive this item's own heading cites as "§20 B3") states flatly under P4:
+"Never: ... calibrate on final test." Re-examined against that narrower
+wording rather than assumed still-authorized by a directive version no longer
+in the repository. **Holds, unchanged, for a precise reason:** no calibrator's
+*parameters* are ever fit on the holdout split — `_fit_temperature`,
+`_fit_vector_scaling`, `_fit_beta_calibration`, and `_fit_isotonic` each fit
+only on `meta_features_calibration`/`y_calibration`. The holdout season is
+consulted solely as an accept/reject gate over four fixed, enumerable
+recipes (`_calibration_wins`'s `holdout_wins` check) — selecting among a
+handful of named methods is a materially smaller degree of freedom than the
+continuous-parameter tuning the directive's "tune on final holdout" clause
+targets (which `tune_hyperparameters` already avoids by searching only the
+training slice, `train_on_real_matches.py:1277-1278`). This is the same
+distinction the removed directive's own §20 B3 language drew, restated here
+so the authorization survives its source document's removal rather than
+silently riding on a citation to a file that no longer exists.
+**Not relaxed, not re-litigated as a new finding** — this is a documentation
+correction, not a behavior change, and none was made. **If a stricter literal
+reading is wanted** (a true fourth, doubly-held-out split whose metrics are
+never consulted by calibrator selection), that is a deliberate
+certification-policy change — `certification_policy.py`'s own
+`EVIDENCE_FLOORS["training_split"]` and `PROMOTION_GATES` would need a
+version bump under OG-06, plus a full retrain to produce comparable evidence
+— not something to apply unilaterally mid-review.
 
 ## 63. A flat diagnostic prior was differenced against real market prices and published as a "+29.8pp" edge — RESOLVED 2026-09-08
 
