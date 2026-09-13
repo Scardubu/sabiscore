@@ -1,5 +1,130 @@
 # SabiScore Debt Ledger
 
+## 87. `PredictionEngine` saved every artifact's trained stacking meta-model but never read it at inference — every live prediction through this path was an unstacked, uncalibrated equal-weight base-learner average — FIXED 2026-09-13
+
+**Tier:** `RESOLVED` — root-caused, fixed at both defect sites, watched failing
+against the pre-fix code three times (mocked unit tests, a `prime_cache`
+regression test, and real on-disk artifacts across all 6 leagues), verified
+end-to-end against the real shipped EPL artifact, full adjacent test surface
+green (191 tests across the PredictionEngine/artifact-loading/uncertainty
+suite plus the full backend suite — see Verification).
+
+**Found while executing Directive v7.3 P5 ("Calibration & Uncertainty"),
+specifically its "Serve-time calibration" requirement**: trace
+`FIT → SERIALIZED → REGISTERED → LOADED → CALLED`; a calibrator that exists
+offline but is not applied at inference is not production-calibrated.
+
+**The chain broke at LOADED, in two coordinated places.**
+`scripts/train_on_real_matches.py` (line ~1480) saves every trained artifact
+as `{"models": {...3 base learners...}, "meta_model": meta_model, ...}` —
+`meta_model` is the fitted stacking head, and per `_select_calibrator`
+(docs/DEBT.md item 64) it is whichever of temperature/vector/beta/isotonic
+calibration won the two-stage selection, or at minimum a bare
+`SoftmaxMetaModel`. **(1)** `src/models/prediction.py`'s `_wrap_artifact()`
+deserialises this exact dict but only ever extracted `models`, `calibrator`
+(a *different*, always-absent-for-this-generation `FittedCalibrator`
+mechanism from `calibration.py`), `overlay`, and `feature_columns` — never
+`raw.get("meta_model")`. `_run_inference`'s dict-artifact branch therefore
+always called `_ensemble_predict_dict`, a plain equal-weight average of the
+base learners' `predict_proba()` outputs, documented in its own docstring as
+exactly that and nothing more. **(2)** `PredictionEngine.prime_cache()` —
+which seeds the live-serving cache from the object FastAPI startup already
+loaded via `SabiScoreEnsemble`, and is the actual priming path for the
+currently-active `v5_phase7` generation — built its lightweight `raw` dict
+from only `model.models` and `model.feature_columns`, dropping
+`model.meta_model` a second time even though it sat right there on the
+already-loaded startup object. Fixing only (1) would not have fixed live
+serving, because (2) never reaches (1) with the field intact.
+
+**Scope, precisely.** `PredictionEngine` (`src/models/prediction.py`) is
+imported by `api/endpoints/full_analysis.py` (`/full-analysis`),
+`services/upcoming_match_service.py` (`/api/v1/upcoming/matches`,
+`/api/v1/fixtures/upcoming`), `models/ensemble_uncertainty.py` (the M2
+epistemic-uncertainty computation — ADR 0009 — now also measures uncertainty
+against the correctly-stacked predictions, not the wrong ones), `api/main.py`
+(startup wiring), and `tasks/background.py`. **`services/prediction.py`'s
+separate `predict_match()` pipeline was never affected** — it calls
+`SabiScoreEnsemble.load_model()`/`.predict()` directly, which already builds
+meta-features via `_create_meta_features()` and calls `self.meta_model
+.predict_proba()` correctly; this bug was specific to `PredictionEngine`'s
+own, separate dict-unpickling re-implementation, not a codebase-wide defect.
+
+**Fix:** `_ArtifactBundle` gains a `meta_model` field, populated at both
+construction sites (`_wrap_artifact`, `prime_cache`). `_run_inference` now
+tries the real path first — `_stacked_predict()` builds the meta-feature
+matrix in the exact per-model `{name}_prob_home/draw/away` column grouping
+`_build_meta_features()` in both `train_on_real_matches.py` and
+`SabiScoreEnsemble._create_meta_features()` already use (re-derived directly
+in `prediction.py`, not imported from either — the training script is a
+script, not a package module, and `SabiScoreEnsemble` belongs to a separate,
+older training pipeline that this module has no other reason to depend on)
+— then calls `meta_model.predict_proba()`. A meta-model that raises degrades
+to the pre-existing equal-weight average rather than the harsher flat
+fallback: real live evidence from the real base learners beats discarding it.
+`calibration_method`/`calibration_applied` on `PredictionResult` now
+honestly report whichever of the 4 named calibration wrapper classes (or
+"stacked_unknown" for an unrecognised one) actually ran, not a value that
+was always "raw" regardless of what the artifact contained.
+
+⚠️ **The currently-served `v5_phase7` generation's own `meta_model` happens
+to be a bare, uncalibrated `SoftmaxMetaModel`** — verified live, not
+assumed: this artifact was trained 2026-08-08, a full month before item 64's
+calibration-selection cascade existed (RESOLVED 2026-09-09), so it predates
+that machinery entirely. This fix corrects **stacking** (using the trained
+logistic/softmax combination weights instead of a naive average) for today's
+traffic immediately; **calibration** specifically activates automatically
+the moment a generation trained by the current script is promoted, with no
+further code change required.
+
+⚠️ **Does not change certification or staking posture.** `active_generation
+.json`'s `certification_state` stays `"UNVERIFIED"`, `stake_permitted` stays
+`false` (gated independently by `MODEL_GENERATION_UNCERTIFIED` and the
+permanent `MODEL_UNCERTAINTY_UNAVAILABLE` gap — item 42). This is a
+prediction-quality correction inside the existing Research Mode posture, not
+a promotion.
+
+**Verified against real production artifacts, not just mocks** (the same
+discipline `tests/unit/test_model_artifact_loading.py`'s own docstring
+already establishes for this exact class of defect — a mocked bundle would
+have passed throughout the whole time this bug existed): loaded the real
+EPL `v5_phase7` artifact and ran both paths on an identical all-zero input —
+stacked output `(0.4365, 0.2149, 0.3486)` vs. the old equal-weight average
+`(0.2618, 0.2219, 0.5163)`. Same input, opposite favourite (home vs. away) —
+not a rounding-level discrepancy.
+
+**Tests:** 4 new cases in `tests/test_prediction_engine.py` (PE-26..PE-29:
+stacked output overrides the average; meta-feature column grouping is
+per-model not per-class; a raising meta-model degrades gracefully; an
+unrecognised meta-model class reports "stacked_unknown" rather than
+crashing), 1 new case in `tests/unit/test_prediction_engine_startup_cache.py`
+(priming preserves `meta_model` for calibrated serving), 1 new
+per-league-parametrized case plus 1 strengthened assertion in
+`tests/unit/test_model_artifact_loading.py` (every real committed artifact
+across all 6 leagues exposes a usable `meta_model`; the real end-to-end
+EPL/LA_LIGA prediction test now asserts `calibration_applied is True`). All
+8 watched failing against the pre-fix code before being trusted (3 separate
+scoped `git stash` rounds — mocked tests, the startup-cache test, then the
+real-artifact tests — each confirmed failing, then passing after restoring
+the fix).
+
+**Verification:** ruff clean on all 4 touched files; mypy on
+`prediction.py` unchanged in scope and net **−1** error (a `models_dict:
+Optional[...]` narrowing `assert`, added to support the new code path,
+incidentally fixed a pre-existing imprecision at the original call site
+too) — 0 new errors introduced. 191 tests green across
+`test_prediction_engine.py`, `test_prediction_engine_startup_cache.py`,
+`test_artifact_serves_both_loaders.py`, `test_model_artifact_loading.py`,
+`test_uncertainty_contract.py` (2 pre-existing, unrelated `xfail`s — item 50's
+already-documented `error_association` reversal — untouched by this fix),
+`test_model_differentiates_fixtures.py`, `test_full_analysis_contract.py`,
+`test_settled_predictions_join.py`, `test_upcoming_match_service.py`,
+`test_staleness_and_market_wiring.py`, `test_b13_no_synthetic_injection.py`,
+`test_settings_path_anchoring.py`. Full `pytest tests/` sweep run to
+completion: **2483 passed, 17 skipped (all pre-existing — no local Redis,
+integration tests needing external resources, a deleted-module gate,
+catboost-unavailable-on-3.14, one deliberately-isolated test), 2 xfailed
+(the same item-50 `error_association` reversal, unchanged), 0 failed.**
+
 ## 86. `models/candidate/training_manifest.json` declares `apex_v1_68` for the same `v5_phase7` artifact_suffix the served generation declares as `phase7_68` — flagged for confirmation, not yet classified as a defect
 
 **Tier:** `NEXT` (documentation/confirmation only — no code change).
