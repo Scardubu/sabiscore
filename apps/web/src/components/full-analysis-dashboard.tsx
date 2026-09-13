@@ -384,7 +384,7 @@ function EnhancedMatchHero({
           {ensemble.calibration_applied && (
             <span
               className="inline-flex items-center rounded-full border border-violet-500/25 bg-violet-500/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-violet-400"
-              title={`Probability calibration applied — method: ${ensemble.calibration_method ?? "isotonic"}`}
+              title={`Probability calibration applied — method: ${ensemble.calibration_method ?? "calibrated"}`}
             >
               {ensemble.calibration_method ?? "calibrated"}
             </span>
@@ -700,7 +700,7 @@ export function EnsembleCard({ data }: { data: FullMatchAnalysisResponse["ensemb
             {data.calibration_applied && (
               <span
                 className="rounded-full border border-violet-500/25 bg-violet-500/10 px-1.5 py-px text-[9px] font-semibold text-violet-400"
-                title={`Calibration: ${data.calibration_method ?? "isotonic"}`}
+                title={`Calibration: ${data.calibration_method ?? "cal"}`}
               >
                 {data.calibration_method ?? "cal"}
               </span>

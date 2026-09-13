@@ -1,5 +1,54 @@
 # SabiScore Debt Ledger
 
+## 92. A calibration-method tooltip fabricated "isotonic" on a type-impossible null — FIXED 2026-09-13
+
+**Tier:** `RESOLVED`. **Found:** 2026-09-13, during a directive v7.3 P8
+(Model Comparison & Market Diagnostics) review, checking "never equate
+better calibrated with beats market" for any place the two ideas might
+blur together in the UI.
+
+`apps/web/src/components/full-analysis-dashboard.tsx`'s `EnsembleCard` and
+the dashboard's provenance strip both rendered a calibration chip as
+``{calibration_method ?? "calibrated"}`` (honest — a generic label, never a
+guessed method) but built the chip's **tooltip** as
+``` `...method: ${calibration_method ?? "isotonic"}` ```  — naming one
+*specific* real calibration method as the fallback. `full-analysis-
+contract.ts` declares `calibration_method: z.string()` — never nullable,
+never optional — confirmed by grep, so this fallback was unreachable under
+the current contract and **fabricated nothing today**. It was still wrong
+to leave: the moment that field were ever sent `null` (a future backend
+change, a different response path), the tooltip would have claimed a
+specific calibration method was used when none was known — the exact class
+of defect this ledger has repeatedly found in this codebase (a plausible-
+looking fallback standing in for "we don't actually know this").
+
+**Fix:** both fallbacks now match their own chip's already-honest generic
+label (`"calibrated"` / `"cal"`) instead of naming a specific method.
+**Scope check, not just this one site**: `compare_candidate_vs_incumbent
+.py`'s `market_baseline` gate and `clv_service.py`'s CLV computation were
+also reviewed for the same P8 requirements ("apples-to-apples" evaluation,
+"never label an arbitrary market snapshot as CLV") and found
+`ALREADY_CORRECT` — CLV is sourced only from `MarketSnapshot(is_closing_
+line=True)` rows at the repository-query layer, and the market-baseline
+comparison already shares holdout/metric convention between candidate and
+incumbent per the P4 review. One minor, low-priority note left
+undisturbed: `market_baseline`'s gate reads `candidate_evidence[
+"baseline_rps_market"]` with no `UNVERIFIED` state if that key were ever
+absent (it would raise `KeyError` instead) — a real but so-far-never-
+triggered edge case (every report examined this session had the key
+present), not forced into a fix without evidence it matters.
+
+**Tests:** one new case in `full-analysis-dashboard.test.tsx`, using a
+type-bypassing cast to simulate the contract violation the type system
+itself forbids (`calibration_method: null as unknown as string`) — checks
+the `title` attribute specifically, not just visible text, since the first
+draft of this same test checked only `textContent` and passed against the
+*unpatched* code (the bug lived in an attribute, not rendered text) before
+being corrected and re-verified failing, then passing.
+
+**Verification:** eslint 0 warnings, `tsc --noEmit` 0 errors, full web
+Vitest suite 350/350 passed (56 files), `NODE_ENV=production` build clean.
+
 ## 89. `block_bootstrap_ci()`'s per-replicate index construction is O(n_bootstrap × n_blocks) pure Python — fine today, a real ceiling if pooled walk-forward samples ever reach the thousands — NOT FIXED, deliberately deferred
 
 **Tier:** `LATER`. **Owner:** unassigned. **Found:** 2026-09-13, while
