@@ -141,6 +141,45 @@ describe("reduced-evidence display honesty", () => {
     expect(container.textContent).toContain("Diagnostic baseline values are not displayed");
     expect(container.textContent).not.toContain("defaults toward");
   });
+
+  // Directive v7.3 P8 (INV-01 zero fabrication): the contract declares
+  // calibration_method as a plain (never-null) string — confirmed in
+  // full-analysis-contract.ts's z.string() — so this is a defensive
+  // fallback for a state the backend should never send. The fallback named
+  // a specific method ("isotonic") instead of a generic "calibrated" label;
+  // if that field ever did arrive null, the UI would have claimed a
+  // specific calibration method was used when none was known. Cast past
+  // the type on purpose: this exercises the contract-violation path the
+  // type system alone can't.
+  it("never names a specific calibration method it was not actually told", () => {
+    const { container } = render(
+      <EnsembleCard
+        data={{
+          home_win_prob: 0.5,
+          draw_prob: 0.25,
+          away_win_prob: 0.25,
+          prediction: "home",
+          confidence: 0.5,
+          top_outcome_probability: 0.5,
+          probabilities_available: true,
+          league: "EPL",
+          model_version: "v5_phase7",
+          calibration_method: null as unknown as string,
+          calibration_applied: true,
+          overlay_applied: false,
+          certification_state: "UNVERIFIED",
+          coverage: "dedicated",
+        }}
+      />,
+    );
+    // The bug lived in the tooltip's `title` attribute, not the visible chip
+    // text (which already fell back to the honest "cal") — check the
+    // attribute directly, not just textContent, or this test cannot see it.
+    const titled = container.querySelector("[title]");
+    expect(titled?.getAttribute("title")).not.toContain("isotonic");
+    expect(container.textContent).not.toContain("isotonic");
+    expect(container.textContent).toContain("cal");
+  });
 });
 
 describe("beginner-friendly jargon explainers (vΩ.28)", () => {

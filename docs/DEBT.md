@@ -1,79 +1,53 @@
 # SabiScore Debt Ledger
 
-## 91. `the_odds_api` is returning 401 again, live, this session — key re-rotation needed (operator-only)
+## 92. A calibration-method tooltip fabricated "isotonic" on a type-impossible null — FIXED 2026-09-13
 
-**Tier:** `NEXT` (operator action only — no code fix possible from this
-environment). **Owner:** unassigned. **Found:** 2026-09-13, via a live
-`/api/health` probe taken incidentally while confirming the P4-P6 deploy.
+**Tier:** `RESOLVED`. **Found:** 2026-09-13, during a directive v7.3 P8
+(Model Comparison & Market Diagnostics) review, checking "never equate
+better calibrated with beats market" for any place the two ideas might
+blur together in the UI.
 
-`docs/DEBT.md` item 22 and CLAUDE.md both record `the_odds_api`'s key as
-rotated and independently confirmed working on 2026-08-17 (zero 401s across
-a 3-day log window, real `market_snapshots` rows captured). That is no
-longer true: a live probe of `web-oversabis-projects.vercel.app/api/health`
-just now shows `the_odds_api` at `status: "STALE"`, `error_code:
-"TRANSPORT_AUTHENTICATION"`, `transport.http_status_code: 401`,
-`observations: 481` (so the key *was* working — this is a regression, not a
-key that never worked), last successful observation
-`2026-09-12T18:55:08Z` — roughly 8.5 hours before this probe. All other
-configured providers (`espn`, `football_data_org`, `api_football`,
-`sportmonks`) report `enabled: true` with no transport failures; this is
-provider-specific, not a platform-wide credential or network issue.
+`apps/web/src/components/full-analysis-dashboard.tsx`'s `EnsembleCard` and
+the dashboard's provenance strip both rendered a calibration chip as
+``{calibration_method ?? "calibrated"}`` (honest — a generic label, never a
+guessed method) but built the chip's **tooltip** as
+``` `...method: ${calibration_method ?? "isotonic"}` ```  — naming one
+*specific* real calibration method as the fallback. `full-analysis-
+contract.ts` declares `calibration_method: z.string()` — never nullable,
+never optional — confirmed by grep, so this fallback was unreachable under
+the current contract and **fabricated nothing today**. It was still wrong
+to leave: the moment that field were ever sent `null` (a future backend
+change, a different response path), the tooltip would have claimed a
+specific calibration method was used when none was known — the exact class
+of defect this ledger has repeatedly found in this codebase (a plausible-
+looking fallback standing in for "we don't actually know this").
 
-**Not fixed here** — rotating a third-party API key is an operator console
-action (the-odds-api.com dashboard) plus a Render environment variable
-update, exactly the same class of action as item 22's original fix. No
-application code is implicated: `odds_service.py`'s request/auth handling
-was verified correct during that item and nothing in this session's P4-P6
-work touches the odds provider path.
+**Fix:** both fallbacks now match their own chip's already-honest generic
+label (`"calibrated"` / `"cal"`) instead of naming a specific method.
+**Scope check, not just this one site**: `compare_candidate_vs_incumbent
+.py`'s `market_baseline` gate and `clv_service.py`'s CLV computation were
+also reviewed for the same P8 requirements ("apples-to-apples" evaluation,
+"never label an arbitrary market snapshot as CLV") and found
+`ALREADY_CORRECT` — CLV is sourced only from `MarketSnapshot(is_closing_
+line=True)` rows at the repository-query layer, and the market-baseline
+comparison already shares holdout/metric convention between candidate and
+incumbent per the P4 review. One minor, low-priority note left
+undisturbed: `market_baseline`'s gate reads `candidate_evidence[
+"baseline_rps_market"]` with no `UNVERIFIED` state if that key were ever
+absent (it would raise `KeyError` instead) — a real but so-far-never-
+triggered edge case (every report examined this session had the key
+present), not forced into a fix without evidence it matters.
 
-**Trigger to close:** operator rotates the key at the-odds-api.com and
-updates `THE_ODDS_API_KEY` in the Render dashboard; re-probe `/api/health`
-and confirm `the_odds_api.status` returns to `LIVE_VERIFIED` with a fresh
-`last_observed_at`.
+**Tests:** one new case in `full-analysis-dashboard.test.tsx`, using a
+type-bypassing cast to simulate the contract violation the type system
+itself forbids (`calibration_method: null as unknown as string`) — checks
+the `title` attribute specifically, not just visible text, since the first
+draft of this same test checked only `textContent` and passed against the
+*unpatched* code (the bug lived in an attribute, not rendered text) before
+being corrected and re-verified failing, then passing.
 
-## 90. Directive v7.3 P7 (Drift & Monitoring) reviewed: PSI-vs-KS+FDR reconciled, deferral re-confirmed with fresher numbers — no code change justified — 2026-09-13
-
-**Tier:** `HOLD` (data-gated, unchanged in substance from item 8; this entry
-records the P7 review, not a new blocker).
-
-**What P7 asks for, checked against the actual code:** directive v7.3 §21
-names PSI ("Population Stability Index... frozen reference-derived bin
-edges and explicit zero-bin handling") as the drift-detection method.
-`backend/src/monitoring/drift.py`'s `DriftMonitor` does **not** implement
-PSI — it uses a two-sample Kolmogorov-Smirnov test per feature
-(`scipy.stats.ks_2samp`) with Benjamini-Hochberg false-discovery-rate
-correction across all features, plus an Evidently `DataDriftPreset()`
-report. **Reconciled, not flagged as a gap**: KS+FDR is a different,
-independently well-established methodology that satisfies the *spirit* of
-§21's requirement more rigorously than naive per-feature PSI would — it
-properly controls the false-positive rate across many simultaneous feature
-tests, which an uncorrected PSI-per-feature sweep (the common real-world
-failure mode of PSI-based monitoring) does not. The reference distribution
-is genuinely frozen and declared (`_load_manifest` SHA-256-verifies the
-reference parquet against a manifest before any comparison runs); "zero-bin
-handling" doesn't apply to a non-binned test. Per directive §1.3's
-contradiction protocol: classified, reconciled, recorded — not rewritten to
-chase the literal word "PSI" against already-tested, working code
-(`tests/unit/test_drift_monitor.py`, 2 tests, both re-run and still green).
-Confirmed independently: zero PSI/drift mathematics exist in
-`apps/web/src` (`grep` clean) — the backend remains the sole statistical
-authority, as required.
-
-**The actual blocker (item 8) re-verified, not re-litigated**, with a
-fresher number: item 8 (2026-08-06) recorded zero settled fixtures and
-required ≥1,000 before `scripts/generate_reference_baseline.py` will write
-a reference artifact. A live probe just now (`/api/health`,
-`predictionCount`) shows **80** settled predictions — real growth (59 on
-2026-09-09, 80 now), but still 8% of the 1,000-row floor. The second,
-volume-independent half of item 8 (`MatchPredictionLog.payload` doesn't
-store a reconstructable canonical feature vector) was re-examined directly
-in `api/endpoints/predictions.py`/`services/analytics.py` this session —
-confirmed still true, and still correctly deferred: guessing the stored
-shape now, with no reference manifest yet to validate column order against,
-is the exact "stacked bug behind a broad except" risk item 8 already named.
-**No code changed for P7** — the existing monitoring code is correct and
-tested; forcing a wiring decision now would satisfy the directive's literal
-phase checklist at the cost of building against an unvalidatable shape.
+**Verification:** eslint 0 warnings, `tsc --noEmit` 0 errors, full web
+Vitest suite 350/350 passed (56 files), `NODE_ENV=production` build clean.
 
 ## 89. `block_bootstrap_ci()`'s per-replicate index construction is O(n_bootstrap × n_blocks) pure Python — fine today, a real ceiling if pooled walk-forward samples ever reach the thousands — NOT FIXED, deliberately deferred
 
