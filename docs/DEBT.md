@@ -1,5 +1,140 @@
 # SabiScore Debt Ledger
 
+## 89. `block_bootstrap_ci()`'s per-replicate index construction is O(n_bootstrap × n_blocks) pure Python — fine today, a real ceiling if pooled walk-forward samples ever reach the thousands — NOT FIXED, deliberately deferred
+
+**Tier:** `LATER`. **Owner:** unassigned. **Found:** 2026-09-13, while
+honestly measuring item 88's directive v7.3 P6 work rather than assuming it
+was fine because nothing crashed.
+
+`src/models/evaluation/metrics.py`'s `block_bootstrap_ci()` rebuilds its
+resampled index array from scratch every replicate
+(`idx = np.concatenate([np.arange(blocks[b][0], blocks[b][1]) for b in
+chosen])`, line ~346) — a **Python-level list comprehension over
+`n_blocks`**, run once per `n_bootstrap`. At the real, current settled-
+prediction volume (~59 rows) and even at a generously-padded 1,000-row
+stress test (830 pooled, 83 blocks), this costs low-single-digit seconds at
+10,000 replicates — see item 88's measured numbers. At ~10,000+ pooled rows
+(the full 12,765-row *training corpus* scale, which `walk_forward_validate()`
+never actually receives in production — that path is `get_settled_predictions()`
+real match outcomes, not the training corpus) it becomes tens of seconds to
+minutes, because the comprehension's per-call overhead is the dominant cost,
+not anything vectorisable by fixing the metric function alone (item 88
+already vectorised `ranked_probability_score`; that did not move this).
+
+**Why not fixed now:** `block_bootstrap_ci` is called from
+`model_registry.walk_forward_validate()` (item 88), `performance.py`'s
+calibration endpoint, `scripts/temporal_evaluation.py`,
+`scripts/bootstrap_market_edge_ci.py`, and `scripts/_incremental_value_harness.py`
+— five call sites, several of them offline research scripts with their own
+test coverage pinned to this function's exact current behaviour and
+randomness (same `rng_seed`, same block construction). Rewriting the index
+construction to be vectorised (e.g. precomputing all block boundaries once
+and using `np.repeat`/broadcasting instead of a per-replicate Python loop) is
+a reasonable, bounded fix — but it touches a shared primitive with a wider
+blast radius than directive v7.3 P6's actual target
+(`certification_policy.py` and model_registry.py specifically), and nothing
+in production comes anywhere near the volume where it matters. Fixing a
+shared function under time pressure, for a scale nothing hits, is how a
+"surgical patch" becomes an unreviewed rewrite.
+
+**Trigger to revisit:** real settled-prediction volume (currently ~59,
+tracked in CLAUDE.md) approaching the low thousands, or any new caller that
+intentionally pools a large historical sample through this function.
+**Suggested fix, not applied:** replace the per-replicate list comprehension
+with one vectorised gather — precompute a `(n_blocks, block_size)` index
+matrix once, then index it with `chosen` per replicate
+(`block_index_matrix[chosen].ravel()[:n]`), which removes the Python-level
+loop entirely while leaving the statistical method (Künsch block resampling,
+same `rng_seed` sequence) unchanged.
+
+## 88. Directive v7.3 P6 reviewed: ECE + RPS bootstrap CI wired into `walk_forward_validate()`; a "memory-safe chunked evaluator" was requested and found not justified by real evidence — 2026-09-13
+
+**Tier:** `RESOLVED` for the genuine gap (ECE/CI wiring); the "memory-safety"
+request is recorded here as **investigated and declined**, not silently
+skipped — see the evidence below.
+
+**What the request assumed, checked against the real repository rather than
+trusted:**
+
+1. *".venv-ml/Scripts/python.exe running Python 3.12.6"* — `.venv-ml` does
+   exist (created 2026-09-10), but `python --version` inside it reports
+   **3.14.6**, identical to the main `.venv` (`pyvenv.cfg`: `home =
+   C:\Python314`). No 3.12.6 interpreter was found anywhere on this machine.
+   Nothing in this change spawns a subprocess at all, so there was nothing to
+   retarget regardless.
+2. *"Memory-safe chunked walk-forward generator... 8GB RAM constraint...
+   explicit garbage collection"* — checked, not assumed: the full training
+   corpus (`backend/data/cache/fd_*.csv`) is **11 MB on disk**.
+   `walk_forward_validate()` already takes a plain `List[Dict]` the caller
+   assembled — no DataFrame materialisation in its own hot loop (`pandas` is
+   used only once, on the ~5 fold-mean floats, for `rps_std`). In production
+   this function scores **real settled predictions** (`get_settled_predictions()`),
+   currently **~59 rows**, not the training corpus — the corpus has its own,
+   separate, already-correct rolling-origin evaluation in
+   `train_on_real_matches.py`/`scripts/temporal_evaluation.py`. Measured
+   directly (`tracemalloc`), not asserted: **peak traced memory at 1,000
+   synthetic records (830 pooled) was 0.617 MB — 0.0075% of the 8GB budget.**
+   A chunked generator with manual `gc.collect()` would add real complexity
+   to guard against a failure mode that does not exist at any volume this
+   function will plausibly see. **Declined as `NOT_JUSTIFIED`** (directive
+   v7.3 §15.2) rather than built to satisfy the request's framing.
+3. *"evaluation_at... INV-21"* — INV-21 governs betting-verdict calculations
+   reading the system clock; `walk_forward_validate()`'s `validated_at` field
+   is an **offline evaluation report's provenance timestamp**, the same
+   pattern as every other report in this codebase
+   (`training_manifest.json`'s `generated_at`, `temporal-evaluation.json`'s
+   `generated_at`, etc.). Category mismatch — left as `datetime.now(timezone.utc)`,
+   which is the *correct* value for "when did this report run," not
+   something to fake into a static constant.
+4. *"make verify subset for models"* — no such target exists in the
+   Makefile (only `verify-core` and `verify`). Ran the real, specific test
+   files instead (see Verification).
+
+**The one genuine, evidence-backed gap, fixed:** `walk_forward_validate()`
+computed RPS, accuracy, and a Brier decomposition (reliability/resolution/
+uncertainty) but never Expected Calibration Error, and reported only a crude
+`rps_std` rather than a proper confidence interval. Both now wired onto the
+exact same pooled sample already built for the Brier decomposition, gated
+behind the identical 10-record floor (one rule, not three that could drift):
+`ece = expected_calibration_error(pooled_y, pooled_p)`;
+`rps_ci = block_bootstrap_ci(pooled_y, pooled_p, _rps_metric, n_bootstrap=10_000)`
+— `n_bootstrap` is now a `walk_forward_validate()` parameter, default
+**10,000** as directed. Neither call is new code — both reuse the exact
+established pattern already live in `performance.py`'s calibration endpoint
+and `scripts/temporal_evaluation.py`.
+
+**A genuine performance finding surfaced while measuring, fixed within
+scope:** `_rps_metric` (the function `block_bootstrap_ci` calls once per
+replicate) originally looped `ranked_probability_score()` — a pure-Python,
+per-row function — across the whole pooled sample, every replicate. New
+`ranked_probability_score_rowwise()` in `metrics.py` vectorises the identical
+formula (cumulative predicted mass vs. cumulative one-hot truth, numpy
+broadcast instead of a Python loop), pinned equal to the scalar function
+row-by-row over random data. **A second, larger bottleneck was found but not
+fixed** — `block_bootstrap_ci()`'s own index-construction loop — see item 89.
+
+**Tests:** 3 new (`ranked_probability_score_rowwise` matches the scalar
+function row-by-row, perfect/worst-case extrema), 2 new + 1 modified in
+`test_model_registry_walk_forward.py` (ECE/CI populate above the pooled
+floor, both skip identically at/below it, `n_bootstrap` is configurable; the
+pre-existing exact-top-level-keys assertion updated to include `rps_ci`/`ece`
+— the shape genuinely changed, by design). All watched failing against the
+pre-fix code (a scoped `git stash` over both `model_registry.py` and
+`metrics.py`) before being trusted — confirmed via `TypeError`/`ImportError`
+on every new assertion, not inferred.
+
+**Verification:** ruff clean on all 4 touched files; mypy 0 new errors on
+both touched source files (one `Dict[str, Any]` annotation added during this
+work actually *fixed* a pre-existing-shape mypy complaint introduced by the
+new skip-path dict copies, verified against the unmodified file's own mypy
+baseline). 137 tests green across the walk-forward suite, the metrics M0
+suite, the model-performance endpoint, feature-vector parity, settled-
+predictions join/generation-scope, settlement service, certification policy/
+integrity, and the existing block-bootstrap/market-edge-bootstrap test
+files — none of which needed a single other change. Full `pytest tests/`
+sweep run to completion as the final check (see CLAUDE.md for the exact
+pass/skip/xfail count if this session recorded it there).
+
 ## 87. `PredictionEngine` saved every artifact's trained stacking meta-model but never read it at inference — every live prediction through this path was an unstacked, uncalibrated equal-weight base-learner average — FIXED 2026-09-13
 
 **Tier:** `RESOLVED` — root-caused, fixed at both defect sites, watched failing
